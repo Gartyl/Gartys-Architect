@@ -1,17 +1,20 @@
 # 🏢 Garty's Architect - Integrated AI Studio
 
-Welcome to the official repository for **Garty's Architect**, your ultimate local web interface for orchestrating AI models. Built to bridge the gap between the raw, limitless power of ComfyUI/Ollama and the clean, focused experience of a professional design studio.
+Welcome to the official repository for **Garty's Architect**, your ultimate local desktop interface for orchestrating AI models. Built to bridge the gap between the raw, limitless power of ComfyUI/Ollama and the clean, focused experience of a professional design studio.
+
+Garty's Architect is distributed as a **standalone, portable application** powered by FrankenPHP. No complex web server installations, Docker containers, or environment configurations required. Just launch and create.
 
 ![Status](https://img.shields.io/badge/Status-Active_Development-brightgreen)
-![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-blue)
+![Platform](https://img.shields.io/badge/Platform-Windows-blue)
 ![Languages](https://img.shields.io/badge/Languages-EN%20%7C%20ES%20%7C%20CA-orange)
 
 ## ⚡ Core Features
 
-* **Unified Dashboard:** Control ComfyUI and Ollama from a single, responsive dark-mode interface. Say goodbye to spaghetti nodes and terminal windows.
-* **Deterministic Asynchronous Generation:** Fire off your prompts and close the tab. The system processes everything in the background and safely stores the images in your local MariaDB gallery with zero duplicates.
+* **Unified Dashboard:** Control ComfyUI and Ollama from a clean, responsive dark-mode interface. Say goodbye to spaghetti nodes and terminal windows.
+* **Zero-Configuration Portable Executable:** Runs locally out of a single folder using an embedded FrankenPHP binary. 
+* **Deterministic Asynchronous Generation:** Fire off your prompts and close the tab. The system processes everything in the background and safely stores the images with zero duplicates.
+* **Lightweight SQLite Storage:** Every prompt, seed, model, and metadata is automatically saved to a local, zero-config SQLite database.
 * **Multilingual UI:** Native support for English, Spanish, and Catalan.
-* **Smart History Management:** Every prompt, seed, model, and metadata is automatically saved. Reload any past configuration with one click.
 * **100% Local & Private:** Your data, your hardware, your rules.
 
 ---
@@ -37,7 +40,7 @@ Since Garty's Architect communicates directly with your local AI instances, perf
 Garty's Architect is distributed in two versions. Both are available safely through the official Lemon Squeezy store:
 
 ### 1. Community Edition (Free)
-Perfect for getting started. Includes the core unified dashboard, asynchronous generation, full MariaDB history, and multilingual support.
+Perfect for getting started. Includes the core unified dashboard, asynchronous generation, zero-config SQLite history, and multilingual support.
 👉 **[Store links coming soon! Pending Lemon Squeezy final approval ⏳]**
 
 ### 2. PRO License
@@ -51,11 +54,14 @@ For power users. Unlocks the true potential of the integrated studio:
 
 ## 🛠️ Quick Start & Installation
 
+Getting started takes less than a minute:
+
 1. Download the `.zip` file from the store.
-2. Unzip the contents into your preferred web server directory (e.g., Laragon's `www` folder or a Docker volume).
-3. Ensure you have ComfyUI running locally with the API enabled.
-4. Access `index.php` through your browser. 
-5. *(PRO Users)* Enter your License Key in the Administration panel to unlock advanced features.
+2. Unzip the contents into any folder on your local machine.
+3. Run `GartysArchitect.exe` (this will automatically initialize the local environment at `http://localhost:8000`).
+4. Ensure you have ComfyUI or Ollama running locally in the background.
+5. Open your browser and navigate to `http://localhost:8000` if it doesn't open automatically.
+6. *(PRO Users)* Enter your License Key in the Administration panel to unlock advanced features.
 
 ---
 
