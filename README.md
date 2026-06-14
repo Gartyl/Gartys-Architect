@@ -41,14 +41,14 @@ Garty's Architect is distributed in two versions. Both are available safely thro
 
 ### 1. Community Edition (Free)
 Perfect for getting started. Includes the core unified dashboard, asynchronous generation, zero-config SQLite history, and multilingual support.
-👉 **[Store links coming soon! Pending Lemon Squeezy final approval ⏳]**
+👉 [Download Community Edition for free on Lemon Squeezy](https://garty.lemonsqueezy.com/checkout/buy/7872f62f-d2f5-4b51-bf70-5664af890da9)
 
 ### 2. PRO License
 For power users. Unlocks the true potential of the integrated studio:
 * **Advanced Workflows:** Access to LTX-Video/Wan generation.
 * **Face Swapping & Image Intel:** Native ReActor integration and advanced image analysis.
 * **Unlimited Prompt Engineering Tools.**
-👉 **[Store links coming soon! Pending Lemon Squeezy final approval ⏳]**
+👉 [Unlock the PRO License here](https://garty.lemonsqueezy.com/checkout/buy/70636e1a-0dde-49c5-bf97-d4d852dceee8)
 
 ---
 
