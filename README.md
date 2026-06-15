@@ -41,7 +41,7 @@ Garty's Architect is distributed in two versions. Both are available safely thro
 
 ### 1. Community Edition (Free)
 Perfect for getting started. Includes the core unified dashboard, asynchronous generation, zero-config SQLite history, and multilingual support.
-👉 [Download Community Edition for free on Lemon Squeezy](https://garty.lemonsqueezy.com/checkout/buy/7872f62f-d2f5-4b51-bf70-5664af890da9)
+👉 Download the Community Edition .zip directly from the Releases tab on the right.
 
 ### 2. PRO License
 For power users. Unlocks the true potential of the integrated studio:
