@@ -52,6 +52,14 @@ For power users. Unlocks the true potential of the integrated studio:
 
 ---
 
+## 🔮 The Roadmap: Where we are heading
+
+This project is actively in development, and I am committed to constant improvement. Here is a sneak peek of what’s coming in future updates:
+* Expanded Modalities: Native integration for Audio generation and upcoming cutting-edge video workflows (like Hunyuan Video).
+* The Server Edition: A future standalone release designed for remote network access, complete with secure multi-user logins (MySQL/MariaDB), role management, and audit logs.
+
+---
+
 ## 🛠️ Quick Start & Installation
 
 Getting started takes less than a minute:
