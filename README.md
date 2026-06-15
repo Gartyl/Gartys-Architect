@@ -56,12 +56,13 @@ For power users. Unlocks the true potential of the integrated studio:
 
 Getting started takes less than a minute:
 
-1. Download the `.zip` file from the store.
+1. Download the Community Edition .zip from the Releases tab (or your PRO version from Lemon Squeezy).
 2. Unzip the contents into any folder on your local machine.
-3. Run `GartysArchitect.exe` (this will automatically initialize the local environment at `http://localhost:8000`).
-4. Ensure you have ComfyUI or Ollama running locally in the background.
-5. Open your browser and navigate to `http://localhost:8000` if it doesn't open automatically.
-6. *(PRO Users)* Enter your License Key in the Administration panel to unlock advanced features.
+3. ⚙️ IMPORTANT: Open the `config.php` file with any text editor (like Notepad). Set the correct absolute path to your ComfyUI models folder and add your Civitai API key if you want to use the integrated downloader.
+4. Run `GartysArchitect.exe` (this will automatically initialize the local environment).
+5. Ensure you have ComfyUI and Ollama running locally in the background.
+6. Open your browser and navigate to http://localhost:8000 if it doesn't open automatically.
+7. (PRO Users) Enter your License Key in the UI panel to unlock advanced features.
 
 ---
 
