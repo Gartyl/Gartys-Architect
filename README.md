@@ -9,7 +9,7 @@ Garty's Architect is distributed as a standalone, portable application powered b
 * **Zero-Configuration Portable Executable:** Runs locally out of a single folder using an embedded FrankenPHP binary.
 * **Deterministic Asynchronous Generation:** Fire off your prompts and close the tab. The system processes everything in the background and safely stores the images with zero duplicates.
 * **Lightweight SQLite Storage:** Every prompt, seed, model, and metadata is automatically saved to a local, zero-config SQLite database.
-* **Multilingual UI:** Native support for English, Spanish, and Catalan.
+* **Multilingual UI:** Native support for English, Spanish, Catalan and Russian.
 * **100% Local & Private:** Your data, your hardware, your rules.
 
 ## 💻 Hardware Requirements
