@@ -81,7 +81,7 @@ Perfect for getting started. Includes the core unified dashboard, asynchronous g
 
 **2. PRO License**
 For power users. Unlocks the true potential of the integrated studio:
-* **Advanced Workflows:** Access to heavy architectures like Flux, SD3.5, LTX-Video, and Wan generation.
+* **Advanced Workflows:** Access to heavy architectures like Flux, SD3.5, Krea-2, Chroma, Z-Image, LTX-Video, and Wan generation.
 * **The Graphic Studio:** Unlocks Native ReActor, IP-Adapter, Rembg, High-Res Fix, and Inpainting/Outpainting.
 👉 *[Unlock the PRO License here](https://garty.lemonsqueezy.com/checkout/buy/70636e1a-0dde-49c5-bf97-d4d852dceee8)*
 ---
