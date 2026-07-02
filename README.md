@@ -1,3 +1,8 @@
+<div align="center">
+  <img src="banner.png" alt="Garty's Architect AI Studio" width="100%">
+</div>
+<br>
+
 # 🏢 Garty's Architect - Integrated AI Studio
 
 Welcome to the official repository for **Garty's Architect**, your ultimate local desktop interface for orchestrating AI models. Built to bridge the gap between the raw, limitless power of ComfyUI / Ollama and the clean, focused experience of a professional design studio.
