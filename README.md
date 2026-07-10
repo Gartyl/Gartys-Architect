@@ -80,9 +80,9 @@ Getting started takes less than a minute:
 
 ## 🚀 Editions: How to Get It
 
-**1. Community Edition (Free)**
+**1. The Core Experience (Free)**
 Perfect for getting started. Includes the core unified dashboard, asynchronous generation, zero-config SQLite history, and multilingual support.
-👉 *Download the Community Edition .zip directly from the Releases tab on the right.*
+👉 *Download the .zip directly from the Releases tab on the right.*
 
 **2. PRO License**
 For power users. Unlocks the true potential of the integrated studio:
