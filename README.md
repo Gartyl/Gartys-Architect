@@ -66,7 +66,7 @@ Ensure you have **[ComfyUI](https://github.com/comfyanonymous/ComfyUI)** running
 ## 🛠️ Quick Start & Installation
 Getting started takes less than a minute:
 
-1.  Download the **Community Edition .zip** from the Releases tab (or your PRO version from Lemon Squeezy).
+1.  Download the latest Garty's Architect .zip from the Releases tab.
 2.  Unzip the contents into any folder on your local machine.
 3.  ⚙️ **IMPORTANT - The config.php file:** Open the `config.php` file with any text editor. You **must** set the absolute path to your ComfyUI models folder. 
     * *Example:* `define('COMFY_MODELS_PATH', 'G:\ComfyUI\models');`
