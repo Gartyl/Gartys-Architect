@@ -81,7 +81,8 @@ Getting started takes less than a minute:
 ## 🚀 Editions: How to Get It
 
 **1. The Core Experience (Free)**
-Perfect for getting started. Includes the core unified dashboard, asynchronous generation, zero-config SQLite history, and multilingual support.
+
+Perfect for getting started. Includes the core unified dashboard, asynchronous generation, zero-config SQLite history, and multilingual support.<br>
 👉 *Download the .zip directly from the Releases tab on the right.*
 
 **2. PRO License**
