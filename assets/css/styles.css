@@ -1,0 +1,553 @@
+/* =========================================================
+   GENERAL Y LAYOUT BASE
+========================================================= */
+:root {
+    color-scheme: dark;
+}
+
+body { 
+    background-color: #0d1117;
+    color: #c9d1d9; 
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.bg-darker { 
+    background-color: #010409;
+}
+
+/* El arma definitiva: si tiene la clase .force-hidden, nada la muestra */
+.force-hidden { 
+    display: none !important; 
+}
+
+/* =========================================================
+   BARRA DE NAVEGACIÓN Y LOGOTIPOS
+========================================================= */
+.navbar { 
+    background-color: #161b22; 
+    border-bottom: 1px solid #30363d; 
+    min-height: 70px; 
+}
+
+.navbar-brand { 
+    font-size: 1.2rem; 
+    font-weight: 600; 
+    color: #fff !important; 
+}
+
+.logo-garty { 
+    font-weight: 800; 
+    font-style: italic; 
+    background: linear-gradient(90deg, #58a6ff, #bc8cff); 
+    -webkit-background-clip: text; 
+    background-clip: text;
+    -webkit-text-fill-color: transparent; 
+    padding: 2px 10px; 
+    border: 1px solid #30363d; 
+    border-radius: 15px; 
+    font-size: 0.9rem; 
+}
+
+/* =========================================================
+   TARJETAS, CAJAS Y FORMULARIOS
+========================================================= */
+.app-card { 
+    background-color: #161b22; 
+    border: 1px solid #30363d; 
+    border-radius: 12px; 
+    margin-top: 20px; 
+    transition: all 0.3s; 
+}
+
+.card-header { 
+    border-bottom: 1px solid #30363d; 
+    padding: 20px; 
+    background-color: #1f242c; 
+    border-radius: 12px 12px 0 0; 
+}
+
+.form-control, .form-select { 
+    background-color: #0d1117; 
+    border: 1px solid #30363d; 
+    color: #fff; 
+}
+
+.form-control::placeholder { 
+    color: #8b949e; 
+    opacity: 0.7; 
+}
+
+.dragover { 
+    border: 2px dashed #bc8cff !important; 
+    background-color: rgba(188, 140, 255, 0.1) !important; 
+}
+
+/* =========================================================
+   BOTONES PRINCIPALES
+========================================================= */
+.btn-generate { 
+    background-color: #238636; 
+    border: none; 
+    font-weight: bold; 
+    padding: 12px; 
+    transition: all 0.3s; 
+}
+
+.btn-gpu { 
+    background-color: #8957e5 !important; 
+    border: none; 
+    font-weight: bold; 
+    color: #ffffff !important; 
+    transition: all 0.2s ease-in-out; 
+}
+
+.btn-gpu:hover, .btn-gpu:focus { 
+    background-color: #7a4bc8 !important; 
+    color: #ffffff !important; 
+}
+
+.btn-gpu:disabled { 
+    background-color: #4a307d !important; 
+    color: #9e8abc !important; 
+    opacity: 1 !important; 
+    cursor: not-allowed; 
+}
+
+.btn-tool { 
+    background: #21262d; 
+    border: 1px solid #30363d; 
+    color: #8b949e; 
+    border-radius: 6px; 
+    padding: 5px 12px; 
+    cursor: pointer; 
+    transition: 0.2s; 
+}
+
+.btn-tool:hover { 
+    background: #30363d; 
+    color: #c9d1d9; 
+}
+
+.btn-icon-gray { 
+    color: #8b949e; 
+    cursor: pointer; 
+    background: #21262d; 
+    border: 1px solid #30363d; 
+    border-radius: 6px; 
+    width: 32px; 
+    height: 32px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    transition: 0.2s; 
+}
+
+.btn-icon-gray:hover { 
+    background: #30363d; 
+    color: #fff; 
+}
+
+.btn-icon-danger { 
+    color: #f85149; 
+    border-color: rgba(248, 81, 73, 0.4); 
+}
+
+.btn-icon-danger:hover { 
+    background: #f85149; 
+    color: #fff; 
+    border-color: #f85149; 
+}
+
+/* =========================================================
+   ELEMENTOS DE CHAT Y ANIMACIONES
+========================================================= */
+.hacker-progress { 
+    height: 6px; 
+    background-color: #21262d; 
+    border-radius: 3px; 
+    overflow: hidden; 
+    margin-top: 15px; 
+}
+
+.hacker-progress-bar { 
+    height: 100%; 
+    background: linear-gradient(90deg, #8957e5, #bc8cff); 
+    width: 0%; 
+    transition: width 0.5s linear; 
+}
+
+#chatThreadContainer { 
+    background-color: #010409; 
+    border: 1px solid #30363d; 
+    border-radius: 12px; 
+    height: 450px; 
+    overflow-y: auto; 
+    padding: 20px; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 15px; 
+    scroll-behavior: smooth; 
+}
+
+.chat-bubble { 
+    max-width: 85%; 
+    padding: 12px 16px; 
+    border-radius: 15px; 
+    font-size: 0.95rem; 
+    line-height: 1.5; 
+}
+
+.bubble-user { 
+    align-self: flex-end; 
+    background-color: #238636; 
+    color: white; 
+    border-bottom-right-radius: 2px; 
+}
+
+.bubble-ai { 
+    align-self: flex-start; 
+    background-color: #21262d; 
+    border: 1px solid #30363d; 
+    color: #c9d1d9; 
+    border-bottom-left-radius: 2px; 
+}
+
+.bubble-meta { 
+    font-size: 0.7rem; 
+    opacity: 0.6; 
+    margin-top: 12px; 
+    display: block; 
+    text-align: right; 
+    border-top: 1px solid rgba(255,255,255,0.1); 
+    padding-top: 4px; 
+}
+
+.spin { 
+    display: inline-block; 
+    animation: spin 2s linear infinite; 
+} 
+@keyframes spin { 100% { transform: rotate(360deg); } } 
+
+/* =========================================================
+   ELEMENTOS DE RENDER Y PROMPTS
+========================================================= */
+.img-container { 
+    position: relative; 
+    display: inline-block; 
+    max-width: 100%; 
+    border-radius: 12px; 
+    overflow: hidden; 
+}
+
+.result-image, .preview-thumb { 
+    max-width: 100%; 
+    border-radius: 8px; 
+    border: 1px solid #30363d; 
+    display: block; 
+}
+
+.param-group { 
+    background: #1c2128; 
+    border: 1px solid #30363d; 
+    border-radius: 8px; 
+    padding: 15px; 
+    margin-bottom: 15px; 
+}
+
+.highlight-model { border-color: #bc8cff !important; box-shadow: 0 0 10px rgba(188, 140, 255, 0.2); }
+.highlight-llm { border-color: #0dcaf0 !important; box-shadow: 0 0 10px rgba(13, 202, 240, 0.2); }
+
+.description-box { 
+    background-color: #0d1117; 
+    border-left: 4px solid #f1e05a; 
+    padding: 15px; 
+    border-radius: 8px; 
+    margin-bottom: 10px; 
+    white-space: pre-wrap; 
+}
+
+.prompt-box { 
+    background-color: #010409; 
+    border: 1px solid #30363d; 
+    border-radius: 8px; 
+    padding: 15px; 
+    position: relative; 
+    margin-bottom: 15px; 
+}
+
+.prompt-box.negative { 
+    border-left: 4px solid #f85149; 
+}
+
+code { 
+    color: #58a6ff; 
+    white-space: pre-wrap; 
+    word-break: break-all; 
+    font-family: 'Consolas', monospace; 
+}
+
+.editable-content { 
+    outline: none; 
+    cursor: text; 
+    display: block; 
+    min-height: 40px; 
+    padding-right: 30px; 
+    transition: background-color 0.2s; 
+}
+
+.editable-content:focus { 
+    background-color: rgba(255, 255, 255, 0.03); 
+    border-radius: 4px; 
+}
+
+.img2img-hint { 
+    background-color: rgba(88, 166, 255, 0.1); 
+    border: 1px solid #58a6ff; 
+    color: #c9d1d9; 
+    font-size: 0.85rem; 
+    border-radius: 8px; 
+    padding: 10px 15px; 
+    margin-top: 10px; 
+}
+
+.admin-msg-box { 
+    border-left: 4px solid #f1e05a; 
+    background-color: rgba(241, 224, 90, 0.1); 
+    padding: 15px; 
+    border-radius: 6px; 
+    margin-bottom: 15px; 
+}
+
+#cfgLabel { white-space: nowrap; }
+
+.app-version { 
+    position: absolute; 
+    bottom: 12px; 
+    right: 20px; 
+    font-size: 0.75rem; 
+    color: #4a5568; 
+    pointer-events: none; 
+    user-select: none; 
+}
+
+/* =========================================================
+   BOTONES FLOTANTES CIRCULARES (GALERÍA/HISTORIAL)
+========================================================= */
+.btn-fav-img, .btn-pub-img, .btn-fab { 
+    position: absolute; 
+    background: rgba(0,0,0,0.6); 
+    border-radius: 50%; 
+    width: 42px; 
+    height: 42px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    text-decoration: none; 
+    z-index: 100; 
+    transition: transform 0.2s, background-color 0.2s, color 0.2s; 
+    cursor: pointer; 
+    border: 2px solid; 
+}
+
+.btn-fav-img:hover, .btn-pub-img:hover, .btn-fab:hover { 
+    transform: scale(1.1); 
+}
+
+.btn-fav-img { top: 15px; right: 15px; border-color: #e34c26; color: #e34c26; }
+.btn-fav-img:hover, .btn-fav-img.active { background: #e34c26; color: white; }
+
+.btn-pub-img { top: 15px; left: 15px; border-color: #58a6ff; color: #58a6ff; }
+.btn-pub-img:hover, .btn-pub-img.active { background: #58a6ff; color: white; }
+
+.btn-download-img-fab { bottom: 15px; right: 15px; color: #238636; border-color: #2ea043; }
+.btn-download-img-fab:hover { background-color: #2ea043; color: white; }
+
+.cluster-btns-fab { position: absolute; bottom: 15px; left: 15px; display: flex; gap: 8px; z-index: 100; }
+.cluster-btns-fab .btn-fab { position: static; width: 32px; height: 32px; font-size: 14px; border-width: 2px; }
+
+.btn-reutilizar-fab { color: #58a6ff; border-color: #58a6ff; }
+.btn-reutilizar-fab:hover { background-color: #58a6ff; color: white; }
+
+.btn-compare-fab { color: #8b949e; border-color: #8b949e; }
+.btn-compare-fab:hover { background-color: #8b949e; color: black; }
+
+.btn-remove-fab { color: #f85149; border-color: #f85149; }
+.btn-remove-fab:hover { background-color: #f85149; color: white; }
+
+/* =========================================================
+   HISTORIAL DE ACTIVIDAD
+========================================================= */
+.card-historial { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; margin-bottom: 20px; transition: 0.2s; position: relative; }
+.card-historial:hover { border-color: #58a6ff; }
+.card-thread { border-left: 4px solid #238636; background-color: #1c2128; }
+.thread-entry { border-bottom: 1px solid #30363d; padding: 15px 0; transition: 0.3s; }
+.thread-entry:last-child { border-bottom: none; }
+
+.model-badge { font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; background: #21262d; border: 1px solid #30363d; color: #58a6ff; font-weight: bold; }
+.badge-chat { color: #2ea043; border-color: #238636; }
+
+.prompt-container { background-color: #010409; border: 1px solid #30363d; padding: 15px; border-radius: 8px; margin-top: 10px; position: relative; }
+.group-header { border-bottom: 1px solid #30363d; margin: 30px 0 20px; padding-bottom: 10px; color: #8b949e; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
+
+.chat-label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; display: block; }
+.label-user { color: #2ea043; }
+.label-ai { color: #58a6ff; }
+.date-text { font-size: 0.75rem; color: #8b949e; opacity: 0.8; font-weight: bold; }
+
+.filter-bar input, .filter-bar select { border-color: #30363d; }
+.filter-bar input:focus, .filter-bar select:focus { border-color: #58a6ff; box-shadow: none; background-color: #010409 !important; color: #fff !important; }
+/*.form-check-input:checked { background-color: #e34c26; border-color: #e34c26; }*/
+
+.swarm-viewer { background-color: #1c2128; border: 1px solid #30363d; border-radius: 8px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+.swarm-row { border-bottom: 1px solid rgba(255,255,255,0.05); padding: 8px 12px; font-size: 0.85rem; display: flex; align-items: flex-start; }
+.swarm-row:last-child { border-bottom: none; }
+.swarm-label { color: #8b949e; font-weight: 600; min-width: 130px; margin-right: 10px; }
+.swarm-value { color: #c9d1d9; flex-grow: 1; word-break: break-word; }
+.swarm-btn-copy { background: transparent; border: none; color: #8b949e; cursor: pointer; padding: 0 5px; }
+.swarm-btn-copy:hover { color: #fff; }
+
+@media (max-width: 767.98px) {
+    .swarm-row { flex-direction: column; padding: 12px; }
+    .swarm-label { margin-bottom: 6px; min-width: auto; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    .filter-actions { margin-top: 10px; width: 100%; justify-content: space-between; }
+}
+
+/* =========================================================
+   GALERÍA MOSAICO (MASONRY) Y BADGES
+========================================================= */
+.masonry-grid { column-count: 1; column-gap: 20px; padding: 20px 0; }
+@media (min-width: 576px) { .masonry-grid { column-count: 2; } }
+@media (min-width: 992px) { .masonry-grid { column-count: 3; } }
+@media (min-width: 1200px) { .masonry-grid { column-count: 4; } }
+
+.masonry-item { break-inside: avoid; margin-bottom: 20px; position: relative; border-radius: 12px; overflow: hidden; background: #161b22; border: 1px solid #30363d; box-shadow: 0 5px 15px rgba(0,0,0,0.3); transition: transform 0.3s ease, border-color 0.2s, opacity 0.3s; }
+.masonry-item:hover { transform: translateY(-5px); border-color: #58a6ff; }
+.masonry-item img { width: 100%; height: auto; display: block; }
+
+.masonry-item .btn-fab, .masonry-item .cluster-btns-fab { opacity: 0; transition: opacity 0.3s ease, transform 0.2s; }
+.masonry-item:hover .btn-fab, .masonry-item:hover .cluster-btns-fab { opacity: 1; }
+
+.author-badge { 
+    position: absolute; 
+    top: 10px; 
+    left: 10px; 
+    background: rgba(0,0,0,0.6); 
+    padding: 4px 10px; 
+    border-radius: 20px; 
+    font-size: 0.75rem; 
+    font-weight: bold; 
+    backdrop-filter: blur(4px); 
+    border: 1px solid rgba(255,255,255,0.1); 
+    z-index: 10;
+}
+
+.masonry-item .model-badge { 
+    position: absolute; 
+    top: 10px; 
+    right: 10px; 
+    border-radius: 20px;
+    background: rgba(88, 166, 255, 0.2); 
+    border-color: rgba(88, 166, 255, 0.4); 
+    backdrop-filter: blur(4px); 
+    z-index: 10;
+}
+
+/* =========================================================
+   PÁGINA DE LOGIN (CONTROL DE ACCESO)
+========================================================= */
+
+/* Esta clase irá EXCLUSIVAMENTE en la etiqueta <body> de login.php */
+.login-body {
+    background-image: radial-gradient(circle at 50% 0%, #162032 0%, #010409 70%);
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin: 0;
+}
+
+.login-card {
+    background-color: rgba(22, 27, 34, 0.7);
+    backdrop-filter: blur(15px);
+    border: 1px solid #30363d;
+    border-radius: 16px;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(88, 166, 255, 0.05);
+    padding: 2.5rem;
+    width: 100%;
+    max-width: 400px;
+    position: relative;
+    z-index: 10;
+}
+
+.login-card::before {
+    content: ''; 
+    position: absolute; 
+    top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, transparent, #58a6ff, #bc8cff, transparent);
+    border-radius: 16px 16px 0 0; 
+    opacity: 0.8;
+}
+
+.login-card .brand-logo {
+    font-size: 3rem; 
+    background: linear-gradient(135deg, #58a6ff, #bc8cff);
+    -webkit-background-clip: text; 
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.2rem; 
+    line-height: 1;
+}
+
+.login-card .title-main { font-weight: 800; letter-spacing: -0.5px; font-size: 1.8rem; }
+.login-card .text-info-custom { color: #58a6ff; }
+
+/* Sobreescribimos ligeramente el form-control base solo dentro del login */
+.login-card .form-control {
+    padding: 0.8rem 1rem 0.8rem 2.8rem; 
+    border-radius: 8px; 
+    transition: all 0.2s;
+}
+
+.login-card .form-control:focus {
+    border-color: #58a6ff;
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2);
+}
+
+.login-card .input-icon { 
+    position: absolute; 
+    top: 50%; 
+    left: 1rem; 
+    transform: translateY(-50%); 
+    color: #8b949e; 
+    z-index: 10; 
+    font-size: 1.1rem; 
+}
+
+.btn-login {
+    background: linear-gradient(180deg, #238636, #2ea043); 
+    border: 1px solid #2ea043;
+    color: white; 
+    font-weight: 700; 
+    padding: 0.8rem; 
+    border-radius: 8px;
+    letter-spacing: 0.5px; 
+    transition: all 0.3s ease;
+}
+
+.btn-login:hover {
+    background: linear-gradient(180deg, #2ea043, #3fb950); 
+    border-color: #3fb950;
+    box-shadow: 0 0 15px rgba(46, 160, 67, 0.4); 
+    transform: translateY(-2px); 
+    color: white;
+}
+
+.login-card .link-custom { color: #58a6ff; text-decoration: none; font-size: 0.85rem; transition: 0.2s; }
+.login-card .link-custom:hover { color: #79c0ff; text-decoration: underline; }
+
+.fade-in-up { animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}

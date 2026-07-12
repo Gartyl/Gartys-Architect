@@ -1,0 +1,84 @@
+END USER LICENSE AGREEMENT (EULA) / ACUERDO DE LICENCIA DE USUARIO FINAL (EULA)
+
+Software: Garty's Architect (Arquitecto IA)
+Developer: Rafa Alcaraz (byGarty)
+[ENGLISH VERSION]
+
+By downloading, installing, or using "Garty's Architect" (hereinafter, "the Software"), you agree to be bound by the terms of this End User License Agreement (EULA). If you do not agree to the terms of this EULA, do not install or use the Software.
+
+1. Grant of License
+The Developer grants you a revocable, non-exclusive, non-transferable, limited license to download, install, and use the Software strictly in accordance with the terms of this Agreement.
+
+    Community Edition (Free): Granted for personal, non-commercial use with limited features.
+
+    Pro Edition: Granted upon purchase of a valid license key, unlocking advanced features and direct support. License keys are strictly personal and may not be shared, resold, or distributed.
+
+2. Third-Party Software and Open Source
+The Software acts as an interface and orchestrator for third-party open-source technologies. You acknowledge that:
+
+    The Software bundles and utilizes ComfyUI (GPL-3.0 License) and Ollama (MIT License).
+
+    The Developer does not claim ownership over these third-party engines, nor over any AI models downloaded via the Software.
+
+    Your use of these third-party engines and AI models is governed by their respective original licenses.
+
+3. Restrictions
+You agree not to, and you will not permit others to:
+
+    Reverse engineer, decompile, or disassemble the Software’s validation systems, PHP backend, or proprietary GUI logic.
+
+    Sell, rent, lease, or distribute the Software or your Pro license key to third parties.
+
+4. Content Generation and Responsibility
+The Software allows you to generate text, images, and videos using Artificial Intelligence.
+
+    The Developer has no control over the content generated.
+
+    You are solely responsible for the content you generate, ensuring it does not violate any laws, copyrights, or third-party rights.
+
+5. Disclaimer of Warranties ("As-Is")
+The Software is provided "AS IS", without warranty of any kind. The Developer makes no warranties, express or implied, regarding the Software's fitness for a particular purpose, uninterrupted operation, or compatibility with future third-party AI models.
+
+6. Limitation of Liability
+In no event shall the Developer be liable for any special, incidental, indirect, or consequential damages whatsoever (including, but not limited to, damages for loss of profits, hardware failure, or data loss) arising out of the use of or inability to use the Software.
+
+
+[VERSIÓN EN ESPAÑOL]
+
+Al descargar, instalar o utilizar "Garty's Architect" (en adelante, "el Software"), aceptas estar sujeto a los términos de este Acuerdo de Licencia de Usuario Final (EULA). Si no estás de acuerdo con estos términos, no instales ni utilices el Software.
+
+1. Concesión de Licencia
+El Desarrollador te otorga una licencia revocable, no exclusiva, intransferible y limitada para descargar, instalar y utilizar el Software estrictamente de acuerdo con los términos de este Acuerdo.
+
+    Community Edition (Gratuita): Otorgada para uso personal, no comercial y con funciones limitadas.
+
+    Pro Edition: Otorgada tras la compra de una clave de licencia válida, desbloqueando funciones avanzadas y soporte directo. Las claves de licencia son estrictamente personales y no pueden ser compartidas, revendidas ni distribuidas.
+
+2. Software de Terceros y Código Abierto
+El Software actúa como una interfaz y orquestador para tecnologías de código abierto de terceros. Reconoces que:
+
+    El Software empaqueta y utiliza ComfyUI (Licencia GPL-3.0) y Ollama (Licencia MIT).
+
+    El Desarrollador no reclama la propiedad sobre estos motores de terceros, ni sobre los modelos de IA descargados a través del Software.
+
+    El uso de estos motores de terceros y modelos de IA se rige por sus respectivas licencias originales.
+
+3. Restricciones
+Aceptas no hacer, ni permitir que otros hagan, lo siguiente:
+
+    Aplicar ingeniería inversa, descompilar o desensamblar los sistemas de validación de licencias, el backend en PHP o la lógica propietaria de la interfaz del Software.
+
+    Vender, alquilar, arrendar o distribuir el Software o tu clave de licencia Pro a terceros.
+
+4. Generación de Contenido y Responsabilidad
+El Software te permite generar texto, imágenes y vídeos mediante Inteligencia Artificial.
+
+    El Desarrollador no tiene ningún control sobre el contenido generado.
+
+    Eres el único responsable del contenido que generes, debiendo asegurarte de que no infringe ninguna ley, derechos de autor o derechos de terceros.
+
+5. Exención de Garantías ("Tal Cual")
+El Software se proporciona "TAL CUAL" ("As-Is"), sin garantía de ningún tipo. El Desarrollador no ofrece garantías, expresas o implícitas, respecto a la idoneidad del Software para un propósito particular, su funcionamiento ininterrumpido o su compatibilidad con futuros modelos de IA de terceros.
+
+6. Limitación de Responsabilidad
+En ningún caso el Desarrollador será responsable de daños especiales, incidentales, indirectos o consecuentes de ningún tipo (incluyendo, sin limitación, daños por pérdida de beneficios, fallos de hardware o pérdida de datos) que surjan del uso o la imposibilidad de usar el Software.

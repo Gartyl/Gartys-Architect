@@ -1,0 +1,106 @@
+{
+  "3": {
+    "inputs": {
+      "seed": __SEED__,
+      "steps": __STEPS__,
+      "cfg": __CFG__,
+      "sampler_name": "__SAMPLER__",
+      "scheduler": "__SCHEDULER__",
+      "denoise": 1,
+      "model": [
+        "4",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "latent_image": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "4": {
+    "inputs": {
+      "ckpt_name": "__MODELO__"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Cargar Punto de Control"
+    }
+  },
+  "5": {
+    "inputs": {
+      "width": __WIDTH__,
+      "height": __HEIGHT__,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Imagen Latente Vacía"
+    }
+  },
+  "6": {
+    "inputs": {
+      "text": "__PROMPT_POSITIVO__",
+      "clip": [
+        "4",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Codificar Texto CLIP (Prompt)"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": "__PROMPT_NEGATIVO__",
+      "clip": [
+        "4",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Codificar Texto CLIP (Prompt)"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "vae": [
+        "4",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Decodificación VAE"
+    }
+  },
+  "10": {
+    "inputs": {
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Vista previa de imagen"
+    }
+  }
+}

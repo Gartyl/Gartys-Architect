@@ -1,5 +1,6 @@
 {
   "version": "1.0.0",
-  "changelog": "Prueba del sistema de detección de nuevas versiones.",
+  "fecha": "2026-07-15",
+  "changelog": "Añadido control inteligente de VRAM para Visión Actualización Garty's Architect.",
   "zip_url": "https://github.com/Gartyl/Gartys-Architect/archive/refs/heads/main.zip"
 }
