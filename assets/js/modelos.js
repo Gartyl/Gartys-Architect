@@ -365,13 +365,13 @@ function addLoraRow() {
         <div class="col-3 px-1">
             <div class="input-group input-group-sm" title="${GartyLang.lora_title_h}">
                 <span class="input-group-text bg-dark border-secondary text-warning fw-bold">H</span>
-                <input type="number" class="form-control lora-strength-high pref-track" value="0.8" min="0.0" max="2.0" step="0.05">
+				<input type="number" class="form-control lora-strength-high pref-track" value="0.8" min="-5.0" max="5.0" step="0.05">
             </div>
         </div>
         <div class="col-3 ps-1 lora-l-box">
             <div class="input-group input-group-sm" title="${GartyLang.lora_title_l}">
                 <span class="input-group-text bg-dark border-secondary text-info fw-bold">L</span>
-                <input type="number" class="form-control lora-strength-low pref-track" value="0.8" min="0.0" max="2.0" step="0.05">
+				<input type="number" class="form-control lora-strength-low pref-track" value="0.8" min="-5.0" max="5.0" step="0.05">
             </div>
         </div>
         <div class="col-12 mt-1">
