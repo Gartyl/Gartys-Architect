@@ -35,12 +35,13 @@
         </select>
     </div>
     
-    <div class="col-md-3 mt-3 mt-md-0" id="batchBlock" style="display: none;">
+   <div class="col-md-3 mt-3 mt-md-0" id="batchBlock" style="display: none;">
         <label class="small text-secondary fw-bold"><?= __('tit_cant_img') ?></label>
         <select class="form-select bg-dark text-light border-secondary pref-track" id="batchSize">
             <option value="1"><?= __('sel_cimag_1') ?></option>
             <option value="2"><?= __('sel_cimag_2') ?></option>
             <option value="4"><?= __('sel_cimag_4') ?></option>
+            <option value="inf" class="text-warning fw-bold"><?= __('sel_cimag_inf') ?></option>
         </select>
     </div>
 </div>
