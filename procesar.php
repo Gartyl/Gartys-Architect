@@ -72,6 +72,7 @@ try {
         case 'angel_guardia':
         case 'check_ticket':
         case 'check_queue':
+		case 'cancelar_tarea':
             require_once __DIR__ . '/modulos/api_radar.php';
             break;
         case 'get_checkpoints':
