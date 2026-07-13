@@ -1184,7 +1184,6 @@ async function visionToPrompt(btnElement) {
     } else if (lowerModel.includes('15') || lowerModel.includes('v1-5') || lowerModel.includes('sd15')) {
         targetSelector = '[SD15]';
     } else if (modelSelect && modelSelect.selectedIndex >= 0) {
-        // Si la opción en BD tiene un atributo data-categoria, le damos prioridad
         const optCat = modelSelect.options[modelSelect.selectedIndex].getAttribute('data-categoria');
         if (optCat && (optCat === 'natural' || optCat === 'flux' || optCat === '[NATURAL_IMAGE]')) {
             targetSelector = '[NATURAL_IMAGE]';
@@ -1200,21 +1199,27 @@ async function visionToPrompt(btnElement) {
         fd.append('model_path', selectedModel);
     }
     
-    // 3. Ejecutamos pasándole la arquitectura real
-    await executeProcess(fd, targetSelector);
+    // 3. Ejecutamos pasándole la arquitectura real, SIN tocar el botón principal verde (silentMainBtn = true)
+    await executeProcess(fd, targetSelector, 2, null, true);
     
     btnElement.innerHTML = originalHtml; 
     btnElement.disabled = false;
 }
 
-async function executeProcess(fd, selValue, retries = 2, loadingId = null) {
-    const resetText = (selValue === '[VISION]') ? GartyLang.btn_desc_imagen : (selValue === '[CHAT]' ? GartyLang.btn_envimensaje : GartyLang.btn_generarprompt);
-    if (!loadingId && retries === 2) { document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> ' + GartyLang.btn_arquipensan; }
+async function executeProcess(fd, selValue, retries = 2, loadingId = null, silentMainBtn = false) {
+    // Escudo: Verificamos la categoría real del selector DOM antes de decidir el texto del botón
+    const currentCategory = document.getElementById('selector') ? document.getElementById('selector').value : selValue;
+    const resetText = (currentCategory === '[VISION]') ? GartyLang.btn_desc_imagen : (currentCategory === '[CHAT]' ? GartyLang.btn_envimensaje : GartyLang.btn_generarprompt);
+    
+    if (!loadingId && retries === 2 && !silentMainBtn) { 
+        const submitBtn = document.getElementById('submitBtn');
+        if (submitBtn) submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> ' + GartyLang.btn_arquipensan; 
+    }
     let isRetrying = false; 
 
     try {
         const response = await fetch('procesar.php', { method: 'POST', body: fd });
-        if (!response.ok) throw new Error("Fallo de red al contactar con el servidor.");
+        if (!response.ok) throw new Error(GartyLang.err_net_server || "Fallo de red al contactar con el servidor.");
 
         // --- LECTOR DEL STREAMING SILENCIOSO ---
         const reader = response.body.getReader();
@@ -1238,17 +1243,15 @@ async function executeProcess(fd, selValue, retries = 2, loadingId = null) {
                     if (parsedData.error) {
                         finalData = parsedData; // Capturamos el error
                     } else if (parsedData.status === 'thinking') {
-                        // Es un latido de FrankenPHP, lo ignoramos tranquilamente
                         continue;
                     } else if (parsedData.choices) {
-                        // ¡Hemos recibido el JSON final con el Prompt!
                         finalData = parsedData;
                     }
                 } catch (e) { /* Línea JSON incompleta */ }
             }
         }
 
-        const data = finalData || { error: "Respuesta vacía o interrumpida." };
+        const data = finalData || { error: GartyLang.err_empty_interrupted || "Respuesta vacía o interrumpida." };
 
         // --- PROCESAMIENTO HABITUAL ---
         if (data.error) {
@@ -1256,8 +1259,11 @@ async function executeProcess(fd, selValue, retries = 2, loadingId = null) {
                 console.warn(GartyLang.warn_anomalous_response);
                 isRetrying = true;
                 if (loadingId) { document.getElementById(loadingId).innerHTML = `<div class="d-flex align-items-center text-warning"><div class="spinner-border spinner-border-sm me-2"></div> <small>${GartyLang.msg_retrying_ia} (${3 - retries}/2)...</small></div>`; } 
-                else { document.getElementById('submitBtn').innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> ${GartyLang.msg_retrying_conn} (${3 - retries}/2)...`; }
-                return executeProcess(fd, selValue, retries - 1, loadingId);
+                else if (!silentMainBtn) { 
+                    const submitBtn = document.getElementById('submitBtn');
+                    if (submitBtn) submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> ${GartyLang.msg_retrying_conn} (${3 - retries}/2)...`; 
+                }
+                return executeProcess(fd, selValue, retries - 1, loadingId, silentMainBtn);
             }
             SwalDark.fire({ icon: 'warning', title: GartyLang.swal_sys_warn, text: data.error, confirmButtonColor: '#17a2b8', confirmButtonText: '<i class="bi bi-check-lg"></i> ' + GartyLang.btn_understood_check });
             if (typeof stopProgressBar === 'function') stopProgressBar();
@@ -1285,7 +1291,7 @@ async function executeProcess(fd, selValue, retries = 2, loadingId = null) {
             showGeneratedPromptsInUI(applied.pos, applied.neg, selValue);
         }
     } catch (error) { 
-        console.error("Fallo en la comunicación:", error);
+        console.error(GartyLang.log_err_conn || "Fallo en la comunicación:", error);
         if (loadingId) {
             document.getElementById(loadingId).innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle"></i> ${GartyLang.txt_error}${error.message}</span><span class="bubble-meta">${GartyLang.txt_system}</span>`;
             document.getElementById('chatThreadContainer').scrollTop = document.getElementById('chatThreadContainer').scrollHeight;
@@ -1294,7 +1300,13 @@ async function executeProcess(fd, selValue, retries = 2, loadingId = null) {
         }
         if (typeof stopProgressBar === 'function') stopProgressBar();
     } finally {
-        if (!isRetrying) { document.getElementById('submitBtn').disabled = false; document.getElementById('submitBtn').innerHTML = resetText; }
+        if (!isRetrying && !silentMainBtn) { 
+            const submitBtn = document.getElementById('submitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false; 
+                submitBtn.innerHTML = resetText; 
+            }
+        }
     }
 }
 
