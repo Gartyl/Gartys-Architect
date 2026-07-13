@@ -204,6 +204,9 @@ return [
 	'swal_loop_stop_text'  => 'Infinite generation stopped. Any tasks currently processing on the GPU will finish naturally.',
 	'log_err_single_task' => 'Error in single task:',
 	'log_err_inf_loop'    => 'Error in infinite loop:',
+	'err_net_server'       => 'Network failure when contacting the server.',
+	'err_empty_interrupted'=> 'Empty or interrupted response from the server.',
+	'log_err_conn'         => 'Communication failure in execution engine:',
     
     // --- SELECTORES, FILTROS Y CONTROLES ---
     'sel_llm' => "LLM (Language Model)",

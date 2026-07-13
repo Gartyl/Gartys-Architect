@@ -204,6 +204,9 @@ return [
 	'swal_loop_stop_text'  => 'S\'ha aturat la generació infinita. Les tasques que ja siguin a la GPU s\'acabaran de processar de manera natural.',
 	'log_err_single_task' => 'Error en la tasca individual:',
 	'log_err_inf_loop'    => 'Error en el bucle infinit:',
+	'err_net_server'       => 'Fallada de xarxa en contactar amb el servidor.',
+	'err_empty_interrupted'=> 'Resposta buida o interrompuda pel servidor.',
+	'log_err_conn'         => 'Fallada de comunicació en el motor d\'execució:',
     
     // --- SELECTORES, FILTROS Y CONTROLES ---
     'sel_llm' => "LLM (Modelo de Lenguaje)",
