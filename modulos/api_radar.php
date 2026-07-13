@@ -288,4 +288,28 @@ if ($action === 'check_queue') {
     }
     exit(); 
 }
+
+if ($action === 'cancelar_tarea') {
+    // 1. ORDEN DE INTERRUPCIÓN: Detiene físicamente lo que está procesando la tarjeta gráfica
+    $ch1 = curl_init(COMFY_URL . '/interrupt');
+    curl_setopt($ch1, CURLOPT_POST, true);
+    curl_setopt($ch1, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch1, CURLOPT_TIMEOUT, 3);
+    curl_exec($ch1);
+    curl_close($ch1);
+
+    // 2. ORDEN DE LIMPIEZA: Borra todas las imágenes o frames pendientes en la cola
+    $ch2 = curl_init(COMFY_URL . '/queue');
+    curl_setopt($ch2, CURLOPT_POST, true);
+    curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch2, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    curl_setopt($ch2, CURLOPT_POSTFIELDS, json_encode(['clear' => true]));
+    curl_setopt($ch2, CURLOPT_TIMEOUT, 3);
+    curl_exec($ch2);
+    curl_close($ch2);
+
+    // 3. Devolvemos respuesta en formato JSON usando el diccionario de idiomas
+    echo json_encode(['status' => 'cancelled', 'message' => __('msg_task_cancelled')]);
+    exit();
+}
 ?>
