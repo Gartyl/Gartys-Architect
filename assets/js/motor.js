@@ -1796,19 +1796,55 @@ async function runGpu(mode = 'directo') {
 
     // --- CONTROL DE VÍDEOS LARGOS AUTOREGRESIVOS (LTX) ---
     if (modoActual === '[VIDEO]' && numFrames > 65 && esLTX) {
-        if (tieneAudio) {
-            console.log("Detectado vídeo LTX largo con audio. Preparando tramos encadenados...");
-        }
-        
+        if (tieneAudio) console.log("Detectado vídeo LTX largo con audio...");
         if (typeof lanzarVideoEncadenado === 'function') {
-            // El .finally asegura que el botón se desbloquee SIEMPRE al terminar o fallar
             lanzarVideoEncadenado(fd, numFrames).finally(() => {
-                buttonUsed.innerHTML = originalBtnText;
-                buttonUsed.disabled = false;
+                buttonUsed.innerHTML = originalBtnText; buttonUsed.disabled = false;
             });
         }
         return; 
     }
+
+    // === NUEVO: INTERCEPCIÓN PARA SEMILLAS ÚNICAS Y BUCLE INFINITO ===
+    const batchVal = document.getElementById('batchSize') ? document.getElementById('batchSize').value : "1";
+    const seedVal = document.getElementById('seedInput') ? parseInt(document.getElementById('seedInput').value) : -1;
+
+    // 1. GESTIÓN DEL BUCLE INFINITO ('inf')
+    if (batchVal === 'inf') {
+        window.bucleInfinitoActivo = true;
+        window.configBucleInfinito = { fd: fd, resDiv: resDiv, buttonUsed: buttonUsed, originalCategory: originalCategory };
+        
+        buttonUsed.innerHTML = `<i class="bi bi-stop-circle-fill"></i> ${GartyLang.btn_stop_inf || 'DETENER BUCLE ∞'}`;
+        buttonUsed.classList.replace('btn-gpu', 'btn-danger');
+        buttonUsed.classList.replace('btn-primary', 'btn-danger');
+        buttonUsed.disabled = false;
+        buttonUsed.onclick = window.detenerBucleInfinito;
+
+        // Inyectamos 2 tareas iniciales para calentar motores y tener el buffer lleno
+        window.dispararTareaInfinita();
+        window.dispararTareaInfinita();
+        return;
+    }
+
+    // 2. GESTIÓN DE SEMILLAS ÚNICAS PARA LOTES (2 o 4 imágenes)
+    if (batchVal === '2' || batchVal === '4') {
+        const totalImagenes = parseInt(batchVal);
+        for (let i = 0; i < totalImagenes; i++) {
+            let fdSingle = new FormData();
+            fd.forEach((value, key) => fdSingle.append(key, value));
+            fdSingle.set('batch_size', 1); // Forzamos 1 a 1 para que ComfyUI no repita semilla
+            
+            // Si la semilla era -1 generamos una nueva para cada imagen. Si era fija (ej. 5000), le sumamos i (5000, 5001...)
+            let semillaUnica = (seedVal === -1 || isNaN(seedVal)) 
+                ? Math.floor(Math.random() * 9007199254740991) 
+                : (seedVal + i);
+            fdSingle.set('seed', semillaUnica);
+
+            enviarTareaIndividualGpu(fdSingle, resDiv, buttonUsed, currentPromptId, originalCategory, i + 1, totalImagenes);
+        }
+        return;
+    }
+    // === FIN DE LA INTERCEPCIÓN (Si es 1 imagen, continúa con el try normal de abajo) ===
 
     try {
         const res = await fetch('procesar.php', { method: 'POST', body: fd }); const data = await res.json();
@@ -1835,16 +1871,109 @@ async function runGpu(mode = 'directo') {
     }
 }
 
-window.currentRadarInterval = null;
+window.activeRadars = window.activeRadars || {};
+window.bucleInfinitoActivo = false;
+window.configBucleInfinito = null;
+
+// --- LIMPIEZA Y RESTAURACIÓN UNIVERSAL DE BOTONES ---
+window.restaurarBotonesGpu = function() {
+    window.bucleInfinitoActivo = false;
+    window.configBucleInfinito = null;
+
+    const btnDirecto = document.getElementById('gpuDirectBtn');
+    if (btnDirecto) {
+        btnDirecto.innerHTML = '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
+        btnDirecto.classList.remove('btn-danger');
+        btnDirecto.classList.add('btn-gpu');
+        btnDirecto.disabled = false;
+        btnDirecto.onclick = () => runGpu('directo');
+    }
+
+    const btnArq = document.getElementById('gpuArquitectoBtn');
+    if (btnArq) {
+        btnArq.innerHTML = '<i class="bi bi-gpu-card"></i> ' + GartyLang.btn_rendprompt;
+        btnArq.classList.remove('btn-danger');
+        btnArq.classList.add('btn-gpu');
+        btnArq.disabled = false;
+        btnArq.onclick = () => runGpu('arquitecto');
+    }
+
+    const selectorEl = document.getElementById('selector');
+    if (selectorEl && typeof updateUIForSelector === 'function') {
+        updateUIForSelector(selectorEl.value);
+    }
+};
+
+// --- DETENER BUCLE INFINITO (Suave - Deja terminar lo que está en la VRAM) ---
+window.detenerBucleInfinito = function() {
+    window.restaurarBotonesGpu();
+    SwalDark.fire({ icon: 'info', title: GartyLang.swal_loop_stop_title, text: GartyLang.swal_loop_stop_text, confirmButtonText: '<i class="bi bi-check2-circle"></i> ' + GartyLang.btn_entendido });
+};
+
+// --- PURGAR TAREA ATASCADA O COLA (En seco - Botón pequeño / Cancelar) ---
 window.forzarCancelacionTarea = function() {
+    // 1. Matamos los radares locales del navegador
+    if (window.activeRadars) {
+        Object.values(window.activeRadars).forEach(intervalId => clearInterval(intervalId));
+        window.activeRadars = {};
+    }
     if (window.currentRadarInterval) clearInterval(window.currentRadarInterval);
     if (typeof stopProgressBar === 'function') stopProgressBar();
     localStorage.removeItem('garty_tarea_pendiente'); 
-    const btnDirecto = document.getElementById('gpuDirectBtn');
-    if (btnDirecto) { btnDirecto.innerHTML = '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar; btnDirecto.disabled = false; }
-    const btnArq = document.getElementById('gpuArquitectoBtn');
-    if (btnArq) { btnArq.innerHTML = '<i class="bi bi-gpu-card"></i> ' + GartyLang.btn_rendprompt; btnArq.disabled = false; }
+    
+    // 2. ORDEN NUCLEAR AL SERVIDOR: Avisamos a PHP para que vacíe la cola en ComfyUI
+    let fdCancel = new FormData();
+    fdCancel.append('action', 'cancelar_tarea');
+    fetch('procesar.php', { method: 'POST', body: fdCancel }).catch(e => console.warn(GartyLang.log_err_cancel_net || "Purga red:", e));
+
+    // 3. Restauramos la interfaz
+    window.restaurarBotonesGpu();
+
     SwalDark.fire({ icon: 'info', title: GartyLang.swal_kill_title, text: GartyLang.swal_kill_text, confirmButtonText: '<i class="bi bi-check2-circle"></i> ' + GartyLang.btn_entendido });
+};
+
+// --- DISPARADOR DE TAREAS INDIVIDUALES (Blindado contra fallos de red) ---
+async function enviarTareaIndividualGpu(fd, resDiv, buttonUsed, dbId, originalCategory, numActual, total) {
+    try {
+        const res = await fetch('procesar.php', { method: 'POST', body: fd }); 
+        const data = await res.json();
+        if (data.error) {
+            SwalDark.fire({ icon: 'error', title: GartyLang.swal_gen_cancel_title, html: data.error });
+            if (buttonUsed && Object.keys(window.activeRadars || {}).length === 0) {
+                buttonUsed.disabled = false;
+                buttonUsed.innerText = GartyLang.btn_generar;
+            }
+            return; 
+        }
+        if (data.status === 'ticket_issued' && data.prompt_id) {
+            if (buttonUsed && numActual === 1) buttonUsed.innerText = `${GartyLang.btn_procesando} (1/${total})...`;
+            iniciarRadarGpu(data.prompt_id, resDiv, buttonUsed, data.historial_id || dbId, originalCategory); 
+        }
+    } catch (e) { 
+        console.error(GartyLang.log_err_single_task, e); 
+        if (buttonUsed && Object.keys(window.activeRadars || {}).length === 0) {
+            buttonUsed.disabled = false;
+            buttonUsed.innerText = GartyLang.btn_generar;
+        }
+    }
+}
+
+window.dispararTareaInfinita = async function() {
+    if (!window.bucleInfinitoActivo || !window.configBucleInfinito) return;
+    const cfg = window.configBucleInfinito;
+    
+    let fdSingle = new FormData();
+    cfg.fd.forEach((value, key) => fdSingle.append(key, value));
+    fdSingle.set('batch_size', 1);
+    fdSingle.set('seed', Math.floor(Math.random() * 9007199254740991));
+    
+    try {
+        const res = await fetch('procesar.php', { method: 'POST', body: fdSingle }); 
+        const data = await res.json();
+        if (data.status === 'ticket_issued' && data.prompt_id) {
+            iniciarRadarGpu(data.prompt_id, cfg.resDiv, null, data.historial_id || 0, cfg.originalCategory); 
+        }
+    } catch (e) { console.error(GartyLang.log_err_inf_loop, e); }
 };
 
 function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory) {
@@ -1852,15 +1981,22 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
     if(pText) pText.innerHTML = `<span style="color: #0dcaf0 !important; font-weight: bold;">${GartyLang.radar_msg_rendering} (${promptId})</span>`;
 
     let intentosRadar = 0; const maxIntentos = 600; 
+    
+    window.activeRadars = window.activeRadars || {};
+    if (window.activeRadars[promptId]) clearInterval(window.activeRadars[promptId]);
     if (window.currentRadarInterval) clearInterval(window.currentRadarInterval);
 
-    window.currentRadarInterval = setInterval(async () => {
+    window.activeRadars[promptId] = setInterval(async () => {
         intentosRadar++;
-        if (intentosRadar > maxIntentos) {
-            clearInterval(window.currentRadarInterval); if (typeof stopProgressBar === 'function') stopProgressBar(); localStorage.removeItem('garty_tarea_pendiente');
-            if (btnElement) {
-                btnElement.innerHTML = `<i class="bi bi-clock-history"></i> ${GartyLang.radar_btn_timeout}`; btnElement.classList.replace('btn-primary', 'btn-danger');
-                setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.classList.replace('btn-danger', 'btn-primary'); btnElement.disabled = false; }, 4000);
+        if (intentosRadar > maxIntentos || !window.activeRadars[promptId]) {
+            if (window.activeRadars[promptId]) { clearInterval(window.activeRadars[promptId]); delete window.activeRadars[promptId]; }
+            if (Object.keys(window.activeRadars).length === 0) {
+                if (typeof stopProgressBar === 'function') stopProgressBar();
+                localStorage.removeItem('garty_tarea_pendiente');
+                if (btnElement && !window.bucleInfinitoActivo) {
+                    btnElement.innerHTML = `<i class="bi bi-clock-history"></i> ${GartyLang.radar_btn_timeout}`; btnElement.classList.replace('btn-primary', 'btn-danger');
+                    setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.classList.replace('btn-danger', 'btn-primary'); btnElement.disabled = false; }, 4000);
+                }
             }
             SwalDark.fire({ icon: 'warning', title: GartyLang.swal_radar_stuck_title, text: GartyLang.swal_radar_stuck_text, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${GartyLang.btn_entendido}` });
             return;
@@ -1871,17 +2007,27 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
         try {
             let res = await fetch('procesar.php', { method: 'POST', body: fd }); let data = await res.json();
             if (data.error) {
-                clearInterval(window.currentRadarInterval); if (typeof stopProgressBar === 'function') stopProgressBar(); localStorage.removeItem('garty_tarea_pendiente'); 
-                if (btnElement) {
-                    btnElement.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${GartyLang.radar_btn_gpu_fail}`; btnElement.classList.replace('btn-primary', 'btn-danger');
-                    setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.classList.replace('btn-danger', 'btn-primary'); btnElement.disabled = false; }, 4000);
+                if (window.activeRadars[promptId]) { clearInterval(window.activeRadars[promptId]); delete window.activeRadars[promptId]; }
+                if (Object.keys(window.activeRadars).length === 0) {
+                    if (typeof stopProgressBar === 'function') stopProgressBar();
+                    localStorage.removeItem('garty_tarea_pendiente');
+                    if (btnElement && !window.bucleInfinitoActivo) {
+                        btnElement.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${GartyLang.radar_btn_gpu_fail}`; btnElement.classList.replace('btn-primary', 'btn-danger');
+                        setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.classList.replace('btn-danger', 'btn-primary'); btnElement.disabled = false; }, 4000);
+                    }
                 }
                 SwalDark.fire({ icon: 'error', title: GartyLang.swal_radar_gpu_err_title, text: data.error, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${GartyLang.btn_entendido}` });
                 return; 
             }
 
             if (data.status === 'completed') {
-                clearInterval(window.currentRadarInterval); if (typeof stopProgressBar === 'function') stopProgressBar(); localStorage.removeItem('garty_tarea_pendiente');
+                if (window.activeRadars[promptId]) { clearInterval(window.activeRadars[promptId]); delete window.activeRadars[promptId]; }
+                
+                // Alimentador infinito: si termina una, reponemos otra
+                if (window.bucleInfinitoActivo && typeof window.dispararTareaInfinita === 'function') {
+                    window.dispararTareaInfinita();
+                }
+
                 if (data.images && data.images.length > 0) {
                     const currentCategory = document.getElementById('selector').value; let htmlElements = '';
                     data.images.forEach(img => { 
@@ -1944,12 +2090,24 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
                     toast.innerHTML = `<div class="d-flex"><div class="toast-body d-flex align-items-center">${toastMediaHtml}<div><strong class="fs-6">${GartyLang.notif_gpu_free_title}</strong><br><small>${GartyLang.notif_gpu_free_text}</small></div></div><button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentElement.parentElement.remove()"></button></div>`;
                     toastContainer.appendChild(toast); setTimeout(() => { if(toast.parentElement) toast.remove(); }, 10000);
 
-                    if (btnElement) {
-                        btnElement.innerText = GartyLang.radar_btn_completed;
-                        setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.disabled = false; }, 3000);
+                    // === CONTROL REAL DE LIBERACIÓN DE BOTÓN ===
+                    const pendientes = Object.keys(window.activeRadars).length;
+                    if (pendientes === 0) {
+                        if (typeof stopProgressBar === 'function') stopProgressBar();
+                        localStorage.removeItem('garty_tarea_pendiente');
+                        if (btnElement && !window.bucleInfinitoActivo) {
+                            btnElement.innerText = GartyLang.radar_btn_completed;
+                            setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.disabled = false; }, 3000);
+                        }
+                    } else {
+                        // Aún quedan imágenes del lote de 2 o 4: mostramos el progreso y MANTENEMOS BLOQUEADO
+                        if (btnElement && !window.bucleInfinitoActivo) {
+                            btnElement.innerText = `${GartyLang.btn_procesando} (quedan ${pendientes})...`;
+                        }
                     }
+                    // ===========================================
                 } else {
-                    if (btnElement && data.status !== 'processing') {
+                    if (btnElement && data.status !== 'processing' && !window.bucleInfinitoActivo) {
                         btnElement.innerHTML = '<i class="bi bi-exclamation-triangle"></i> ' + GartyLang.btn_gpu_free_no_images;
                         btnElement.classList.replace('btn-primary', 'btn-danger');
                         setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.classList.replace('btn-danger', 'btn-primary'); btnElement.disabled = false; }, 4000);
@@ -1958,10 +2116,14 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
             }
         } catch (e) { 
             console.warn(GartyLang.log_radar_net_crit, e); 
-            clearInterval(window.currentRadarInterval); if (typeof stopProgressBar === 'function') stopProgressBar(); localStorage.removeItem('garty_tarea_pendiente'); 
-            if (btnElement) {
-                btnElement.innerHTML = `<i class="bi bi-wifi-off"></i> ${GartyLang.radar_btn_conn_err}`; btnElement.classList.replace('btn-primary', 'btn-danger');
-                setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.classList.replace('btn-danger', 'btn-primary'); btnElement.disabled = false; }, 4000);
+            if (window.activeRadars[promptId]) { clearInterval(window.activeRadars[promptId]); delete window.activeRadars[promptId]; }
+            if (Object.keys(window.activeRadars).length === 0) {
+                if (typeof stopProgressBar === 'function') stopProgressBar();
+                localStorage.removeItem('garty_tarea_pendiente');
+                if (btnElement && !window.bucleInfinitoActivo) {
+                    btnElement.innerHTML = `<i class="bi bi-wifi-off"></i> ${GartyLang.radar_btn_conn_err}`; btnElement.classList.replace('btn-primary', 'btn-danger');
+                    setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.classList.replace('btn-danger', 'btn-primary'); btnElement.disabled = false; }, 4000);
+                }
             }
             SwalDark.fire(GartyLang.swal_radar_conn_err_title, GartyLang.swal_radar_conn_err_text, 'error');
         }
