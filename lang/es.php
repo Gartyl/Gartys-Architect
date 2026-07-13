@@ -48,6 +48,8 @@ return [
 	'swal_upd_btn_yes' => "⚡ Sí, actualizar ahora",
 	'swal_upd_btn_no' => "Cancelar",
 	'swal_upd_success_title' => "¡Sistema Actualizado!",
+	'log_err_cancel_net' => 'Error de red al enviar purga de cancelación:',
+	'msg_task_cancelled' => 'Tareas en la GPU canceladas y cola purgada con éxito.',
     
     // --- TÍTULOS DE INTERFAZ ---
     'tit_terminal' => "Terminal de Creación",
@@ -198,6 +200,10 @@ return [
 	'btn_descargar' => "Descargar",
 	'tit_compare' => "Comparar",
 	'btn_reutilizar' => "Reutilizar",
+	'swal_loop_stop_title' => 'Bucle Detenido',
+	'swal_loop_stop_text'  => 'Se ha detenido la generación infinita. Las tareas que ya estén en la GPU se terminarán de procesar de forma natural.',
+	'log_err_single_task' => 'Error en tarea individual:',
+	'log_err_inf_loop'    => 'Error en bucle infinito:',
     
     // --- SELECTORES, FILTROS Y CONTROLES ---
     'sel_llm' => "LLM (Modelo de Lenguaje)",
@@ -224,6 +230,8 @@ return [
     'lbl_prompts_directos' => 'Prompts Directos',
     'ph_prompt_pos' => 'Pega aquí tu Prompt Positivo...',
     'ph_prompt_neg' => 'Pega aquí tu Prompt Negativo...',
+	'sel_cimag_inf' => '∞ Generación Infinita',
+	'btn_stop_inf'  => 'DETENER BUCLE ∞',
     
     'flt_seed' => "Semilla",
     'flt_random' => "Aleatorio",

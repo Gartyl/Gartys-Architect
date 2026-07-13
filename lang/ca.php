@@ -48,6 +48,8 @@ return [
 	'swal_upd_btn_yes' => "⚡ Sí, actualitzar ara",
 	'swal_upd_btn_no' => "Cancel·lar",
 	'swal_upd_success_title' => "¡Sistema Actualitzat!",
+	'log_err_cancel_net' => 'Error de xarxa en enviar la purga de cancel·lació:',
+	'msg_task_cancelled' => 'Tasques a la GPU cancel·lades i cua purgada amb èxit.',
     
     // --- TÍTULOS DE INTERFAZ ---
     'tit_terminal' => "Terminal de Creació",
@@ -198,6 +200,10 @@ return [
 	'btn_descargar' => "Descarregar",    
 	'tit_compare' => "Comparar",   
 	'btn_reutilizar' => "Reutilitzar",
+	'swal_loop_stop_title' => 'Bucle Aturat',
+	'swal_loop_stop_text'  => 'S\'ha aturat la generació infinita. Les tasques que ja siguin a la GPU s\'acabaran de processar de manera natural.',
+	'log_err_single_task' => 'Error en la tasca individual:',
+	'log_err_inf_loop'    => 'Error en el bucle infinit:',
     
     // --- SELECTORES, FILTROS Y CONTROLES ---
     'sel_llm' => "LLM (Modelo de Lenguaje)",
@@ -224,6 +230,8 @@ return [
     'lbl_prompts_directos' => 'Prompts Directes',
     'ph_prompt_pos' => 'Enganxa aquí el teu Prompt Positiu...',
     'ph_prompt_neg' => 'Enganxa aquí el teu Prompt Negatiu...',
+	'sel_cimag_inf' => '∞ Generació Infinita',
+	'btn_stop_inf'  => 'ATURER BUCLE ∞',
     
     'flt_seed' => "Llavor",
     'flt_random' => "Aleatori",

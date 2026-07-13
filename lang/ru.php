@@ -48,6 +48,8 @@ return [
 	'swal_upd_btn_yes' => "⚡ Да, обновить сейчас",
 	'swal_upd_btn_no' => "Отмена",
 	'swal_upd_success_title' => "Система обновлена!",
+	'log_err_cancel_net' => 'Сетевая ошибка при отправке запроса на отмену:',
+	'msg_task_cancelled' => 'Задачи на GPU отменены, очередь успешно очищена.',
     
     // --- TÍTULOS DE INTERFAZ ---
     'tit_terminal' => "Терминал создания",
@@ -198,6 +200,10 @@ return [
 	'btn_descargar' => "Скачать",    
 	'tit_compare' => "Сравнить",   
 	'btn_reutilizar' => "Использовать снова",
+	'swal_loop_stop_title' => 'Цикл остановлен',
+	'swal_loop_stop_text'  => 'Бесконечная генерация остановлена. Задачи, уже находящиеся в обработке на GPU, будут завершены естественным образом.',
+	'log_err_single_task' => 'Ошибка в отдельной задаче:',
+	'log_err_inf_loop'    => 'Ошибка в бесконечном цикле:',
     
     // --- SELECTORES, FILTROS Y CONTROLES ---
     'sel_llm' => "LLM (Языковая модель)",
@@ -224,6 +230,8 @@ return [
     'lbl_prompts_directos' => 'Прямые промпты',
     'ph_prompt_pos' => 'Вставьте сюда ваш позитивный промпт...',
     'ph_prompt_neg' => 'Вставьте сюда ваш негативный промпт...',
+	'sel_cimag_inf' => '∞ Бесконечная генерация',
+	'btn_stop_inf'  => 'ОСТАНОВИТЬ ∞ ЦИКЛ',
     
     'flt_seed' => "Сид",
     'flt_random' => "Случайный",

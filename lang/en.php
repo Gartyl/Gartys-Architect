@@ -48,6 +48,8 @@ return [
 	'swal_upd_btn_yes' => "⚡ Yes, update now",
 	'swal_upd_btn_no' => "Cancel",
 	'swal_upd_success_title' => "System Updated!",
+	'log_err_cancel_net' => 'Network error when sending purge cancellation:',
+	'msg_task_cancelled' => 'GPU tasks cancelled and queue successfully purged.',
     
     // --- TÍTULOS DE INTERFAZ ---
     'tit_terminal' => "Creation Terminal",
@@ -198,6 +200,10 @@ return [
 	'btn_descargar' => "Download",    
 	'tit_compare' => "Compare",   
 	'btn_reutilizar' => "Reuse",
+	'swal_loop_stop_title' => 'Loop Stopped',
+	'swal_loop_stop_text'  => 'Infinite generation stopped. Any tasks currently processing on the GPU will finish naturally.',
+	'log_err_single_task' => 'Error in single task:',
+	'log_err_inf_loop'    => 'Error in infinite loop:',
     
     // --- SELECTORES, FILTROS Y CONTROLES ---
     'sel_llm' => "LLM (Language Model)",
@@ -224,6 +230,8 @@ return [
     'lbl_prompts_directos' => 'Direct Prompts',
     'ph_prompt_pos' => 'Paste your Positive Prompt here...',
     'ph_prompt_neg' => 'Paste your Negative Prompt here...',
+	'sel_cimag_inf' => '∞ Infinite Generation',
+	'btn_stop_inf'  => 'STOP ∞ LOOP',
     
     'flt_seed' => "Seed",
     'flt_random' => "Random",
