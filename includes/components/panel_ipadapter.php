@@ -2,7 +2,7 @@
 		<div class="d-flex justify-content-between align-items-center">
 			<label class="small text-primary fw-bold mb-0"><i class="bi bi-images me-1"></i> <?= __('tit_ipadapter') ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?></label>
 			<div class="form-check form-switch m-0">
-				<input class="form-check-input pref-track" type="checkbox" id="ipAdapterToggle" onchange="toggleIpAdapterUI()" <?= !$is_pro ? 'disabled' : '' ?>>
+				<input class="form-check-input pref-track" style="cursor: pointer;" type="checkbox" id="ipAdapterToggle" onchange="toggleIpAdapterUI()" <?= !$is_pro ? 'disabled' : '' ?>>
 			</div>
 		</div>
 		<div id="ipAdapterUI" class="d-none mt-3 text-center">

@@ -2,7 +2,7 @@
         <div class="d-flex justify-content-between align-items-center">
             <label class="small text-light fw-bold mb-0"><i class="bi bi-aspect-ratio me-1"></i> <?= __('tit_presets') ?></label>
             <div class="form-check form-switch m-0">
-                <input class="form-check-input pref-track" type="checkbox" id="formatToggle" onchange="document.getElementById('formatUI').classList.toggle('d-none', !this.checked)">
+                <input class="form-check-input pref-track" style="cursor: pointer;" type="checkbox" id="formatToggle" onchange="document.getElementById('formatUI').classList.toggle('d-none', !this.checked)">
             </div>
         </div>
         

@@ -1,10 +1,10 @@
 	<div class="param-group shadow-sm border-info mb-3" id="adetailerBlock" style="border-color: rgba(13, 202, 240, 0.4) !important; background: rgba(13, 202, 240, 0.05);">
         <div class="d-flex justify-content-between align-items-center">
-            <label class="small text-info fw-bold mb-0" style="cursor: pointer;">
+            <label class="small text-info fw-bold mb-0">
                 <i class="bi bi-magic me-1"></i> <?= __('tit_adetailer') ?? 'Reparador de Rostros' ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?>
             </label>
             <div class="form-check form-switch m-0">
-                <input class="form-check-input pref-track" type="checkbox" id="adetailer" name="adetailer" onchange="document.getElementById('adetailerUI').classList.toggle('d-none', !this.checked)" <?= !$is_pro ? 'disabled' : '' ?>>
+                <input class="form-check-input pref-track" style="cursor: pointer;" type="checkbox" id="adetailer" name="adetailer" onchange="document.getElementById('adetailerUI').classList.toggle('d-none', !this.checked)" <?= !$is_pro ? 'disabled' : '' ?>>
             </div>
         </div>
         <div id="adetailerUI" class="d-none mt-3 pt-3 border-top border-info" style="border-color: rgba(13, 202, 240, 0.2) !important;">

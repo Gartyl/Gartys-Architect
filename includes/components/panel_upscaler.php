@@ -1,6 +1,6 @@
 	<div class="param-group shadow-sm border-primary mb-3" id="hiresBlock" style="display: none; border-color: rgba(13, 110, 253, 0.4) !important; background: rgba(13, 110, 253, 0.05);">
 		<div class="d-flex justify-content-between align-items-center">
-			<label class="small text-primary fw-bold mb-0" style="cursor: pointer;">
+			<label class="small text-primary fw-bold mb-0">
 				<i class="bi bi-arrows-angle-expand"></i> <?= __('tit_upscale') ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?>
 			</label>
 			<div class="form-check form-switch m-0">

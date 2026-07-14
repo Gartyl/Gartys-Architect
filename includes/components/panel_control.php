@@ -6,7 +6,7 @@
         <div class="d-flex align-items-center gap-3">
             <label class="small text-secondary fw-bold mb-0" id="lblIdea"><?= __('tit_idea') ?></label>
             <div class="form-check form-switch m-0" id="modoDirectoWrapper" title="<?= __('lbl_modo_directo') ?>">
-                <input class="form-check-input border-warning" type="checkbox" id="modoDirectoToggle" onchange="toggleModoIngreso()">
+                <input class="form-check-input border-warning" style="cursor: pointer;" type="checkbox" id="modoDirectoToggle" onchange="toggleModoIngreso()">
                 <label class="form-check-label small text-warning fw-bold" for="modoDirectoToggle">
                     <i class="bi bi-input-cursor-text"></i> <?= __('lbl_modo_directo') ?>
                 </label>
@@ -29,7 +29,7 @@
     </div>
 
     <div class="form-check form-switch mt-2 mb-3 d-flex justify-content-end d-none" id="translateToggleBlock">
-        <input class="form-check-input pref-track border-info" type="checkbox" id="autoTranslateToggle" checked>
+        <input class="form-check-input pref-track border-info" style="cursor: pointer;" type="checkbox" id="autoTranslateToggle" checked>
         <label class="form-check-label small text-info fw-bold ms-2" for="autoTranslateToggle">
             <i class="bi bi-translate"></i> <?= __('ctrl_auto_trad2') ?>
         </label>

@@ -4,7 +4,7 @@
 				<i class="bi bi-bezier2 me-1"></i> <?= __('tit_controlnet') ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?>
 			</label>
 			<div class="form-check form-switch m-0">
-				<input class="form-check-input pref-track" type="checkbox" id="controlNetToggle" onchange="toggleControlNetUI()" <?= !$is_pro ? 'disabled' : '' ?>>
+				<input class="form-check-input pref-track" style="cursor: pointer;" type="checkbox" id="controlNetToggle" onchange="toggleControlNetUI()" <?= !$is_pro ? 'disabled' : '' ?>>
 			</div>
 		</div>
 		<div id="controlNetUI" class="d-none mt-3 text-center">

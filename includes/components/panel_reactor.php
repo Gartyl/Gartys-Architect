@@ -39,7 +39,7 @@ $facedetect_options = '
         <div class="d-flex justify-content-between align-items-center">
             <label class="small text-warning fw-bold mb-0"><i class="bi bi-person-bounding-box me-1"></i> <?= __('tit_reactor') ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?></label>
             <div class="form-check form-switch m-0">
-                <input class="form-check-input pref-track" type="checkbox" id="reactorToggle" onchange="toggleReactorUI()" <?= !$is_pro ? 'disabled' : '' ?>>
+                <input class="form-check-input pref-track" style="cursor: pointer;" type="checkbox" id="reactorToggle" onchange="toggleReactorUI()" <?= !$is_pro ? 'disabled' : '' ?>>
             </div>
         </div>
         <div id="reactorUI" class="d-none mt-3 text-center">
@@ -52,7 +52,7 @@ $facedetect_options = '
             </div>
             
             <div class="form-check form-switch mt-3 text-start" id="pureFaceSwapBlock">
-                <input class="form-check-input border-warning" type="checkbox" id="pureFaceSwapToggle" onchange="toggleFaceSwapPuro(this.checked)">
+                <input class="form-check-input border-warning" style="cursor: pointer;" type="checkbox" id="pureFaceSwapToggle" onchange="toggleFaceSwapPuro(this.checked)">
                 <label class="form-check-label small text-warning fw-bold" for="pureFaceSwapToggle">
                     <i class="bi bi-shield-lock me-1"></i> <?= __('ctrl_reac_puro') ?>
                 </label>

@@ -4,7 +4,7 @@
              <div class="d-flex align-items-center gap-3">
                  <small class="text-muted d-none d-md-block"><i class="bi bi-info-circle"></i> <?= __('txt_arrast_meta') ?></small>
                  <div class="form-check form-switch m-0">
-                     <input class="form-check-input pref-track" type="checkbox" id="engineToggle" onchange="document.getElementById('engineUI').classList.toggle('d-none', !this.checked)">
+                     <input class="form-check-input pref-track" style="cursor: pointer;" type="checkbox" id="engineToggle" onchange="document.getElementById('engineUI').classList.toggle('d-none', !this.checked)">
                  </div>
              </div>
          </div>
@@ -102,7 +102,7 @@
 					</select>
 					
 					<div class="form-check form-switch mt-1 ms-1">
-						<input class="form-check-input" type="checkbox" id="toggleSamplers" onchange="document.querySelectorAll('.adv-sampler').forEach(el => this.checked ? el.classList.remove('d-none') : el.classList.add('d-none'))">
+						<input class="form-check-input" style="cursor: pointer;" type="checkbox" id="toggleSamplers" onchange="document.querySelectorAll('.adv-sampler').forEach(el => this.checked ? el.classList.remove('d-none') : el.classList.add('d-none'))">
 						<label class="form-check-label text-secondary" style="font-size: 0.70rem;" for="toggleSamplers"><?= __('lbl_show_all') ?></label>
 					</div>
 				</div>
@@ -125,7 +125,7 @@
 					</select>
 					
 					<div class="form-check form-switch mt-1 ms-1">
-						<input class="form-check-input" type="checkbox" id="toggleSchedulers" onchange="document.querySelectorAll('.adv-scheduler').forEach(el => this.checked ? el.classList.remove('d-none') : el.classList.add('d-none'))">
+						<input class="form-check-input" style="cursor: pointer;" type="checkbox" id="toggleSchedulers" onchange="document.querySelectorAll('.adv-scheduler').forEach(el => this.checked ? el.classList.remove('d-none') : el.classList.add('d-none'))">
 						<label class="form-check-label text-secondary" style="font-size: 0.70rem;" for="toggleSchedulers"><?= __('lbl_show_all') ?></label>
 					</div>
 				</div>
@@ -138,7 +138,7 @@
 				<div class="col-md-4 mb-2">
 					<label class="small text-secondary fw-bold mb-1 opacity-0 d-none d-md-block"><?= __('vid_space') ?></label>
 					<div class="form-check form-switch mt-1">
-						<input class="form-check-input pref-track border-secondary" type="checkbox" id="dynThreshToggle">
+						<input class="form-check-input pref-track border-secondary" style="cursor: pointer;" type="checkbox" id="dynThreshToggle">
 						<label class="form-check-label small text-info fw-bold" for="dynThreshToggle">
 							<i class="bi bi-speedometer"></i> <?= __('vid_dyn_thresh') ?>
 						</label>
