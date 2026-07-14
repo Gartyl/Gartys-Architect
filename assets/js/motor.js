@@ -1105,6 +1105,10 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
         if (toggleDDColor.checked) {
             const ddModel = document.getElementById('ddcolor_model');
             if (ddModel) fd.append('ddcolor_model', ddModel.value);
+            
+            // NUEVO: Capturar si es modo puro
+            const pureDDColorToggle = document.getElementById('pureDDColorToggle');
+            if (pureDDColorToggle && pureDDColorToggle.checked) fd.append('pure_ddcolor', 'true');
         }
     }
 
@@ -1794,11 +1798,11 @@ async function runGpu(mode = 'directo') {
     // Comprobamos si el Upscaler está encendido
     const isUpscaleOn = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked;
 
-   // Añadimos isUpscaleOn y toggleDDColor a la lista de "Modos Puros" que no necesitan prompt
+    // Añadimos pureDDColorToggle a la lista de "Modos Puros" que no necesitan prompt
     const isPureMode = (document.getElementById('pureFaceSwapToggle') && document.getElementById('pureFaceSwapToggle').checked) || 
                        (document.getElementById('pureRembgToggle') && document.getElementById('pureRembgToggle').checked) ||
                        (document.getElementById('pureAdetailerToggle') && document.getElementById('pureAdetailerToggle').checked) ||
-                       (document.getElementById('toggleDDColor') && document.getElementById('toggleDDColor').checked) ||
+                       (document.getElementById('pureDDColorToggle') && document.getElementById('pureDDColorToggle').checked) ||
                        isUpscaleOn;
 
     const isModoDirecto = document.getElementById('modoDirectoToggle') && document.getElementById('modoDirectoToggle').checked;
