@@ -122,6 +122,8 @@ return [
 	'opt_ddcolor_art' => "DDColor Artístic (Alta Qualitat)",
 	'opt_ddcolor_tiny' => "DDColor Tiny (Ultra Ràpid)",
 	'ctrl_ddcolor_puro' => "Mode Pur (DDColor)",
+	'ctrl_lama_remover' => "Esborrat Màgic (LaMa Remover)",
+	'btn_lama_borrar' => "🧹 Esborrar Selecció Directe",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Galeria",

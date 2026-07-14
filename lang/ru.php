@@ -122,6 +122,8 @@ return [
 	'opt_ddcolor_art' => "Художественный DDColor (Высокое качество)",
 	'opt_ddcolor_tiny' => "Крошечный DDColor (Сверхбыстрый)",
 	'ctrl_ddcolor_puro' => "Чистый режим (DDColor)",
+	'ctrl_lama_remover' => "Магическое удаление (LaMa Remover)",
+	'btn_lama_borrar' => "🧹 Удалить выбранное напрямую",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Галерея",

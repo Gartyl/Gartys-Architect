@@ -122,6 +122,8 @@ return [
 	'opt_ddcolor_art' => "Artistic DDColor (High Quality)",
 	'opt_ddcolor_tiny' => "Tiny DDColor (Ultra Fast)",
 	'ctrl_ddcolor_puro' => "Pure Mode (DDColor)",
+	'ctrl_lama_remover' => "Magic Eraser (LaMa Remover)",
+	'btn_lama_borrar' => "🧹 Erase Selection Directly",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Gallery",
