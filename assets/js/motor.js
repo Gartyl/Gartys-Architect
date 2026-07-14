@@ -122,112 +122,23 @@ function setBaseImageFromDataUrl(dataUrl) {
         const displayToolbar = canEdit ? 'flex' : 'none';
         const displayMask = canEdit ? 'block' : 'none';
         
+        // --- NUEVO LOGICA LIMPIA: Solo actualizamos la imagen y mostramos el panel PHP ---
         const imgPreviewContainer = document.getElementById('imgPreviewContainer');
-        imgPreviewContainer.innerHTML = `
-            <div style="position: relative; width: 100%;">
-                <div id="lienzoScroll" style="width: 100%; max-height: 65vh; overflow: auto; border-radius: 8px; background: #010409;" class="shadow border border-info">
-                    <div id="lienzoZoom" style="position: relative; display: block; width: 100%; transform-origin: top left; transition: width 0.1s ease-out;">
-                        <img id="imgPreview" src="${currentImageBase64}" onclick="if(typeof abrirVisor === 'function') abrirVisor(this.src)" style="display: block; width: 100%; height: auto; cursor: zoom-in;" title="${GartyLang.img_zoom_title}">
-                        <canvas id="maskCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.6; z-index: 10; touch-action: none; display: ${displayMask};"></canvas>
-                    </div>
-                </div>
-                <div id="lienzoZoomControls" style="position: absolute; top: 10px; right: 25px; z-index: 100; display: flex; flex-direction: column; gap: 8px; display: ${displayToolbar};">
-                    <button type="button" class="btn btn-dark border border-secondary shadow" style="border-radius: 50%; width: 36px; height: 36px; padding: 0; opacity: 0.9;" onclick="if(typeof zoomLienzo === 'function') zoomLienzo(30)" title="${GartyLang.img_zoom_in}"><i class="bi bi-zoom-in"></i></button>
-                    <button type="button" class="btn btn-dark border border-secondary shadow" style="border-radius: 50%; width: 36px; height: 36px; padding: 0; opacity: 0.9;" onclick="if(typeof zoomLienzo === 'function') zoomLienzo(-30)" title="${GartyLang.img_zoom_out}"><i class="bi bi-zoom-out"></i></button>
-                    <button type="button" class="btn btn-dark border border-secondary shadow" style="border-radius: 50%; width: 36px; height: 36px; padding: 0; opacity: 0.9;" onclick="if(typeof resetZoomLienzo === 'function') resetZoomLienzo()" title="${GartyLang.img_zoom_fit}"><i class="bi bi-arrows-collapse"></i></button>
-                    <button type="button" class="btn btn-info border border-secondary shadow mt-3" style="border-radius: 50%; width: 36px; height: 36px; padding: 0; opacity: 0.9; color: black;" onclick="if(typeof abrirVisor === 'function') abrirVisor(document.getElementById('imgPreview').src)" title="${GartyLang.img_zoom_full}"><i class="bi bi-arrows-fullscreen"></i></button>
-                </div>
-            </div>
-            
-            <div id="inpaintToolbar" class="mt-3 param-group shadow-sm border-info flex-column w-100" style="border-color: rgba(13, 202, 240, 0.4) !important; background: rgba(13, 202, 240, 0.05); display: ${displayToolbar};">
-                <div class="d-flex justify-content-between align-items-center w-100">
-                    <label class="small text-info fw-bold mb-0"><i class="bi bi-brush"></i> ${GartyLang.tit_inpaint} ${!isAvanzado ? '🔒 (Pro)' : ''}</label>
-                    <div class="form-check form-switch m-0">
-                        <input class="form-check-input pref-track" type="checkbox" id="editToolsToggle" onchange="document.getElementById('editToolsUI').classList.toggle('d-none', !this.checked); window.updateCursor();">
-                    </div>
-                </div>
-                <div id="editToolsUI" class="d-none mt-3 pt-3 w-100 border-top border-info" style="border-color: rgba(13, 202, 240, 0.2) !important;">
-                    <div class="p-2 bg-dark border border-secondary rounded flex-wrap align-items-center justify-content-between gap-2 d-flex">
-                        <div class="d-flex align-items-center flex-wrap gap-2">
-                            <div class="btn-group" role="group">
-                                <button type="button" class="btn btn-sm btn-danger" id="btnBrush" onclick="setBrushMode('paint')" title="${GartyLang.inp_brush_title}"><i class="bi bi-brush-fill"></i> ${GartyLang.btn_pincel}</button>
-                                <button type="button" class="btn btn-sm btn-outline-light" id="btnEraser" onclick="setBrushMode('erase')" title="${GartyLang.inp_eraser_title}"><i class="bi bi-eraser-fill"></i> ${GartyLang.btn_goma}</button>
-                            </div>
-                            <div class="d-flex align-items-center ms-2">
-                                <label class="text-secondary small fw-bold me-2 mb-0 d-none d-md-block">${GartyLang.ctrl_grosor}:</label>
-                                <input type="range" class="form-range" id="brushSize" min="10" max="250" value="40" style="width: 120px;" oninput="window.updateCursor()">
-                            </div>
-                        </div>
-                        <div class="btn-group">
-                            <button type="button" class="btn btn-sm btn-outline-warning" onclick="undoMask()" title="${GartyLang.inp_undo_title}"><i class="bi bi-arrow-counterclockwise"></i> ${GartyLang.btn_deshacer}</button>
-                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearMask()"><i class="bi bi-trash3-fill"></i> ${GartyLang.btn_limpiar}</button>
-                        </div>
-                        <div class="row mt-3 w-100" id="inpaint-advanced-controls">
-                            <div class="col-md-3">
-                                <label for="denoiseSlider" class="form-label text-info small fw-bold mb-1" title="${GartyLang.inp_denoise_title}"><i class="bi bi-magic"></i> ${GartyLang.tit_inp_fuerza}</label>
-                                <div class="d-flex align-items-center">
-                                    <input type="range" class="form-range flex-grow-1 me-2 pref-track" id="denoiseSlider" min="0.1" max="1.0" step="0.05" value="0.65" oninput="document.getElementById('denoiseVal').innerText = this.value">
-                                    <span id="denoiseVal" class="badge bg-secondary">0.65</span>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label for="maskBlur" class="form-label text-info small fw-bold mb-1"><i class="bi bi-droplet-half"></i> ${GartyLang.tit_inp_desen}</label>
-                                <div class="d-flex align-items-center">
-                                    <input type="range" class="form-range flex-grow-1 me-2" id="maskBlur" min="0" max="32" step="1" value="4" oninput="document.getElementById('maskBlurVal').innerText = this.value">
-                                    <span id="maskBlurVal" class="badge bg-secondary">4</span>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label for="inpaintFill" class="form-label text-info small fw-bold mb-1"><i class="bi bi-paint-bucket"></i> ${GartyLang.tit_inp_cont}</label>
-                                <select class="form-select form-select-sm bg-dark text-white border-secondary" id="inpaintFill">
-                                    <option value="original" selected>${GartyLang.inp_fill_orig}</option>
-                                    <option value="fill">${GartyLang.inp_fill_fill}</option>
-                                    <option value="latent_noise">${GartyLang.inp_fill_noise}</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label for="inpaintArea" class="form-label text-info small fw-bold mb-1"><i class="bi bi-aspect-ratio"></i> ${GartyLang.tit_inp_area}</label>
-                                <select class="form-select form-select-sm bg-dark text-white border-secondary" id="inpaintArea">
-                                    <option value="Whole Picture">${GartyLang.inp_area_whole}</option>
-                                    <option value="Only Masked" selected>${GartyLang.inp_area_mask}</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="outpaintToolbar" class="mt-2 p-2 bg-dark border border-secondary rounded flex-wrap align-items-center justify-content-between gap-2 d-flex">
-                        <div class="w-100 mb-2 d-flex justify-content-between align-items-center">
-                            <label class="text-info small fw-bold mb-0"><i class="bi bi-arrows-fullscreen"></i> ${GartyLang.tit_outpaint}</label>
-                            <span class="badge bg-secondary">${GartyLang.btn_pixeles}</span>
-                        </div>
-                        <div class="d-flex gap-2 w-100">
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text bg-secondary border-secondary text-light" title="${GartyLang.outp_top}"><i class="bi bi-arrow-up"></i></span>
-                                <input type="number" id="outTop" class="form-control bg-dark text-light border-secondary" value="0" min="0" step="64" max="2048">
-                            </div>
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text bg-secondary border-secondary text-light" title="${GartyLang.outp_bottom}"><i class="bi bi-arrow-down"></i></span>
-                                <input type="number" id="outBottom" class="form-control bg-dark text-light border-secondary" value="0" min="0" step="64" max="2048">
-                            </div>
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text bg-secondary border-secondary text-light" title="${GartyLang.outp_left}"><i class="bi bi-arrow-left"></i></span>
-                                <input type="number" id="outLeft" class="form-control bg-dark text-light border-secondary" value="0" min="0" step="64" max="2048">
-                            </div>
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text bg-secondary border-secondary text-light" title="${GartyLang.outp_right}"><i class="bi bi-arrow-right"></i></span>
-                                <input type="number" id="outRight" class="form-control bg-dark text-light border-secondary" value="0" min="0" step="64" max="2048">
-                            </div>
-                        </div> 
-                    </div> 
-                    <div class="img2img-hint mt-3 mb-1">
-                        <i class="bi bi-magic text-info me-2"></i> <b>${GartyLang.txt_edic_acti}:</b> ${GartyLang.txt_inpa_txt}
-                    </div>
-                </div> 
-            </div> 
-        `;
-        imgPreviewContainer.style.display = 'block'; 
+        const visorContainer = document.getElementById('visorEdicionContainer');
+        const imgPreview = document.getElementById('imgPreview');
+        
+        if (imgPreview) imgPreview.src = currentImageBase64;
+        if (visorContainer) visorContainer.style.display = 'block';
+        if (imgPreviewContainer) imgPreviewContainer.style.display = 'block';
+        
+        const zoomControls = document.getElementById('lienzoZoomControls');
+        if (zoomControls) zoomControls.style.display = displayToolbar;
+        // ----------------------------------------------------------------------------------
+
         currentDocumentText = ""; 
         
         maskCanvas = document.getElementById('maskCanvas');
+        maskCanvas.style.display = displayMask; // Aseguramos mostrar/ocultar el canvas según permisos
         maskCanvas.width = width; 
         maskCanvas.height = height;
         maskCtx = maskCanvas.getContext('2d');
@@ -1111,6 +1022,12 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
             if (pureDDColorToggle && pureDDColorToggle.checked) fd.append('pure_ddcolor', 'true');
         }
     }
+	
+	// LaMa Remover (Borrado Mágico)
+    const toggleLama = document.getElementById('toggleLamaMode');
+    if (toggleLama && toggleLama.checked) {
+        fd.append('lama_enabled', 'true');
+    }
 
     // IP-Adapter
     const ipAdapterToggle = document.getElementById('ipAdapterToggle');
@@ -1798,11 +1715,12 @@ async function runGpu(mode = 'directo') {
     // Comprobamos si el Upscaler está encendido
     const isUpscaleOn = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked;
 
-    // Añadimos pureDDColorToggle a la lista de "Modos Puros" que no necesitan prompt
+    // Añadimos toggleLamaMode a la lista de "Modos Puros" que no necesitan prompt
     const isPureMode = (document.getElementById('pureFaceSwapToggle') && document.getElementById('pureFaceSwapToggle').checked) || 
                        (document.getElementById('pureRembgToggle') && document.getElementById('pureRembgToggle').checked) ||
                        (document.getElementById('pureAdetailerToggle') && document.getElementById('pureAdetailerToggle').checked) ||
                        (document.getElementById('pureDDColorToggle') && document.getElementById('pureDDColorToggle').checked) ||
+                       (document.getElementById('toggleLamaMode') && document.getElementById('toggleLamaMode').checked) ||
                        isUpscaleOn;
 
     const isModoDirecto = document.getElementById('modoDirectoToggle') && document.getElementById('modoDirectoToggle').checked;
@@ -1995,6 +1913,13 @@ window.restaurarBotonesGpu = function() {
     if (selectorEl && typeof updateUIForSelector === 'function') {
         updateUIForSelector(selectorEl.value);
     }
+
+    // --- NUEVO: SI LAMA ESTÁ ACTIVADO, RESTAURAMOS SU BOTÓN ROJO ---
+    const isLama = document.getElementById('toggleLamaMode') && document.getElementById('toggleLamaMode').checked;
+    if (isLama && typeof toggleLamaUI === 'function') {
+        toggleLamaUI(true);
+    }
+    // ---------------------------------------------------------------
 };
 
 // --- DETENER BUCLE INFINITO (Suave - Deja terminar lo que está en la VRAM) ---
@@ -2628,3 +2553,36 @@ window.sincResVid = function() {
 window.desmarcarPropVid = function() { document.getElementById('video_aspect_ratio').selectedIndex = -1; };
 
 document.addEventListener('DOMContentLoaded', () => { sincRes(); sincResVid(); });
+
+// --- CONTROL DEL MODO BORRADO MÁGICO (LaMa Remover) ---
+function toggleLamaUI(isLama) {
+    // 1. Ocultar o mostrar los parámetros exclusivos de Inpaint
+    const inpaintParams = document.querySelectorAll('.inpaint-only-params');
+    inpaintParams.forEach(el => el.style.display = isLama ? 'none' : '');
+
+    // 2. Transformar el botón principal de renderizado GPU
+    const btnRender = document.getElementById('gpuDirectBtn') || document.getElementById('btnRenderGpu');
+    if (btnRender) {
+        if (isLama) {
+            btnRender.dataset.oldClass = btnRender.className;
+            btnRender.dataset.oldText = btnRender.innerHTML;
+            btnRender.className = 'btn flex-grow-1 text-light fw-bold shadow btn-danger';
+            btnRender.innerHTML = '<i class="bi bi-eraser-fill me-2"></i> 🧹 Borrar Selección Directo';
+        } else {
+            if (btnRender.dataset.oldClass) btnRender.className = btnRender.dataset.oldClass;
+            else btnRender.className = 'btn btn-gpu flex-grow-1 text-white fw-bold shadow';
+            
+            if (btnRender.dataset.oldText) btnRender.innerHTML = btnRender.dataset.oldText;
+            else btnRender.innerHTML = '<i class="bi bi-lightning-fill me-2"></i> ' + (GartyLang.btn_renderizar || 'Renderizar');
+        }
+    }
+
+    // 3. Por seguridad, apagar otros modos puros si se enciende LaMa
+    if (isLama) {
+        const ddPuro = document.getElementById('pureDDColorToggle');
+        if (ddPuro && ddPuro.checked) { ddPuro.checked = false; if(typeof toggleDDColorPuro === 'function') toggleDDColorPuro(false); }
+        
+        const rembgPuro = document.getElementById('pureRembgToggle') || document.getElementById('rembgToggle');
+        if (rembgPuro && rembgPuro.checked) { rembgPuro.checked = false; if(typeof toggleRembgPuro === 'function') toggleRembgPuro(false); }
+    }
+}
