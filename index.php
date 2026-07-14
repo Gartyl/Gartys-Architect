@@ -109,11 +109,16 @@
                         
                         <!-- 5.8. COLOREADO NEURAL (DDColor) -->
                             <?php include 'includes/components/panel_ddcolor.php'; ?>
-						
-						<!-- ======================================================= -->
-						<!-- 6. BOTONES DE CARGA Y WILDCARDS -->
-						<!-- ======================================================= -->
-						<?php include 'includes/components/panel_control.php'; ?>
+                        
+                        <!-- 5.9. LIENZO Y EDICIÓN AVANZADA (Inpaint / Outpaint / LaMa) -->
+                            <div id="imgPreviewContainer" style="display: none;">
+                                <?php include 'includes/components/panel_inpaint.php'; ?>
+                            </div>
+                        
+                        <!-- ======================================================= -->
+                        <!-- 6. BOTONES DE CARGA Y WILDCARDS -->
+                        <!-- ======================================================= -->
+                        <?php include 'includes/components/panel_control.php'; ?>
 						
                     </form>
                     
