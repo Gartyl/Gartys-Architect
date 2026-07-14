@@ -289,7 +289,8 @@ if ($action === 'generar_imagen') {
     
     // --- NUEVO: COLOREADO NEURAL (DDColor) ---
     $ddcolor_enabled = isset($_POST['ddcolor_enabled']) && ($_POST['ddcolor_enabled'] === '1' || $_POST['ddcolor_enabled'] === 'true' || $_POST['ddcolor_enabled'] === 'on');
-    $ddcolor_model = $_POST['ddcolor_model'] ?? 'ddcolor_model.pth';
+    $ddcolor_model = $_POST['ddcolor_model'] ?? 'ddcolor_artistic.pth';
+    $pure_ddcolor = filter_var($_POST['pure_ddcolor'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
     // -----------------------------------------
 
     $dynamic_thresholding = filter_var($_POST['dynamic_thresholding'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
@@ -942,7 +943,7 @@ if ($action === 'generar_imagen') {
     // ==============================================================================
     // --- NUEVO: TUBERÍA EXCLUSIVA MODO PURO COLOREADO (DDColor) ---
     // ==============================================================================
-    if ($ddcolor_enabled && !empty($init_image_base64)) {
+    if ($ddcolor_enabled && $pure_ddcolor && !empty($init_image_base64)) {
         // 1. Subimos la imagen en B/N al servidor temporal de ComfyUI
         $tmp_dd = sys_get_temp_dir() . '/init_dd_' . uniqid() . '.png';
         file_put_contents($tmp_dd, base64_decode($init_image_base64));
@@ -1791,6 +1792,19 @@ if ($action === 'generar_imagen') {
             "class_type" => "Image Rembg (Remove Background)"
         ];
         $current_image_node = "500";
+    }
+
+    // --- FASE 8: DDCOLOR INTEGRADO (CON PROMPT) ---
+    if ($ddcolor_enabled && !$pure_ddcolor) {
+        $workflow["501"] = [
+            "inputs" => [
+                "image" => [$current_image_node, 0],
+                "model_input_size" => 512,
+                "checkpoint" => $ddcolor_model 
+            ], 
+            "class_type" => "DDColor_Colorize" 
+        ];
+        $current_image_node = "501";
     }
 
     if (!$is_video_mode) {
