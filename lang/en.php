@@ -68,7 +68,7 @@ return [
     'tit_reac_restau' => "Restoration",
     'tit_reac_fgen' => "Gender Filter",
     'tit_reac_detec' => "Detector",
-    'tit_adetailer'  => "Face Restorer (ADetailer)",
+    'tit_adetailer'  => "FACE RESTORER (ADetailer)",
     'txt_ad_hint'    => "* Use 0.25 or 0.30 to preserve LoRA likeness.",
     'tit_presets' => "PERSONAL PRESETS AND STYLES",
     'tit_presets_global' => "GLOBAL STYLES (CUMULATIVE)",
@@ -114,6 +114,13 @@ return [
 	'ctrl_ad_pure_mode' => 'Pure Mode (Faces Only)',
 	'txt_ad_pure_hint' => 'Restores faces on the uploaded photo without altering anything else.',
 	'btn_apply_adetailer' => 'Direct Face Restore',
+	'tit_ddcolor' => 'NEURAL COLORIZATION (DDColor)',
+	'desc_ddcolor' => 'Automatically add realistic color to old photos, images, or B&W sketches using AI.',
+	'err_pro_ddcolor' => 'Neural colorization is exclusive to PRO users.',
+	'err_ddcolor_upload' => 'Error uploading the image for neural colorization.',
+	'lbl_ddcolor_model' => 'Color Model',
+	'opt_ddcolor_art' => 'Artistic DDColor (High Quality)',
+	'opt_ddcolor_tiny' => 'Tiny DDColor (Ultra Fast)',
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Gallery",

@@ -68,7 +68,7 @@ return [
     'tit_reac_restau' => "Restauración",
     'tit_reac_fgen' => "Filtro Género",
     'tit_reac_detec' => "Detector",
-    'tit_adetailer'  => "Reparador de Rostros (ADetailer)",
+    'tit_adetailer'  => "REPARADOR DE ROSTROS (ADetailer)",
     'txt_ad_hint'    => "* Usa 0.25 o 0.30 para mantener el parecido de los LoRAs.",
     'tit_presets' => "ESTILOS Y PRESETS PERSONALES",
     'tit_presets_global' => "ESTILOS GLOBALES (ACUMULABLES)",
@@ -114,6 +114,13 @@ return [
 	'ctrl_ad_pure_mode' => 'Modo Puro (Solo Rostros)',
 	'txt_ad_pure_hint' => 'Restaura rostros en la foto cargada sin modificar nada más.',
 	'btn_apply_adetailer' => 'Restaurar Rostros Directo',
+	'tit_ddcolor' => 'COLOREADO NEURAL (DDColor)',
+	'desc_ddcolor' => 'Colorea automáticamente fotos antiguas, imágenes o bocetos en blanco y negro con inteligencia artificial.',
+	'err_pro_ddcolor' => 'El coloreado neural es exclusivo para usuarios PRO.',
+	'err_ddcolor_upload' => 'Error al subir la imagen para el coloreado neural.',
+	'lbl_ddcolor_model' => 'Modelo de Color',
+	'opt_ddcolor_art' => 'DDColor Artístico (Alta Calidad)',
+	'opt_ddcolor_tiny' => 'DDColor Tiny (Ultra Rápido)',
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Galería",

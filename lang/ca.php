@@ -114,6 +114,13 @@ return [
 	'ctrl_ad_pure_mode' => 'Modus Pur (Només Rostres)',
 	'txt_ad_pure_hint' => 'Restaura rostres a la foto carregada sense modificar res més.',
 	'btn_apply_adetailer' => 'Restaurar Rostres Directe',
+	'tit_ddcolor' => 'ACOLORIMENT NEURAL (DDColor)',
+	'desc_ddcolor' => 'Acoloreix automàticament fotos antigues, imatges o esbossos en blanc i negre amb intel·ligència artificial.',
+	'err_pro_ddcolor' => 'L\'acoloriment neural és exclusiu per a usuaris PRO.',
+	'err_ddcolor_upload' => 'Error en pujar la imatge per a l\'acoloriment neural.',
+	'lbl_ddcolor_model' => 'Model de Color',
+	'opt_ddcolor_art' => 'DDColor Artístic (Alta Qualitat)',
+	'opt_ddcolor_tiny' => 'DDColor Tiny (Ultra Ràpid)',
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Galeria",
