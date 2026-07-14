@@ -3,15 +3,15 @@
 // --- ESCÁNER DINÁMICO DE MODELOS PARA REACTOR ---
 // ==============================================================================
 
-$ruta_checkpoints = defined('COMFY_MODEL_PATH') ? rtrim(COMFY_MODEL_PATH, '/\\') : "F:/ComfyUI/ComfyUI/models/checkpoints";
-$base_models_dir = dirname($ruta_checkpoints); 
+$ruta_checkpoints = defined('COMFY_MODEL_PATH') && !empty(COMFY_MODEL_PATH) ? rtrim(COMFY_MODEL_PATH, '/\\') : "";
+$base_models_dir = !empty($ruta_checkpoints) ? dirname($ruta_checkpoints) : ""; 
 
 // 1. Escanear Modelos de Restauración (Estos SÍ admiten archivos físicos)
-$dir_facerestore = $base_models_dir . '/facerestore_models';
+$dir_facerestore = !empty($base_models_dir) ? $base_models_dir . '/facerestore_models' : "";
 $facerestore_options = '<option value="none">' . __('reac_rest_none') . '</option>';
 $facerestore_fallback = true;
 
-if (is_dir($dir_facerestore)) {
+if (!empty($dir_facerestore) && is_dir($dir_facerestore)) {
     $archivos_fr = array_diff(scandir($dir_facerestore), ['.', '..']);
     foreach ($archivos_fr as $archivo) {
         if (is_file($dir_facerestore . '/' . $archivo) && preg_match('/\.(pth|onnx|pt|bin)$/i', $archivo)) {
