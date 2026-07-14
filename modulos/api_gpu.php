@@ -90,6 +90,12 @@ if ($action === 'generar_imagen') {
             echo json_encode(['success' => false, 'error' => __('err_pro_adetailer')]);
             exit;
         }
+
+        // 7. Bloqueo de DDColor (Coloreado Neural) - NUEVO
+        if (isset($_POST['ddcolor_enabled']) && ($_POST['ddcolor_enabled'] === '1' || $_POST['ddcolor_enabled'] === 'true' || $_POST['ddcolor_enabled'] === 'on')) {
+            echo json_encode(['success' => false, 'error' => __('err_pro_ddcolor') ?? 'El coloreado neural es exclusivo para usuarios PRO.']);
+            exit;
+        }
     }
     // ====================================================================
     
@@ -281,6 +287,11 @@ if ($action === 'generar_imagen') {
     $remove_background = filter_var($_POST['remove_background'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
     $pure_rembg = filter_var($_POST['pure_rembg'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
     
+    // --- NUEVO: COLOREADO NEURAL (DDColor) ---
+    $ddcolor_enabled = isset($_POST['ddcolor_enabled']) && ($_POST['ddcolor_enabled'] === '1' || $_POST['ddcolor_enabled'] === 'true' || $_POST['ddcolor_enabled'] === 'on');
+    $ddcolor_model = $_POST['ddcolor_model'] ?? 'ddcolor_model.pth';
+    // -----------------------------------------
+
     $dynamic_thresholding = filter_var($_POST['dynamic_thresholding'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
     // ====================================================================
 
@@ -927,8 +938,59 @@ if ($action === 'generar_imagen') {
             exit();
         }
     }
-	
-	// ==============================================================================
+    
+    // ==============================================================================
+    // --- NUEVO: TUBERÍA EXCLUSIVA MODO PURO COLOREADO (DDColor) ---
+    // ==============================================================================
+    if ($ddcolor_enabled && !empty($init_image_base64)) {
+        // 1. Subimos la imagen en B/N al servidor temporal de ComfyUI
+        $tmp_dd = sys_get_temp_dir() . '/init_dd_' . uniqid() . '.png';
+        file_put_contents($tmp_dd, base64_decode($init_image_base64));
+        $cfile_dd = function_exists('curl_file_create') ? curl_file_create($tmp_dd, 'image/png', 'init_dd.png') : '@' . realpath($tmp_dd);
+        
+        $ch_up = curl_init(COMFY_URL . '/upload/image');
+        curl_setopt($ch_up, CURLOPT_POST, true); 
+        curl_setopt($ch_up, CURLOPT_POSTFIELDS, ['image' => $cfile_dd]); 
+        curl_setopt($ch_up, CURLOPT_RETURNTRANSFER, true);
+        $res_up = json_decode(curl_exec($ch_up), true); 
+        @unlink($tmp_dd);
+
+        if (isset($res_up['name'])) {
+            // 2. Cargamos la imagen en el nodo de entrada
+            $workflow["10"] = [
+                "inputs" => ["image" => $res_up['name'], "upload" => "image"], 
+                "class_type" => "LoadImage"
+            ];
+
+            // 3. Aplicamos el modelo neural DDColor (Sintaxis exacta de tu nodo)
+            $workflow["501"] = [
+                "inputs" => [
+                    "image" => ["10", 0],
+                    "model_input_size" => 512,
+                    "checkpoint" => $ddcolor_model 
+                ], 
+                "class_type" => "DDColor_Colorize" 
+            ];
+
+            // 4. Salida directa al visor
+            $workflow["9"] = [
+                "inputs" => [
+                    "filename_prefix" => "byGarty_DDColor", 
+                    "images" => ["501", 0]
+                ], 
+                "class_type" => "SaveImage" 
+            ];
+            
+            // Bypass total del KSampler, vamos directos a la ejecución
+            goto EJECUTAR_COMFYUI; 
+        } else {
+            echo json_encode(['error' => __('err_ddcolor_upload') ?? 'Error subiendo la imagen para colorear.']);
+            exit();
+        }
+    }
+    // ==============================================================================
+
+    // ==============================================================================
     // --- TUBERÍA EXCLUSIVA: MODO PURO ADETAILER (RESTAURACIÓN DE ROSTROS) ---
     // ==============================================================================
     $pure_adetailer = filter_var($_POST['pure_adetailer'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
@@ -1959,6 +2021,7 @@ if ($action === 'generar_imagen') {
     if ($ipadapter_enabled === 'true' && !empty($ipadapter_image_base64)) $meta_json_array['IP-Adapter'] = __('lbl_activated'); 
     if ($controlnet_enabled === 'true' && !empty($controlnet_model)) $meta_json_array['ControlNet'] = basename($controlnet_model);
     if ($remove_background) $meta_json_array['Fondo Transparente'] = __('lbl_activated') . ' (Rembg)';
+	if ($ddcolor_enabled) $meta_json_array['Coloreado Neural'] = __('lbl_activated') . ' (DDColor: ' . basename($ddcolor_model) . ')';
 
     $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
 
@@ -2110,6 +2173,9 @@ if ($action === 'generar_imagen') {
         }
         if ($remove_background) {
             $meta_json_array['Fondo Transparente'] = __('lbl_activated') . ' (Rembg)';
+        }
+		if ($ddcolor_enabled) {
+            $meta_json_array['Coloreado Neural'] = __('lbl_activated') . ' (DDColor: ' . basename($ddcolor_model) . ')';
         }
 
         $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
