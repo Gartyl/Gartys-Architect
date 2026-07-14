@@ -105,7 +105,10 @@
 							<?php include 'includes/components/panel_upscaler.php'; ?>
                       
                         <!-- 5.7. ELIMINAR FONDO -->
-							<?php include 'includes/components/panel_rembg.php'; ?>	
+                            <?php include 'includes/components/panel_rembg.php'; ?>     
+                        
+                        <!-- 5.8. COLOREADO NEURAL (DDColor) -->
+                            <?php include 'includes/components/panel_ddcolor.php'; ?>
 						
 						<!-- ======================================================= -->
 						<!-- 6. BOTONES DE CARGA Y WILDCARDS -->
