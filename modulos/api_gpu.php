@@ -3,12 +3,18 @@
 // --- HELPER: ESCÁNER FÍSICO DE CABECERAS .SAFETENSORS (2 milisegundos) ---
 // ==============================================================================
 function modeloTieneClipIntegrado($nombre_archivo) {
-    // Ruta física a tu carpeta de checkpoints en el servidor local
-    $ruta_base = defined('COMFY_MODEL_PATH') ? COMFY_MODEL_PATH : "F:/ComfyUI/ComfyUI/models/checkpoints/";
+    // Para distribución, dependemos exclusivamente de la constante configurada por el usuario
+    $ruta_base = defined('COMFY_MODEL_PATH') ? COMFY_MODEL_PATH : "";
+    
+    // Si el usuario no ha configurado la ruta física en el init.php, salimos con fallback optimista
+    if (empty($ruta_base)) {
+        return true; 
+    }
+
     $ruta_completa = rtrim($ruta_base, '/\\') . '/' . ltrim($nombre_archivo, '/\\');
 
     if (!file_exists($ruta_completa)) {
-        return true; // Fallback optimista si no encuentra la ruta exacta
+        return true; // Fallback optimista si no encuentra el archivo exacto
     }
 
     $f = @fopen($ruta_completa, 'rb');
@@ -291,6 +297,9 @@ if ($action === 'generar_imagen') {
     $ddcolor_enabled = isset($_POST['ddcolor_enabled']) && ($_POST['ddcolor_enabled'] === '1' || $_POST['ddcolor_enabled'] === 'true' || $_POST['ddcolor_enabled'] === 'on');
     $ddcolor_model = $_POST['ddcolor_model'] ?? 'ddcolor_artistic.pth';
     $pure_ddcolor = filter_var($_POST['pure_ddcolor'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+	
+	// --- NUEVO: BORRADO MÁGICO (LaMa) ---
+    $lama_enabled = filter_var($_POST['lama_enabled'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
     // -----------------------------------------
 
     $dynamic_thresholding = filter_var($_POST['dynamic_thresholding'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
@@ -989,7 +998,76 @@ if ($action === 'generar_imagen') {
             exit();
         }
     }
+    
+	// ==============================================================================
+    // --- NUEVO: TUBERÍA EXCLUSIVA BORRADO MÁGICO (LaMa Remover - Faxuan Cai) ---
     // ==============================================================================
+    if ($lama_enabled && !empty($_POST['init_image']) && !empty($_POST['mask_data'])) {
+        
+        // 0.1 SUBIR IMAGEN BASE A LA API DE COMFYUI
+        $tmp_img = sys_get_temp_dir() . '/lama_init_' . uniqid() . '.png';
+        file_put_contents($tmp_img, base64_decode($_POST['init_image']));
+        $cfile_img = function_exists('curl_file_create') ? curl_file_create($tmp_img, 'image/png', 'lama_init.png') : '@' . realpath($tmp_img);
+        
+        $ch_img = curl_init(COMFY_URL . '/upload/image');
+        curl_setopt($ch_img, CURLOPT_POST, true); 
+        curl_setopt($ch_img, CURLOPT_POSTFIELDS, ['image' => $cfile_img]); 
+        curl_setopt($ch_img, CURLOPT_RETURNTRANSFER, true);
+        $res_img = json_decode(curl_exec($ch_img), true); 
+        @unlink($tmp_img);
+
+        // 0.2 SUBIR MÁSCARA ROJA A LA API DE COMFYUI
+        $tmp_mask = sys_get_temp_dir() . '/lama_mask_' . uniqid() . '.png';
+        file_put_contents($tmp_mask, base64_decode($_POST['mask_data']));
+        $cfile_mask = function_exists('curl_file_create') ? curl_file_create($tmp_mask, 'image/png', 'lama_mask.png') : '@' . realpath($tmp_mask);
+        
+        $ch_mask = curl_init(COMFY_URL . '/upload/image');
+        curl_setopt($ch_mask, CURLOPT_POST, true); 
+        curl_setopt($ch_mask, CURLOPT_POSTFIELDS, ['image' => $cfile_mask]); 
+        curl_setopt($ch_mask, CURLOPT_RETURNTRANSFER, true);
+        $res_mask = json_decode(curl_exec($ch_mask), true); 
+        @unlink($tmp_mask);
+
+        // Si ComfyUI nos devuelve el OK de que ha recibido las imágenes
+        if (isset($res_img['name']) && isset($res_mask['name'])) {
+            
+            // 1. Cargar imagen base devuelta por la API (Nodo 10)
+            $workflow["10"] = [
+                "inputs" => ["image" => $res_img['name'], "upload" => "image"], 
+                "class_type" => "LoadImage"
+            ];
+            
+            // 2. Cargar máscara roja devuelta por la API (Nodo 11)
+            $workflow["11"] = [
+                "inputs" => ["image" => $res_mask['name'], "channel" => "red"], 
+                "class_type" => "LoadImageMask"
+            ];
+
+            // 3. Nodo neural de borrado mágico LaMa (Sintaxis Faxuan Cai)
+            $workflow["502"] = [
+                "inputs" => [
+                    "images" => ["10", 0],
+                    "masks" => ["11", 0],
+                    "invert_mask" => false,
+                    "mask_threshold" => 0,
+                    "gaussblur_radius" => intval($_POST['mask_blur'] ?? 4)
+                ],
+                "class_type" => "LamaRemover"
+            ];
+
+            // 4. Salida directa al visor (Preview)
+            $workflow["9"] = [
+                "inputs" => ["images" => ["502", 0]],
+                "class_type" => "PreviewImage"
+            ];
+
+            goto EJECUTAR_COMFYUI;
+            
+        } else {
+            echo json_encode(['error' => __('err_lama_upload') ?? 'Error al transferir las imágenes a la GPU para el Borrado Mágico.']);
+            exit();
+        }
+    }
 
     // ==============================================================================
     // --- TUBERÍA EXCLUSIVA: MODO PURO ADETAILER (RESTAURACIÓN DE ROSTROS) ---
