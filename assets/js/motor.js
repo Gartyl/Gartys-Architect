@@ -590,6 +590,51 @@ function toggleAdetailerPuro(activo) {
     }, 100);
 }
 
+function toggleDDColorPuro(activo) {
+    setTimeout(() => {
+        const inputPrompt = document.getElementById('descripcion'); const btnArquitecto = document.getElementById('submitBtn'); 
+        const btnAmplify = document.getElementById('amplifyBtn'); const btnSurprise = document.getElementById('surpriseBtn'); 
+        const btnDirecto = document.getElementById('gpuDirectBtn'); const resultsArea = document.getElementById('results'); 
+        const translateToggle = document.getElementById('translateToggleBlock'); 
+
+        // Si activamos colorear, apagamos Rembg por seguridad
+        if (activo) {
+            const rembg = document.getElementById('pureRembgToggle') || document.getElementById('rembgToggle');
+            if (rembg && rembg.checked) { rembg.checked = false; rembg.dispatchEvent(new Event('change')); }
+        }
+
+        if (activo) {
+            if (inputPrompt) { inputPrompt.dataset.oldValue = inputPrompt.value; inputPrompt.value = ''; inputPrompt.style.setProperty('display', 'none', 'important'); }
+            if (btnArquitecto) btnArquitecto.style.setProperty('display', 'none', 'important');
+            if (btnAmplify) btnAmplify.style.setProperty('display', 'none', 'important');
+            if (btnSurprise) btnSurprise.style.setProperty('display', 'none', 'important');
+            if (translateToggle) translateToggle.classList.add('d-none'); if (resultsArea) resultsArea.classList.add('d-none');
+            if (btnDirecto) {
+                btnDirecto.classList.remove('d-none'); btnDirecto.style.setProperty('display', 'inline-block', 'important');
+                btnDirecto.dataset.oldText = btnDirecto.innerHTML;
+                btnDirecto.innerHTML = '<i class="bi bi-palette-fill"></i> Colorear Directo';
+                btnDirecto.className = 'btn flex-grow-1 text-light fw-bold shadow btn-danger';
+            }
+        } else {
+            if (inputPrompt) {
+                const selCurrent = document.getElementById('selector') ? document.getElementById('selector').value : '';
+                if (selCurrent !== '[VISION]') inputPrompt.style.setProperty('display', 'block', 'important');
+                if (inputPrompt.dataset.oldValue !== undefined) { inputPrompt.value = inputPrompt.dataset.oldValue; delete inputPrompt.dataset.oldValue; }
+            }
+            if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
+            if (btnAmplify) btnAmplify.style.setProperty('display', 'inline-block', 'important');
+            if (btnSurprise) btnSurprise.style.setProperty('display', 'inline-block', 'important');
+            if (btnDirecto) {
+                btnDirecto.innerHTML = btnDirecto.dataset.oldText || '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
+                btnDirecto.className = 'btn btn-gpu flex-grow-1 text-white fw-bold shadow';
+                const sel = document.getElementById('selector').value;
+                if (['[CHAT]', '[VISION]', '[LLM]'].includes(sel)) { btnDirecto.classList.add('d-none'); if (translateToggle) translateToggle.classList.toggle('d-none', sel !== '[LLM]'); } 
+                else { btnDirecto.classList.remove('d-none'); if (translateToggle) translateToggle.classList.remove('d-none'); }
+            }
+        }
+    }, 100);
+}
+
 const mainImageInput = document.getElementById('imageInput');
 if (mainImageInput) {
     mainImageInput.onchange = () => {
@@ -830,6 +875,12 @@ function updateUIForSelector(sel) {
         if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel) && isAvanzado) rembgBlock.style.display = 'block';
         else { rembgBlock.style.display = 'none'; const rembgToggle = document.getElementById('rembgToggle'); if (rembgToggle) rembgToggle.checked = false; }
     }
+	
+	const ddcolorBlock = document.getElementById('ddcolorBlock');
+    if (ddcolorBlock) {
+        if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel) && isAvanzado) ddcolorBlock.style.display = 'block';
+        else { ddcolorBlock.style.display = 'none'; const toggleDDColor = document.getElementById('toggleDDColor'); if (toggleDDColor) { toggleDDColor.checked = false; toggleDDColor.dispatchEvent(new Event('change')); } }
+    }
 
     const submitBtn = document.getElementById('submitBtn');
     if (submitBtn) { submitBtn.innerText = (sel === '[VISION]') ? GartyLang.btn_desc_imagen : (sel === '[CHAT]' ? GartyLang.btn_envimensaje : GartyLang.btn_arquitecto); }
@@ -881,6 +932,21 @@ function updateUIForSelector(sel) {
         const contenedorIdea = document.getElementById('contenedorIdea'); 
         if(contenedorIdea) contenedorIdea.classList.remove('d-none');
     }
+	
+	// --- REAPLICAR MODO PURO TRAS EL RESETEO AL SUBIR IMÁGENES ---
+    setTimeout(() => {
+        const ddColor = document.getElementById('toggleDDColor');
+        if (ddColor && ddColor.checked && typeof toggleDDColorPuro === 'function') toggleDDColorPuro(true);
+        
+        const rembg = document.getElementById('pureRembgToggle') || document.getElementById('rembgToggle');
+        if (rembg && rembg.checked && typeof toggleRembgPuro === 'function') toggleRembgPuro(true);
+        
+        const faceSwap = document.getElementById('pureFaceSwapToggle');
+        if (faceSwap && faceSwap.checked && typeof toggleFaceSwapPuro === 'function') toggleFaceSwapPuro(true);
+        
+        const aDetailer = document.getElementById('pureAdetailerToggle');
+        if (aDetailer && aDetailer.checked && typeof toggleAdetailerPuro === 'function') toggleAdetailerPuro(true);
+    }, 150);
 }
 
 function clearResultsUI() {
@@ -1030,6 +1096,16 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
     if (rembgToggle && document.getElementById('rembgBlock').style.display !== 'none') {
         fd.append('remove_background', rembgToggle.checked);
         const pureRembgToggle = document.getElementById('pureRembgToggle'); if (pureRembgToggle && pureRembgToggle.checked) fd.append('pure_rembg', 'true');
+    }
+	
+	// DDColor (Coloreado Neural)
+    const toggleDDColor = document.getElementById('toggleDDColor');
+    if (toggleDDColor && document.getElementById('ddcolorBlock') && document.getElementById('ddcolorBlock').style.display !== 'none') {
+        fd.append('ddcolor_enabled', toggleDDColor.checked);
+        if (toggleDDColor.checked) {
+            const ddModel = document.getElementById('ddcolor_model');
+            if (ddModel) fd.append('ddcolor_model', ddModel.value);
+        }
     }
 
     // IP-Adapter
@@ -1718,10 +1794,11 @@ async function runGpu(mode = 'directo') {
     // Comprobamos si el Upscaler está encendido
     const isUpscaleOn = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked;
 
-    // Añadimos isUpscaleOn a la lista de "Modos Puros" que no necesitan prompt
+   // Añadimos isUpscaleOn y toggleDDColor a la lista de "Modos Puros" que no necesitan prompt
     const isPureMode = (document.getElementById('pureFaceSwapToggle') && document.getElementById('pureFaceSwapToggle').checked) || 
                        (document.getElementById('pureRembgToggle') && document.getElementById('pureRembgToggle').checked) ||
                        (document.getElementById('pureAdetailerToggle') && document.getElementById('pureAdetailerToggle').checked) ||
+                       (document.getElementById('toggleDDColor') && document.getElementById('toggleDDColor').checked) ||
                        isUpscaleOn;
 
     const isModoDirecto = document.getElementById('modoDirectoToggle') && document.getElementById('modoDirectoToggle').checked;
