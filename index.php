@@ -110,7 +110,10 @@
                         <!-- 5.8. COLOREADO NEURAL (DDColor) -->
                             <?php include 'includes/components/panel_ddcolor.php'; ?>
                         
-                        <!-- 5.9. LIENZO Y EDICIÓN AVANZADA (Inpaint / Outpaint / LaMa) -->
+                        <!-- 5.9. ILUMINACIÓN NEURAL (IC-Light) -->
+                            <?php include 'includes/components/panel_iclight.php'; ?>
+                        
+                        <!-- 5.10. LIENZO Y EDICIÓN AVANZADA (Inpaint / Outpaint / LaMa) -->
                             <div id="imgPreviewContainer" style="display: none;">
                                 <?php include 'includes/components/panel_inpaint.php'; ?>
                             </div>
