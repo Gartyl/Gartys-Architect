@@ -629,7 +629,7 @@ function stopProgressBar() {
     setTimeout(() => { const pc = document.getElementById('progressContainer'); if(pc) pc.classList.add('d-none'); if(pBar) pBar.style.width = '0%'; }, 1000);
 }
 
-// --- ACTUALIZACIÓN DE UI SEGÚN SELECTOR ---
+// --- ACTUALIZACIÓN DE UI SEGÚN SELECTOR - APAREIX O NO ---
 function updateUIForSelector(sel) {
     const modoDirectoToggle = document.getElementById('modoDirectoToggle');
     const modoDirectoWrapper = document.getElementById('modoDirectoWrapper');
@@ -726,7 +726,7 @@ function updateUIForSelector(sel) {
     if (manualResBlock) {
         manualResBlock.style.display = mostrarResolucionImagen ? 'block' : 'none';
     }
-	
+    
     const estilosContainer = document.getElementById('estilosContainer'); if (estilosContainer) estilosContainer.style.display = (['[LLM]', '[VISION]', '[VIDEO]', '[CHAT]'].includes(sel)) ? 'none' : 'block';
     
     const presetBlock = document.getElementById('presetBlock');
@@ -749,7 +749,7 @@ function updateUIForSelector(sel) {
     });
 
     const denoiseBlock = document.getElementById('denoiseBlock'); if (denoiseBlock) denoiseBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VISION]'].includes(sel)) ? 'block' : 'none';
-    const batchBlock = document.getElementById('batchBlock'); if (batchBlock) batchBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel)) ? 'block' : 'none';
+    const batchBlock = document.getElementById('batchSize') ? document.getElementById('batchBlock') : null; if (batchBlock) batchBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel)) ? 'block' : 'none';
     
     const advBlock = document.getElementById('advancedSettingsBlock');
     if (advBlock) {
@@ -786,12 +786,24 @@ function updateUIForSelector(sel) {
         if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel) && isAvanzado) rembgBlock.style.display = 'block';
         else { rembgBlock.style.display = 'none'; const rembgToggle = document.getElementById('rembgToggle'); if (rembgToggle) rembgToggle.checked = false; }
     }
-	
-	const ddcolorBlock = document.getElementById('ddcolorBlock');
+    
+    const ddcolorBlock = document.getElementById('ddcolorBlock');
     if (ddcolorBlock) {
         if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel) && isAvanzado) ddcolorBlock.style.display = 'block';
         else { ddcolorBlock.style.display = 'none'; const toggleDDColor = document.getElementById('toggleDDColor'); if (toggleDDColor) { toggleDDColor.checked = false; toggleDDColor.dispatchEvent(new Event('change')); } }
     }
+
+    // --- NUEVO: Visibilidad y reseteo de IC-Light ---
+    const icLightBlock = document.getElementById('icLightBlock');
+    if (icLightBlock) {
+        if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel) && isAvanzado) icLightBlock.style.display = 'block';
+        else { 
+            icLightBlock.style.display = 'none'; 
+            const toggleIcLight = document.getElementById('iclight_enabled'); 
+            if (toggleIcLight && toggleIcLight.checked) { toggleIcLight.checked = false; if(typeof toggleIcLightUI === 'function') toggleIcLightUI(); } 
+        }
+    }
+    // ------------------------------------------------
 
     const submitBtn = document.getElementById('submitBtn');
     if (submitBtn) { submitBtn.innerText = (sel === '[VISION]') ? GartyLang.btn_desc_imagen : (sel === '[CHAT]' ? GartyLang.btn_envimensaje : GartyLang.btn_arquitecto); }
@@ -843,14 +855,14 @@ function updateUIForSelector(sel) {
         const contenedorIdea = document.getElementById('contenedorIdea'); 
         if(contenedorIdea) contenedorIdea.classList.remove('d-none');
     }
-	
-	// --- REAPLICAR MODO PURO TRAS EL RESETEO AL SUBIR IMÁGENES ---
+    
+    // --- REAPLICAR MODO PURO TRAS EL RESETEO AL SUBIR IMÁGENES ---
     setTimeout(() => {
-        const ddColor = document.getElementById('toggleDDColor');
-        if (ddColor && ddColor.checked && typeof toggleDDColorPuro === 'function') toggleDDColorPuro(true);
+        const ddColorPuro = document.getElementById('pureDDColorToggle');
+        if (ddColorPuro && ddColorPuro.checked && typeof toggleDDColorPuro === 'function') toggleDDColorPuro(true);
         
-        const rembg = document.getElementById('pureRembgToggle') || document.getElementById('rembgToggle');
-        if (rembg && rembg.checked && typeof toggleRembgPuro === 'function') toggleRembgPuro(true);
+        const rembgPuro = document.getElementById('pureRembgToggle');
+        if (rembgPuro && rembgPuro.checked && typeof toggleRembgPuro === 'function') toggleRembgPuro(true);
         
         const faceSwap = document.getElementById('pureFaceSwapToggle');
         if (faceSwap && faceSwap.checked && typeof toggleFaceSwapPuro === 'function') toggleFaceSwapPuro(true);
@@ -975,14 +987,14 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
     const batchSize = document.getElementById('batchSize'); if(batchSize) fd.append('batch_size', batchSize.value);
 
     // Hires Fix - UPSCALE
-	const hiresToggle = document.getElementById('hiresToggle');
-	if (hiresToggle && document.getElementById('hiresBlock').style.display !== 'none') {
-		fd.append('hires_fix', hiresToggle.checked);
-		if (hiresToggle.checked) {
-			fd.append('upscale_model', document.getElementById('upscaleModelSelector').value); 
-			fd.append('upscale_factor', document.getElementById('upscaleFactor').value);
-			
-			// --- NUEVO: DETECCIÓN DE UPSCALE PURO ---
+    const hiresToggle = document.getElementById('hiresToggle');
+    if (hiresToggle && document.getElementById('hiresBlock').style.display !== 'none') {
+        fd.append('hires_fix', hiresToggle.checked);
+        if (hiresToggle.checked) {
+            fd.append('upscale_model', document.getElementById('upscaleModelSelector').value); 
+            fd.append('upscale_factor', document.getElementById('upscaleFactor').value);
+            
+            // --- NUEVO: DETECCIÓN DE UPSCALE PURO ---
             // Miramos tanto la caja normal como el modo directo
             const isModoDirecto = document.getElementById('modoDirectoToggle') && document.getElementById('modoDirectoToggle').checked;
             const textoIdea = isModoDirecto 
@@ -992,15 +1004,15 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
             // CRÍTICO: Miramos la memoria interna de tu app, no el input HTML
             const hayImagen = (typeof currentImageBase64 !== 'undefined' && currentImageBase64 !== null) || 
                               (typeof compareImageA !== 'undefined' && compareImageA !== null);
-			
-			// Si no hay texto, pero hay imagen y el botón está encendido -> Upscale Puro
-			if (textoIdea === '' && hayImagen) {
-				fd.append('pure_upscale', 'true');
-			} else {
-				fd.append('pure_upscale', 'false');
-			}
-		}
-	}
+            
+            // Si no hay texto, pero hay imagen y el botón está encendido -> Upscale Puro
+            if (textoIdea === '' && hayImagen) {
+                fd.append('pure_upscale', 'true');
+            } else {
+                fd.append('pure_upscale', 'false');
+            }
+        }
+    }
         
     // Remove Background
     const rembgToggle = document.getElementById('rembgToggle');
@@ -1008,8 +1020,8 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
         fd.append('remove_background', rembgToggle.checked);
         const pureRembgToggle = document.getElementById('pureRembgToggle'); if (pureRembgToggle && pureRembgToggle.checked) fd.append('pure_rembg', 'true');
     }
-	
-	// DDColor (Coloreado Neural)
+    
+    // DDColor (Coloreado Neural)
     const toggleDDColor = document.getElementById('toggleDDColor');
     if (toggleDDColor && document.getElementById('ddcolorBlock') && document.getElementById('ddcolorBlock').style.display !== 'none') {
         fd.append('ddcolor_enabled', toggleDDColor.checked);
@@ -1022,8 +1034,22 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
             if (pureDDColorToggle && pureDDColorToggle.checked) fd.append('pure_ddcolor', 'true');
         }
     }
-	
-	// LaMa Remover (Borrado Mágico)
+    
+    // --- NUEVO: IC-Light (Relighting Neural) ---
+    const toggleIcLight = document.getElementById('iclight_enabled');
+    if (toggleIcLight && toggleIcLight.checked && document.getElementById('icLightBlock') && document.getElementById('icLightBlock').style.display !== 'none') {
+        fd.append('iclight_enabled', 'true');
+        const dirSelect = document.getElementById('iclight_direction');
+        const prInput = document.getElementById('iclight_prompt');
+        const multSlider = document.getElementById('iclight_multiplier'); // <-- NUEVO: Captura el deslizador
+        
+        if (dirSelect) fd.append('iclight_direction', dirSelect.value);
+        if (prInput && prInput.value.trim() !== '') fd.append('iclight_prompt', prInput.value.trim());
+        if (multSlider) fd.append('iclight_multiplier', multSlider.value); // <-- NUEVO: Lo inyecta al FormData
+    }
+    // -------------------------------------------
+    
+   // LaMa Remover (Borrado Mágico)
     const toggleLama = document.getElementById('toggleLamaMode');
     if (toggleLama && toggleLama.checked) {
         fd.append('lama_enabled', 'true');
@@ -1316,7 +1342,17 @@ document.getElementById('promptForm').onsubmit = async (e) => {
     const hasFile = currentImageBase64 !== null || currentDocumentText !== "";
     const isGraphical = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(selValue);
 
-    if (!idea && !hasFile) {
+    // --- CORRECCIÓN 1: Inclusión estricta SOLO de Modos Puros ---
+    const isPureModeForm = (document.getElementById('pureFaceSwapToggle') && document.getElementById('pureFaceSwapToggle').checked) ||
+                           (document.getElementById('pureRembgToggle') && document.getElementById('pureRembgToggle').checked) ||
+                           (document.getElementById('pureAdetailerToggle') && document.getElementById('pureAdetailerToggle').checked) ||
+                           (document.getElementById('pureDDColorToggle') && document.getElementById('pureDDColorToggle').checked) ||
+                           (document.getElementById('toggleLamaMode') && document.getElementById('toggleLamaMode').checked) ||
+                           (document.getElementById('iclight_enabled') && document.getElementById('iclight_enabled').checked) ||
+                           (document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked);
+
+    // Ahora la validación respeta si hay un modo puro activo para ignorar la idea vacía
+    if (!idea && !hasFile && !isPureModeForm) {
         if (isGraphical && hasPreset) {
             clearResultsUI(); lastGeneratedPrompt = { pos: "", neg: "" };
             const applied = getPromptsWithPresets("", "");
@@ -1715,12 +1751,13 @@ async function runGpu(mode = 'directo') {
     // Comprobamos si el Upscaler está encendido
     const isUpscaleOn = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked;
 
-    // Añadimos toggleLamaMode a la lista de "Modos Puros" que no necesitan prompt
+   // --- CORRECCIÓN 2: Inclusión estricta SOLO de Modos Puros en GPU ---
     const isPureMode = (document.getElementById('pureFaceSwapToggle') && document.getElementById('pureFaceSwapToggle').checked) || 
                        (document.getElementById('pureRembgToggle') && document.getElementById('pureRembgToggle').checked) ||
                        (document.getElementById('pureAdetailerToggle') && document.getElementById('pureAdetailerToggle').checked) ||
                        (document.getElementById('pureDDColorToggle') && document.getElementById('pureDDColorToggle').checked) ||
                        (document.getElementById('toggleLamaMode') && document.getElementById('toggleLamaMode').checked) ||
+                       (document.getElementById('iclight_enabled') && document.getElementById('iclight_enabled').checked) ||
                        isUpscaleOn;
 
     const isModoDirecto = document.getElementById('modoDirectoToggle') && document.getElementById('modoDirectoToggle').checked;
@@ -1894,7 +1931,7 @@ window.restaurarBotonesGpu = function() {
     const btnDirecto = document.getElementById('gpuDirectBtn');
     if (btnDirecto) {
         btnDirecto.innerHTML = '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
-        btnDirecto.classList.remove('btn-danger');
+        btnDirecto.classList.remove('btn-danger', 'btn-warning'); // Limpiamos rojo (LaMa) y naranja (IC-Light)
         btnDirecto.classList.add('btn-gpu');
         btnDirecto.disabled = false;
         btnDirecto.onclick = () => runGpu('directo');
@@ -1903,7 +1940,7 @@ window.restaurarBotonesGpu = function() {
     const btnArq = document.getElementById('gpuArquitectoBtn');
     if (btnArq) {
         btnArq.innerHTML = '<i class="bi bi-gpu-card"></i> ' + GartyLang.btn_rendprompt;
-        btnArq.classList.remove('btn-danger');
+        btnArq.classList.remove('btn-danger', 'btn-warning');
         btnArq.classList.add('btn-gpu');
         btnArq.disabled = false;
         btnArq.onclick = () => runGpu('arquitecto');
@@ -1918,6 +1955,12 @@ window.restaurarBotonesGpu = function() {
     const isLama = document.getElementById('toggleLamaMode') && document.getElementById('toggleLamaMode').checked;
     if (isLama && typeof toggleLamaUI === 'function') {
         toggleLamaUI(true);
+    }
+
+    // --- NUEVO: SI IC-LIGHT ESTÁ ACTIVADO, RESTAURAMOS SU BOTÓN NARANJA ---
+    const isIcLight = document.getElementById('iclight_enabled') && document.getElementById('iclight_enabled').checked;
+    if (isIcLight && typeof toggleIcLightUI === 'function') {
+        toggleIcLightUI();
     }
     // ---------------------------------------------------------------
 };
@@ -2584,5 +2627,49 @@ function toggleLamaUI(isLama) {
         
         const rembgPuro = document.getElementById('pureRembgToggle') || document.getElementById('rembgToggle');
         if (rembgPuro && rembgPuro.checked) { rembgPuro.checked = false; if(typeof toggleRembgPuro === 'function') toggleRembgPuro(false); }
+    }
+}
+
+// --- CONTROL DEL MODO ILUMINACIÓN NEURAL (IC-Light) ---
+function toggleIcLightUI() {
+    const toggle = document.getElementById('iclight_enabled');
+    const ui = document.getElementById('icLightUI');
+    if (!toggle || !ui) return;
+
+    const isIcLight = toggle.checked;
+
+    if (isIcLight) {
+        ui.classList.remove('d-none');
+    } else {
+        ui.classList.add('d-none');
+    }
+
+    // Apagamos otros modos contradictorios para evitar mezclas extrañas en VRAM
+    if (isIcLight) {
+        const ddPuro = document.getElementById('pureDDColorToggle');
+        if (ddPuro && ddPuro.checked) { ddPuro.checked = false; if(typeof toggleDDColorPuro === 'function') toggleDDColorPuro(false); }
+        
+        const rembgPuro = document.getElementById('pureRembgToggle') || document.getElementById('rembgToggle');
+        if (rembgPuro && rembgPuro.checked) { rembgPuro.checked = false; if(typeof toggleRembgPuro === 'function') toggleRembgPuro(false); }
+
+        const toggleLama = document.getElementById('toggleLamaMode');
+        if (toggleLama && toggleLama.checked) { toggleLama.checked = false; if(typeof toggleLamaUI === 'function') toggleLamaUI(false); }
+    }
+
+    // Transformamos el botón principal de renderizado GPU
+    const btnRender = document.getElementById('gpuDirectBtn') || document.getElementById('btnRenderGpu');
+    if (btnRender) {
+        if (isIcLight) {
+            btnRender.dataset.oldClass = btnRender.className;
+            btnRender.dataset.oldText = btnRender.innerHTML;
+            btnRender.className = 'btn flex-grow-1 text-dark fw-bold shadow btn-warning';
+            btnRender.innerHTML = '<i class="bi bi-lightbulb-fill me-2"></i> ' + (GartyLang.btn_apply_iclight || '💡 Iluminar Directo');
+        } else {
+            if (btnRender.dataset.oldClass) btnRender.className = btnRender.dataset.oldClass;
+            else btnRender.className = 'btn btn-gpu flex-grow-1 text-white fw-bold shadow';
+            
+            if (btnRender.dataset.oldText) btnRender.innerHTML = btnRender.dataset.oldText;
+            else btnRender.innerHTML = '<i class="bi bi-lightning-fill me-2"></i> ' + (GartyLang.btn_renderizar || 'Renderizar');
+        }
     }
 }
