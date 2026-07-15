@@ -994,18 +994,20 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
             fd.append('upscale_model', document.getElementById('upscaleModelSelector').value); 
             fd.append('upscale_factor', document.getElementById('upscaleFactor').value);
             
-            // --- NUEVO: DETECCIÓN DE UPSCALE PURO ---
-            // Miramos tanto la caja normal como el modo directo
+            // --- NUEVO: Capturar AuraSR ---
+            const auraToggle = document.getElementById('aurasrToggle');
+            if (auraToggle && auraToggle.checked) fd.append('aurasr_enabled', 'true');
+            // ------------------------------
+            
+            // Detección de Upscale Puro
             const isModoDirecto = document.getElementById('modoDirectoToggle') && document.getElementById('modoDirectoToggle').checked;
             const textoIdea = isModoDirecto 
                 ? (document.getElementById('posContent') ? document.getElementById('posContent').innerText.trim() : '') 
                 : (document.getElementById('descripcion') ? document.getElementById('descripcion').value.trim() : '');
             
-            // CRÍTICO: Miramos la memoria interna de tu app, no el input HTML
             const hayImagen = (typeof currentImageBase64 !== 'undefined' && currentImageBase64 !== null) || 
                               (typeof compareImageA !== 'undefined' && compareImageA !== null);
             
-            // Si no hay texto, pero hay imagen y el botón está encendido -> Upscale Puro
             if (textoIdea === '' && hayImagen) {
                 fd.append('pure_upscale', 'true');
             } else {
@@ -1362,6 +1364,19 @@ document.getElementById('promptForm').onsubmit = async (e) => {
             SwalDark.fire({ icon: 'warning', title: GartyLang.avis_idea1, text: GartyLang.avis_idea2, confirmButtonText: GartyLang.btn_entendido, confirmButtonColor: '#f39c12' }); return; 
         }
     }
+
+    // --- NUEVO AVISO SALVAVIDAS PARA UPSCALE PURO ---
+    const isUpscaleOn = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked;
+    if (hasFile && !idea && isUpscaleOn && !['[VISION]', '[CHAT]'].includes(selValue)) {
+        SwalDark.fire({
+            icon: 'info',
+            title: GartyLang.swal_pure_upscale_title || 'Modo Upscale Puro',
+            text: GartyLang.swal_pure_upscale_text || 'Para escalar la imagen que has subido, NO necesitas al Arquitecto. Pulsa directamente el botón de "Renderizar" (el del rayo).',
+            confirmButtonText: '<i class="bi bi-check2-circle"></i> ' + (GartyLang.btn_entendido || 'Entendido')
+        });
+        return;
+    }
+    // ------------------------------------------------
 
     if (selValue !== '[CHAT]') clearResultsUI(); 
     document.getElementById('submitBtn').disabled = true;
@@ -1811,7 +1826,7 @@ async function runGpu(mode = 'directo') {
     if (isIpAdapterOn && (!currentIpAdapterBase64 || currentIpAdapterBase64.indexOf(',') === -1)) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_ip_title, text: GartyLang.swal_ip_text}); buttonUsed.disabled = false; return; }
     const isControlNetOn = document.getElementById('controlNetToggle') && document.getElementById('controlNetToggle').checked;
     if (isControlNetOn && (!currentCnBase64 || currentCnBase64.indexOf(',') === -1)) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_cn_title, text: GartyLang.swal_cn_text}); buttonUsed.disabled = false; return; }
-    if (isPureMode && !currentImageBase64) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_pure_title, text: GartyLang.swal_pure_text}); buttonUsed.disabled = false; return; }
+    //if (isPureMode && !currentImageBase64) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_pure_title, text: GartyLang.swal_pure_text}); buttonUsed.disabled = false; return; }
 
     const originalBtnText = buttonUsed.innerHTML;
     // (Por si acaso falta la variable de idioma, le ponemos fallback)
