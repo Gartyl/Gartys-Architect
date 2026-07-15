@@ -124,6 +124,11 @@ return [
 	'ctrl_ddcolor_puro' => "Чистый режим (DDColor)",
 	'ctrl_lama_remover' => "Магическое удаление (LaMa Remover)",
 	'btn_lama_borrar' => "🧹 Удалить выбранное напрямую",
+	'aurasr_title' => "Движок AuraSR (GigaGAN)",
+	'aurasr_desc'  => "Переопределяет классическую модель и использует фотографический ИИ высокой точности.",
+	'err_upscale_upload' => "Ошибка связи при загрузке изображения для чистого Upscale. Пожалуйста, попробуйте снова.",
+	'swal_pure_upscale_title' => "Режим чистого Upscale",
+	'swal_pure_upscale_text' => "Чтобы увеличить загруженное изображение, вам НЕ нужен Архитектор. Нажмите сразу кнопку «Рендеринг» (с молнией).",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Галерея",

@@ -124,6 +124,11 @@ return [
 	'ctrl_ddcolor_puro' => "Mode Pur (DDColor)",
 	'ctrl_lama_remover' => "Esborrat Màgic (LaMa Remover)",
 	'btn_lama_borrar' => "🧹 Esborrar Selecció Directe",
+	'aurasr_title' => "Motor AuraSR (GigaGAN)",
+	'aurasr_desc'  => "Anul·la el model clàssic i utilitza IA fotogràfica d'alta fidelitat.",
+	'err_upscale_upload' => "Error de comunicació pujant la imatge per a l'Upscale pur. Intenta-ho de nou.",
+	'swal_pure_upscale_title' => "Mode Upscale Pur",
+	'swal_pure_upscale_text' => "Per a escalar la imatge que has pujat, NO necessites a l'Arquitecte. Prem directament el botó de 'Renderitzar' (el del llamp).",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Galeria",

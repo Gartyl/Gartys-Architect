@@ -124,6 +124,11 @@ return [
 	'ctrl_ddcolor_puro' => "Modo Puro (DDColor)",
 	'ctrl_lama_remover' => "Borrador Mágico (LaMa Remover)",
 	'btn_lama_borrar' => "🧹 Borrar Selección Directamente",
+	'aurasr_title' => "Motor AuraSR (GigaGAN)",
+	'aurasr_desc'  => "Anula el modelo clásico y usa IA fotográfica de alta fidelidad.",
+	'err_upscale_upload' => "Error de comunicación subiendo la imagen para el Upscale puro. Inténtalo de nuevo.",
+	'swal_pure_upscale_title' => "Modo Upscale Puro",
+	'swal_pure_upscale_text' => "Para escalar la imagen que has subido, NO necesitas al Arquitecto. Pulsa directamente el botón de 'Renderizar' (el del rayo).",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Galería",

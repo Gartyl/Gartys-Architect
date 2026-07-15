@@ -124,6 +124,11 @@ return [
 	'ctrl_ddcolor_puro' => "Pure Mode (DDColor)",
 	'ctrl_lama_remover' => "Magic Eraser (LaMa Remover)",
 	'btn_lama_borrar' => "🧹 Erase Selection Directly",
+	'aurasr_title' => "AuraSR Engine (GigaGAN)",
+	'aurasr_desc'  => "Overrides the classic model and uses high-fidelity photographic AI.",
+	'err_upscale_upload' => "Communication error uploading the image for pure Upscale. Please try again.",
+	'swal_pure_upscale_title' => "Pure Upscale Mode",
+	'swal_pure_upscale_text' => "To upscale the uploaded image, you DON'T need the Architect. Just press the 'Render' button (the lightning bolt) directly.",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Gallery",
