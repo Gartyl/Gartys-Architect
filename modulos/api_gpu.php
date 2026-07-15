@@ -102,6 +102,12 @@ if ($action === 'generar_imagen') {
             echo json_encode(['success' => false, 'error' => __('err_pro_ddcolor') ?? 'El coloreado neural es exclusivo para usuarios PRO.']);
             exit;
         }
+
+        // 8. Bloqueo de IC-Light (Iluminación Neural) - NUEVO
+        if (isset($_POST['iclight_enabled']) && ($_POST['iclight_enabled'] === '1' || $_POST['iclight_enabled'] === 'true' || $_POST['iclight_enabled'] === 'on')) {
+            echo json_encode(['success' => false, 'error' => __('err_pro_iclight') ?? 'La iluminación neural (IC-Light) es exclusiva para usuarios PRO.']);
+            exit;
+        }
     }
     // ====================================================================
     
@@ -297,6 +303,16 @@ if ($action === 'generar_imagen') {
     $ddcolor_enabled = isset($_POST['ddcolor_enabled']) && ($_POST['ddcolor_enabled'] === '1' || $_POST['ddcolor_enabled'] === 'true' || $_POST['ddcolor_enabled'] === 'on');
     $ddcolor_model = $_POST['ddcolor_model'] ?? 'ddcolor_artistic.pth';
     $pure_ddcolor = filter_var($_POST['pure_ddcolor'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+    
+    // --- NUEVO: ILUMINACIÓN NEURAL (IC-Light) ---
+    $iclight_enabled = isset($_POST['iclight_enabled']) && ($_POST['iclight_enabled'] === '1' || $_POST['iclight_enabled'] === 'true' || $_POST['iclight_enabled'] === 'on');
+    $iclight_direction = $_POST['iclight_direction'] ?? 'Left Light';
+    $iclight_prompt_panel = trim($_POST['iclight_prompt'] ?? '');
+    
+    // Bloqueo de seguridad contextual: si no es categoría fotográfica, anulamos IC-Light
+    if (in_array($selector, ['[VIDEO]', '[LLM]', '[CHANT]', '[VISION]'])) {
+        $iclight_enabled = false;
+    }
 	
 	// --- NUEVO: BORRADO MÁGICO (LaMa) ---
     $lama_enabled = filter_var($_POST['lama_enabled'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
@@ -1065,6 +1081,126 @@ if ($action === 'generar_imagen') {
             
         } else {
             echo json_encode(['error' => __('err_lama_upload') ?? 'Error al transferir las imágenes a la GPU para el Borrado Mágico.']);
+            exit();
+        }
+    }
+	
+	// ==============================================================================
+    // --- INTERCEPCIÓN: MODO ILUMINACIÓN NEURAL (IC-Light KIJAI - DEFINITIVO) ---
+    // ==============================================================================
+    if ($iclight_enabled && !empty($init_image_base64)) {
+        
+        // 1. Lógica de herencia para el prompt de luz
+        $prompt_iluminacion = !empty($iclight_prompt_panel) ? $iclight_prompt_panel : ($posPrompt ?? '');
+        if (empty(trim($prompt_iluminacion))) {
+            $prompt_iluminacion = "detailed cinematic lighting, realistic shadows, ambient illumination, 8k resolution, photorealistic";
+        }
+
+        $dir_limpia = strtolower(str_replace(' Light', '', $iclight_direction));
+        if ($dir_limpia === 'detail / ambient') $dir_limpia = 'ambient';
+        $prompt_iluminacion = "light from " . $dir_limpia . ", " . $prompt_iluminacion;
+
+        // 2. Subimos la imagen base a la API de ComfyUI
+        $tmp_ic = sys_get_temp_dir() . '/init_ic_' . uniqid() . '.png';
+        file_put_contents($tmp_ic, base64_decode($init_image_base64));
+        $cfile_ic = function_exists('curl_file_create') ? curl_file_create($tmp_ic, 'image/png', 'init_ic.png') : '@' . realpath($tmp_ic);
+        
+        $ch_up = curl_init(COMFY_URL . '/upload/image');
+        curl_setopt($ch_up, CURLOPT_POST, true); 
+        curl_setopt($ch_up, CURLOPT_POSTFIELDS, ['image' => $cfile_ic]); 
+        curl_setopt($ch_up, CURLOPT_RETURNTRANSFER, true);
+        $res_up = json_decode(curl_exec($ch_up), true); 
+        @unlink($tmp_ic);
+
+        if (isset($res_up['name'])) {
+            // 3. Cargamos la imagen subida en el nodo 10 (Formato IMAGE)
+            $workflow["10"] = [
+                "inputs" => ["image" => $res_up['name'], "upload" => "image"], 
+                "class_type" => "LoadImage"
+            ];
+
+            // 4. Cargamos tu modelo base SD1.5/SDXL seleccionado en la web (Nodo 4)
+            $workflow["4"] = [
+                "inputs" => ["ckpt_name" => $model_path], 
+                "class_type" => "CheckpointLoaderSimple"
+            ];
+
+            // 4.5. ¡NUEVO! Convertimos la imagen a LATENTE usando el VAE del modelo base
+            $workflow["10_latent"] = [
+                "inputs" => [
+                    "pixels" => ["10", 0],
+                    "vae" => ["4", 2]
+                ],
+                "class_type" => "VAEEncode"
+            ];
+
+            // 5. Cargador de UNET de Kijai (Corregido: usa "model_path" en vez de "model_name")
+            $ic_model_name = (strpos(strtolower($selector), 'sdxl') !== false) ? "iclight_sdxl_fc.safetensors" : "iclight_sd15_fc.safetensors"; 
+            $workflow["11"] = [
+                "inputs" => [
+                    "model" => ["4", 0], // UNET base del Checkpoint
+                    "model_path" => $ic_model_name // <-- CORREGIDO AQUÍ
+                ], 
+                "class_type" => "LoadAndApplyICLightUnet"
+            ];
+
+           // 6. Text Encoders (Usando el CLIP del modelo base: Nodo 4, salida 1)
+            $workflow["12"] = ["inputs" => ["text" => $prompt_iluminacion, "clip" => ["4", 1]], "class_type" => "CLIPTextEncode"];
+            $workflow["16"] = ["inputs" => ["text" => $neg_prompt, "clip" => ["4", 1]], "class_type" => "CLIPTextEncode"];
+
+            // 6.5. Captura de la fuerza de la luz (Multiplicador) desde el panel
+            $iclight_mult = isset($_POST['iclight_multiplier']) ? floatval($_POST['iclight_multiplier']) : 0.18;
+
+            // 7. El Nodo Mágico de Kijai: IC-Light Conditioning
+            $workflow["17"] = [
+                "inputs" => [
+                    "positive" => ["12", 0],
+                    "negative" => ["16", 0],
+                    "vae" => ["4", 2],
+                    "foreground" => ["10_latent", 0], // Imagen latente
+                    "multiplier" => $iclight_mult // <-- NUEVO: Ahora recibe el valor de tu barra
+                ],
+                "class_type" => "ICLightConditioning"
+            ];
+
+            // 8. KSampler
+            $workflow["19"] = [
+                "inputs" => [
+                    "seed" => $seed,
+                    "steps" => intval($steps ?? 25),
+                    "cfg" => floatval($cfg ?? 2.0),
+                    "sampler_name" => "euler",
+                    "scheduler" => "sgm_uniform",
+                    "denoise" => 1.0,
+                    "model" => ["11", 0],       
+                    "positive" => ["17", 0],    
+                    "negative" => ["17", 1],    
+                    "latent_image" => ["17", 2] 
+                ],
+                "class_type" => "KSampler"
+            ];
+
+            // 9. VAEDecode: Traduce el latente del KSampler a píxeles visibles
+            $workflow["20"] = [
+                "inputs" => [
+                    "samples" => ["19", 0],
+                    "vae" => ["4", 2]
+                ],
+                "class_type" => "VAEDecode"
+            ];
+
+            // 10. Salida directa al visor
+            $workflow["21"] = [
+                "inputs" => [
+                    "filename_prefix" => "byGarty_ICLight_", 
+                    "images" => ["20", 0]
+                ], 
+                "class_type" => "SaveImage" 
+            ];
+            
+            goto EJECUTAR_COMFYUI; 
+        } else {
+            echo json_encode(['error' => __('err_iclight_upload') ?? 'Error subiendo la imagen para iluminación neural.']);
             exit();
         }
     }
@@ -2269,6 +2405,9 @@ if ($action === 'generar_imagen') {
 		if ($ddcolor_enabled) {
             $meta_json_array['Coloreado Neural'] = __('lbl_activated') . ' (DDColor: ' . basename($ddcolor_model) . ')';
         }
+		if ($iclight_enabled) {
+        $meta_json_array['IC-Light (Relighting)'] = __('lbl_activated') . ' (' . $iclight_direction . ')';
+		}
 
         $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
 
