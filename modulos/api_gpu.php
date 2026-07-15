@@ -295,6 +295,7 @@ if ($action === 'generar_imagen') {
     $hires_fix = filter_var($_POST['hires_fix'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
     $upscale_model = $_POST['upscale_model'] ?? '';
     $upscale_factor = floatval($_POST['upscale_factor'] ?? 1.5);
+    $aurasr_enabled = filter_var($_POST['aurasr_enabled'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
 
     $remove_background = filter_var($_POST['remove_background'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
     $pure_rembg = filter_var($_POST['pure_rembg'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
@@ -1320,7 +1321,8 @@ if ($action === 'generar_imagen') {
     // ==============================================================================
     $pure_upscale = filter_var($_POST['pure_upscale'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
 
-    if ($hires_fix && $pure_upscale && !empty($init_image_base64) && !empty($upscale_model)) {
+    // Fíjate que ahora acepta entrar si aurasr_enabled es true, aunque upscale_model esté bloqueado/vacío
+    if ($hires_fix && $pure_upscale && !empty($init_image_base64) && (!empty($upscale_model) || $aurasr_enabled)) {
         // 1. Subimos la imagen original
         $tmp_ups = sys_get_temp_dir() . '/init_ups_' . uniqid() . '.png';
         file_put_contents($tmp_ups, base64_decode($init_image_base64));
@@ -1339,10 +1341,17 @@ if ($action === 'generar_imagen') {
 
         if (isset($res_up['name'])) {
             $workflow["10"] = ["inputs" => ["image" => $res_up['name'], "upload" => "image"], "class_type" => "LoadImage"];
-            $workflow["11"] = ["inputs" => ["model_name" => $upscale_model], "class_type" => "UpscaleModelLoader"];
             
-            // 3. La IA sube la resolución (los modelos como 4x-UltraSharp escalan a 4x por defecto)
-            $workflow["12"] = ["inputs" => ["upscale_model" => ["11", 0], "image" => ["10", 0]], "class_type" => "ImageUpscaleWithModel"];
+            if ($aurasr_enabled) {
+                // 3A. Ruta VIP: AuraSR GigaGAN
+                // IMPORTANTE: Verifica que tu modelo se llame exactamente así en la carpeta upscale_models
+                $workflow["11"] = ["inputs" => ["model" => "AuraSR-v2.safetensors"], "class_type" => "LoadAuraSR"];
+                $workflow["12"] = ["inputs" => ["avoid_seams" => true, "AURASR_MODEL" => ["11", 0], "IMAGE" => ["10", 0]], "class_type" => "RunAuraSR"];
+            } else {
+                // 3B. Ruta Clásica: UltraSharp / ESRGAN
+                $workflow["11"] = ["inputs" => ["model_name" => $upscale_model], "class_type" => "UpscaleModelLoader"];
+                $workflow["12"] = ["inputs" => ["upscale_model" => ["11", 0], "image" => ["10", 0]], "class_type" => "ImageUpscaleWithModel"];
+            }
             
             // 4. Re-escalamos hacia abajo con precisión matemática al factor que eligió el usuario
             $workflow["13"] = [
@@ -1352,8 +1361,6 @@ if ($action === 'generar_imagen') {
             
             // 5. Salida final
             $workflow["9"] = ["inputs" => ["images" => ["13", 0]], "class_type" => "PreviewImage"];
-            
-            // Nos saltamos el Checkpoint, el KSampler, Flux y el VAE. Directo al grano.
             goto EJECUTAR_COMFYUI; 
         } else {
             echo json_encode(['error' => __('err_upscale_upload') ?? 'Error subiendo la imagen para Upscale.']);
@@ -1951,41 +1958,62 @@ if ($action === 'generar_imagen') {
                 } 
             }
 
-    // --- FASE 5: ULTIMATE SD UPSCALE ---
-    if ($hires_fix && !empty($upscale_model)) {
-        $workflow["400"] = ["inputs" => ["model_name" => $upscale_model], "class_type" => "UpscaleModelLoader"];
-        $workflow["401"] = [
-            "inputs" => [
-                "image" => [$current_image_node, 0],
-                "model" => [$current_model_node, 0], 
-                "positive" => $current_positive,
-                "negative" => $current_negative,
-                "vae" => [$base_vae_node, $base_vae_index],
-                "upscale_model" => ["400", 0],
-                "upscale_by" => $upscale_factor,
-                "seed" => $seed,
-                "steps" => $steps,
-                "cfg" => $cfg,
-                "sampler_name" => $sampler,
-                "scheduler" => $scheduler,
-                "denoise" => 0.25, 
-                "mode_type" => "Linear",
-                "tile_width" => 512,
-                "tile_height" => 512,
-                "mask_blur" => 8,
-                "tile_padding" => 32,
-                "seam_fix_mode" => "None",
-                "seam_fix_denoise" => 1.0,               
-                "seam_fix_width" => 64,                  
-                "seam_fix_mask_blur" => 8,               
-                "seam_fix_padding" => 16,                
-                "force_uniform_tiles" => true,
-                "tiled_decode" => false,
-                "batch_size" => 1                  
-            ],
-            "class_type" => "UltimateSDUpscale"
-        ];
-        $current_image_node = "401";
+    // --- FASE 5: UPSCALE ---
+    if ($hires_fix) {
+        if ($aurasr_enabled) {
+            // RUTA VIP: AuraSR toma el latente decodificado (current_image_node) y lo escala a píxel puro
+            $workflow["400"] = ["inputs" => ["model" => "AuraSR-v2.safetensors"], "class_type" => "LoadAuraSR"];
+            $workflow["401"] = ["inputs" => ["avoid_seams" => true, "AURASR_MODEL" => ["400", 0], "IMAGE" => [$current_image_node, 0]], "class_type" => "RunAuraSR"];
+            
+            // Calculamos el tamaño final exacto
+            $target_w = intval($width * $upscale_factor);
+            $target_h = intval($height * $upscale_factor);
+            
+            // Ajustamos el monstruo 4x a lo que ha pedido el usuario
+            $workflow["402"] = [
+                "inputs" => ["upscale_method" => "bicubic", "width" => $target_w, "height" => $target_h, "crop" => "disabled", "image" => ["401", 0]],
+                "class_type" => "ImageScale"
+            ];
+            $current_image_node = "402";
+
+        } elseif (!empty($upscale_model)) {
+            // RUTA CLÁSICA: Ultimate SD Upscale con modelo estándar
+            $workflow["400"] = ["inputs" => ["model_name" => $upscale_model], "class_type" => "UpscaleModelLoader"];
+            $workflow["401"] = [
+                "inputs" => [
+                    "image" => [$current_image_node, 0],
+                    "model" => [$current_model_node, 0], 
+                    "positive" => $current_positive,
+                    "negative" => $current_negative,
+                    "vae" => [$base_vae_node, $base_vae_index],
+                    "upscale_model" => ["400", 0],
+                    "upscale_by" => $upscale_factor,
+                    "seed" => $seed,
+                    "steps" => $steps,
+                    "cfg" => $cfg,
+                    "sampler_name" => $sampler,
+                    "scheduler" => $scheduler,
+                    "denoise" => 0.25, 
+                    "mode_type" => "Linear",
+                    "tile_width" => 512,
+                    "tile_height" => 512,
+                    "mask_blur" => 8,
+                    "tile_padding" => 32,
+                    "seam_fix_mode" => "None",
+					//OJO
+					"seam_fix_denoise" => 1.0,               
+					"seam_fix_width" => 64,                  
+					"seam_fix_mask_blur" => 8,               
+					"seam_fix_padding" => 16,
+					//OJO	
+                    "force_uniform_tiles" => true,
+                    "tiled_decode" => false,
+                    "batch_size" => 1                   
+                ],
+                "class_type" => "UltimateSDUpscale"
+            ];
+            $current_image_node = "401";
+        }
     }
 
     // --- FASE 7: REMBG (ELIMINACIÓN DE FONDO) ---
