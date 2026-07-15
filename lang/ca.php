@@ -681,6 +681,21 @@ return [
     'lbl_doc_content' => "Contingut del document",
     'lbl_user_instruction' => "Instrucció de l'usuari",
     'lbl_mode_direct' => "Execució Directa LLM",
+	
+	// --- ICLIGHT
+	'iclight_title' => "IL·LUMINACIÓ NEURAL (IC-Light)",
+	'iclight_direction' => "Direcció de la Llum",
+	'iclight_dir_left' => "Llum des de l'Esquerra",
+	'iclight_dir_right' => "Llum des de la Dreta",
+	'iclight_dir_top' => "Llum Cenital (Dalt)",
+	'iclight_dir_bottom' => "Llum Contrapicada (Baix)",
+	'iclight_dir_ambient' => "Llum Ambient / Detall",
+	'iclight_prompt_lbl' => "Ambient de color (Opcional)",
+	'iclight_prompt_ph' => "Ex: sunset golden hour, neon blue light, warm studio...",
+	'iclight_prompt_help' => "Si es deixa buit, utilitzarà la llum neutra del model o el prompt principal.",
+	'err_pro_iclight' => "La il·luminació neural (IC-Light) és una característica exclusiva per a usuaris PRO.",
+	'err_iclight_upload' => "Error en transferir la imatge a la GPU per al procés d'il·luminació.",
+	'iclight_strength_lbl' => "Light Strength",
     
     // --- PANEL ADMINISTRACIÓN GENERAL ---
     'tit_paneladm' => "Panell de Administració del Sistema",

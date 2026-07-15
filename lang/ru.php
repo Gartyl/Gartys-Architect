@@ -682,6 +682,21 @@ return [
     'lbl_doc_content' => "Содержимое документа",
     'lbl_user_instruction' => "Инструкция пользователя",
     'lbl_mode_direct' => "Прямое выполнение LLM",
+	
+	// --- ICLIGHT
+	'iclight_title' => "НЕЙРОННОЕ ОСВЕЩЕНИЕ (IC-Light)",
+	'iclight_direction' => "Направление света",
+	'iclight_dir_left' => "Свет слева",
+	'iclight_dir_right' => "Свет справа",
+	'iclight_dir_top' => "Верхний свет (зенитный)",
+	'iclight_dir_bottom' => "Нижний свет (снизу)",
+	'iclight_dir_ambient' => "Рассеянный свет / Детализация",
+	'iclight_prompt_lbl' => "Цветовая атмосфера (необязательно)",
+	'iclight_prompt_ph' => "Пример: sunset golden hour, neon blue light, warm studio...",
+	'iclight_prompt_help' => "Если оставить пустым, будет использован нейтральный свет модели или основной промпт.",
+	'err_pro_iclight' => "Нейронное освещение (IC-Light) — это эксклюзивная функция для PRO-пользователей.",
+	'err_iclight_upload' => "Ошибка при передаче изображения на GPU для процесса освещения.",
+	'iclight_strength_lbl' => "Light Strength",
     
     // --- PANEL ADMINISTRACIÓN GENERAL ---
     'tit_paneladm' => "Панель системного администрирования",

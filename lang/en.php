@@ -682,6 +682,21 @@ return [
     'lbl_doc_content' => "Document content",
     'lbl_user_instruction' => "User instruction",
     'lbl_mode_direct' => "Direct LLM Execution",
+	
+	// --- ICLIGHT
+	'iclight_title' => "NEURAL RELIGHTING (IC-Light)",
+	'iclight_direction' => "Light Direction",
+	'iclight_dir_left' => "Light from Left",
+	'iclight_dir_right' => "Light from Right",
+	'iclight_dir_top' => "Top Light (Overhead)",
+	'iclight_dir_bottom' => "Bottom Light (Underneath)",
+	'iclight_dir_ambient' => "Ambient / Detail Light",
+	'iclight_prompt_lbl' => "Color Environment (Optional)",
+	'iclight_prompt_ph' => "Ex: sunset golden hour, neon blue light, warm studio...",
+	'iclight_prompt_help' => "If left blank, it will use the model's neutral light or main prompt.",
+	'err_pro_iclight' => "Neural lighting (IC-Light) is an exclusive feature for PRO users.",
+	'err_iclight_upload' => "Error transferring the image to the GPU for the lighting process.",
+	'iclight_strength_lbl' => "Light Strength",
     
     // --- PANEL ADMINISTRACIÓN GENERAL ---
     'tit_paneladm' => "System Administration Panel",
