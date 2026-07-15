@@ -1015,7 +1015,7 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
             }
         }
     }
-        
+
     // Remove Background
     const rembgToggle = document.getElementById('rembgToggle');
     if (rembgToggle && document.getElementById('rembgBlock').style.display !== 'none') {
@@ -1344,6 +1344,10 @@ document.getElementById('promptForm').onsubmit = async (e) => {
     const hasFile = currentImageBase64 !== null || currentDocumentText !== "";
     const isGraphical = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(selValue);
 
+    // Comprobamos si es un Upscale Puro (está encendido PERO el campo de idea está vacío)
+    const activeUpscaleForm = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked;
+    const isPureUpscaleForm = activeUpscaleForm && idea === '';
+
     // --- CORRECCIÓN 1: Inclusión estricta SOLO de Modos Puros ---
     const isPureModeForm = (document.getElementById('pureFaceSwapToggle') && document.getElementById('pureFaceSwapToggle').checked) ||
                            (document.getElementById('pureRembgToggle') && document.getElementById('pureRembgToggle').checked) ||
@@ -1351,7 +1355,7 @@ document.getElementById('promptForm').onsubmit = async (e) => {
                            (document.getElementById('pureDDColorToggle') && document.getElementById('pureDDColorToggle').checked) ||
                            (document.getElementById('toggleLamaMode') && document.getElementById('toggleLamaMode').checked) ||
                            (document.getElementById('iclight_enabled') && document.getElementById('iclight_enabled').checked) ||
-                           (document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked);
+                           isPureUpscaleForm; // <-- Ahora sí es 100% inteligente
 
     // Ahora la validación respeta si hay un modo puro activo para ignorar la idea vacía
     if (!idea && !hasFile && !isPureModeForm) {
@@ -1367,7 +1371,10 @@ document.getElementById('promptForm').onsubmit = async (e) => {
 
     // --- NUEVO AVISO SALVAVIDAS PARA UPSCALE PURO ---
     const isUpscaleOn = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked;
-    if (hasFile && !idea && isUpscaleOn && !['[VISION]', '[CHAT]'].includes(selValue)) {
+    const txtIdeaVal = document.getElementById('descripcion') ? document.getElementById('descripcion').value.trim() : '';
+    
+    // Si hay imagen subida, el Upscale está activo, el texto está vacío y no estamos usando los modos especiales de chat/visión:
+    if (hasFile && txtIdeaVal === '' && isUpscaleOn && !['[VISION]', '[CHAT]'].includes(selValue)) {
         SwalDark.fire({
             icon: 'info',
             title: GartyLang.swal_pure_upscale_title || 'Modo Upscale Puro',
@@ -1763,17 +1770,19 @@ async function runGpu(mode = 'directo') {
     
     let finalPrompt = ""; let finalNegPrompt = "";
     let buttonUsed = mode === 'directo' ? document.getElementById('gpuDirectBtn') : document.getElementById('gpuArquitectoBtn');
-    // Comprobamos si el Upscaler está encendido
-    const isUpscaleOn = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked;
+    // Comprobamos si es un Upscale Puro (está encendido el Upscale PERO no hay ningún prompt/idea para generar de cero)
+    const activeUpscale = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked;
+    const currentPromptText = document.getElementById('descripcion') ? document.getElementById('descripcion').value.trim() : '';
+    const isPureUpscaleActive = activeUpscale && currentPromptText === '';
 
-   // --- CORRECCIÓN 2: Inclusión estricta SOLO de Modos Puros en GPU ---
+    // --- CORRECCIÓN DEFINITIVA DE MODOS PUROS EN GPU ---
     const isPureMode = (document.getElementById('pureFaceSwapToggle') && document.getElementById('pureFaceSwapToggle').checked) || 
                        (document.getElementById('pureRembgToggle') && document.getElementById('pureRembgToggle').checked) ||
                        (document.getElementById('pureAdetailerToggle') && document.getElementById('pureAdetailerToggle').checked) ||
                        (document.getElementById('pureDDColorToggle') && document.getElementById('pureDDColorToggle').checked) ||
                        (document.getElementById('toggleLamaMode') && document.getElementById('toggleLamaMode').checked) ||
                        (document.getElementById('iclight_enabled') && document.getElementById('iclight_enabled').checked) ||
-                       isUpscaleOn;
+                       isPureUpscaleActive; // <-- Ahora SOLO es modo puro si NO hay texto. Si hay texto, te dejará generar de cero!
 
     const isModoDirecto = document.getElementById('modoDirectoToggle') && document.getElementById('modoDirectoToggle').checked;
 
@@ -1826,7 +1835,7 @@ async function runGpu(mode = 'directo') {
     if (isIpAdapterOn && (!currentIpAdapterBase64 || currentIpAdapterBase64.indexOf(',') === -1)) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_ip_title, text: GartyLang.swal_ip_text}); buttonUsed.disabled = false; return; }
     const isControlNetOn = document.getElementById('controlNetToggle') && document.getElementById('controlNetToggle').checked;
     if (isControlNetOn && (!currentCnBase64 || currentCnBase64.indexOf(',') === -1)) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_cn_title, text: GartyLang.swal_cn_text}); buttonUsed.disabled = false; return; }
-    //if (isPureMode && !currentImageBase64) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_pure_title, text: GartyLang.swal_pure_text}); buttonUsed.disabled = false; return; }
+    if (isPureMode && !currentImageBase64) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_pure_title, text: GartyLang.swal_pure_text}); buttonUsed.disabled = false; return; }
 
     const originalBtnText = buttonUsed.innerHTML;
     // (Por si acaso falta la variable de idioma, le ponemos fallback)
