@@ -47,10 +47,18 @@ if (defined('APP_MODE') && APP_MODE === 'local') {
         // Activar soporte para claves foráneas en SQLite (por si las usas)
         $pdo->exec('PRAGMA foreign_keys = ON;');
         
-        // Enseñar a SQLite a entender la función RAND() de MySQL
-        $pdo->sqliteCreateFunction('RAND', function() {
-            return mt_rand() / mt_getrandmax();
-        }, 0);
+       // Enseñar a SQLite a entender la función RAND() de MySQL (Soporte Multi-Versión PHP)
+        if (method_exists($pdo, 'createFunction')) {
+            // Sintaxis moderna para PHP 8.4+ (FrankenPHP)
+            $pdo->createFunction('RAND', function() {
+                return mt_rand() / mt_getrandmax();
+            }, 0);
+        } else {
+            // Sintaxis clásica para PHP 8.3 e inferiores (Laragon)
+            @$pdo->sqliteCreateFunction('RAND', function() {
+                return mt_rand() / mt_getrandmax();
+            }, 0);
+        }
         
     } catch (\PDOException $e) {
         die("<h3 style='color:red;'>Error crítico: No se encuentra o no se puede abrir el archivo database.sqlite local.</h3><p>Detalle técnico: " . $e->getMessage() . "</p>");
