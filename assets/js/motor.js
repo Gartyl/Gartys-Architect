@@ -999,16 +999,11 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
             if (auraToggle && auraToggle.checked) fd.append('aurasr_enabled', 'true');
             // ------------------------------
             
-            // Detección de Upscale Puro
-            const isModoDirecto = document.getElementById('modoDirectoToggle') && document.getElementById('modoDirectoToggle').checked;
-            const textoIdea = isModoDirecto 
-                ? (document.getElementById('posContent') ? document.getElementById('posContent').innerText.trim() : '') 
-                : (document.getElementById('descripcion') ? document.getElementById('descripcion').value.trim() : '');
-            
+            /// Detección de Upscale Puro: Si hay imagen cargada, ES un upscale puro siempre (ignoramos si hay texto)
             const hayImagen = (typeof currentImageBase64 !== 'undefined' && currentImageBase64 !== null) || 
                               (typeof compareImageA !== 'undefined' && compareImageA !== null);
             
-            if (textoIdea === '' && hayImagen) {
+            if (hayImagen) {
                 fd.append('pure_upscale', 'true');
             } else {
                 fd.append('pure_upscale', 'false');
@@ -1371,14 +1366,13 @@ document.getElementById('promptForm').onsubmit = async (e) => {
 
     // --- NUEVO AVISO SALVAVIDAS PARA UPSCALE PURO ---
     const isUpscaleOn = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked;
-    const txtIdeaVal = document.getElementById('descripcion') ? document.getElementById('descripcion').value.trim() : '';
     
-    // Si hay imagen subida, el Upscale está activo, el texto está vacío y no estamos usando los modos especiales de chat/visión:
-    if (hasFile && txtIdeaVal === '' && isUpscaleOn && !['[VISION]', '[CHAT]'].includes(selValue)) {
+    // Si hay imagen subida y el Upscale está activo, bloqueamos el Arquitecto sin importar qué haya escrito:
+    if (hasFile && isUpscaleOn && !['[VISION]', '[CHAT]'].includes(selValue)) {
         SwalDark.fire({
             icon: 'info',
             title: GartyLang.swal_pure_upscale_title || 'Modo Upscale Puro',
-            text: GartyLang.swal_pure_upscale_text || 'Para escalar la imagen que has subido, NO necesitas al Arquitecto. Pulsa directamente el botón de "Renderizar" (el del rayo).',
+            text: GartyLang.swal_pure_upscale_text || 'Para escalar la imagen que has subido, NO necesitas al Arquitecto ni escribir un prompt. Pulsa directamente el botón de "Renderizar" (el del rayo).',
             confirmButtonText: '<i class="bi bi-check2-circle"></i> ' + (GartyLang.btn_entendido || 'Entendido')
         });
         return;
