@@ -27,18 +27,22 @@
                         <option value=""><?= __('opt_loading_models') ?></option>
                     </select>
                 </div>
+                
+                <!-- --- DESLIZADOR DE FACTOR DE ESCALA (1.1x hasta 4.0x) --- -->
                 <div class="col-md-6">
-                    <label class="small text-secondary fw-bold"><?= __('tit_ups_factor') ?></label>
-                    <select class="form-select form-select-sm bg-dark text-light border-secondary pref-track" id="upscaleFactor" <?= !$is_pro ? 'disabled' : '' ?>>
-                        <option value="1.5"><?= __('ups_fac_15') ?></option>
-                        <option value="2.0"><?= __('ups_fac_20') ?></option>
-                    </select>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="small text-secondary fw-bold mb-0"><?= __('tit_ups_factor') ?></label>
+                        <span id="upscaleFactorVal" class="badge bg-primary text-light fw-bold" style="font-size: 0.8rem;">2.0x (200%)</span>
+                    </div>
+                    <input type="range" class="form-range pref-track" id="upscaleFactor" min="1.1" max="4.0" step="0.1" value="2.0" 
+                           oninput="updateUpscaleLabel(this.value)" style="cursor: pointer;" <?= !$is_pro ? 'disabled' : '' ?>>
                 </div>
+                <!-- -------------------------------------------------------- -->
             </div>
         </div>
     </div>
 
-    <!-- Script para bloquear el selector clásico si AuraSR está activo -->
+    <!-- Script para controlar AuraSR y la etiqueta del deslizador -->
     <script>
     function toggleAuraSR() {
         const isAura = document.getElementById('aurasrToggle').checked;
@@ -47,5 +51,10 @@
             classicSelector.disabled = isAura;
             classicSelector.style.opacity = isAura ? '0.4' : '1';
         }
+    }
+
+    function updateUpscaleLabel(val) {
+        const percent = Math.round(val * 100);
+        document.getElementById('upscaleFactorVal').innerText = `${val}x (${percent}%)`;
     }
     </script>
