@@ -130,6 +130,7 @@ return [
 	'swal_pure_upscale_title' => "Modo Upscale Puro",
 	'swal_pure_upscale_text' => "Para escalar la imagen que has subido, NO necesitas al Arquitecto. Pulsa directamente el botón de 'Renderizar' (el del rayo).",
 	'err_pro_rembg' => "La herramienta para eliminar el fondo es exclusiva para usuarios PRO.",
+	'tit_herramientas_pro' => "HERRAMIENTAS AVANZADAS",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Galería",

@@ -130,6 +130,7 @@ return [
 	'swal_pure_upscale_title' => "Pure Upscale Mode",
 	'swal_pure_upscale_text' => "To upscale the uploaded image, you DON'T need the Architect. Just press the 'Render' button (the lightning bolt) directly.",
 	'err_pro_rembg' => "The background removal tool is exclusive to PRO users.",
+	'tit_herramientas_pro' => "ADVANCED TOOLS",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Gallery",
