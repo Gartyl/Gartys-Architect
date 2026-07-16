@@ -129,6 +129,7 @@ return [
 	'err_upscale_upload' => "Error de comunicació pujant la imatge per a l'Upscale pur. Intenta-ho de nou.",
 	'swal_pure_upscale_title' => "Mode Upscale Pur",
 	'swal_pure_upscale_text' => "Per a escalar la imatge que has pujat, NO necessites a l'Arquitecte. Prem directament el botó de 'Renderitzar' (el del llamp).",
+	'err_pro_rembg' => "L'eina per eliminar el fons és exclusiva per a usuaris PRO.",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Galeria",
