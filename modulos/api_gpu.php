@@ -1321,45 +1321,61 @@ if ($action === 'generar_imagen') {
     // ==============================================================================
     $pure_upscale = filter_var($_POST['pure_upscale'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
 
-    // Fíjate que ahora acepta entrar si aurasr_enabled es true, aunque upscale_model esté bloqueado/vacío
     if ($hires_fix && $pure_upscale && !empty($init_image_base64) && (!empty($upscale_model) || $aurasr_enabled)) {
-        // 1. Subimos la imagen original
-        $tmp_ups = sys_get_temp_dir() . '/init_ups_' . uniqid() . '.png';
-        file_put_contents($tmp_ups, base64_decode($init_image_base64));
+        
+        // 1. Limpiamos la cadena base64 y guardamos archivo temporal en disco
+        $clean_img_data = $init_image_base64;
+        if (strpos($clean_img_data, 'base64,') !== false) {
+            $clean_img_data = explode('base64,', $clean_img_data)[1];
+        }
+        
+        $tmp_up = sys_get_temp_dir() . '/upscale_' . uniqid() . '.png';
+        file_put_contents($tmp_up, base64_decode($clean_img_data));
+        unset($clean_img_data); // Liberamos RAM inmediatamente
+        
+        // 2. LEEMOS DIMENSIONES REALES DESDE EL ARCHIVO EN DISCO (Cero consumo de RAM)
+        $orig_w = $width;
+        $orig_h = $height;
+        $img_info = @getimagesize($tmp_up);
+        if ($img_info !== false && isset($img_info[0], $img_info[1])) {
+            $orig_w = $img_info[0];
+            $orig_h = $img_info[1];
+        }
+        
+        // 3. Subimos la imagen a la API de ComfyUI mediante cURL nativo
+        $cfile_up = function_exists('curl_file_create') ? curl_file_create($tmp_up, 'image/png', 'upscale_ref.png') : '@' . realpath($tmp_up);
+        $ch_up = curl_init(COMFY_URL . '/upload/image');
+        curl_setopt($ch_up, CURLOPT_POST, true);
+        curl_setopt($ch_up, CURLOPT_POSTFIELDS, ['image' => $cfile_up]);
+        curl_setopt($ch_up, CURLOPT_RETURNTRANSFER, true);
+        $res_up_raw = curl_exec($ch_up);
+        @unlink($tmp_up); // Borramos el archivo temporal del servidor web
+        
+        $res_up = json_decode($res_up_raw, true);
 
-        // 2. Calculamos las dimensiones exactas para el factor elegido (1.5x, 2.0x, etc.)
-        $img_info = @getimagesize($tmp_ups);
-        $orig_w = $img_info[0] ?? 1024;
-        $orig_h = $img_info[1] ?? 1024;
+        // 4. Calcular resolución final matemática sobre los píxeles reales de tu foto
         $target_w = intval($orig_w * $upscale_factor);
         $target_h = intval($orig_h * $upscale_factor);
-
-        $cfile = function_exists('curl_file_create') ? curl_file_create($tmp_ups, 'image/png', 'init_ups.png') : '@' . realpath($tmp_ups);
-        $ch_up = curl_init(COMFY_URL . '/upload/image');
-        curl_setopt($ch_up, CURLOPT_POST, true); curl_setopt($ch_up, CURLOPT_POSTFIELDS, ['image' => $cfile]); curl_setopt($ch_up, CURLOPT_RETURNTRANSFER, true);
-        $res_up = json_decode(curl_exec($ch_up), true); @unlink($tmp_ups);
 
         if (isset($res_up['name'])) {
             $workflow["10"] = ["inputs" => ["image" => $res_up['name'], "upload" => "image"], "class_type" => "LoadImage"];
             
             if ($aurasr_enabled) {
-                // 3A. Ruta VIP: AuraSR GigaGAN
-                // IMPORTANTE: Verifica que tu modelo se llame exactamente así en la carpeta upscale_models
+                // Ruta VIP: AuraSR GigaGAN
                 $workflow["11"] = ["inputs" => ["model" => "AuraSR-v2.safetensors"], "class_type" => "LoadAuraSR"];
                 $workflow["12"] = ["inputs" => ["avoid_seams" => true, "AURASR_MODEL" => ["11", 0], "IMAGE" => ["10", 0]], "class_type" => "RunAuraSR"];
             } else {
-                // 3B. Ruta Clásica: UltraSharp / ESRGAN
+                // Ruta Clásica: UltraSharp / ESRGAN
                 $workflow["11"] = ["inputs" => ["model_name" => $upscale_model], "class_type" => "UpscaleModelLoader"];
                 $workflow["12"] = ["inputs" => ["upscale_model" => ["11", 0], "image" => ["10", 0]], "class_type" => "ImageUpscaleWithModel"];
             }
             
-            // 4. Re-escalamos hacia abajo con precisión matemática al factor que eligió el usuario
+            // Re-escalamos con precisión matemática sobre el objetivo real
             $workflow["13"] = [
                 "inputs" => ["upscale_method" => "bicubic", "width" => $target_w, "height" => $target_h, "crop" => "disabled", "image" => ["12", 0]],
                 "class_type" => "ImageScale"
             ];
             
-            // 5. Salida final
             $workflow["9"] = ["inputs" => ["images" => ["13", 0]], "class_type" => "PreviewImage"];
             goto EJECUTAR_COMFYUI; 
         } else {
@@ -2000,13 +2016,11 @@ if ($action === 'generar_imagen') {
                     "mask_blur" => 8,
                     "tile_padding" => 32,
                     "seam_fix_mode" => "None",
-					//OJO
 					"seam_fix_denoise" => 1.0,               
 					"seam_fix_width" => 64,                  
 					"seam_fix_mask_blur" => 8,               
 					"seam_fix_padding" => 16,
-					//OJO	
-                    "force_uniform_tiles" => true,
+					"force_uniform_tiles" => true,
                     "tiled_decode" => false,
                     "batch_size" => 1                   
                 ],
@@ -2250,34 +2264,64 @@ if ($action === 'generar_imagen') {
     // ====================================================================
     // --- PREPARAR METADATA Y GUARDAR ESTADO 'PENDIENTE' EN LA BD ---
     // ====================================================================
-    $final_w = $width; $final_h = $height;
-    if ($hires_fix && !empty($upscale_model)) { 
-        $final_w = intval($width * $upscale_factor); 
-        $final_h = intval($height * $upscale_factor); 
+    $final_w = $width; 
+    $final_h = $height;
+    
+    if ($hires_fix && ($aurasr_enabled || !empty($upscale_model))) { 
+        if (!empty($target_w) && !empty($target_h)) {
+            // Upscale Puro ya calculó los píxeles físicos
+            $final_w = $target_w;
+            $final_h = $target_h;
+        } else {
+            // Upscale normal (Multiplica el slider de la interfaz)
+            $final_w = intval($width * $upscale_factor); 
+            $final_h = intval($height * $upscale_factor); 
+        }
     } elseif ($is_outpainting) {
-        $final_w = "Auto (" . __('lbl_expanded') . ")"; $final_h = "Auto (" . __('lbl_expanded') . ")";
+        $final_w = "Auto (" . __('lbl_expanded') . ")"; 
+        $final_h = "Auto (" . __('lbl_expanded') . ")";
     }
 
-   $meta_json_array = [
-        'Model' => basename($model_path), 'Resolution' => $final_w . 'x' . $final_h, 'Seed' => $seed, 'Steps' => $steps, 
-        'CFG Scale' => $cfg, 'Sampler' => ucfirst($sampler) . ' (' . ucfirst($scheduler) . ')', 'Batch Size' => $batch_size, 
+    $meta_json_array = [
+        'Model' => basename($model_path), 
+        'Resolution' => $final_w . 'x' . $final_h, 
+        'Seed' => $seed, 
+        'Steps' => $steps, 
+        'CFG Scale' => $cfg, 
+        'Sampler' => ucfirst($sampler) . ' (' . ucfirst($scheduler) . ')', 
+        'Batch Size' => $batch_size, 
         'LoRAs' => empty($lora_metadata_list) ? __('lbl_none') : implode(', ', $lora_metadata_list)
     ];
 
     if ($flux_guidance !== null) $meta_json_array['Guidance (Flux)'] = $flux_guidance;
 
     if ($sampler_denoise < 1.0 && !$is_outpainting) {
-        if (!empty($mask_data_base64)) { $meta_json_array['Modo Inpainting'] = __('lbl_activated') . ' (Denoise: ' . $sampler_denoise . ')'; } 
-        else { $meta_json_array['Fuerza de Edición'] = $sampler_denoise . ' (Image-to-Image)'; }
+        if (!empty($mask_data_base64)) { 
+            $meta_json_array['Modo Inpainting'] = __('lbl_activated') . ' (Denoise: ' . $sampler_denoise . ')'; 
+        } else { 
+            $meta_json_array['Fuerza de Edición'] = $sampler_denoise . ' (Image-to-Image)'; 
+        }
     }
     
-    if ($is_outpainting) $meta_json_array['Modo Outpaint'] = __('lbl_up') . ":$out_top, " . __('lbl_down') . ":$out_bottom, " . __('lbl_left') . ":$out_left, " . __('lbl_right') . ":$out_right";
-    if ($hires_fix && !empty($upscale_model)) $meta_json_array['Hi-Res Fix'] = 'Tiled Upscale (' . $upscale_factor . 'x, ' . basename($upscale_model) . ')'; 
+    if ($is_outpainting) {
+        $meta_json_array['Modo Outpaint'] = __('lbl_up') . ":$out_top, " . __('lbl_down') . ":$out_bottom, " . __('lbl_left') . ":$out_left, " . __('lbl_right') . ":$out_right";
+    }
+    
+    // ETIQUETADO CORRECTO DE HI-RES FIX
+    if ($hires_fix) { 
+        if ($aurasr_enabled) {
+            $meta_json_array['Hi-Res Fix'] = 'AuraSR GigaGAN (' . $upscale_factor . 'x)';
+        } elseif (!empty($upscale_model)) {
+            $meta_json_array['Hi-Res Fix'] = 'Tiled Upscale (' . $upscale_factor . 'x, ' . basename($upscale_model) . ')';
+        }
+    }
+
     if ($reactor_enabled === 'true' && !empty($reactor_image_base64)) $meta_json_array['Face Swap (ReActor)'] = __('lbl_activated'); 
     if ($ipadapter_enabled === 'true' && !empty($ipadapter_image_base64)) $meta_json_array['IP-Adapter'] = __('lbl_activated'); 
     if ($controlnet_enabled === 'true' && !empty($controlnet_model)) $meta_json_array['ControlNet'] = basename($controlnet_model);
     if ($remove_background) $meta_json_array['Fondo Transparente'] = __('lbl_activated') . ' (Rembg)';
-	if ($ddcolor_enabled) $meta_json_array['Coloreado Neural'] = __('lbl_activated') . ' (DDColor: ' . basename($ddcolor_model) . ')';
+    if ($ddcolor_enabled) $meta_json_array['Coloreado Neural'] = __('lbl_activated') . ' (DDColor: ' . basename($ddcolor_model) . ')';
+    if ($iclight_enabled) $meta_json_array['IC-Light (Relighting)'] = __('lbl_activated') . ' (' . $iclight_direction . ')';
 
     $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
 
@@ -2404,38 +2448,54 @@ if ($action === 'generar_imagen') {
         $img_binary = $item['data'];
         $ext = $item['ext'];
 
+        // Bloque unificado y limpio
         $meta_json_array = [
-            'Model' => basename($model_path), 'Resolution' => $final_w . 'x' . $final_h, 'Seed' => $seed, 'Steps' => $steps, 
-            'CFG Scale' => $cfg, 'Sampler' => ucfirst($sampler) . ' (' . ucfirst($scheduler) . ')', 'Batch Index' => ($index + 1) . ' / ' . $batch_size, 
+            'Model' => basename($model_path), 
+            'Resolution' => $final_w . 'x' . $final_h, 
+            'Seed' => $seed, 
+            'Steps' => $steps, 
+            'CFG Scale' => $cfg, 
+            'Sampler' => ucfirst($sampler) . ' (' . ucfirst($scheduler) . ')', 
+            'Batch Index' => ($index + 1) . ' / ' . $batch_size, 
             'LoRAs' => empty($lora_metadata_list) ? __('lbl_none') : implode(', ', $lora_metadata_list)
         ];
 
         if ($flux_guidance !== null) $meta_json_array['Guidance (Flux)'] = $flux_guidance;
 
         if ($sampler_denoise < 1.0 && !$is_outpainting) {
-            if (!empty($mask_data_base64)) { $meta_json_array['Modo Inpainting'] = __('lbl_activated') . ' (Denoise: ' . $sampler_denoise . ')'; } 
-            else { $meta_json_array['Fuerza de Edición'] = $sampler_denoise . ' (Image-to-Image)'; }
+            if (!empty($mask_data_base64)) { 
+                $meta_json_array['Modo Inpainting'] = __('lbl_activated') . ' (Denoise: ' . $sampler_denoise . ')'; 
+            } else { 
+                $meta_json_array['Fuerza de Edición'] = $sampler_denoise . ' (Image-to-Image)'; 
+            }
         }
+        
         if ($is_outpainting) {
             $meta_json_array['Modo Outpaint'] = __('lbl_up') . ":$out_top, " . __('lbl_down') . ":$out_bottom, " . __('lbl_left') . ":$out_left, " . __('lbl_right') . ":$out_right";
         }
-        if ($hires_fix && !empty($upscale_model)) { 
-            $meta_json_array['Hi-Res Fix'] = 'Tiled Upscale (' . $upscale_factor . 'x, ' . basename($upscale_model) . ')'; 
+        
+        if ($hires_fix) { 
+            if ($aurasr_enabled) {
+                $meta_json_array['Hi-Res Fix'] = 'AuraSR GigaGAN (' . $upscale_factor . 'x)';
+            } elseif (!empty($upscale_model)) {
+                $meta_json_array['Hi-Res Fix'] = 'Tiled Upscale (' . $upscale_factor . 'x, ' . basename($upscale_model) . ')';
+            }
         }
+        
         if ($reactor_enabled === 'true' && !empty($reactor_image_base64)) { $meta_json_array['Face Swap (ReActor)'] = __('lbl_activated'); }
         if ($ipadapter_enabled === 'true' && !empty($ipadapter_image_base64)) { $meta_json_array['IP-Adapter (Estilo)'] = __('lbl_activated') . ' (' . __('lbl_strength') . ': ' . $ipa_weight . ')'; }
-		if ($controlnet_enabled === 'true' && !empty($controlnet_model)) {
+        if ($controlnet_enabled === 'true' && !empty($controlnet_model)) {
             $meta_json_array['ControlNet'] = basename($controlnet_model) . ' (' . $controlnet_preprocessor . ', ' . __('lbl_strength') . ': ' . $controlnet_weight . ')';
         }
         if ($remove_background) {
             $meta_json_array['Fondo Transparente'] = __('lbl_activated') . ' (Rembg)';
         }
-		if ($ddcolor_enabled) {
+        if ($ddcolor_enabled) {
             $meta_json_array['Coloreado Neural'] = __('lbl_activated') . ' (DDColor: ' . basename($ddcolor_model) . ')';
         }
-		if ($iclight_enabled) {
-        $meta_json_array['IC-Light (Relighting)'] = __('lbl_activated') . ' (' . $iclight_direction . ')';
-		}
+        if ($iclight_enabled) {
+            $meta_json_array['IC-Light (Relighting)'] = __('lbl_activated') . ' (' . $iclight_direction . ')';
+        }
 
         $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
 
