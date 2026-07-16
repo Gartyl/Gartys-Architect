@@ -1,23 +1,17 @@
 <!-- ======================================================= -->
 <!-- 5.8. COLOREADO NEURAL (DDColor - Exclusivo PRO) -->
 <!-- ======================================================= -->
-<?php 
-    $has_ddcolor_access = ($user_rol === 'pro' || $is_admin); 
-?>
 
 <div class="param-group shadow-sm border-danger mb-3" id="ddcolorBlock" style="display: none; border-color: rgba(220, 53, 69, 0.4) !important; background: rgba(220, 53, 69, 0.05);">
     <div class="d-flex justify-content-between align-items-center">
         <label class="small text-danger fw-bold mb-0">
-            <i class="bi bi-palette-fill"></i> <?= __('tit_ddcolor') ?? 'COLOREADO NEURAL (DDColor)' ?>
-            <?php if (!$has_ddcolor_access): ?>
-                <span class="badge bg-warning text-dark ms-2" style="font-size: 0.7rem;">PRO</span>
-            <?php endif; ?>
+            <i class="bi bi-palette-fill"></i> <?= __('tit_ddcolor') ?? 'COLOREADO NEURAL (DDColor)' ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?>
         </label>
         <div class="form-check form-switch m-0">
             <input class="form-check-input pref-track border-danger" type="checkbox" id="toggleDDColor" name="ddcolor_enabled" value="1" 
                    style="cursor: pointer;"
                    onchange="document.getElementById('ddcolorSubOptions').classList.toggle('d-none', !this.checked); if(!this.checked) { document.getElementById('pureDDColorToggle').checked = false; toggleDDColorPuro(false); }"
-                   <?= !$has_ddcolor_access ? 'disabled title="'.(__('msg_solo_pro') ?? 'Función exclusiva PRO').'"' : '' ?>>
+                   <?= !$is_pro ? 'disabled title="'.(__('msg_solo_pro') ?? 'Función exclusiva PRO').'"' : '' ?>>
         </div>
     </div>
     
@@ -32,25 +26,11 @@
         </div>
       
         <!-- Modo Puro -->
-<!--        <div class="form-check form-switch m-0">
-            <input class="form-check-input border-danger" type="checkbox" id="pureDDColorToggle" onchange="toggleDDColorPuro(this.checked)">
+        <div class="form-check form-switch m-0">
+            <input class="form-check-input border-danger" style="cursor: pointer;" type="checkbox" id="pureDDColorToggle" onchange="toggleDDColorPuro(this.checked)" <?= !$is_pro ? 'disabled' : '' ?>>
             <label class="form-check-label small text-danger fw-bold" for="pureDDColorToggle" style="cursor: pointer;">
                 <i class="bi bi-shield-lock me-1"></i> <?= __('ctrl_ddcolor_puro') ?? 'Modo Puro (DDColor)' ?>
             </label>
         </div>
--->
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const toggle = document.getElementById('toggleDDColor');
-    const collapse = document.getElementById('collapseDDColor');
-    if (toggle && collapse) {
-        toggle.addEventListener('change', function() {
-            const bsCollapse = new bootstrap.Collapse(collapse, { toggle: false });
-            this.checked ? bsCollapse.show() : bsCollapse.hide();
-        });
-    }
-});
-</script>
