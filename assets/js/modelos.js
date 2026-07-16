@@ -242,74 +242,81 @@ function updateModelFilter(category) {
 function updateLoraFilter(category) {
     const graphCategories = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VISION]', '[CHAT]', '[VIDEO]'];
     
-    if (!graphCategories.includes(category)) { 
+    // --- NUEVO: CERROJO INTELIGENTE DE MODELOS ---
+    const modelSel = document.getElementById('modelSelector');
+    let modeloSeleccionado = "";
+    let esModeloValido = true;
+
+    if (modelSel && modelSel.selectedIndex !== -1) {
+        let opcion = modelSel.options[modelSel.selectedIndex];
+        // Comprobamos si el modelo está desactivado (es de un Free) o es el texto de "Sin modelos"
+        if (opcion.disabled || opcion.value === "" || opcion.text.includes('⚠️')) {
+            esModeloValido = false;
+        } else {
+            // TRUCO: Juntamos el nombre del menú y el nombre del archivo
+            modeloSeleccionado = (opcion.text + " " + opcion.value).toLowerCase();
+        }
+    } else {
+        esModeloValido = false;
+    }
+    // ---------------------------------------------
+
+    if (!graphCategories.includes(category) || !esModeloValido) { 
+        // Si no hay categoría o NO hay modelo válido, vaciamos los LoRAs
         filteredLoras = []; 
     } else { 
         let tempLoras = [];
         
-        // 1. Averiguamos qué MODELO EXACTO tenemos seleccionado ahora mismo
-        const modelSel = document.getElementById('modelSelector');
-        let modeloSeleccionado = "";
-        if (modelSel && modelSel.selectedIndex !== -1) {
-            let opcion = modelSel.options[modelSel.selectedIndex];
-            // TRUCO: Juntamos el nombre del menú y el nombre del archivo para que no se escape nada
-            modeloSeleccionado = (opcion.text + " " + opcion.value).toLowerCase();
+        // --- LA MAGIA REAL: DETERMINAR LA ARQUITECTURA ---
+        // Ya no nos fiamos a ciegas de la "categoría" del menú principal (Chat/Visión).
+        // Nos fijamos en qué modelo físico está seleccionado en el desplegable "Modelo Gráfico".
+        
+        let targetArch = category; 
+        
+        // Si estamos en Chat o Visión, miramos qué modelo gráfico está puesto para inferir la arquitectura
+        if (category === '[VISION]' || category === '[CHAT]') {
+             if (modeloSeleccionado.includes('sd15') || modeloSeleccionado.includes('v15')) targetArch = '[SD15]';
+             else if (modeloSeleccionado.includes('sdxl') || modeloSeleccionado.includes('xl')) targetArch = '[SDXL]';
+             else if (modeloSeleccionado.includes('video') || modeloSeleccionado.includes('wan') || modeloSeleccionado.includes('ltx')) targetArch = '[VIDEO]';
+             else targetArch = '[NATURAL_IMAGE]'; // Fallback a los gordos (Flux/Chroma/etc)
         }
 
-        // 2. Filtramos la lista maestra de LoRAs (loadedLoras)
-        if (category === '[SD15]') {
+        // 2. Filtramos la lista maestra de LoRAs (loadedLoras) según la arquitectura detectada
+        if (targetArch === '[SD15]') {
             tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('sd15') || m.toLowerCase().includes('v15'));
-        } else if (category === '[SDXL]') {
+        } else if (targetArch === '[SDXL]') {
             tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('sdxl') || m.toLowerCase().includes('xl'));
-        } else if (category === '[NATURAL_IMAGE]') {
+        } else if (targetArch === '[NATURAL_IMAGE]') {
             // === FILTRO AISLADO POR ARQUITECTURAS ===
-            
             if (modeloSeleccionado.includes('chroma') && !modeloSeleccionado.includes('zavy')) {
-                // Busca LoRAs que estén en la carpeta Chroma/
                 tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('chroma\\') || m.toLowerCase().includes('chroma/'));
-                
             } else if (modeloSeleccionado.includes('flux')) {
-                // Busca LoRAs en carpeta Flux/ o que empiecen por f1_ / f2_
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
                     return low.includes('flux\\') || low.includes('flux/') || low.startsWith('f1_') || low.startsWith('f2_');
                 });
-                
             } else if (modeloSeleccionado.includes('z-image') || modeloSeleccionado.includes('zimage') || modeloSeleccionado.includes('z_image')) {
-                // Busca la palabra zimage en la carpeta o el nombre
                 tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('zimage'));
-                
             } else if (modeloSeleccionado.includes('qwen')) {
-                // Busca la palabra qwen en la carpeta o el nombre
                 tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('qwen'));
-                
-            // === NUEVO: SOPORTE PARA LORAS DE KREA-2 ===
             } else if (modeloSeleccionado.includes('krea2') || modeloSeleccionado.includes('krea-2') || modeloSeleccionado.includes('krea 2')) {
-                // Filtramos los LoRAs (sus archivos/carpetas suelen llamarse krea2_algo o krea-2)
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
                     return low.includes('krea2') || low.includes('krea-2');
                 });
-                
             } else if (modeloSeleccionado.includes('sd3') || modeloSeleccionado.includes('3.5')) {
-                // Atrapa cualquier cosa que lleve "sd3" o "3.5" en el nombre del modelo
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
-                    // Solo mostrará los LoRAs que tengan sd3 o 3.5 en su ruta/nombre
                     return low.includes('sd3') || low.includes('3.5');
                 });
-                
             } else {
-                // Si no detecta nada raro, carga todos los de NATURAL IMAGE (Fallback de seguridad actualizado)
                 tempLoras = loadedLoras.filter(m => {
                     const low = m.toLowerCase();
                     return low.includes('flux') || low.includes('sd35') || low.includes('sd3.5') || low.includes('sd3_5') || low.includes('zimage') || low.includes('z_image') || low.includes('z-image') || low.includes('qwen') || low.includes('krea2') || low.includes('krea-2');      
                 });
             }
-        } else if (category === '[VIDEO]') {
+        } else if (targetArch === '[VIDEO]') {
             tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('wan') || m.toLowerCase().includes('ltx'));
-        } else if (category === '[VISION]' || category === '[CHAT]') {
-            tempLoras = loadedLoras.filter(m => !m.toLowerCase().includes('wan') && !m.toLowerCase().includes('ltx'));
         } else {
             tempLoras = [...loadedLoras];
         }
@@ -328,7 +335,7 @@ function updateLoraFilter(category) {
 
     selects.forEach(select => {
         const currentVal = select.value;
-        select.innerHTML = '<option value="">' + GartyLang.opt_no_lora + '</option>';
+        select.innerHTML = '<option value="">' + (GartyLang.opt_no_lora || 'Sin LoRA') + '</option>';
         filteredLoras.forEach(lora => {
             const opt = document.createElement('option');
             opt.value = lora;
@@ -338,7 +345,6 @@ function updateLoraFilter(category) {
         });
         
         // Si el valor que tenías seleccionado antes sigue existiendo, lo mantenemos. 
-        // Si no (ej: pasaste de Flux a Chroma y el LoRA de Flux desaparece), se queda en "No LoRA".
         if (currentVal && filteredLoras.includes(currentVal)) { 
             select.value = currentVal; 
         } else {

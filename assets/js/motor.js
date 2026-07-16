@@ -731,6 +731,12 @@ function updateUIForSelector(sel) {
     
     const presetBlock = document.getElementById('presetBlock');
     if (presetBlock) { if (['[LLM]', '[VISION]', '[VIDEO]'].includes(sel) || (sel === '[CHAT]' && !isAvanzado)) presetBlock.style.display = 'none'; else presetBlock.style.display = 'block'; }
+	
+	// --- NUEVO: Control del Panel Padre de Herramientas PRO ---
+    const proToolsBlock = document.getElementById('accordionProTools') || document.getElementById('proToolsContainer')?.parentElement;
+    if (proToolsBlock) {
+        proToolsBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel) && isAvanzado) ? 'block' : 'none';
+    }
 
     const chatView = document.getElementById('chatView'); if (chatView) chatView.classList.toggle('d-none', sel !== '[CHAT]');
     const chatRoleBlock = document.getElementById('chatRoleBlock'); if (chatRoleBlock) chatRoleBlock.style.display = (sel === '[CHAT]') ? 'block' : 'none';
