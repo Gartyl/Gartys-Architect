@@ -108,6 +108,13 @@ if ($action === 'generar_imagen') {
             echo json_encode(['success' => false, 'error' => __('err_pro_iclight') ?? 'La iluminación neural (IC-Light) es exclusiva para usuarios PRO.']);
             exit;
         }
+		
+		// 9. Bloqueo de Eliminar Fondo (Rembg) - NUEVO
+        if ((isset($_POST['remove_background']) && $_POST['remove_background'] === 'true') || 
+            (isset($_POST['pure_rembg']) && $_POST['pure_rembg'] === 'true')) {
+            echo json_encode(['success' => false, 'error' => __('err_pro_rembg') ?? 'La herramienta para eliminar el fondo es exclusiva para usuarios PRO.']);
+            exit;
+        }
     }
     // ====================================================================
     
