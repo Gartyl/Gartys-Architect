@@ -13,7 +13,7 @@
 				<div class="col-md-12">
 					<label class="small text-secondary fw-bold"><?= __('tit_ip_model') ?></label>
 					<select class="form-select form-select-sm bg-dark text-light border-primary pref-track" id="ipaModel">
-						<option value="flux-ip-adapter.safetensors">💎 <?= __('ipa_mod_flux') ?></option>
+						<!--option value="flux-ip-adapter.safetensors">💎 < ?= __('ipa_mod_flux') ?></option-->
 						
 						<option value="ip-adapter-plus_sdxl_vit-h.safetensors" selected><?= __('ipa_mod_sdxl_plus') ?></option>
 						<option value="ip-adapter-plus-face_sdxl_vit-h.safetensors"><?= __('ipa_mod_sdxl_face') ?></option>
