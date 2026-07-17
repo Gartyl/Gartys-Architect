@@ -86,6 +86,36 @@ function extractMaskBase64() {
     return exportCanvas.toDataURL('image/png').split(',')[1];
 }
 
+// --- NUEVO: FUNCIÓN PARA LIMPIAR SUBIDAS DE CHAT/LLM/VISIÓN ---
+window.clearUploadData = function() {
+    currentImageBase64 = null;
+    currentDocumentText = "";
+    window.rawUploadedDataUrl = null;
+    
+    const mainInput = document.getElementById('imageInput');
+    if (mainInput) mainInput.value = "";
+    
+    const imgBadge = document.getElementById('chatImgBadge');
+    if (imgBadge) imgBadge.remove();
+    
+    const docBadge = document.getElementById('chatDocBadge');
+    if (docBadge) docBadge.remove();
+    
+    const visor = document.getElementById('visorEdicionContainer');
+    if (visor) visor.style.display = 'none';
+    
+    const imgPreview = document.getElementById('imgPreview');
+    if (imgPreview) imgPreview.src = "";
+    
+    const previewContainer = document.getElementById('imgPreviewContainer');
+    if (previewContainer) {
+        // Solo escondemos el contenedor padre si ya no queda ningún badge (ej. de audio)
+        if (previewContainer.querySelectorAll('.badge').length === 0) {
+            previewContainer.style.display = 'none';
+        }
+    }
+};
+
 function setBaseImageFromDataUrl(dataUrl) {
     window.rawUploadedDataUrl = dataUrl;
     const img = new Image();
@@ -122,19 +152,36 @@ function setBaseImageFromDataUrl(dataUrl) {
         const displayToolbar = canEdit ? 'flex' : 'none';
         const displayMask = canEdit ? 'block' : 'none';
         
-        // --- NUEVO LOGICA LIMPIA: Solo actualizamos la imagen y mostramos el panel PHP ---
         const imgPreviewContainer = document.getElementById('imgPreviewContainer');
         const visorContainer = document.getElementById('visorEdicionContainer');
         const imgPreview = document.getElementById('imgPreview');
         
-        if (imgPreview) imgPreview.src = currentImageBase64;
-        if (visorContainer) visorContainer.style.display = 'block';
-        if (imgPreviewContainer) imgPreviewContainer.style.display = 'block';
+        // --- NUEVO: GESTIÓN DE BADGES PARA CHAT, LLM Y VISIÓN ---
+        if (['[CHAT]', '[LLM]', '[VISION]'].includes(sel)) {
+            if (visorContainer) visorContainer.style.display = 'none'; // Ocultamos el lienzo de inpaint
+            if (imgPreviewContainer) {
+                // Limpiamos badges previos
+                const oldImg = document.getElementById('chatImgBadge'); if (oldImg) oldImg.remove();
+                const oldDoc = document.getElementById('chatDocBadge'); if (oldDoc) oldDoc.remove();
+                
+                imgPreviewContainer.innerHTML += `
+                <div id="chatImgBadge" class="badge bg-info text-dark p-3 mt-2 mb-2 fs-6 w-100 text-start shadow-sm d-flex align-items-center">
+                    <img src="${currentImageBase64}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 15px; border: 1px solid rgba(0,0,0,0.2);">
+                    <span class="text-truncate"><i class="bi bi-image fs-5 me-2"></i> ${GartyLang.msg_img_loaded || 'Imagen adjunta lista'}</span>
+                    <i class="bi bi-x-circle ms-auto fs-5 text-dark" style="cursor:pointer;" onclick="clearUploadData()" title="${GartyLang.btn_quitar || 'Quitar'}"></i>
+                </div>`;
+                imgPreviewContainer.style.display = 'block';
+            }
+        } else {
+            // Comportamiento normal para generar imágenes (Lienzo Inpaint)
+            if (imgPreview) imgPreview.src = currentImageBase64;
+            if (visorContainer) visorContainer.style.display = 'block';
+            if (imgPreviewContainer) imgPreviewContainer.style.display = 'block';
+            const zoomControls = document.getElementById('lienzoZoomControls');
+            if (zoomControls) zoomControls.style.display = displayToolbar;
+        }
+        // ---------------------------------------------------------
         
-        const zoomControls = document.getElementById('lienzoZoomControls');
-        if (zoomControls) zoomControls.style.display = displayToolbar;
-        // ----------------------------------------------------------------------------------
-
         currentDocumentText = ""; 
         
         maskCanvas = document.getElementById('maskCanvas');
@@ -572,11 +619,28 @@ if (mainImageInput) {
                 imgPreviewContainer.style.display = 'block'; URL.revokeObjectURL(videoURL);
             };
         } else {
-            const imgPreviewContainer = document.getElementById('imgPreviewContainer');
-            imgPreviewContainer.innerHTML = `<div class="badge bg-secondary p-3 mb-2 fs-6 w-100 text-start shadow-sm"><i class="bi bi-file-earmark-text fs-4 me-2"></i> ${GartyLang.msg_doc_loaded}: ${file.name}</div>`;
-            imgPreviewContainer.style.display = 'block'; currentImageBase64 = null; 
+            // 1. Primero limpiamos variables y dejamos que la interfaz se actualice
+            currentImageBase64 = null; 
             if(typeof clearVideoUpload === 'function') clearVideoUpload();
             updateUIForSelector(document.getElementById('selector').value);
+
+            // 2. AHORA SÍ: Inyectamos el badge del documento y forzamos que sea visible
+            const imgPreviewContainer = document.getElementById('imgPreviewContainer');
+            if (imgPreviewContainer) {
+                // Limpiamos badges previos por si acaso
+                const oldImg = document.getElementById('chatImgBadge'); if (oldImg) oldImg.remove();
+                const oldDoc = document.getElementById('chatDocBadge'); if (oldDoc) oldDoc.remove();
+                
+                imgPreviewContainer.insertAdjacentHTML('afterbegin', `
+                <div id="chatDocBadge" class="badge bg-secondary p-3 mt-2 mb-2 fs-6 w-100 text-start shadow-sm d-flex align-items-center">
+                    <i class="bi bi-file-earmark-text fs-4 me-3"></i> 
+                    <span class="text-truncate">${GartyLang.msg_doc_loaded || 'Documento adjunto'}: ${file.name}</span>
+                    <i class="bi bi-x-circle ms-auto fs-5 text-light" style="cursor:pointer; z-index: 10;" onclick="clearUploadData()" title="${GartyLang.btn_quitar || 'Quitar'}"></i>
+                </div>`);
+                
+                imgPreviewContainer.style.display = 'block'; 
+            }
+            // -------------------------------------------------------------
             
             if (file.type === 'application/pdf') {
                 const reader = new FileReader();
