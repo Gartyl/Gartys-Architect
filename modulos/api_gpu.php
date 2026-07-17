@@ -383,12 +383,13 @@ if ($action === 'generar_imagen') {
     $is_krea2 = (strpos($model_lower, 'krea2') !== false || strpos($model_lower, 'krea-2') !== false);
     $is_gguf = (strpos($model_lower, '.gguf') !== false);
     $is_chroma = (strpos($model_lower, 'chroma') !== false && strpos($model_lower, 'zavy') === false);
+    $is_hunyuan = (strpos($model_lower, 'hunyuan') !== false && strpos($model_lower, 'video') === false); // <-- NUEVO
     
     // 2. Creamos la bandera exclusiva para Z-Image
     $is_zimage = (strpos($model_lower, 'z-image') !== false || strpos($model_lower, 'z_image') !== false || strpos($model_lower, 'zimage') !== false);
     
     // 3. Añadimos a la familia UNETs
-    $is_unet = (stripos($model_path, 'unet/') !== false || stripos($model_path, 'unet\\') !== false || $is_flux || $is_chroma || $is_sd35 || $is_zimage || $is_qwen || $is_gguf || $is_krea2);
+    $is_unet = (stripos($model_path, 'unet/') !== false || stripos($model_path, 'unet\\') !== false || $is_flux || $is_chroma || $is_sd35 || $is_zimage || $is_qwen || $is_gguf || $is_krea2 || $is_hunyuan); // <-- AÑADIDO $is_hunyuan
     
     // 4. Turbo (Añadida también la versión sin guion)
     $is_turbo = (strpos($model_lower, 'turbo') !== false || strpos($model_lower, 'schnell') !== false);
@@ -404,8 +405,10 @@ if ($action === 'generar_imagen') {
         $vae_name = "sd35_vae.safetensors";
     } elseif ($is_qwen || $is_krea2) {
         $vae_name = "qwen_image_vae.safetensors";
-	} elseif ($is_chroma) {
-        $vae_name = "flux_vae.safetensors";	
+    } elseif ($is_chroma) {
+        $vae_name = "flux_vae.safetensors";    
+    } elseif ($is_hunyuan) {
+        $vae_name = "hunyuan_image_2.1_vae_fp16.safetensors"; 
     } elseif ($is_zimage) {
         if ($is_turbo) {
             $vae_name = "zImageTurbo_vae.safetensors";
@@ -435,6 +438,11 @@ if ($action === 'generar_imagen') {
         $cfg = 1.0; 
         $sampler = "euler"; 
         $scheduler = "simple";
+	} elseif ($is_hunyuan) {
+        $steps = 40; 
+        $cfg = 3.5; 
+        $sampler = "euler"; 
+        $scheduler = "sgm_uniform";
     } elseif ($is_flux || $is_sd35 || $is_zimage) {
         $steps = 25; 
         $cfg = 4.0; 
@@ -470,8 +478,8 @@ if ($action === 'generar_imagen') {
     }*/
     // =========================================================
 
-   // Añadimos !$is_krea2 a la lista de excepciones permitidas
-    if ($is_unet && !$is_flux && !$is_chroma && !$is_sd35 && !$is_zimage && !$is_qwen && !$is_gguf && !$is_krea2 && strpos($model_lower, 'video') === false) {
+  // Añadimos !$is_krea2 y !$is_hunyuan a la lista de excepciones permitidas
+    if ($is_unet && !$is_flux && !$is_chroma && !$is_sd35 && !$is_zimage && !$is_qwen && !$is_gguf && !$is_krea2 && !$is_hunyuan && strpos($model_lower, 'video') === false) {
         echo json_encode(['error' => __('err_pure_unet_load')]); 
         exit();
     }
@@ -1467,6 +1475,16 @@ if ($action === 'generar_imagen') {
             $workflow["90"] = [ "inputs" => ["clip_name" => "qwen3vl_4b_fp8_scaled.safetensors", "type" => "krea2", "device" => "default"], "class_type" => "CLIPLoader" ];
         } elseif ($is_zimage) {
             $workflow["90"] = [ "inputs" => ["clip_name" => "qwen_3_4b.safetensors", "type" => "lumina2"], "class_type" => "CLIPLoader" ];
+        } elseif ($is_hunyuan) {
+            // Hunyuan-Image nativo de ComfyUI: Arquitectura Dual (Qwen 2.5 VL + ByT5 Small)
+            $workflow["90"] = [ 
+                "inputs" => [
+                    "clip_name1" => "qwen_2.5_vl_7b_fp8_scaled.safetensors", // <-- AQUÍ ESTABA EL ERROR: Usamos Qwen, no CLIP-L
+                    "clip_name2" => "byt5_small_glyphxl_fp16.safetensors",    // <-- Tu nuevo archivo ByT5 encaja perfecto
+                    "type" => "hunyuan_image" 
+                ], 
+                "class_type" => "DualCLIPLoader" 
+            ];
         } elseif (strpos($model_lower, 'flux2') !== false) {
             // EL INTOCABLE FLUX 2
             $workflow["90"] = [ "inputs" => ["clip_name" => "qwen_3_8b.safetensors", "type" => "flux2"], "class_type" => "CLIPLoader" ];
