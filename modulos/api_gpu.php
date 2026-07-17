@@ -1776,6 +1776,43 @@ if ($action === 'generar_imagen') {
             }
         }
     }
+	
+	// ==============================================================================
+    // 🌟 INYECCIÓN QWEN EDIT (Reescritura de CLIPTextEncode por el VLM Integrado)
+    // ==============================================================================
+    if ($is_qwen && !empty($init_image_base64)) {
+        // Buscamos cuál es el nodo final de la imagen (escalada o expandida)
+        $qwen_image_source = ["11", 0]; 
+        if ($is_outpainting && isset($workflow["111"])) {
+            $qwen_image_source = ["111", 0]; 
+        } elseif (isset($workflow["13"])) {
+            $qwen_image_source = ["13", 0]; 
+        }
+
+        $workflow["6"] = [
+            "inputs" => [
+                "prompt" => $posPrompt, // Qwen usa "prompt" en lugar de "text"
+                "clip" => [$base_clip_node, $base_clip_index],
+                "vae" => [$base_vae_node, $base_vae_index],
+                "image" => $qwen_image_source // <-- CONEXIÓN VISUAL DIRECTA
+            ],
+            "class_type" => "TextEncodeQwenImageEdit"
+        ];
+        
+        $workflow["7"] = [
+            "inputs" => [
+                "prompt" => $neg_prompt,
+                "clip" => [$base_clip_node, $base_clip_index],
+                "vae" => [$base_vae_node, $base_vae_index],
+                "image" => $qwen_image_source
+            ],
+            "class_type" => "TextEncodeQwenImageEdit"
+        ];
+        
+        // Qwen Edit reconstruye el latente condicionado por la imagen en el TextEncode.
+        // Requiere forzosamente denoise 1.0 para poder "dibujar" la edición correctamente.
+        $sampler_denoise = 1.0; 
+    }
 
     // --- LORAS ---
     $lora_node_id = 700; 
@@ -1839,6 +1876,27 @@ if ($action === 'generar_imagen') {
             "class_type" => "ModelSamplingFlux"
         ];
         $current_model_node = "850_shift"; 
+    }
+	
+	// --- WRAPPERS OBLIGATORIOS PARA QWEN EDIT ---
+    if ($is_qwen && !empty($init_image_base64)) {
+        $workflow["850_qwen_aura"] = [
+            "inputs" => [
+                "shift" => 3.0,
+                "model" => [$current_model_node, 0]
+            ],
+            "class_type" => "ModelSamplingAuraFlow"
+        ];
+        $workflow["851_qwen_cfg"] = [
+            "inputs" => [
+                "strength" => 1.0,
+                "pre_cfg" => false,
+                "model" => ["850_qwen_aura", 0]
+            ],
+            "class_type" => "CFGNorm"
+        ];
+        // Enganchamos el modelo normalizado para que el KSampler lo recoja
+        $current_model_node = "851_qwen_cfg"; 
     }
     
     // --- FASE EXTRA: DYNAMIC THRESHOLDING ---
