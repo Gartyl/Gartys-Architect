@@ -744,8 +744,8 @@ function updateUIForSelector(sel) {
     
     const loraContainer = document.getElementById('loraContainer'); if (loraContainer) loraContainer.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]', '[CHAT]', '[VISION]'].includes(sel)) ? 'block' : 'none';
 
-    // (Aquí siguen los toggles de ControlNet, IpAdapter, Reactor, Adetailer, Denoise...)
-    ['controlNet', 'ipAdapter', 'reactor', 'adetailer'].forEach(id => {
+    // 1. Herramientas que SÍ funcionan en todas las arquitecturas
+    ['controlNet', 'reactor', 'adetailer'].forEach(id => {
         const block = document.getElementById(id + 'Block');
         const toggle = document.getElementById(id + 'Toggle') || document.getElementById(id);
         if (block) {
@@ -753,6 +753,20 @@ function updateUIForSelector(sel) {
             else { block.style.display = 'none'; if(toggle) toggle.checked = false; }
         }
     });
+
+    // 2. IP-Adapter: Exclusivo para SD1.5 y SDXL
+    const ipaBlock = document.getElementById('ipAdapterBlock');
+    const ipaToggle = document.getElementById('ipAdapterToggle');
+    if (ipaBlock) {
+        if (['[SD15]', '[SDXL]'].includes(sel) && isAvanzado) ipaBlock.style.display = 'block';
+        else { 
+            ipaBlock.style.display = 'none'; 
+            if(ipaToggle) {
+                ipaToggle.checked = false;
+                if(typeof toggleIpAdapterUI === 'function') toggleIpAdapterUI();
+            } 
+        }
+    }
 
     const denoiseBlock = document.getElementById('denoiseBlock'); if (denoiseBlock) denoiseBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VISION]'].includes(sel)) ? 'block' : 'none';
     const batchBlock = document.getElementById('batchSize') ? document.getElementById('batchBlock') : null; if (batchBlock) batchBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel)) ? 'block' : 'none';
@@ -802,7 +816,7 @@ function updateUIForSelector(sel) {
     // --- NUEVO: Visibilidad y reseteo de IC-Light ---
     const icLightBlock = document.getElementById('icLightBlock');
     if (icLightBlock) {
-        if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel) && isAvanzado) icLightBlock.style.display = 'block';
+		if (['[SD15]', '[SDXL]'].includes(sel) && isAvanzado) icLightBlock.style.display = 'block';
         else { 
             icLightBlock.style.display = 'none'; 
             const toggleIcLight = document.getElementById('iclight_enabled'); 
