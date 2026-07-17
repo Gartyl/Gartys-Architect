@@ -16,7 +16,7 @@
                 <label class="form-check-label ms-2 text-warning fw-bold" for="aurasrToggle">
                     <i class="bi bi-stars"></i> <?= __('aurasr_title') ?>
                 </label>
-                <div class="text-muted mt-1 ms-2" style="font-size: 0.75rem;"><?= __('aurasr_desc') ?></div>
+                <div class="text-light text-opacity-50 mt-1 ms-2" style="font-size: 0.75rem;"><?= __('aurasr_desc') ?></div>
             </div>
             <!-- ------------------------------------- -->
 
