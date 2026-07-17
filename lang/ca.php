@@ -196,8 +196,8 @@ return [
     'btn_title_delete' => "Esborrar Preset",
     'btn_title_copy' => "Copiar",
     'btn_run_llm_now' => "EXECUTAR AQUEST PROMPT ARA",
-    'btn_rmv_style' => "Quitar Estilo",
-    'btn_quitar' => "Quitar",
+    'btn_rmv_style' => "Llevar Estil",
+    'btn_quitar' => "Treure",
     'btn_pub_gallery' => "Publicar a la Galeria",
     'btn_edit_inpaint' => "Editar (Inpaint / Outpaint)",
     'btn_use_face' => "Usar Cara (ReActor)",
@@ -224,6 +224,7 @@ return [
 	'err_net_server'       => "Fallada de xarxa en contactar amb el servidor.",
 	'err_empty_interrupted'=> "Resposta buida o interrompuda pel servidor.",
 	'log_err_conn'         => "Fallada de comunicació en el motor d\'execució:",
+	'msg_img_loaded' => "Imatge adjunta a punt",
     
     // --- SELECTORES, FILTROS Y CONTROLES ---
     'sel_llm' => "LLM (Modelo de Lenguaje)",

@@ -224,6 +224,7 @@ return [
 	'err_net_server'       => "Fallo de red al contactar con el servidor.",
 	'err_empty_interrupted'=> "Respuesta vacía o interrumpida por el servidor.",
 	'log_err_conn'         => "Fallo de comunicación en el motor de ejecución:",
+	'msg_img_loaded' => "Imagen adjunta lista",
     
     // --- SELECTORES, FILTROS Y CONTROLES ---
     'sel_llm' => "LLM (Modelo de Lenguaje)",

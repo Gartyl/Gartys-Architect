@@ -224,6 +224,7 @@ return [
 	'err_net_server'       => "Сетевая ошибка при соединении с сервером.",
 	'err_empty_interrupted'=> "Пустой или прерванный ответ от сервера.",
 	'log_err_conn'         => "Ошибка связи в ядре выполнения:",
+	'msg_img_loaded' => "Прикрепленное изображение готово",
     
     // --- SELECTORES, FILTROS Y CONTROLES ---
     'sel_llm' => "LLM (Языковая модель)",
