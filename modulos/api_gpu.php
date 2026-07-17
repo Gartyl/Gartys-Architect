@@ -318,7 +318,7 @@ if ($action === 'generar_imagen') {
     $iclight_prompt_panel = trim($_POST['iclight_prompt'] ?? '');
     
     // Bloqueo de seguridad contextual: si no es categoría fotográfica, anulamos IC-Light
-    if (in_array($selector, ['[VIDEO]', '[LLM]', '[CHANT]', '[VISION]'])) {
+    if (in_array($selector, ['[VIDEO]', '[LLM]', '[CHANT]', '[VISION]', '[NATURAL_IMAGE]'])) {
         $iclight_enabled = false;
     }
 	
