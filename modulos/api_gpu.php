@@ -376,20 +376,21 @@ if ($action === 'generar_imagen') {
     // --- DETECCIÓN DE ARQUITECTURA ---
     $model_lower = strtolower($model_path);
     
-    // 1. Separamos Arquitecturas (Fundamental para los Text Encoders)
+   // 1. Separamos Arquitecturas
     $is_flux = (strpos($model_lower, 'flux') !== false);
     $is_sd35 = (strpos($model_lower, 'sd35') !== false || strpos($model_lower, 'sd3.5') !== false);
     $is_qwen = (strpos($model_lower, 'qwen') !== false);
     $is_krea2 = (strpos($model_lower, 'krea2') !== false || strpos($model_lower, 'krea-2') !== false);
     $is_gguf = (strpos($model_lower, '.gguf') !== false);
     $is_chroma = (strpos($model_lower, 'chroma') !== false && strpos($model_lower, 'zavy') === false);
-    $is_hunyuan = (strpos($model_lower, 'hunyuan') !== false && strpos($model_lower, 'video') === false); // <-- NUEVO
+    $is_hunyuan = (strpos($model_lower, 'hunyuan') !== false && strpos($model_lower, 'video') === false);
+    $is_hidream = (strpos($model_lower, 'hidream') !== false); // <-- NUEVO: Detección de HiDream
     
-    // 2. Creamos la bandera exclusiva para Z-Image
+    // 2. Bandera exclusiva para Z-Image
     $is_zimage = (strpos($model_lower, 'z-image') !== false || strpos($model_lower, 'z_image') !== false || strpos($model_lower, 'zimage') !== false);
     
     // 3. Añadimos a la familia UNETs
-    $is_unet = (stripos($model_path, 'unet/') !== false || stripos($model_path, 'unet\\') !== false || $is_flux || $is_chroma || $is_sd35 || $is_zimage || $is_qwen || $is_gguf || $is_krea2 || $is_hunyuan); // <-- AÑADIDO $is_hunyuan
+    $is_unet = (stripos($model_path, 'unet/') !== false || stripos($model_path, 'unet\\') !== false || $is_flux || $is_chroma || $is_sd35 || $is_zimage || $is_qwen || $is_gguf || $is_krea2 || $is_hunyuan || $is_hidream); // <-- AÑADIDO $is_hidream
     
     // 4. Turbo (Añadida también la versión sin guion)
     $is_turbo = (strpos($model_lower, 'turbo') !== false || strpos($model_lower, 'schnell') !== false);
@@ -408,7 +409,9 @@ if ($action === 'generar_imagen') {
     } elseif ($is_chroma) {
         $vae_name = "flux_vae.safetensors";    
     } elseif ($is_hunyuan) {
-        $vae_name = "hunyuan_image_2.1_vae_fp16.safetensors"; 
+        $vae_name = "hunyuan_image_2.1_vae_fp16.safetensors";
+	} elseif ($is_hidream) {
+        $vae_name = "ae.safetensors";
     } elseif ($is_zimage) {
         if ($is_turbo) {
             $vae_name = "zImageTurbo_vae.safetensors";
@@ -439,10 +442,15 @@ if ($action === 'generar_imagen') {
         $sampler = "euler"; 
         $scheduler = "simple";
 	} elseif ($is_hunyuan) {
-        $steps = 40; 
-        $cfg = 3.5; 
+        $steps = 25; 
+        $cfg = 6.0; 
         $sampler = "euler"; 
-        $scheduler = "sgm_uniform";
+        $scheduler = "normal";
+    } elseif ($is_hidream) {
+        $steps = 30; //
+        $cfg = 5.0; //
+        $sampler = "ipndm"; //
+        $scheduler = "beta"; //[cite: 1]
     } elseif ($is_flux || $is_sd35 || $is_zimage) {
         $steps = 25; 
         $cfg = 4.0; 
@@ -478,8 +486,8 @@ if ($action === 'generar_imagen') {
     }*/
     // =========================================================
 
-  // Añadimos !$is_krea2 y !$is_hunyuan a la lista de excepciones permitidas
-    if ($is_unet && !$is_flux && !$is_chroma && !$is_sd35 && !$is_zimage && !$is_qwen && !$is_gguf && !$is_krea2 && !$is_hunyuan && strpos($model_lower, 'video') === false) {
+  // Añadimos !$is_krea2 !$is_hunyuan !$is_hidream a la lista de excepciones permitidas
+    if ($is_unet && !$is_flux && !$is_chroma && !$is_sd35 && !$is_zimage && !$is_qwen && !$is_gguf && !$is_krea2 && !$is_hunyuan && !$is_hidream && strpos($model_lower, 'video') === false) {
         echo json_encode(['error' => __('err_pure_unet_load')]); 
         exit();
     }
@@ -1485,6 +1493,17 @@ if ($action === 'generar_imagen') {
                 ], 
                 "class_type" => "DualCLIPLoader" 
             ];
+		} elseif ($is_hidream) {
+            // HiDream-I1: Arquitectura Quadruple CLIP (CLIP-L + CLIP-G + T5XXL + Llama 3.1 8B FP8)[cite: 1]
+            $workflow["90"] = [ 
+                "inputs" => [
+                    "clip_name1" => "clip_l_hidream.safetensors", // (O "clip_l.safetensors" si tienes el estándar)[cite: 1]
+                    "clip_name2" => "clip_g_hidream.safetensors", // (O "clip_g.safetensors")[cite: 1]
+                    "clip_name3" => "t5xxl_fp8_e4m3fn.safetensors", //[cite: 1]
+                    "clip_name4" => "llama_3.1_8b_instruct_fp8_scaled.safetensors" //[cite: 1]
+                ], 
+                "class_type" => "QuadrupleCLIPLoader" //[cite: 1]
+            ];
         } elseif (strpos($model_lower, 'flux2') !== false) {
             // EL INTOCABLE FLUX 2
             $workflow["90"] = [ "inputs" => ["clip_name" => "qwen_3_8b.safetensors", "type" => "flux2"], "class_type" => "CLIPLoader" ];
@@ -1895,8 +1914,24 @@ if ($action === 'generar_imagen') {
         ];
         $current_model_node = "850_shift"; 
     }
-	
-	// --- WRAPPERS OBLIGATORIOS PARA QWEN EDIT ---
+    
+    // =========================================================================
+    // --- NUEVO: SHIFT DE HIDREAM (ModelSamplingSD3 con Shift 3.0) ---
+    // =========================================================================
+    if ($is_hidream) {
+        $workflow["850_hidream_shift"] = [
+            "inputs" => [
+                "shift" => 3.0, //
+                "model" => [$current_model_node, 0] // Toma el UNET limpio o con LoRAs aplicados[cite: 1]
+            ],
+            "class_type" => "ModelSamplingSD3" //[cite: 1]
+        ];
+        // Actualizamos el puntero para que el KSampler reciba este nodo automáticamente
+        $current_model_node = "850_hidream_shift"; 
+    }
+    // =========================================================================
+
+   // --- WRAPPERS OBLIGATORIOS PARA QWEN EDIT ---
     if ($is_qwen && !empty($init_image_base64)) {
         $workflow["850_qwen_aura"] = [
             "inputs" => [
