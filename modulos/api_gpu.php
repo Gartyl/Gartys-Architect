@@ -1867,6 +1867,18 @@ if ($action === 'generar_imagen') {
             if (isset($is_krea2) && $is_krea2 && strpos($lname, '\\') === false && strpos($lname, '/') === false) {
                 $lname = "Krea2\\" . $lname;
             }
+			
+			// =========================================================
+            // --- NUEVO: AUTOMATIZACIÓN CARPETAS HUNYUAN Y HIDREAM ---
+            // =========================================================
+            if ($is_hunyuan && strpos($lname, '\\') === false && strpos($lname, '/') === false) {
+                $lname = "Hunyuan\\" . $lname; // (o "HunyuanImage\\" si prefieres ese nombre en tu disco)
+            }
+            
+            if ($is_hidream && strpos($lname, '\\') === false && strpos($lname, '/') === false) {
+                $lname = "HiDream\\" . $lname;
+            }
+            // =========================================================
             
             $lstr = floatval($lora_strengths_high[$j] ?? 0.8); $curr_node = (string)$lora_node_id;
             
