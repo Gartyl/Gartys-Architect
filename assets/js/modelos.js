@@ -109,7 +109,7 @@ function getFilteredItems(itemsList, category) {
         filtered = itemsList.filter(m => {
             const low = m.toLowerCase();
             // AÑADIDO: krea2 y krea-2 a la lista de arquitecturas naturales permitidas
-            const isNatural = low.includes('flux') || low.includes('sd35') || low.includes('sd3.5') || low.includes('sd3_5') || low.includes('z-image') || low.includes('zimage') || low.includes('z_image') || low.includes('qwen') || low.includes('krea2') || low.includes('krea-2');
+            const isNatural = low.includes('flux') || low.includes('sd35') || low.includes('sd3.5') || low.includes('sd3_5') || low.includes('z-image') || low.includes('zimage') || low.includes('z_image') || low.includes('qwen') || low.includes('krea2') || low.includes('krea-2') || low.includes('hunyuan') || low.includes('hidream');
             const isNotSdxl = !low.includes('sdxl') && !low.includes('sdxl_c');
             return isNatural && isNotSdxl;
         });
@@ -309,10 +309,24 @@ function updateLoraFilter(category) {
                     let low = m.toLowerCase();
                     return low.includes('sd3') || low.includes('3.5');
                 });
+			// =========================================================================
+            // --- NUEVO: FILTRO AISLADO PARA CARPETAS HUNYUAN Y HIDREAM ---
+            // =========================================================================
+            } else if (modeloSeleccionado.includes('hunyuan') && !modeloSeleccionado.includes('video')) {
+                tempLoras = loadedLoras.filter(m => {
+					let low = m.toLowerCase();
+					return low.includes('hunyuan');
+				});
+            } else if (modeloSeleccionado.includes('hidream')) {
+                tempLoras = loadedLoras.filter(m => {
+					let low = m.toLowerCase();
+					return low.includes('hidream');
+				});
+            // =========================================================================
             } else {
                 tempLoras = loadedLoras.filter(m => {
                     const low = m.toLowerCase();
-                    return low.includes('flux') || low.includes('sd35') || low.includes('sd3.5') || low.includes('sd3_5') || low.includes('zimage') || low.includes('z_image') || low.includes('z-image') || low.includes('qwen') || low.includes('krea2') || low.includes('krea-2');      
+                    return low.includes('flux') || low.includes('sd35') || low.includes('sd3.5') || low.includes('sd3_5') || low.includes('zimage') || low.includes('z_image') || low.includes('z-image') || low.includes('qwen') || low.includes('krea2') || low.includes('krea-2') || low.includes('hunyuan') || low.includes('hidream');      
                 });
             }
         } else if (targetArch === '[VIDEO]') {
