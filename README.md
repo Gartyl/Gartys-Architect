@@ -17,7 +17,7 @@ Garty's Architect is distributed as a standalone, portable application powered b
 * **Zero-Configuration Portable Executable:** Runs locally out of a single folder using an embedded FrankenPHP binary.
 * **Deterministic Asynchronous Generation:** Fire off your prompts and close the tab. The system processes everything in the background and safely stores the images with zero duplicates.
 * **Lightweight SQLite Storage:** Every prompt, seed, model, and metadata is automatically saved to a local, zero-config SQLite database.
-* **Multilingual UI:** Native support for English, Spanish, and Catalan.
+* **Multilingual UI:** Native support for English, Spanish, Russian and Catalan.
 * **100% Local & Private:** Your data, your hardware, your rules.
 
 ---
@@ -103,7 +103,7 @@ For power users. Unlocks the true potential of the integrated studio:
 
 ## 🔮 The Roadmap
 This project is an actively developed Swiss Army knife for AI enthusiasts. Coming soon:
-* **Expanded Modalities:** Upcoming cutting-edge video workflows.
+* **Continuous Evolution:** Ongoing integration of next-generation image and video solutions (like Hunyuan Video), as well as advanced workflow tools.
 * **The Server Edition:** A future standalone release designed for remote network access, complete with secure multi-user logins (MySQL/MariaDB), role management, and audit logs.
 
 ---
