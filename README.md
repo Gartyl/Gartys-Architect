@@ -61,6 +61,15 @@ Ensure you have **[ComfyUI](https://github.com/comfyanonymous/ComfyUI)** running
 * **Structure Control:** `ComfyUI-Advanced-ControlNet`
 * **Face Repair (ADetailer):** `ComfyUI-Impact-Pack`
 * **High-Res Upscaling:** `ComfyUI_UltimateSDUpscale`
+* **Image Relighting:** `ComfyUI-IC-Light`
+* **Image Colorization:** `ComfyUI-DDColor`
+* **Lip-Sync (Wav2Lip):** `ComfyUI-Wav2Lip`
+* **Flux 2 Klein Image Editing:** `ComfyUI-Flux2KontextConditioner`
+* **Qwen Image Editing:** `ComfyUI-Qwen-Image-Edit`
+* **Voice Generation (OmniVoice):** `ComfyUI-OmniVoice`
+* **Voice Generation (F5-TTS):** `ComfyUI-F5-TTS`
+* **Voice Generation (IndexTTS-2):** `ComfyUI-IndexTTS`
+* ...
 ---
 
 ## 🛠️ Quick Start & Installation
@@ -94,7 +103,7 @@ For power users. Unlocks the true potential of the integrated studio:
 
 ## 🔮 The Roadmap
 This project is an actively developed Swiss Army knife for AI enthusiasts. Coming soon:
-* **Expanded Modalities:** Native integration for Audio generation and upcoming cutting-edge video workflows.
+* **Expanded Modalities:** Upcoming cutting-edge video workflows.
 * **The Server Edition:** A future standalone release designed for remote network access, complete with secure multi-user logins (MySQL/MariaDB), role management, and audit logs.
 
 ---
