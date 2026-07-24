@@ -291,11 +291,18 @@ $items = groupHistoryItems($all_prompts);
                                                     <?php if (!empty($msg['imagen_path'])): ?>
                                                     <div class="col-md-4 mb-3 mb-md-0">
                                                         <div class="img-container" style="position: relative;">
-                                                            <?php if (strtolower(pathinfo($msg['imagen_path'], PATHINFO_EXTENSION)) === 'mp4'): ?>
-                                                                <video src="galeria/<?php echo htmlspecialchars($msg['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: pointer;" class="img-fluid rounded border border-secondary shadow-sm w-100" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>
-                                                            <?php else: ?>
-                                                                <img src="galeria/<?php echo htmlspecialchars($msg['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: zoom-in;" class="img-fluid rounded border border-secondary shadow-sm w-100">
-                                                            <?php endif; ?>
+															<?php 
+															$ext = strtolower(pathinfo($msg['imagen_path'], PATHINFO_EXTENSION));
+															if ($ext === 'mp4' || $ext === 'webm' || $ext === 'mov'): ?>
+																<video src="galeria/<?php echo htmlspecialchars($msg['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: pointer;" class="img-fluid rounded border border-secondary shadow-sm w-100" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>
+															<?php elseif ($ext === 'wav' || $ext === 'mp3' || $ext === 'flac'): ?>
+																<div class="d-flex flex-column align-items-center justify-content-center p-4 bg-dark w-100 rounded border border-secondary" style="min-height: 180px;">
+																	<i class="bi bi-music-note-beamed fs-1 text-info mb-3"></i>
+																	<audio src="galeria/<?php echo htmlspecialchars($msg['imagen_path']); ?>" controls class="w-100 shadow-sm"></audio>
+																</div>
+															<?php else: ?>
+																<img src="galeria/<?php echo htmlspecialchars($msg['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: zoom-in;" class="img-fluid rounded border border-secondary shadow-sm w-100">
+															<?php endif; ?>
                                                             
                                                             <a href="javascript:void(0)" onclick="togglePublic(<?php echo $msg['id']; ?>, this)" class="btn-pub-img <?php echo ($msg['is_public'] ? 'active' : ''); ?>" title="<?= __('btn_pub_gal') ?>">
                                                                 <i class="bi bi-globe"></i>
@@ -427,11 +434,18 @@ $items = groupHistoryItems($all_prompts);
                                                     <?php if (!empty($subItem['imagen_path'])): ?>
                                                     <div class="col-md-4 mb-3 mb-md-0">
                                                         <div class="img-container" style="position: relative;">
-                                                            <?php if (strtolower(pathinfo($subItem['imagen_path'], PATHINFO_EXTENSION)) === 'mp4'): ?>
-                                                                <video src="galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: pointer;" class="img-fluid rounded border border-secondary shadow-sm w-100" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>
-                                                            <?php else: ?>
-                                                                <img src="galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: zoom-in;" class="img-fluid rounded border border-secondary shadow-sm w-100">
-                                                            <?php endif; ?>
+															<?php 
+															$ext = strtolower(pathinfo($subItem['imagen_path'], PATHINFO_EXTENSION));
+															if ($ext === 'mp4' || $ext === 'webm' || $ext === 'mov'): ?>
+																<video src="galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: pointer;" class="img-fluid rounded border border-secondary shadow-sm w-100" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>
+															<?php elseif ($ext === 'wav' || $ext === 'mp3' || $ext === 'flac'): ?>
+																<div class="d-flex flex-column align-items-center justify-content-center p-4 bg-dark w-100 rounded border border-secondary" style="min-height: 180px;">
+																	<i class="bi bi-music-note-beamed fs-1 text-info mb-3"></i>
+																	<audio src="galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>" controls class="w-100 shadow-sm"></audio>
+																</div>
+															<?php else: ?>
+																<img src="galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: zoom-in;" class="img-fluid rounded border border-secondary shadow-sm w-100">
+															<?php endif; ?>
                                                             
                                                             <a href="javascript:void(0)" onclick="togglePublic(<?php echo $subItem['id']; ?>, this)" class="btn-pub-img <?php echo ($subItem['is_public'] ? 'active' : ''); ?>" title="<?= __('btn_pub_gal') ?>">
                                                                 <i class="bi bi-globe"></i>

@@ -1,7 +1,7 @@
 <?php require_once 'includes/core/init.php'; ?>
 
 <!-- ======================================================= -->
-<!-- Versión 260 - v. 1.0.0 - R1 -->
+<!-- Versión 260 - v. 1.0.0 -->
 <!-- byGarty - R.A.G. -->
 <!-- ======================================================= -->
 
@@ -105,6 +105,7 @@
                                 <?php include 'includes/components/panel_rembg.php'; ?>     
                                 <?php include 'includes/components/panel_ddcolor.php'; ?>
                                 <?php include 'includes/components/panel_iclight.php'; ?>
+                                <?php include 'includes/components/panel_audio.php'; ?>
 
                             </div>
                         </div>
@@ -207,6 +208,7 @@
 <script src="assets/js/modelos.js?v=<?php echo filemtime('assets/js/modelos.js'); ?>"></script>
 <script src="assets/js/video.js?v=<?php echo filemtime('assets/js/video.js'); ?>"></script>
 <script src="assets/js/herramientas.js?v=<?php echo filemtime('assets/js/herramientas.js'); ?>"></script>
+<script src="assets/js/audio.js?v=<?php echo filemtime('assets/js/audio.js'); ?>"></script>
 <script src="assets/js/presets_personales.js?v=<?php echo filemtime('assets/js/presets_personales.js'); ?>"></script> 
 <script src="assets/js/motor.js?v=<?php echo filemtime('assets/js/motor.js'); ?>"></script>
 

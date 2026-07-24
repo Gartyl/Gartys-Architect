@@ -80,6 +80,13 @@ try {
         case 'get_lora_trigger':
             require_once __DIR__ . '/modulos/api_nodos.php';
             break;
+			
+		// --- NUEVO: AUDIO Y CLONACIÓN DE VOZ ---
+        case 'generar_audio':
+        case 'clonar_audio':
+        case 'subir_audio_referencia':
+            require_once __DIR__ . '/modulos/api_audio.php';
+            break;
 
         // --- LLM Y VISIÓN ---
         case 'vision_extract':

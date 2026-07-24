@@ -99,9 +99,16 @@ try {
     <?php else: ?>
         <div class="masonry-grid">
             <?php foreach ($imagenes_publicas as $img): ?>
-                <div class="masonry-item">
-                    <?php if (strtolower(pathinfo($img['imagen_path'], PATHINFO_EXTENSION)) === 'mp4'): ?>
+               <div class="masonry-item">
+                    <?php 
+                    $ext = strtolower(pathinfo($img['imagen_path'], PATHINFO_EXTENSION));
+                    if ($ext === 'mp4' || $ext === 'webm' || $ext === 'mov'): ?>
                         <video src="galeria/<?php echo htmlspecialchars($img['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: pointer; width: 100%; display: block;" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>
+                    <?php elseif ($ext === 'wav' || $ext === 'mp3' || $ext === 'flac'): ?>
+                        <div class="d-flex flex-column align-items-center justify-content-center p-4 bg-dark rounded border border-secondary" style="width: 100%; min-height: 180px; display: block;">
+                            <i class="bi bi-music-note-beamed fs-1 text-info mb-3"></i>
+                            <audio src="galeria/<?php echo htmlspecialchars($img['imagen_path']); ?>" controls class="w-100 shadow-sm"></audio>
+                        </div>
                     <?php else: ?>
                         <img src="galeria/<?php echo htmlspecialchars($img['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: zoom-in;" alt="Arte Generativo">
                     <?php endif; ?>
