@@ -121,6 +121,188 @@ if ($action === 'generar_imagen') {
     // Variables Post
     $selector = trim($_POST['selector'] ?? '[SDXL]'); 
     $posPrompt = $_POST['prompt'] ?? "";
+	
+	// ====================================================================
+    // --- 🎵 INTERCEPTOR VIP OMNÍVORO: AUDIO AUTÓNOMO (STANDALONE) 🎵 ---
+    // ====================================================================
+    $audioConfigPro = !empty($_POST['audio_params']) ? json_decode($_POST['audio_params'], true) : [];
+
+    $engine_pro   = $audioConfigPro['engine'] ?? ($_POST['engine'] ?? ($_POST['audio_pro_engine'] ?? 'sfx'));
+    $prompt_audio = trim($audioConfigPro['prompt_text'] ?? ($_POST['prompt_text'] ?? ($_POST['audio_pro_prompt'] ?? ($_POST['sfx_prompt'] ?? ''))));
+    $ref_file_pro = $audioConfigPro['ref_file'] ?? ($_POST['ref_file'] ?? ($_POST['audio_pro_file'] ?? ''));
+    $ref_text_pro = trim($audioConfigPro['ref_text'] ?? ($_POST['ref_text'] ?? ($_POST['audio_pro_text'] ?? '')));
+    $seconds_pro  = floatval($audioConfigPro['seconds'] ?? ($_POST['seconds'] ?? ($_POST['sfx_seconds'] ?? 5.0)));
+    $steps_pro    = intval($audioConfigPro['steps'] ?? ($_POST['steps'] ?? ($_POST['sfx_steps'] ?? 20)));
+    $speed_pro    = floatval($audioConfigPro['speed'] ?? ($_POST['speed'] ?? 1.0));
+    
+    $silence_raw  = $audioConfigPro['remove_silence'] ?? ($_POST['remove_silence'] ?? '1');
+    $silence_pro  = ($silence_raw === '1' || $silence_raw === true || $silence_raw === 'true');
+
+    // NUEVAS VARIABLES MULTI-MOTOR
+    $tts_engine_pro  = $audioConfigPro['tts_engine'] ?? ($_POST['tts_engine'] ?? 'f5');
+    $tts_emotion_pro = $audioConfigPro['tts_emotion'] ?? ($_POST['tts_emotion'] ?? 'calm');
+    $idioma_tts 	 = $audioConfigPro['tts_language'] ?? ($_POST['tts_language'] ?? 'Spanish');
+    $genero_pro      = $audioConfigPro['tts_gender'] ?? ($_POST['tts_gender'] ?? 'male');
+    $edad_pro        = $audioConfigPro['tts_age'] ?? ($_POST['tts_age'] ?? 'None');
+
+    // --- NUEVO: FILTRO BPE PARA AUDIO Y VÍDEO ---
+    $acentos_mayus = ['Á', 'É', 'Í', 'Ó', 'Ú', 'Ñ', 'Ä', 'Ë', 'Ï', 'Ö', 'Ü'];
+    $acentos_minus = ['á', 'é', 'í', 'ó', 'ú', 'ñ', 'ä', 'ë', 'ï', 'ö', 'ü'];
+    if (isset($prompt_audio)) $prompt_audio = str_replace($acentos_mayus, $acentos_minus, $prompt_audio);
+    if (isset($posPrompt)) $posPrompt = str_replace($acentos_mayus, $acentos_minus, $posPrompt);
+    // --------------------------------------------
+
+    // 2. ESCUDO CORTAFUEGOS: Detección inteligente de Audio Puro
+    $is_audio_standalone = false;
+
+    // Si NO viene empaquetado como vídeo (audio_params vacío), evaluamos de forma agresiva si es audio.
+    if (empty($_POST['audio_params'])) {
+        $flag_forzado = ($_POST['enable_audio_pro'] ?? '') === 'true' || ($_POST['audio_enabled'] ?? '') === 'true' || ($_POST['standalone'] ?? '') === '1';
+        $selector_es_audio = (strpos(strtoupper($selector), '[AUDIO') !== false);
+        $hay_texto_audio_exclusivo = (!empty($prompt_audio) && $prompt_audio !== $posPrompt);
+        
+        // Si hay cualquier mínima señal de que quiere audio, lo atrapamos
+        if ($flag_forzado || $selector_es_audio || $hay_texto_audio_exclusivo || !empty($ref_file_pro)) {
+            $is_audio_standalone = true;
+        } elseif (empty(trim($posPrompt)) && (isset($_POST['engine']) || isset($_POST['tts_engine']))) {
+            $is_audio_standalone = true;
+        }
+    }
+
+    if ($is_audio_standalone) {
+        
+        // Rescatamos el texto si se quedó en el prompt principal por culpa del JS
+        if (empty($prompt_audio) && !empty(trim($posPrompt))) {
+            $prompt_audio = trim($posPrompt);
+        }
+        if (empty($prompt_audio)) {
+            $prompt_audio = "Audio Standalone Generation";
+        }
+        
+        $workflow = [];
+        $output_port = 0; // 🛠️ CORRECCIÓN 5: Subimos el puerto
+        
+        if ($engine_pro === 'tts') {
+           
+            if ($tts_engine_pro === 'f5') {
+                $workflow['1010'] = ['inputs' => ['audio' => $ref_file_pro], 'class_type' => 'LoadAudio'];
+                $workflow['1011'] = [
+                    'inputs' => [
+                        'sample_audio' => ['1010', 0], 'sample_text' => $ref_text_pro, 'speech' => $prompt_audio,
+                        'speed' => $speed_pro, 'seed' => mt_rand(1, 2147483647), 'model' => 'F5v1',
+                        'vocoder' => 'auto', 'model_type' => 'F5TTS_v1_Base', 'remove_silence' => $silence_pro
+                    ], 'class_type' => 'F5TTSAudioInputs'
+                ];
+                $output_node = '1011';
+                
+            } elseif ($tts_engine_pro === 'indextts') {
+                $workflow['1125'] = [
+                    'inputs' => [
+                        'Happy' => ($tts_emotion_pro === 'happy') ? 0.85 : 0.1, 'Angry' => ($tts_emotion_pro === 'angry') ? 0.85 : 0.1,
+                        'Sad' => ($tts_emotion_pro === 'sad') ? 0.85 : 0.1, 'Calm' => ($tts_emotion_pro === 'calm') ? 0.85 : 0.1,
+                        'Surprised' => 0.1, 'Afraid' => 0.1, 'Disgusted' => 0.1, 'Melancholic' => 0.1, 'emotion_radar_canvas' => ""
+                    ], 'class_type' => 'IndexTTSEmotionOptionsNode'
+                ];
+                $workflow['1065'] = ['inputs' => ['value' => $prompt_audio], 'class_type' => 'PrimitiveStringMultiline'];
+                
+                $workflow['1134'] = ['inputs' => ['audio' => $ref_file_pro], 'class_type' => 'LoadAudio'];
+                $workflow['1130'] = ['inputs' => ['voice_name' => 'none', 'reference_text' => $ref_text_pro, 'trim_start' => 0, 'trim_end' => 0, 'customized' => true, 'opt_audio_input' => ['1134', 0]], 'class_type' => 'CharacterVoicesNode'];
+                
+                $workflow['1123'] = [
+                    'inputs' => [
+                        'language' => $idioma_tts,
+                        'model_path' => 'IndexTTS-2', 'device' => 'auto', 'emotion_alpha' => 0.7, 'use_random' => false,
+                        'max_text_tokens_per_segment' => 120, 'interval_silence' => 200, 'temperature' => 0.8, 'top_p' => 0.8,
+                        'top_k' => 30, 'do_sample' => true, 'length_penalty' => 0, 'num_beams' => 3, 'repetition_penalty' => 9.5,
+                        'max_mel_tokens' => 1500, 'use_fp16' => true, 'use_deepspeed' => true, 'use_cuda_kernel' => 'auto',
+                        'use_torch_compile' => false, 'use_accel' => false, 'stream_return' => false, 'more_segment_before' => 0, 'low_vram' => false,
+                        'emotion_control' => ['1125', 0]
+                    ], 'class_type' => 'IndexTTSEngineNode'
+                ];
+                $workflow['1047'] = [
+                    'inputs' => [
+                        'text' => ['1065', 0], 'narrator_voice' => 'none', 'seed' => mt_rand(1, 2147483647), 'enable_chunking' => true,
+                        'max_chars_per_chunk' => 400, 'chunk_combination_method' => 'auto', 'silence_between_chunks_ms' => 100,
+                        'enable_audio_cache' => true, 'batch_size' => 0, 'TTS_engine' => ['1123', 0], 'opt_narrator' => ['1130', 0]
+                    ], 'class_type' => 'UnifiedTTSTextNode'
+                ];
+                $output_node = '1047';
+                
+            } else {
+                // OMNIVOICE
+                // 🛠️ CORRECCIÓN 6
+                $omni_style = ($tts_emotion_pro === 'whisper') ? 'whisper' : 'None';
+                $omni_lang  = ($idioma_tts === 'Chinese') ? 'Chinese' : 'English';
+
+                $workflow['1025'] = [
+                    'inputs' => [
+                        'gender' => $genero_pro, 'age' => $edad_pro, 'pitch' => 'None',
+                        'style' => $omni_style, 'accent' => 'None', 'dialect' => 'None',
+                        'output_language' => $omni_lang, 'instruct_text' => ''
+                    ], 'class_type' => 'OmniVoiceInstructionBuilderNode'
+                ];
+
+                $workflow['1020'] = [
+                    'inputs' => [
+                        'model_variant' => 'OmniVoice', 'device' => 'auto', 'language' => 'Auto',
+                        'num_step' => 32, 'guidance_scale' => 2, 't_shift' => 0.1, 'speed' => 1.0,
+                        'duration' => 0, 'dtype' => 'auto', 'instruct' => '', 'layer_penalty_factor' => 5,
+                        'position_temperature' => 5, 'class_temperature' => 0, 'denoise' => true,
+                        'preprocess_prompt' => true, 'postprocess_output' => true, 'audio_chunk_duration' => 15,
+                        'audio_chunk_threshold' => 30, 'mode' => 'Voice Design'
+                    ], 'class_type' => 'OmniVoiceEngineNode'
+                ];
+
+                $workflow['1017'] = [
+                    'inputs' => [
+                        'reference_text' => $prompt_audio, 'seed' => mt_rand(1, 2147483647),
+                        'voice_instruction' => ['1025', 0], 'TTS_engine' => ['1020', 0]
+                    ], 'class_type' => 'UnifiedVoiceDesignerNode'
+                ];
+                
+                $output_node = '1017';
+                $output_port = 1;
+            }
+        } else {
+            // ESTRUCTURA STABLE AUDIO OPEN (SFX)
+            $workflow['2020'] = ['inputs' => ['ckpt_name' => 'stable-audio-open-1.0.safetensors'], 'class_type' => 'CheckpointLoaderSimple'];
+            $workflow['2021'] = ['inputs' => ['clip_name' => 't5-base.safetensors', 'type' => 'stable_audio'], 'class_type' => 'CLIPLoader'];
+            $workflow['2022'] = ['inputs' => ['seconds' => $seconds_pro, 'batch_size' => 1], 'class_type' => 'EmptyLatentAudio'];
+            $workflow['2023'] = ['inputs' => ['text' => $prompt_audio, 'clip' => ['2021', 0]], 'class_type' => 'CLIPTextEncode'];
+            $workflow['2024'] = ['inputs' => ['text' => '', 'clip' => ['2021', 0]], 'class_type' => 'CLIPTextEncode'];
+            $workflow['2025'] = [
+                'inputs' => [
+                    'seed' => mt_rand(1, 2147483647), 'steps' => $steps_pro, 'cfg' => 4.5, 'sampler_name' => 'euler', 'scheduler' => 'normal',
+                    'denoise' => 1.0, 'model' => ['2020', 0], 'positive' => ['2023', 0], 'negative' => ['2024', 0], 'latent_image' => ['2022', 0]
+                ], 'class_type' => 'KSampler'
+            ];
+            $workflow['2026'] = ['inputs' => ['samples' => ['2025', 0], 'vae' => ['2020', 2]], 'class_type' => 'VAEDecodeAudio'];
+            
+            $output_node = '2026';
+        }
+
+        // 3. Nodo de guardado de audio en ComfyUI
+        $workflow['99'] = [
+            'inputs' => [
+                'filename_prefix' => 'byGarty_Audio_' . strtoupper($engine_pro),
+                'audio' => [$output_node, $output_port] // <--- AQUÍ
+            ],
+            'class_type' => 'SaveAudio',
+            '_meta' => ['title' => 'Save Output Audio']
+        ];
+        
+        $posPrompt = $prompt_audio;
+        $neg_prompt = "N/A (Audio Standalone)";
+        $selector = "[AUDIO_" . strtoupper($engine_pro) . "]";
+        $model_path = "Audio_" . strtoupper($engine_pro);
+        $width = 0; $height = 0; $seed = mt_rand(1, 2147483647);
+        $steps = $steps_pro; $cfg = 7.0; $sampler = "dpmpp_3m_sde"; $scheduler = "normal";
+        $batch_size = 1; $lora_metadata_list = []; $use_adetailer = false;
+        $historial_id = intval($_POST['historial_id'] ?? 0);
+
+        goto EJECUTAR_COMFYUI;
+    }
+    // ====================================================================
     
     // --- 1.5 NUEVO: INTERCEPTOR DINÁMICO DE MODELOS COMFYUI ---
     $modelo_recibido = !empty($_POST['model_path']) ? $_POST['model_path'] : '';
@@ -610,22 +792,24 @@ if ($action === 'generar_imagen') {
            // ==========================================================
            $tiene_imagen = ($comfy_image_filename !== "none" && !empty($comfy_image_filename));
            
-           // LA ÚNICA REGLA EXTRA: Si el vídeo es largo o un chunk, apagamos el audio para FFmpeg
+           // --- NUEVO: CAPTURAR SI VENIMOS DEL PANEL PRO ---
+           $tiene_audio_pro = (!empty($audioConfigPro) && $audioConfigPro['sync_with_video'] === true);
+
+           // LA ÚNICA REGLA EXTRA: Si el vídeo es largo o un chunk, apagamos TODO el audio
            if ($video_frames > 65 || !empty($previous_video)) {
                $comfy_audio_filename = "none";
+               $tiene_audio_pro = false;
            }
            
            $tiene_audio = ($comfy_audio_filename !== "none" && !empty($comfy_audio_filename));
 
            // --- NUEVA LÓGICA DE FPS DINÁMICO ---
-           // Si hay audio, LTX necesita 24 FPS para la sincronización nativa del VAE.
-           // Si es mudo, obedece estrictamente a lo que hayas puesto en el panel.
-           $fps_final_ltx = $tiene_audio ? 24 : $video_fps;
+           // Si hay audio (viejo o nuevo), LTX necesita 24 FPS para la sincronización.
+           $fps_final_ltx = ($tiene_audio || $tiene_audio_pro) ? 24 : $video_fps;
 
            if (isset($workflow["292"]["inputs"]["value"])) {
                $workflow["292"]["inputs"]["value"] = floatval($fps_final_ltx);
            }
-           // ------------------------------------
 
            $video_origen = ["162", 0]; // Por defecto, lienzo vacío (Text-to-Video)
 
@@ -636,6 +820,9 @@ if ($action === 'generar_imagen') {
                unset($workflow["240"], $workflow["241"], $workflow["269"], $workflow["239"], $workflow["249"]); 
            }
 
+           // =======================================================
+           // 🛑 1. LÓGICA DE AUDIO-REACTIVIDAD (Solo para audio subido en la interfaz vieja)
+           // =======================================================
            if (!$tiene_audio || !$tiene_imagen) {
                if (isset($workflow["289"]["inputs"]["latent_image"])) {
                    $workflow["289"]["inputs"]["latent_image"] = $video_origen;
@@ -648,11 +835,128 @@ if ($action === 'generar_imagen') {
                        $workflow["234"]["inputs"]["samples"] = ["289", 0]; 
                    }
                    unset($workflow["245"]); 
-                   if (isset($workflow["291"]["inputs"]["audio"])) unset($workflow["291"]["inputs"]["audio"]);
                }
            } else {
                if (isset($workflow["166"]["inputs"]["video_latent"])) {
                    $workflow["166"]["inputs"]["video_latent"] = $video_origen;
+               }
+           }
+
+           // =======================================================
+           // 🛑 2. DESCONECTAR VHS AUDIO SI EL VÍDEO ES 100% MUDO
+           // =======================================================
+           if (!$tiene_audio && !$tiene_audio_pro) {
+               if (isset($workflow["291"]["inputs"]["audio"])) {
+                   unset($workflow["291"]["inputs"]["audio"]);
+               }
+           }
+
+           // =======================================================
+           // 🎵 3. INYECCIÓN DE GENERADOR DE AUDIO PRO PARA LTX (NODO 291)
+           // =======================================================
+           if ($tiene_audio_pro) {
+               // Inyectamos el guion exclusivo desde la nueva caja (Fallback al prompt si falla)
+               $guion_locutar = !empty($audioConfigPro['prompt_text']) ? $audioConfigPro['prompt_text'] : $posPrompt;
+
+               if ($audioConfigPro['engine'] === 'tts') {
+                   
+                   if ($tts_engine_pro === 'f5') {
+                       $workflow["1010"] = ["inputs" => ["audio" => $audioConfigPro['ref_file']], "class_type" => "LoadAudio"];
+                       $workflow["1011"] = [
+                           "inputs" => [
+                               "sample_audio" => ["1010", 0], "sample_text"  => $audioConfigPro['ref_text'],
+                               "speech" => $guion_locutar, "speed" => floatval($audioConfigPro['speed']), "seed" => mt_rand(1, 2147483647),
+                               "model" => 'F5v1', "vocoder" => 'auto', "model_type" => 'F5TTS_v1_Base',
+                               "remove_silence" => ($audioConfigPro['remove_silence'] === '1' || $audioConfigPro['remove_silence'] === true)
+                           ],
+                           "class_type" => "F5TTSAudioInputs"
+                       ];
+                       $workflow["291"]["inputs"]["audio"] = ["1011", 0];
+
+                   } elseif ($tts_engine_pro === 'indextts') {
+                       $workflow['1125'] = [
+                           'inputs' => [
+                               'Happy' => ($tts_emotion_pro === 'happy') ? 0.85 : 0.1, 'Angry' => ($tts_emotion_pro === 'angry') ? 0.85 : 0.1,
+                               'Sad' => ($tts_emotion_pro === 'sad') ? 0.85 : 0.1, 'Calm' => ($tts_emotion_pro === 'calm') ? 0.85 : 0.1,
+                               'Surprised' => 0.1, 'Afraid' => 0.1, 'Disgusted' => 0.1, 'Melancholic' => 0.1, 'emotion_radar_canvas' => ""
+                           ], 'class_type' => 'IndexTTSEmotionOptionsNode'
+                       ];
+                       $workflow['1065'] = ['inputs' => ['value' => $guion_locutar], 'class_type' => 'PrimitiveStringMultiline'];
+                       
+                       $workflow['1134'] = ['inputs' => ['audio' => $audioConfigPro['ref_file']], 'class_type' => 'LoadAudio'];
+                       $workflow['1130'] = [
+                           'inputs' => ['voice_name' => 'none', 'reference_text' => $audioConfigPro['ref_text'], 'trim_start' => 0, 'trim_end' => 0, 'customized' => true, 'opt_audio_input' => ['1134', 0]],
+                           'class_type' => 'CharacterVoicesNode'
+                       ];
+                       
+                       $workflow['1123'] = [
+                           'inputs' => [
+                               'language' => $idioma_tts,
+                               'model_path' => 'IndexTTS-2', 'device' => 'auto', 'emotion_alpha' => 0.7, 'use_random' => false,
+                               'max_text_tokens_per_segment' => 120, 'interval_silence' => 200, 'temperature' => 0.8, 'top_p' => 0.8,
+                               'top_k' => 30, 'do_sample' => true, 'length_penalty' => 0, 'num_beams' => 3, 'repetition_penalty' => 9.5,
+                               'max_mel_tokens' => 1500, 'use_fp16' => true, 'use_deepspeed' => true, 'use_cuda_kernel' => 'auto',
+                               'use_torch_compile' => false, 'use_accel' => false, 'stream_return' => false, 'more_segment_before' => 0,
+                               'low_vram' => false, 'emotion_control' => ['1125', 0]
+                           ], 'class_type' => 'IndexTTSEngineNode'
+                       ];
+                       $workflow['1047'] = [
+                           'inputs' => [
+                               'text' => ['1065', 0], 'narrator_voice' => 'none', 'seed' => mt_rand(1, 2147483647), 'enable_chunking' => true,
+                               'max_chars_per_chunk' => 400, 'chunk_combination_method' => 'auto', 'silence_between_chunks_ms' => 100,
+                               'enable_audio_cache' => true, 'batch_size' => 0, 'TTS_engine' => ['1123', 0], 'opt_narrator' => ['1130', 0]
+                           ], 'class_type' => 'UnifiedTTSTextNode'
+                       ];
+                       $workflow["291"]["inputs"]["audio"] = ["1047", 0];
+
+                   } else {
+                       // OMNIVOICE
+                       $omni_style = ($tts_emotion_pro === 'whisper') ? 'whisper' : 'None';
+                       $omni_lang  = ($idioma_tts === 'Chinese') ? 'Chinese' : 'English';
+
+                       $workflow['1025'] = [
+                           'inputs' => [
+                               'gender' => $genero_pro, 'age' => $edad_pro, 'pitch' => 'None',
+                               'style' => $omni_style, 'accent' => 'None', 'dialect' => 'None',
+                               'output_language' => $omni_lang, 'instruct_text' => ''
+                           ], 'class_type' => 'OmniVoiceInstructionBuilderNode'
+                       ];
+
+                       $workflow['1020'] = [
+                           'inputs' => [
+                               'model_variant' => 'OmniVoice', 'device' => 'auto', 'language' => 'Auto',
+                               'num_step' => 32, 'guidance_scale' => 2, 't_shift' => 0.1, 'speed' => 1.0,
+                               'duration' => 0, 'dtype' => 'auto', 'instruct' => '', 'layer_penalty_factor' => 5,
+                               'position_temperature' => 5, 'class_temperature' => 0, 'denoise' => true,
+                               'preprocess_prompt' => true, 'postprocess_output' => true, 'audio_chunk_duration' => 15,
+                               'audio_chunk_threshold' => 30, 'mode' => 'Voice Design'
+                           ], 'class_type' => 'OmniVoiceEngineNode'
+                       ];
+
+                       $workflow['1017'] = [
+                           'inputs' => [
+                               'reference_text' => $guion_locutar, 'seed' => mt_rand(1, 2147483647),
+                               'voice_instruction' => ['1025', 0], 'TTS_engine' => ['1020', 0]
+                           ], 'class_type' => 'UnifiedVoiceDesignerNode'
+                       ];
+                       
+                       $workflow["291"]["inputs"]["audio"] = ["1017", 1]; // OmniVoice saca por el 1
+                   }
+                   
+               } elseif ($audioConfigPro['engine'] === 'sfx') {
+                   $workflow["2020"] = ["inputs" => ["ckpt_name" => "stable-audio-open-1.0.safetensors"], "class_type" => "CheckpointLoaderSimple"];
+                   $workflow["2021"] = ["inputs" => ["clip_name" => "t5-base.safetensors", "type" => "stable_audio"], "class_type" => "CLIPLoader"];
+                   $workflow["2022"] = ["inputs" => ["seconds" => floatval($audioConfigPro['seconds']), "batch_size" => 1], "class_type" => "EmptyLatentAudio"];
+                   $workflow["2023"] = ["inputs" => ["text" => $guion_locutar, "clip" => ["2021", 0]], "class_type" => "CLIPTextEncode"];
+                   $workflow["2024"] = ["inputs" => ["text" => "", "clip" => ["2021", 0]], "class_type" => "CLIPTextEncode"];
+                   $workflow["2025"] = [
+                       "inputs" => [
+                           "seed" => mt_rand(1, 2147483647), "steps" => 20, "cfg" => 4.0, "sampler_name" => "euler", "scheduler" => "normal",
+                           "denoise" => 1.0, "model" => ["2020", 0], "positive" => ["2023", 0], "negative" => ["2024", 0], "latent_image" => ["2022", 0]
+                       ], "class_type" => "KSampler"
+                   ];
+                   $workflow["2026"] = ["inputs" => ["samples" => ["2025", 0], "vae" => ["2020", 2]], "class_type" => "VAEDecodeAudio"];
+                   $workflow["291"]["inputs"]["audio"] = ["2026", 0];
                }
            }
 
@@ -817,9 +1121,17 @@ if ($action === 'generar_imagen') {
             $workflow["87"] = ["inputs" => ["samples" => ["85", 0], "vae" => ["90", 0]], "class_type" => "VAEDecode"];
             
             $video_format = $_POST['video_format'] ?? 'image/webp';
+            
+            // 1. Audio del sistema ANTIGUO (Carga directa / Wav2Lip)
             $tiene_audio = ($comfy_audio_filename !== "none" && !empty($comfy_audio_filename));
             
-            if ($video_format === 'video/h264-mp4' || $tiene_audio) {
+            // 2. Audio del sistema NUEVO (Panel Pro TTS/SFX)
+            $audioConfigPro = !empty($_POST['audio_params']) ? json_decode($_POST['audio_params'], true) : false;
+            $tiene_audio_pro = ($audioConfigPro && $audioConfigPro['sync_with_video'] === true);
+
+            // Si hay audio antiguo O hay audio pro, forzamos la creación del nodo MP4
+            if ($video_format === 'video/h264-mp4' || $tiene_audio || $tiene_audio_pro) {
+                
                 // Nodo base VHS_VideoCombine
                 $workflow["99"] = [
                     "inputs" => [
@@ -836,11 +1148,154 @@ if ($action === 'generar_imagen') {
                     ],
                     "class_type" => "VHS_VideoCombine"
                 ];
+
+                // =======================================================
+                // 🎵 INYECCIÓN DE GENERADOR DE AUDIO PRO (MULTI-MOTOR / SFX)
+                // =======================================================
+                if ($tiene_audio_pro) {
+                    
+                    // Definimos el guion a locutar aislando el texto del audio (con fallback de seguridad)
+                    $guion_locutar = !empty($audioConfigPro['prompt_text']) ? $audioConfigPro['prompt_text'] : $posPrompt;
+
+                    if ($audioConfigPro['engine'] === 'tts') {
+                        
+                        if ($tts_engine_pro === 'f5') {
+                            $workflow["1010"] = ["inputs" => ["audio" => $audioConfigPro['ref_file']], "class_type" => "LoadAudio"];
+                            $workflow["1011"] = [
+                                "inputs" => [
+                                    "sample_audio" => ["1010", 0], "sample_text"  => $audioConfigPro['ref_text'],
+                                    "speech" => $guion_locutar, "speed" => floatval($audioConfigPro['speed']), "seed" => mt_rand(1, 2147483647),
+                                    "model" => 'F5v1', "vocoder" => 'auto', "model_type" => 'F5TTS_v1_Base',
+                                    "remove_silence" => ($audioConfigPro['remove_silence'] === '1' || $audioConfigPro['remove_silence'] === true)
+                                ],
+                                "class_type" => "F5TTSAudioInputs"
+                            ];
+                            $workflow["99"]["inputs"]["audio"] = ["1011", 0];
+
+                        } elseif ($tts_engine_pro === 'indextts') {
+                            $workflow['1125'] = [
+                                'inputs' => [
+                                    'Happy' => ($tts_emotion_pro === 'happy') ? 0.85 : 0.1, 'Angry' => ($tts_emotion_pro === 'angry') ? 0.85 : 0.1,
+                                    'Sad' => ($tts_emotion_pro === 'sad') ? 0.85 : 0.1, 'Calm' => ($tts_emotion_pro === 'calm') ? 0.85 : 0.1,
+                                    'Surprised' => 0.1, 'Afraid' => 0.1, 'Disgusted' => 0.1, 'Melancholic' => 0.1, 'emotion_radar_canvas' => ""
+                                ], 'class_type' => 'IndexTTSEmotionOptionsNode'
+                            ];
+                            $workflow['1065'] = ['inputs' => ['value' => $guion_locutar], 'class_type' => 'PrimitiveStringMultiline'];
+                            
+                            // NUEVOS NODOS: LoadAudio + CharacterVoicesNode dinámico
+                            $workflow['1134'] = ['inputs' => ['audio' => $audioConfigPro['ref_file']], 'class_type' => 'LoadAudio'];
+                            $workflow['1130'] = [
+                                'inputs' => ['voice_name' => 'none', 'reference_text' => $audioConfigPro['ref_text'], 'trim_start' => 0, 'trim_end' => 0, 'customized' => true, 'opt_audio_input' => ['1134', 0]],
+                                'class_type' => 'CharacterVoicesNode'
+                            ];
+                            
+                            $workflow['1123'] = [
+                                'inputs' => [
+                                    'language' => $idioma_tts, // <--- INYECTADO EN EL MOTOR
+                                    'model_path' => 'IndexTTS-2', 'device' => 'auto', 'emotion_alpha' => 0.7, 'use_random' => false,
+                                    'max_text_tokens_per_segment' => 120, 'interval_silence' => 200, 'temperature' => 0.8, 'top_p' => 0.8,
+                                    'top_k' => 30, 'do_sample' => true, 'length_penalty' => 0, 'num_beams' => 3, 'repetition_penalty' => 9.5,
+                                    'max_mel_tokens' => 1500, 'use_fp16' => true, 'use_deepspeed' => true, 'use_cuda_kernel' => 'auto',
+                                    'use_torch_compile' => false, 'use_accel' => false, 'stream_return' => false, 'more_segment_before' => 0,
+                                    'low_vram' => false, 'emotion_control' => ['1125', 0]
+                                ], 'class_type' => 'IndexTTSEngineNode'
+                            ];
+                            $workflow['1047'] = [
+                                'inputs' => [
+                                    'text' => ['1065', 0], 'narrator_voice' => 'none', 'seed' => mt_rand(1, 2147483647), 'enable_chunking' => true,
+                                    'max_chars_per_chunk' => 400, 'chunk_combination_method' => 'auto', 'silence_between_chunks_ms' => 100,
+                                    'enable_audio_cache' => true, 'batch_size' => 0, 'TTS_engine' => ['1123', 0], 'opt_narrator' => ['1130', 0]
+                                ], 'class_type' => 'UnifiedTTSTextNode'
+                            ];
+                            $workflow["99"]["inputs"]["audio"] = ["1047", 0];
+
+                        } else {
+                            // --- MOTOR 3: OMNIVOICE (Diseño Zero-Shot sin Clonación) ---
+                            $omni_style = ($tts_emotion_pro === 'whisper') ? 'whisper' : 'None';
+                            $omni_lang  = ($idioma_tts === 'Chinese') ? 'Chinese' : 'English';
+
+                            $workflow['1025'] = [
+                                'inputs' => [
+                                    'gender' => $genero_pro, 'age' => $edad_pro, 'pitch' => 'None',
+                                    'style' => $omni_style, 'accent' => 'None', 'dialect' => 'None',
+                                    'output_language' => $omni_lang, 'instruct_text' => ''
+                                ], 'class_type' => 'OmniVoiceInstructionBuilderNode'
+                            ];
+
+                            $workflow['1020'] = [
+                                'inputs' => [
+                                    'model_variant' => 'OmniVoice', 'device' => 'auto', 'language' => 'Auto',
+                                    'num_step' => 32, 'guidance_scale' => 2, 't_shift' => 0.1, 'speed' => 1.0,
+                                    'duration' => 0, 'dtype' => 'auto', 'instruct' => '', 'layer_penalty_factor' => 5,
+                                    'position_temperature' => 5, 'class_temperature' => 0, 'denoise' => true,
+                                    'preprocess_prompt' => true, 'postprocess_output' => true, 'audio_chunk_duration' => 15,
+                                    'audio_chunk_threshold' => 30, 'mode' => 'Voice Design'
+                                ], 'class_type' => 'OmniVoiceEngineNode'
+                            ];
+
+                            $workflow['1017'] = [
+                                'inputs' => [
+                                    'reference_text' => $guion_locutar, 'seed' => mt_rand(1, 2147483647),
+                                    'voice_instruction' => ['1025', 0], 'TTS_engine' => ['1020', 0]
+                                ], 'class_type' => 'UnifiedVoiceDesignerNode'
+                            ];
+                            
+                            $workflow["99"]["inputs"]["audio"] = ["1017", 1]; // ⚠️ OmniVoice saca el audio por el puerto 1
+                        }
+                        
+                    } elseif ($audioConfigPro['engine'] === 'sfx') {
+                        $workflow["2020"] = [
+                            "inputs" => ["ckpt_name" => "stable-audio-open-1.0.safetensors"],
+                            "class_type" => "CheckpointLoaderSimple"
+                        ];
+                        $workflow["2021"] = [
+                            "inputs" => ["clip_name" => "t5-base.safetensors", "type" => "stable_audio"],
+                            "class_type" => "CLIPLoader"
+                        ];
+                        $workflow["2022"] = [
+                            "inputs" => ["seconds" => floatval($audioConfigPro['seconds']), "batch_size" => 1],
+                            "class_type" => "EmptyLatentAudio"
+                        ];
+                        $workflow["2023"] = [
+                            "inputs" => ["text" => $guion_locutar, "clip" => ["2021", 0]],
+                            "class_type" => "CLIPTextEncode"
+                        ];
+                        $workflow["2024"] = [
+                            "inputs" => ["text" => "", "clip" => ["2021", 0]],
+                            "class_type" => "CLIPTextEncode"
+                        ];
+                        $workflow["2025"] = [
+                            "inputs" => [
+                                "seed" => mt_rand(1, 2147483647),
+                                "steps" => 20,
+                                "cfg" => 4.0,
+                                "sampler_name" => "euler",
+                                "scheduler" => "normal",
+                                "denoise" => 1.0,
+                                "model" => ["2020", 0],
+                                "positive" => ["2023", 0],
+                                "negative" => ["2024", 0],
+                                "latent_image" => ["2022", 0]
+                            ],
+                            "class_type" => "KSampler"
+                        ];
+                        $workflow["2026"] = [
+                            "inputs" => ["samples" => ["2025", 0], "vae" => ["2020", 2]],
+                            "class_type" => "VAEDecodeAudio"
+                        ];
+                        $workflow["99"]["inputs"]["audio"] = ["2026", 0];
+                    }
+                    
+                    // Aseguramos que el formato sea MP4 si inyectamos audio
+                    $workflow["99"]["inputs"]["format"] = "video/h264-mp4";
+                }
+                // =======================================================
                 
             // =======================================================
             // 💋 INYECCIÓN LIMPIA DE WAV2LIP PARA WAN (BLINDAJE A 30 FPS)
             // =======================================================
-            if ($tiene_audio) {
+            // (¡Blindado! Solo se ejecuta si subes audio por la vía vieja y NO tienes activado el panel PRO)
+            if ($tiene_audio && !$tiene_audio_pro) { 
                 // EL DESCUBRIMIENTO MATEMÁTICO: Wav2Lip opera a 30 FPS internamente y manda sobre la longitud.
                 // Si el audio dura 22s, generará 660 frames. Debemos guardar a 30fps para que no se ralentice a 41s.
                 $fps_final_wan = 30; 
@@ -1850,8 +2305,70 @@ if ($action === 'generar_imagen') {
         // Requiere forzosamente denoise 1.0 para poder "dibujar" la edición correctamente.
         $sampler_denoise = 1.0; 
     }
+	
+	// ==============================================================================
+    // 🌟 INYECCIÓN FLUX 2 KLEIN EDIT (Kontext Conditioner)
+    // ==============================================================================
+    $is_flux2 = (strpos($model_lower, 'flux2') !== false || strpos($model_lower, 'klein') !== false);
 
-    // --- LORAS ---
+    if ($is_flux2 && !empty($init_image_base64) && !$is_outpainting) {
+        
+        // Capturamos la imagen escalada o base
+        $flux2_image_source = isset($workflow["13"]) ? ["13", 0] : ["11", 0];
+
+        // 1. Nodo positivo
+        $workflow["6"] = [
+            "inputs" => [
+                "prompt" => $posPrompt, 
+                "target_resolution" => 1024,
+                "alignment" => 16,               // El JSON confirmaba que usa 16 o múltiplos de ahí
+                "upscale_method" => "lanczos",   // El JSON pedía 'lanczos' por defecto
+                "guidance" => $flux_guidance ?? 3.5,
+                "system_prompt_mode" => "none",
+                "image1" => $flux2_image_source, // <-- ¡Clave exacta descubierta en el JSON!
+                "image1_strength" => 1,
+                "image1_resolution" => 1024,
+                "vae_tiling" => false,
+                "custom_system_prompt" => "",
+                "clip" => [$base_clip_node, $base_clip_index],
+                "vae" => [$base_vae_node, $base_vae_index] 
+            ],
+            "class_type" => "Flux2KontextConditioner"
+        ];
+        
+        // 2. Nodo negativo (mantiene la misma estructura limpia)
+        $workflow["7"] = [
+            "inputs" => [
+                "prompt" => $neg_prompt, 
+                "target_resolution" => 1024,
+                "alignment" => 16,
+                "upscale_method" => "lanczos",
+                "guidance" => $flux_guidance ?? 3.5,
+                "system_prompt_mode" => "none",
+                "image1" => $flux2_image_source,
+                "image1_strength" => 1,
+                "image1_resolution" => 1024,
+                "vae_tiling" => false,
+                "custom_system_prompt" => "",
+                "clip" => [$base_clip_node, $base_clip_index],
+                "vae" => [$base_vae_node, $base_vae_index]
+            ],
+            "class_type" => "Flux2KontextConditioner" 
+        ];
+        
+        // 3. Matamos el FluxGuidance estándar
+        if (isset($workflow["600"])) {
+            $current_positive = ["6", 0]; 
+            unset($workflow["600"]);
+        }
+        
+        // 4. Modo edición puro = 1.0 de denoise
+        $sampler_denoise = 1.0; 
+    }
+
+    // ==============================================================================
+    // 🌟 LORAS
+    // ==============================================================================
     $lora_node_id = 700; 
 
     if (is_array($lora_names) && count($lora_names) > 0) {
@@ -2546,11 +3063,38 @@ if ($action === 'generar_imagen') {
             }
 
             $outputs = $history[$prompt_id]['outputs'] ?? [];
+            
+            // 🔍 RAYOS X: Guardamos la respuesta real del historial para auditar qué envía ComfyUI
+            file_put_contents(__DIR__ . '/../debug_comfy.txt', json_encode($history[$prompt_id], JSON_PRETTY_PRINT));
+
             foreach ($outputs as $node_id => $output) {
                 $files = [];
-                if (isset($output['images'])) $files = array_merge($files, $output['images']);
-                if (isset($output['gifs']))   $files = array_merge($files, $output['gifs']);
-                if (isset($output['videos'])) $files = array_merge($files, $output['videos']);
+                
+                // 1. ESCÁNER TOTAL (Caza arrays estándar, listas de strings y nombres sueltos)
+                if (is_array($output)) {
+                    // Caso A: El nodo devuelve directamente el array del archivo {"filename": "..."}
+                    if (!empty($output['filename'])) {
+                        $files[] = $output;
+                    } else {
+                        // Caso B: El nodo devuelve listas bajo claves como "images", "audio", "files", etc.
+                        foreach ($output as $key => $file_list) {
+                            if (is_array($file_list)) {
+                                foreach ($file_list as $item) {
+                                    if (is_array($item) && !empty($item['filename'])) {
+                                        // Formato estándar de ComfyUI (ej. SaveImage)
+                                        $files[] = $item;
+                                    } elseif (is_string($item) && preg_match('/\.(wav|mp3|flac|ogg|m4a|png|jpg|webp)$/i', $item)) {
+                                        // Formato simplificado (nodos de audio que devuelven solo el nombre en string)
+                                        $files[] = ['filename' => $item, 'subfolder' => '', 'type' => 'output'];
+                                    }
+                                }
+                            } elseif (is_string($file_list) && preg_match('/\.(wav|mp3|flac|ogg|m4a|png|jpg|webp)$/i', $file_list)) {
+                                // Formato directo ("audio": "mi_archivo.wav")
+                                $files[] = ['filename' => $file_list, 'subfolder' => '', 'type' => 'output'];
+                            }
+                        }
+                    }
+                }
                 
                 foreach ($files as $file_info) {
                     $filename = $file_info['filename'] ?? '';

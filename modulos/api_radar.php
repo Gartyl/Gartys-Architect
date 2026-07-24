@@ -30,9 +30,31 @@ if ($action === 'angel_guardia') {
             if (is_array($outputs)) {
                 foreach ($outputs as $node_id => $output) {
                     $files = [];
-                    if (isset($output['images']) && is_array($output['images'])) $files = array_merge($files, $output['images']);
-                    if (isset($output['gifs']) && is_array($output['gifs']))   $files = array_merge($files, $output['gifs']);
-                    if (isset($output['videos']) && is_array($output['videos'])) $files = array_merge($files, $output['videos']);
+                    
+                    // ESCÁNER UNIVERSAL: Detecta imágenes, audios o vídeos sin importar cómo llame el nodo a la clave
+                    if (is_array($output)) {
+                        if (!empty($output['filename'])) {
+                            $files[] = $output;
+                        } else {
+                            foreach ($output as $key => $file_list) {
+                                if (is_array($file_list)) {
+                                    if (!empty($file_list['filename'])) {
+                                        $files[] = $file_list;
+                                    } else {
+                                        foreach ($file_list as $item) {
+                                            if (is_array($item) && !empty($item['filename'])) {
+                                                $files[] = $item;
+                                            } elseif (is_string($item) && preg_match('/\.(wav|mp3|flac|ogg|m4a|png|jpg|webp|mp4)$/i', $item)) {
+                                                $files[] = ['filename' => $item, 'subfolder' => '', 'type' => 'output'];
+                                            }
+                                        }
+                                    }
+                                } elseif (is_string($file_list) && preg_match('/\.(wav|mp3|flac|ogg|m4a|png|jpg|webp|mp4)$/i', $file_list)) {
+                                    $files[] = ['filename' => $file_list, 'subfolder' => '', 'type' => 'output'];
+                                }
+                            }
+                        }
+                    }
                     
                     foreach ($files as $file_info) {
                         $filename = isset($file_info['filename']) ? $file_info['filename'] : '';
@@ -48,6 +70,7 @@ if ($action === 'angel_guardia') {
                         curl_setopt($ch_file, CURLOPT_TIMEOUT, 30);
                         $file_data = curl_exec($ch_file);
                         $http_code = curl_getinfo($ch_file, CURLINFO_HTTP_CODE);
+                        curl_close($ch_file);
                         
                         if ($file_data && $http_code === 200) {
                             $ext = pathinfo($filename, PATHINFO_EXTENSION);
@@ -209,27 +232,55 @@ if ($action === 'check_ticket') {
         $filenames_for_db = [];
         foreach ($outputs as $node_id => $output) {
             $files = [];
-            if (isset($output['images'])) $files = array_merge($files, $output['images']);
-            if (isset($output['gifs']))   $files = array_merge($files, $output['gifs']);
-            if (isset($output['videos'])) $files = array_merge($files, $output['videos']);
+            
+            // ESCÁNER UNIVERSAL: Detecta imágenes, audios o vídeos sin importar cómo llame el nodo a la clave
+            if (is_array($output)) {
+                if (!empty($output['filename'])) {
+                    $files[] = $output;
+                } else {
+                    foreach ($output as $key => $file_list) {
+                        if (is_array($file_list)) {
+                            if (!empty($file_list['filename'])) {
+                                $files[] = $file_list;
+                            } else {
+                                foreach ($file_list as $item) {
+                                    if (is_array($item) && !empty($item['filename'])) {
+                                        $files[] = $item;
+                                    } elseif (is_string($item) && preg_match('/\.(wav|mp3|flac|ogg|m4a|png|jpg|webp|mp4)$/i', $item)) {
+                                        $files[] = ['filename' => $item, 'subfolder' => '', 'type' => 'output'];
+                                    }
+                                }
+                            }
+                        } elseif (is_string($file_list) && preg_match('/\.(wav|mp3|flac|ogg|m4a|png|jpg|webp|mp4)$/i', $file_list)) {
+                            $files[] = ['filename' => $file_list, 'subfolder' => '', 'type' => 'output'];
+                        }
+                    }
+                }
+            }
             
             foreach ($files as $file_info) {
-                $filename = $file_info['filename'] ?? '';
-                $subfolder = $file_info['subfolder'] ?? '';
-                $type = $file_info['type'] ?? 'output';
+                $filename = isset($file_info['filename']) ? $file_info['filename'] : '';
+                $subfolder = isset($file_info['subfolder']) ? $file_info['subfolder'] : '';
+                $type = isset($file_info['type']) ? $file_info['type'] : 'output';
+
                 if (empty($filename)) continue;
-                
+
                 $file_url = COMFY_URL . '/view?filename=' . urlencode($filename) . '&subfolder=' . urlencode($subfolder) . '&type=' . urlencode($type);
+                
                 $ch_file = curl_init($file_url);
                 curl_setopt($ch_file, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($ch_file, CURLOPT_TIMEOUT, 15);
+                curl_setopt($ch_file, CURLOPT_TIMEOUT, 30);
                 $file_data = curl_exec($ch_file);
+                $http_code = curl_getinfo($ch_file, CURLINFO_HTTP_CODE);
+                curl_close($ch_file);
                 
-                if ($file_data && curl_getinfo($ch_file, CURLINFO_HTTP_CODE) === 200) {
+                if ($file_data && $http_code === 200) {
                     $ext = pathinfo($filename, PATHINFO_EXTENSION);
-                    $new_name = 'byGarty_' . md5($prompt_id . $filename) . '.' . ($ext ?: 'png');
-                    @file_put_contents(__DIR__ . '/../galeria/' . $new_name, $file_data);
+                    if (empty($ext)) $ext = 'png';
                     
+                    $new_name = 'byGarty_' . md5($prompt_id . $filename) . '.' . $ext;
+                    
+                    @file_put_contents(__DIR__ . '/../galeria/' . $new_name, $file_data);
                     if (!in_array($new_name, $filenames_for_db)) {
                         $filenames_for_db[] = $new_name;
                     }
