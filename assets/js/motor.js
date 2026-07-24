@@ -799,7 +799,7 @@ function updateUIForSelector(sel) {
 	// --- NUEVO: Control del Panel Padre de Herramientas PRO ---
     const proToolsBlock = document.getElementById('accordionProTools') || document.getElementById('proToolsContainer')?.parentElement;
     if (proToolsBlock) {
-        proToolsBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel) && isAvanzado) ? 'block' : 'none';
+        proToolsBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]'].includes(sel) && isAvanzado) ? 'block' : 'none';
     }
 
     const chatView = document.getElementById('chatView'); if (chatView) chatView.classList.toggle('d-none', sel !== '[CHAT]');
@@ -1839,19 +1839,121 @@ async function runLlmDirect() {
     } finally { btn.innerHTML = originalBtnText; btn.disabled = false; if (runLlmBtnNormal) runLlmBtnNormal.classList.remove('d-none'); }
 }
 
+// ==============================================================================
+// --- PUENTE DE AUDIO PRO: GENERACIÓN AUTÓNOMA (F5-TTS / STABLE AUDIO) ---
+// ==============================================================================
+async function ejecutarAudioAutonomo(config, targetDiv, btnElement, originalCategory) {
+    if (btnElement) {
+        btnElement.disabled = true;
+        btnElement.dataset.oldText = btnElement.innerHTML;
+        btnElement.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> ${typeof GartyLang !== 'undefined' && GartyLang.audio_generating ? GartyLang.audio_generating : 'Sintetizando Audio...'}`;
+    }
+    
+    if (targetDiv) targetDiv.innerHTML = '';
+    const resultsArea = document.getElementById('results');
+    if (resultsArea) resultsArea.classList.remove('d-none');
+    if (typeof startProgressBar === 'function') startProgressBar(15);
+    
+    let promptAudio = config.prompt_text;
+    if (!promptAudio) {
+        const posContent = document.getElementById('posContent');
+        const descInput = document.getElementById('descripcion');
+        promptAudio = (posContent && posContent.innerText.trim()) || (descInput && descInput.value.trim()) || "";
+    }
+    
+    if (!promptAudio && config.engine === 'tts') {
+        if (typeof SwalDark !== 'undefined') {
+            SwalDark.fire({ 
+                icon: 'warning', 
+                title: GartyLang.audio_attn_title || 'Atención', 
+                text: GartyLang.err_audio_no_text_tts || 'Por favor, escribe en el cajón principal el texto que quieres que lea la voz clonada.' 
+            });
+        } else {
+            alert(GartyLang.err_audio_no_text_tts_alert || 'Escribe el texto a locutar en el cajón principal.');
+        }
+        if (btnElement) { btnElement.innerHTML = btnElement.dataset.oldText || (GartyLang.btn_renderizar || 'Renderizar'); btnElement.disabled = false; }
+        if (typeof stopProgressBar === 'function') stopProgressBar();
+        return;
+    }
+
+    const fd = new FormData();
+    fd.append('action', 'generar_audio');
+    fd.append('standalone', '1');      
+    fd.append('engine', config.engine); 
+    fd.append('prompt_text', promptAudio);
+    
+    if (config.engine === 'tts') {
+        fd.append('tts_engine', config.tts_engine || 'f5');
+        fd.append('tts_emotion', config.tts_emotion || 'calm');
+        
+        fd.append('ref_file', config.ref_file || '');
+        fd.append('ref_text', config.ref_text || '');
+        fd.append('speed', config.speed || '1.0');
+        fd.append('remove_silence', config.remove_silence || '1');
+    } else {
+        fd.append('seconds', config.seconds || '10');
+        fd.append('steps', config.steps || '100');
+    }
+    
+    try {
+        const res = await fetch('procesar.php', { method: 'POST', body: fd });
+        const data = await res.json();
+        
+        if (data.error) {
+            if (typeof stopProgressBar === 'function') stopProgressBar();
+            if (typeof SwalDark !== 'undefined') SwalDark.fire({ icon: 'error', title: GartyLang.audio_err_title || 'Error en Audio Pro', text: data.error });
+            if (btnElement) { btnElement.innerHTML = btnElement.dataset.oldText || (GartyLang.btn_renderizar || 'Renderizar'); btnElement.disabled = false; }
+            return;
+        }
+        
+        if (data.success && data.prompt_id) {
+            if (btnElement) btnElement.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> ${GartyLang.msg_gpu_processing || 'Procesando en GPU...'}`;
+            localStorage.setItem('garty_tarea_pendiente', JSON.stringify({ prompt_id: data.prompt_id, db_id: data.historial_id || 0, categoria: '[AUDIO]' }));
+            
+            iniciarRadarGpu(data.prompt_id, targetDiv, btnElement, data.historial_id || 0, '[AUDIO]');
+        } else {
+            throw new Error(data.error || GartyLang.err_audio_no_ticket || 'No se recibió un ticket válido del servidor de audio.');
+        }
+    } catch (e) {
+        console.error(GartyLang.log_err_audio_req || 'Error al solicitar audio:', e);
+        if (typeof stopProgressBar === 'function') stopProgressBar();
+        if (typeof SwalDark !== 'undefined') SwalDark.fire({ icon: 'error', title: GartyLang.audio_err_conn || 'Fallo de Comunicación', text: e.message });
+        if (btnElement) { btnElement.innerHTML = btnElement.dataset.oldText || (GartyLang.btn_renderizar || 'Renderizar'); btnElement.disabled = false; }
+    }
+}
+
 // --- GPU Y RADAR ---
 async function runGpu(mode = 'directo') {
     const resDiv = document.getElementById('imageResult'); const resultsArea = document.getElementById('results'); 
     const autoTranslate = document.getElementById('autoTranslateToggle') ? document.getElementById('autoTranslateToggle').checked : false;
     const originalCategory = document.getElementById('selector').value;
-    const ideaInicial = document.getElementById('descripcion').value.trim(); 
+    let ideaInicial = document.getElementById('descripcion').value.trim(); 
     
-    let finalPrompt = ""; let finalNegPrompt = "";
+   let finalPrompt = ""; let finalNegPrompt = "";
     let buttonUsed = mode === 'directo' ? document.getElementById('gpuDirectBtn') : document.getElementById('gpuArquitectoBtn');
     // Comprobamos si es un Upscale Puro (está encendido el Upscale PERO no hay ningún prompt/idea para generar de cero)
     const activeUpscale = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked;
     const currentPromptText = document.getElementById('descripcion') ? document.getElementById('descripcion').value.trim() : '';
     const isPureUpscaleActive = activeUpscale && currentPromptText === '';
+
+    // =========================================================================
+    // --- SEMÁFORO INTELIGENTE: INTERCEPCIÓN DE AUDIO PRO (F5-TTS / SFX) ---
+    // =========================================================================
+    if (typeof getActiveAudioConfig === 'function') {
+        const audioConfig = getActiveAudioConfig();
+        
+        // Si falta el archivo de referencia o el prompt, getActiveAudioConfig devuelve false -> Abortamos
+        if (audioConfig === false) {
+            if (buttonUsed) buttonUsed.disabled = false;
+            return;
+        }
+        // Si es audio autónomo (sin acoplar a vídeo), desviamos el tráfico y detenemos la imagen
+        if (audioConfig && !audioConfig.sync_with_video) {
+            ejecutarAudioAutonomo(audioConfig, resDiv, buttonUsed, originalCategory);
+            return; // ¡CORTAMOS EL FLUJO AQUÍ! Adiós para siempre a Illustrious y la rubia
+        }
+    }
+    // =========================================================================
 
     // --- CORRECCIÓN DEFINITIVA DE MODOS PUROS EN GPU ---
     const isPureMode = (document.getElementById('pureFaceSwapToggle') && document.getElementById('pureFaceSwapToggle').checked) || 
@@ -1866,7 +1968,17 @@ async function runGpu(mode = 'directo') {
 
     // Si es modo directo estándar (y NO hemos activado el toggle manual de Prompts)
     if (mode === 'directo' && !isModoDirecto) {
-        if (!ideaInicial && !isPureMode) { showError(GartyLang.avis_gengpu1); return; }
+        
+        // --- BLINDAJE AUDIO PRO: Rescate de Prompt si Idea Inicial está vacía ---
+        // 1. Comprobamos si el interruptor de audio está encendido
+        const checkAudio = document.getElementById('audioToggle');
+        const panelAudioActivo = (checkAudio && checkAudio.checked);
+
+        // 2. Si la caja de imagen está vacía, no es modo puro, y TAMPOCO hay audio -> Error
+        if (!ideaInicial && !isPureMode && !panelAudioActivo) { 
+            showError(GartyLang.avis_gengpu1); 
+            return; 
+        }
         buttonUsed.disabled = true;
         
         if (autoTranslate) {
@@ -1909,17 +2021,33 @@ async function runGpu(mode = 'directo') {
     
     const isReactorOn = document.getElementById('reactorToggle') && document.getElementById('reactorToggle').checked;
     if (isReactorOn && (!currentFaceBase64 || currentFaceBase64.indexOf(',') === -1)) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_reactor_title, text: GartyLang.swal_reactor_text}); buttonUsed.disabled = false; return; }
-    const isIpAdapterOn = document.getElementById('ipAdapterToggle') && document.getElementById('ipAdapterToggle').checked;
+    	
+	const isIpAdapterOn = document.getElementById('ipAdapterToggle') && document.getElementById('ipAdapterToggle').checked;
     if (isIpAdapterOn && (!currentIpAdapterBase64 || currentIpAdapterBase64.indexOf(',') === -1)) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_ip_title, text: GartyLang.swal_ip_text}); buttonUsed.disabled = false; return; }
+    
     const isControlNetOn = document.getElementById('controlNetToggle') && document.getElementById('controlNetToggle').checked;
     if (isControlNetOn && (!currentCnBase64 || currentCnBase64.indexOf(',') === -1)) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_cn_title, text: GartyLang.swal_cn_text}); buttonUsed.disabled = false; return; }
     if (isPureMode && !currentImageBase64) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_pure_title, text: GartyLang.swal_pure_text}); buttonUsed.disabled = false; return; }
 
+    // --- NUEVO: INTERCEPCIÓN DEL MÓDULO DE AUDIO PRO ---
+    // Llamamos a la función de audio.js (si existe) para obtener la configuración
+    if (typeof getActiveAudioConfig === 'function') {
+        const audioConfig = getActiveAudioConfig();
+        
+        // Si el usuario activó el audio pero se le olvidó subir el archivo o poner texto, getActiveAudioConfig devuelve false.
+        // Detenemos la generación de golpe antes de tocar la UI o hacer llamadas inútiles al backend.
+        if (audioConfig === false) {
+            buttonUsed.disabled = false;
+            return;
+        }
+    }
+    // ---------------------------------------------------- 
+
     const originalBtnText = buttonUsed.innerHTML;
-    // (Por si acaso falta la variable de idioma, le ponemos fallback)
     buttonUsed.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> ${GartyLang.gpu_sending_spinner || 'Enviando...'}`;
+
     resDiv.innerHTML = '';
-    
+
     // ARREGLO: Solo ocultamos el bloque si NO estamos en el nuevo Modo Directo
     if (mode === 'directo' && resultsArea && !isModoDirecto) { 
         resultsArea.classList.add('d-none'); 
@@ -1933,6 +2061,15 @@ async function runGpu(mode = 'directo') {
     fd.append('async_mode', 'true'); 
     if (currentPromptId > 0) fd.append('historial_id', currentPromptId);
     fd = appendUIParametersToFormData(fd);
+
+    // --- NUEVO: ADJUNTAR PARÁMETROS AL FORMDATA ---
+    if (typeof getActiveAudioConfig === 'function') {
+        const audioConfig = getActiveAudioConfig();
+        if (audioConfig !== null) {
+            fd.append('audio_params', JSON.stringify(audioConfig));
+        }
+    }
+    // ----------------------------------------------------
 
     const modoActual = document.getElementById('selector').value;
     const numFrames = parseInt(document.getElementById('videoFramesInput').value) || 33;
@@ -2186,20 +2323,22 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
             if (data.status === 'completed') {
                 if (window.activeRadars[promptId]) { clearInterval(window.activeRadars[promptId]); delete window.activeRadars[promptId]; }
                 
-                // Alimentador infinito: si termina una, reponemos otra
                 if (window.bucleInfinitoActivo && typeof window.dispararTareaInfinita === 'function') {
                     window.dispararTareaInfinita();
                 }
 
-                if (data.images && data.images.length > 0) {
+                // Detector universal de salidas: soporta imágenes, audios o archivos genéricos
+                const salidas = data.images || data.audios || data.files || [];
+                if (salidas.length > 0) {
                     const currentCategory = document.getElementById('selector').value; let htmlElements = '';
-                    data.images.forEach(img => { 
+                    salidas.forEach(img => {
                         const isChatMode = (originalCategory === '[CHAT]' || originalCategory === '[LLM]');
                         const isVisionMode = (originalCategory === '[VISION]');
                         htmlElements += construirTarjetaImagen(img, dbId, isChatMode, isVisionMode);
                     });
 
-                    if (currentCategory === originalCategory) {
+                    // Permitir renderizado en la categoría actual o en [AUDIO]
+                    if (currentCategory === originalCategory || originalCategory === '[AUDIO]') {
                         if (targetDiv) targetDiv.innerHTML = `<div class="row g-3">${htmlElements}</div>`;
                         const gpuArea = document.getElementById('gpuActionArea'); if (gpuArea) gpuArea.classList.remove('d-none');
                     } else {
@@ -2219,9 +2358,10 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
                         asyncGallery.innerHTML = galleryHtml + asyncGallery.innerHTML;
                     }
                     
+                    // CORRECCIÓN 1: Usar salidas[0] en lugar del hardcodeado data.images[0]
                     if (document.hidden) {
                         if (typeof tocarCampana === 'function') tocarCampana();
-                        if (typeof avisarAlSistema === 'function') avisarAlSistema(GartyLang.notif_gpu_free_title || "¡GPU Liberada!", GartyLang.notif_gpu_free_text || "Tu imagen ha terminado de renderizarse.", data.images[0]);
+                        if (typeof avisarAlSistema === 'function') avisarAlSistema(GartyLang.notif_gpu_free_title || "¡GPU Liberada!", GartyLang.notif_gpu_free_text || "Tu tarea ha terminado.", salidas[0]);
                     }
 
                     let toastContainer = document.getElementById('gpuToastContainer');
@@ -2231,29 +2371,43 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
                         document.body.appendChild(toastContainer);
                     }
 
-                    let imgDataToast = data.images[0]; let toastMediaHtml = '';
+                    // CORRECCIÓN 2: Blindaje contra objetos y audios en la notificación Toast
+                    let imgDataToast = salidas[0]; let toastMediaHtml = '';
+                    if (typeof imgDataToast === 'object' && imgDataToast !== null) {
+                        imgDataToast = imgDataToast.imagen_path || imgDataToast.filename || JSON.stringify(imgDataToast);
+                    }
+                    
                     if (typeof imgDataToast === 'string' && imgDataToast.length < 500 && imgDataToast.includes('.')) {
                         let lowerPath = imgDataToast.toLowerCase();
                         if (lowerPath.endsWith('.mp4') || lowerPath.endsWith('.webm') || lowerPath.endsWith('.mov')) {
                             toastMediaHtml = `<video src="galeria/${imgDataToast}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #000;" muted autoplay loop playsinline></video>`;
-                        } else { toastMediaHtml = `<img src="galeria/${imgDataToast}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 15px; border: 2px solid white;">`; }
-                    } else {
+                        } else if (lowerPath.endsWith('.wav') || lowerPath.endsWith('.mp3') || lowerPath.endsWith('.flac') || lowerPath.endsWith('.ogg')) {
+                            toastMediaHtml = `<div style="width: 50px; height: 50px; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #161b22; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="bi bi-music-note-beamed text-info fs-3"></i></div>`;
+                        } else { 
+                            toastMediaHtml = `<img src="galeria/${imgDataToast}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 15px; border: 2px solid white;">`; 
+                        }
+                    } else if (typeof imgDataToast === 'string') {
                         let currentCat = document.getElementById('selector') ? document.getElementById('selector').value : '';
-                        let isVideoToast = imgDataToast.startsWith('data:video') || (!imgDataToast.startsWith('data:image') && currentCat === '[VIDEO]');
+                        let isVideoToast = imgDataToast.startsWith('data:video') || (!imgDataToast.startsWith('data:image') && !imgDataToast.startsWith('data:audio') && currentCat === '[VIDEO]');
+                        let isAudioToast = imgDataToast.startsWith('data:audio') || (!imgDataToast.startsWith('data:image') && !imgDataToast.startsWith('data:video') && (currentCat === '[AUDIO]' || originalCategory === '[AUDIO]'));
+                        
                         if (isVideoToast) {
                             let src = imgDataToast.startsWith('data:') ? imgDataToast : `data:video/mp4;base64,${imgDataToast}`;
                             toastMediaHtml = `<video src="${src}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #000;" muted autoplay loop playsinline></video>`;
+                        } else if (isAudioToast) {
+                            toastMediaHtml = `<div style="width: 50px; height: 50px; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #161b22; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="bi bi-music-note-beamed text-info fs-3"></i></div>`;
                         } else {
                             let src = imgDataToast.startsWith('data:') ? imgDataToast : `data:image/png;base64,${imgDataToast}`;
                             toastMediaHtml = `<img src="${src}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 15px; border: 2px solid white;">`;
                         }
+                    } else {
+                        toastMediaHtml = `<div style="width: 50px; height: 50px; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #161b22; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="bi bi-check2-circle text-success fs-3"></i></div>`;
                     }
 
                     const toast = document.createElement('div'); toast.className = 'toast show align-items-center text-bg-success border-0 shadow-lg'; toast.style.pointerEvents = 'auto';
                     toast.innerHTML = `<div class="d-flex"><div class="toast-body d-flex align-items-center">${toastMediaHtml}<div><strong class="fs-6">${GartyLang.notif_gpu_free_title}</strong><br><small>${GartyLang.notif_gpu_free_text}</small></div></div><button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentElement.parentElement.remove()"></button></div>`;
                     toastContainer.appendChild(toast); setTimeout(() => { if(toast.parentElement) toast.remove(); }, 10000);
 
-                    // === CONTROL REAL DE LIBERACIÓN DE BOTÓN ===
                     const pendientes = Object.keys(window.activeRadars).length;
                     if (pendientes === 0) {
                         if (typeof stopProgressBar === 'function') stopProgressBar();
@@ -2263,12 +2417,10 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
                             setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.disabled = false; }, 3000);
                         }
                     } else {
-                        // Aún quedan imágenes del lote de 2 o 4: mostramos el progreso y MANTENEMOS BLOQUEADO
                         if (btnElement && !window.bucleInfinitoActivo) {
                             btnElement.innerText = `${GartyLang.btn_procesando} (quedan ${pendientes})...`;
                         }
                     }
-                    // ===========================================
                 } else {
                     if (btnElement && data.status !== 'processing' && !window.bucleInfinitoActivo) {
                         btnElement.innerHTML = '<i class="bi bi-exclamation-triangle"></i> ' + GartyLang.btn_gpu_free_no_images;
@@ -2304,34 +2456,55 @@ function construirTarjetaImagen(imgData, dbId = 0, isChat = false, isVision = fa
     const prefix = isChat ? 'byGartyChat_' : 'byGarty_';
     const selectorEl = document.getElementById('selector'); const currentCat = selectorEl ? selectorEl.value : '';
     let isVideo = false; let isAnimatedWebp = false; let mediaSrc = ''; let extension = 'png';
+    let isAudio = false; // Nueva bandera
 
     const isFilePath = typeof imgData === 'string' && imgData.length < 500 && imgData.includes('.');
+    
     if (isFilePath) {
         const lowerPath = imgData.toLowerCase();
         isVideo = lowerPath.endsWith('.mp4') || lowerPath.endsWith('.webm') || lowerPath.endsWith('.mov');
+        isAudio = lowerPath.endsWith('.wav') || lowerPath.endsWith('.mp3') || lowerPath.endsWith('.flac'); // Detección
         isAnimatedWebp = lowerPath.endsWith('.webp') && currentCat === '[VIDEO]';
-        mediaSrc = `galeria/${imgData}`; extension = isVideo ? 'mp4' : (lowerPath.endsWith('.webp') ? 'webp' : 'png');
+        mediaSrc = `galeria/${imgData}`; 
+        extension = isVideo ? 'mp4' : (isAudio ? (lowerPath.endsWith('.flac') ? 'flac' : (lowerPath.endsWith('.mp3') ? 'mp3' : 'wav')) : (lowerPath.endsWith('.webp') ? 'webp' : 'png'));
     } else {
         if (imgData.startsWith('data:video')) { isVideo = true; } 
+        else if (imgData.startsWith('data:audio')) { isAudio = true; } // Detección Base64
         else if (imgData.startsWith('data:image')) { isVideo = false; if (imgData.includes('webp') && currentCat === '[VIDEO]') isAnimatedWebp = true; } 
         else {
             const isPNG = typeof imgData === 'string' && imgData.startsWith('iVBORw0KGgo');
             const isJPEG = typeof imgData === 'string' && imgData.startsWith('/9j/');
             const isWebP = typeof imgData === 'string' && imgData.startsWith('UklGR');
             const isGIF = typeof imgData === 'string' && imgData.startsWith('R0lGOD');
-            if (isWebP && currentCat === '[VIDEO]') isAnimatedWebp = true;
-            else isVideo = !isPNG && !isJPEG && !isWebP && !isGIF; 
+            // Detección inferida de audio (cabeceras comunes WAV RIFF)
+            if (!isPNG && !isJPEG && !isWebP && !isGIF && imgData.startsWith('UklGR')) {
+                if (currentCat === '[AUDIO]') isAudio = true;
+                else if (currentCat === '[VIDEO]') isAnimatedWebp = true;
+            } else {
+                isVideo = !isPNG && !isJPEG && !isWebP && !isGIF && !isAudio; 
+            }
         }
         if (isVideo) { mediaSrc = imgData.startsWith('data:') ? imgData : `data:video/mp4;base64,${imgData}`; extension = 'mp4'; } 
+        else if (isAudio) { mediaSrc = imgData.startsWith('data:') ? imgData : `data:audio/wav;base64,${imgData}`; extension = 'wav'; } 
         else if (isAnimatedWebp) { mediaSrc = imgData.startsWith('data:') ? imgData : `data:image/webp;base64,${imgData}`; extension = 'webp'; } 
         else { mediaSrc = imgData.startsWith('data:') ? imgData : `data:image/png;base64,${imgData}`; extension = 'png'; }
     }
     
-    const mediaTag = isVideo 
-        ? `<video src="${mediaSrc}" onclick="if(typeof abrirVisor === 'function') abrirVisor(this.src)" style="cursor: pointer;" class="result-image w-100" muted loop autoplay playsinline onmouseover="this.play()" onmouseout="this.pause()"></video>`
-        : `<img src="${mediaSrc}" onclick="if(typeof abrirVisor === 'function') abrirVisor(this.src)" style="cursor: zoom-in;" class="result-image w-100">`;
+    // Generación dinámica de la etiqueta HTML según el medio
+    let mediaTag = '';
+    if (isVideo) {
+        mediaTag = `<video src="${mediaSrc}" onclick="if(typeof abrirVisor === 'function') abrirVisor(this.src)" style="cursor: pointer;" class="result-image w-100" muted loop autoplay playsinline onmouseover="this.play()" onmouseout="this.pause()"></video>`;
+    } else if (isAudio) {
+        mediaTag = `
+        <div class="d-flex flex-column align-items-center justify-content-center p-4 bg-dark w-100 rounded border border-secondary" style="min-height: 180px;">
+            <i class="bi bi-music-note-beamed fs-1 text-info mb-3"></i>
+            <audio src="${mediaSrc}" controls class="w-100 shadow-sm"></audio>
+        </div>`;
+    } else {
+        mediaTag = `<img src="${mediaSrc}" onclick="if(typeof abrirVisor === 'function') abrirVisor(this.src)" style="cursor: zoom-in;" class="result-image w-100">`;
+    }
 
-    const showMergeCheckbox = isVideo || isAnimatedWebp;
+    const showMergeCheckbox = isVideo || isAnimatedWebp || isAudio;
 
     return `
     <div class="${isChat ? 'col-6' : 'col-12 col-md-6'}">

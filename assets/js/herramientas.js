@@ -189,6 +189,7 @@ async function abrirModalGaleria(page = 1) {
             grid.innerHTML = data.images.map(img => {
                 const lowerPath = img.imagen_path.toLowerCase();
                 const isMp4Webm = lowerPath.endsWith('.mp4') || lowerPath.endsWith('.webm');
+                const isAudio = lowerPath.endsWith('.wav') || lowerPath.endsWith('.mp3') || lowerPath.endsWith('.flac') || lowerPath.endsWith('.ogg');
                 const isWebp = lowerPath.endsWith('.webp');
                 let mediaContent = '';
 
@@ -199,6 +200,17 @@ async function abrirModalGaleria(page = 1) {
                             <span class="badge bg-secondary position-absolute top-0 end-0 m-1" style="cursor:pointer; z-index: 10;" onclick="event.stopPropagation(); if(typeof abrirVisor === 'function') abrirVisor('galeria/${img.imagen_path}')"><i class="bi bi-play-fill fs-6"></i></span>
                             <div class="w-100 h-100 d-flex flex-column align-items-center justify-content-center" style="cursor:pointer;" onclick="usarImagenDeGaleria('galeria/${img.imagen_path}')">
                                 <i class="bi bi-camera-reels fs-2 mb-1"></i>
+                                <small class="text-white text-truncate w-100 px-2 text-center" style="font-size: 0.65rem;">${img.imagen_path}</small>
+                            </div>
+                        </div>`;
+                } else if (isAudio) {
+                    // NUEVO: Tarjeta específica para audio con checkbox de fusión
+                    mediaContent = `
+                        <div class="d-flex flex-column align-items-center justify-content-center bg-dark text-info border border-secondary rounded shadow-sm position-relative overflow-hidden" style="height:100px; width:100%;">
+                            <input type="checkbox" class="form-check-input merge-checkbox position-absolute shadow" style="top: 5px; left: 5px; width: 22px; height: 22px; z-index: 20; cursor: pointer; border: 2px solid #0dcaf0;" value="${img.imagen_path}" onchange="if(typeof toggleVideoFusion === 'function') toggleVideoFusion(this.value, this.checked)">
+                            <span class="badge bg-secondary position-absolute top-0 end-0 m-1" style="cursor:pointer; z-index: 10;" onclick="event.stopPropagation(); window.open('galeria/${img.imagen_path}', '_blank')"><i class="bi bi-play-fill fs-6"></i></span>
+                            <div class="w-100 h-100 d-flex flex-column align-items-center justify-content-center" style="cursor:pointer;" onclick="usarImagenDeGaleria('galeria/${img.imagen_path}')">
+                                <i class="bi bi-music-note-beamed fs-2 mb-1"></i>
                                 <small class="text-white text-truncate w-100 px-2 text-center" style="font-size: 0.65rem;">${img.imagen_path}</small>
                             </div>
                         </div>`;
@@ -227,7 +239,10 @@ async function abrirModalGaleria(page = 1) {
 
 async function usarImagenDeGaleria(url) {
     try {
-        const isVideo = url.toLowerCase().endsWith('.mp4') || url.toLowerCase().endsWith('.webm');
+        const lowerUrl = url.toLowerCase();
+        const isVideo = lowerUrl.endsWith('.mp4') || lowerUrl.endsWith('.webm');
+        const isAudio = lowerUrl.endsWith('.wav') || lowerUrl.endsWith('.mp3') || lowerUrl.endsWith('.flac') || lowerUrl.endsWith('.ogg');
+        
         if (isVideo) {
             const videoElement = document.createElement('video');
             videoElement.src = url; videoElement.muted = true;
@@ -236,22 +251,49 @@ async function usarImagenDeGaleria(url) {
                 const canvas = document.createElement('canvas');
                 canvas.width = videoElement.videoWidth; canvas.height = videoElement.videoHeight;
                 const ctx = canvas.getContext('2d'); ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-                currentImageBase64 = canvas.toDataURL('image/png'); currentDocumentText = ""; 
+                window.currentImageBase64 = canvas.toDataURL('image/png'); window.currentDocumentText = ""; 
                 
                 const filename = url.split('/').pop();
                 const imgPreviewContainer = document.getElementById('imgPreviewContainer');
                 if(imgPreviewContainer) {
                     imgPreviewContainer.innerHTML = `
                     <div class="badge bg-warning text-dark p-3 mt-2 mb-2 fs-6 w-100 text-start shadow-sm">
-                        <i class="bi bi-film fs-4 me-2"></i> ${GartyLang.gal_frame_extracted} ${filename} 
+                        <i class="bi bi-film fs-4 me-2"></i> ${typeof GartyLang !== 'undefined' ? GartyLang.gal_frame_extracted : 'Fotograma:'} ${filename} 
                         <i class="bi bi-x-circle ms-auto float-end" style="cursor:pointer;" onclick="if(typeof clearVideoUpload === 'function') clearVideoUpload()"></i>
                     </div>
-                    <img src="${currentImageBase64}" class="img-fluid rounded shadow-sm mt-2" style="max-height: 200px; border: 2px solid #ffc107;">`;
+                    <img src="${window.currentImageBase64}" class="img-fluid rounded shadow-sm mt-2" style="max-height: 200px; border: 2px solid #ffc107;">`;
                     imgPreviewContainer.style.display = 'block';
                 }
                 const inst = bootstrap.Modal.getInstance(document.getElementById('modalGaleriaReciente'));
                 if (inst) inst.hide();
             };
+        } else if (isAudio) {
+            // NUEVO: Comportamiento para Audios
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            reader.onloadend = function() {
+                // Cargamos el audio en la variable de motor.js
+                window.currentAudioBase64 = reader.result;
+                const filename = url.split('/').pop();
+                
+                // Limpiamos el badge anterior si lo hubiera
+                const oldBadge = document.getElementById('audioBadge');
+                if(oldBadge) oldBadge.remove();
+                
+                const imgPreviewContainer = document.getElementById('imgPreviewContainer');
+                if(imgPreviewContainer) {
+                    imgPreviewContainer.innerHTML += `
+                    <div class="badge bg-success p-3 mt-2 mb-2 fs-6 w-100 text-start shadow-sm" id="audioBadge">
+                        <i class="bi bi-music-note-beamed fs-4 me-2"></i> ${typeof GartyLang !== 'undefined' ? GartyLang.audio_ready || 'Audio Listo' : 'Audio Listo'}: ${filename} 
+                        <i class="bi bi-x-circle ms-auto float-end text-light" style="cursor:pointer;" onclick="if(typeof clearAudio === 'function') clearAudio()" title="Quitar"></i>
+                    </div>`;
+                    imgPreviewContainer.style.display = 'block';
+                }
+                const inst = bootstrap.Modal.getInstance(document.getElementById('modalGaleriaReciente'));
+                if (inst) inst.hide();
+            };
+            reader.readAsDataURL(blob);
         } else {
             const response = await fetch(url);
             const blob = await response.blob();
@@ -260,7 +302,7 @@ async function usarImagenDeGaleria(url) {
                 if (typeof setBaseImageFromDataUrl === 'function') setBaseImageFromDataUrl(reader.result);
                 const inst = bootstrap.Modal.getInstance(document.getElementById('modalGaleriaReciente'));
                 if (inst) inst.hide();
-            }
+            };
             reader.readAsDataURL(blob);
         }
     } catch (e) { console.error(GartyLang.log_err_load_gallery, e); }
