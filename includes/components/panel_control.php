@@ -1,4 +1,3 @@
-<div id="imgPreviewContainer" class="mb-3"></div>
 
 <div class="mb-4" id="upperInputBlock">
     
