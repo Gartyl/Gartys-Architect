@@ -29,7 +29,7 @@
                 <?php if (!$is_avanzado): ?>🔒 (Pro)<?php endif; ?>
             </label>
             <div class="form-check form-switch m-0">
-                <input class="form-check-input pref-track border-info" type="checkbox" id="editToolsToggle" style="cursor: pointer;" onchange="document.getElementById('editToolsUI').classList.toggle('d-none', !this.checked); window.updateCursor();">
+                <input class="form-check-input pref-track border-info" type="checkbox" id="editToolsToggle" name="edit_tools_active" value="1" style="cursor: pointer;" onchange="document.getElementById('editToolsUI').classList.toggle('d-none', !this.checked); window.updateCursor();">
             </div>
         </div>
         
@@ -69,7 +69,7 @@
                     <div class="col-md-3">
                         <label for="denoiseSlider" class="form-label text-info small fw-bold mb-1" title="<?= __('inp_denoise_title') ?? 'Fuerza' ?>"><i class="bi bi-magic"></i> <?= __('tit_inp_fuerza') ?? 'FUERZA (DENOISE)' ?></label>
                         <div class="d-flex align-items-center">
-                            <input type="range" class="form-range flex-grow-1 me-2 pref-track" id="denoiseSlider" min="0.1" max="1.0" step="0.05" value="0.65" oninput="document.getElementById('denoiseVal').innerText = this.value">
+                            <input type="range" class="form-range flex-grow-1 me-2 pref-track" id="denoiseSlider" name="denoise" min="0.1" max="1.0" step="0.05" value="0.65" oninput="document.getElementById('denoiseVal').innerText = this.value">
                             <span id="denoiseVal" class="badge bg-secondary">0.65</span>
                         </div>
                     </div>
