@@ -1068,6 +1068,10 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
     if (wInp && hInp) { fd.append('width', wInp.value); fd.append('height', hInp.value); }
         
     const denoiseSlider = document.getElementById('denoiseSlider'); if(denoiseSlider) fd.append('denoise', denoiseSlider.value);
+    
+    // 👇 NUEVA LÍNEA: Envía a PHP si el panel de edición está activo (1) o no (0)
+    const editToggle = document.getElementById('editToolsToggle'); if(editToggle) fd.append('edit_tools_active', editToggle.checked ? '1' : '0');
+
     const batchSize = document.getElementById('batchSize'); if(batchSize) fd.append('batch_size', batchSize.value);
 
     // Hires Fix - UPSCALE
