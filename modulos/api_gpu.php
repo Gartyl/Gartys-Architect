@@ -2302,8 +2302,12 @@ if ($action === 'generar_imagen') {
         ];
         
         // Qwen Edit reconstruye el latente condicionado por la imagen en el TextEncode.
-        // Requiere forzosamente denoise 1.0 para poder "dibujar" la edición correctamente.
-        $sampler_denoise = 1.0; 
+        // Evaluamos si el panel de edición avanzada está activo
+        $is_edit_panel_active = !empty($_POST['edit_tools_active']) || !empty($mask_base64); // Puedes usar también la existencia de la máscara como trigger
+        $panel_denoise = isset($_POST['denoise']) ? (float)$_POST['denoise'] : 0.65;
+        
+        // Si el panel o la máscara están activos, toma el valor del slider. Si no, 1.0 por defecto.
+        $sampler_denoise = $is_edit_panel_active ? $panel_denoise : 1.0; 
     }
 	
 	// ==============================================================================
@@ -2362,8 +2366,12 @@ if ($action === 'generar_imagen') {
             unset($workflow["600"]);
         }
         
-        // 4. Modo edición puro = 1.0 de denoise
-        $sampler_denoise = 1.0; 
+        // 4. Modo edición dinámico
+        $is_edit_panel_active = !empty($_POST['edit_tools_active']) || !empty($mask_base64);
+        $panel_denoise = isset($_POST['denoise']) ? (float)$_POST['denoise'] : 0.65;
+        
+        // Si se despliega el panel, manda el usuario. Si solo se sube imagen (edición pura automática), denoise 1.0.
+        $sampler_denoise = $is_edit_panel_active ? $panel_denoise : 1.0; 
     }
 
     // ==============================================================================
