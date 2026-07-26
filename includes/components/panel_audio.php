@@ -14,7 +14,7 @@
     </div>
     
     <div id="audioUI" class="d-none mt-3 text-start">
-        <!-- Navegaci贸n entre motores de audio -->
+        <!-- Navegación entre motores de audio -->
         <ul class="nav nav-pills nav-fill mb-3 gap-1" id="audioEngineTabs" role="tablist" style="font-size: 0.85rem;">
             <li class="nav-item" role="presentation">
                 <button class="nav-link active py-1 bg-dark text-info border border-info" id="tts-tab" data-bs-toggle="tab" data-bs-target="#tts-panel" type="button" role="tab">
@@ -34,9 +34,9 @@
                 
                 <!-- NUEVO: CAJÓN PARA EL GUION DE LOCUCIÓN -->
                 <div class="mb-3 mt-1">
-                    <label class="small text-info fw-bold mb-1"><i class="bi bi-mic-fill"></i><?= __('opt_txt_locutar') ?? 'Texto a Locutar (Guión)' ?> </label>
-                    <textarea id="ttsSpeechText" class="form-control form-control-sm bg-dark text-light border-info pref-track" rows="3" placeholder="Escribe aquí exactamente lo que quieres que diga la voz..."></textarea>
-                </div>
+					<label class="small text-info fw-bold mb-1"><i class="bi bi-mic-fill"></i><?= __('opt_txt_locutar') ?? 'Texto a Locutar (Guión)' ?> </label>
+					<textarea id="ttsSpeechText" class="form-control form-control-sm bg-dark text-light border-info pref-track" rows="3" placeholder="<?= __('ph_tts_speech') ?? 'Escribe aquí exactamente lo que quieres que diga la voz...' ?>"></textarea>
+				</div>
 
                 <!-- Selectores de Arquitectura, Idioma y Emoción -->
                 <div class="row g-2 mb-2">
@@ -70,7 +70,7 @@
                     </div>
                 </div>
 
-                <!-- NUEVO BLOQUE OMNIVOICE: G茅nero y Edad (Oculto por defecto) -->
+                <!-- NUEVO BLOQUE OMNIVOICE: Género y Edad (Oculto por defecto) -->
                 <div class="row g-2 mb-2 d-none" id="omnivoiceOptionsBlock">
                     <div class="col-md-6">
                         <label class="small text-secondary fw-bold"><?= __('lbl_tts_gender') ?? 'Género (OmniVoice)' ?></label>
@@ -161,9 +161,9 @@
                         <input type="range" class="form-range pref-track" id="sfxSeconds" min="1.0" max="30.0" step="0.5" value="5.0" oninput="document.getElementById('sfxSecondsLabel').innerText = this.value;">
                     </div>
                     <div class="col-md-6">
-                        <label class="text-secondary small fw-bold"><?= __('lbl_sfx_steps') ?>: <span id="sfxStepsLabel" class="text-light">20</span></label>
-                        <input type="range" class="form-range pref-track" id="sfxSteps" min="10" max="50" step="1" value="20" oninput="document.getElementById('sfxStepsLabel').innerText = this.value;">
-                    </div>
+						<label class="text-secondary small fw-bold"><?= __('lbl_sfx_steps') ?>: <span id="sfxStepsLabel" class="text-light">100</span></label>
+						<input type="range" class="form-range pref-track" id="sfxSteps" name="sfx_steps" min="50" max="200" step="1" value="100" oninput="document.getElementById('sfxStepsLabel').innerText = this.value;">
+					</div>
                 </div>
             </div>
         </div>
