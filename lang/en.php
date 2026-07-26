@@ -1003,6 +1003,7 @@ return [
 	'opt_age_young' => "Young adult",
 	'opt_age_middle' => "Middle-aged",
 	'opt_age_elderly' => "Elderly",
+	'ph_tts_speech' => "Type here exactly what you want the voice to say...",
     
     // --- IDIOMAS ---
     'lang_custom' => "✨ Custom Language / User Translation",
