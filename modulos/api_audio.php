@@ -194,12 +194,11 @@ switch ($action) {
         } else {
             // ESTRUCTURA REAL PARA STABLE AUDIO OPEN 1.0 (SFX / MÚSICA)
             $seconds = floatval($_POST['seconds'] ?? 5.0);
-            $steps = 20; 
-            $cfg   = 4.0; 
-
-            $calidad_ui = $_POST['quality'] ?? 'high';
-            if ($calidad_ui === 'fast')      { $steps = 18; $cfg = 3.8; }
-            if ($calidad_ui === 'cinematic') { $steps = 24; $cfg = 4.5; }
+           // Atrapamos el valor de tu deslizador (con 100 de seguridad por si falla)
+            $steps = intval($_POST['sfx_steps'] ?? 100); 
+            
+            // Dejamos el CFG fijo en el punto dulce recomendado por el modelo
+            $cfg   = 7.0;
 
             $workflow['20'] = ['inputs' => ['ckpt_name' => 'stable-audio-open-1.0.safetensors'], 'class_type' => 'CheckpointLoaderSimple'];
             $workflow['20_clip'] = ['inputs' => ['clip_name' => 't5-base.safetensors', 'type' => 'stable_audio'], 'class_type' => 'CLIPLoader'];
