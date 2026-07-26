@@ -1896,7 +1896,8 @@ async function ejecutarAudioAutonomo(config, targetDiv, btnElement, originalCate
         fd.append('remove_silence', config.remove_silence || '1');
     } else {
         fd.append('seconds', config.seconds || '10');
-        fd.append('steps', config.steps || '100');
+        // Mandamos el valor con la etiqueta exacta que PHP está esperando ahora
+        fd.append('sfx_steps', config.sfx_steps || config.steps || '100');
     }
     
     try {

@@ -241,7 +241,7 @@ function getActiveAudioConfig() {
             engine: 'sfx',
             prompt_text: sfxPrompt,
             seconds: document.getElementById('sfxSeconds') ? document.getElementById('sfxSeconds').value : 5.0,
-            steps: document.getElementById('sfxSteps') ? document.getElementById('sfxSteps').value : 20,
+            sfx_steps: document.getElementById('sfxSteps') ? document.getElementById('sfxSteps').value : 100, // Nombre actualizado y fallback a 100
             sync_with_video: syncVideo
         };
     }
