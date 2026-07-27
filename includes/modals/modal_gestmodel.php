@@ -55,54 +55,74 @@
                                 </div>
                                 
                                 <form id="formNuevoModelo" class="row g-2 align-items-end">
-                                    <div class="col-md-2">
-                                        <label class="small text-secondary fw-bold"><?= __('tit_pan_nom') ?></label>
-                                        <input type="text" class="form-control bg-dark text-light border-secondary" id="modNombre" placeholder="<?= __('adm_ph_nom') ?>">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="small text-secondary fw-bold"><?= __('tit_pan_arxex') ?></label>
-                                        <input type="text" class="form-control bg-dark text-light border-secondary" id="modArchivo" placeholder="<?= __('adm_ph_arx') ?>">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="small text-secondary fw-bold"><?= __('tit_pan_motor') ?></label>
-                                        <select class="form-select bg-dark text-light border-secondary" id="modMotor">
-                                            <option value="ollama"><?= __('adm_opt_ollama') ?></option>
-                                            <option value="comfyui"><?= __('adm_opt_comfy') ?></option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="small text-secondary fw-bold"><?= __('tit_pan_categ') ?></label>
-                                        <select class="form-select bg-dark text-light border-secondary" id="modCat">
-										<option value="chat">💬 <?= __('adm_cat_chat_conv') ?></option>
-										<option value="vision">👁️ <?= __('adm_cat_vis_ana') ?></option>
-										<option value="sd15">🎨 <?= __('adm_cat_img_sd15') ?></option>
-										<option value="sdxl">⚡ <?= __('adm_cat_img_sdxl') ?></option>
-										<option value="flux" <?= !$is_pro ? 'disabled' : '' ?>>💎 <?= __('adm_cat_img_flux') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?></option>
-										<option value="video" <?= !$is_pro ? 'disabled' : '' ?>>🎬 <?= __('adm_cat_vid_wan') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?></option>
-										<option value="sys_llm">⚙️ <?= __('adm_cat_hid_txt') ?></option>
-										<option value="sys_vision">👁️‍🗨️ <?= __('adm_cat_hid_vis') ?></option>
-										<option value="sys_refiner">🛠️ <?= __('adm_cat_hid_ref') ?? 'Refinador / Rostros (DiT)' ?></option>
-									</select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="small text-warning fw-bold"><?= __('tit_pan_nivel') ?></label>
-                                        <select class="form-select bg-dark text-light border-warning" id="modNivel">
-                                            <option value="usuario">👤 <?= __('adm_lvl_user') ?></option>
-                                            <option value="avanzado" <?= !$is_pro ? 'disabled' : '' ?>>⭐ <?= __('adm_lvl_adv') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?></option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-1">
-                                        <button type="button" class="btn btn-success w-100 fw-bold shadow px-0" onclick="guardarModeloBD()" title="<?= __('adm_btn_save_title') ?>"><i class="bi bi-save"></i></button>
-                                    </div>
-                                </form>
+									<div class="col-md-2">
+										<label class="small text-secondary fw-bold"><?= __('tit_pan_nom') ?></label>
+										<input type="text" class="form-control bg-dark text-light border-secondary" id="modNombre" placeholder="<?= __('adm_ph_nom') ?>">
+									</div>
+									<div class="col-md-3">
+										<label class="small text-secondary fw-bold"><?= __('tit_pan_arxex') ?></label>
+										<input type="text" class="form-control bg-dark text-light border-secondary" id="modArchivo" placeholder="<?= __('adm_ph_arx') ?>">
+									</div>
+									<div class="col-md-2">
+										<label class="small text-secondary fw-bold"><?= __('tit_pan_motor') ?></label>
+										<select class="form-select bg-dark text-light border-secondary" id="modMotor">
+											<option value="ollama"><?= __('adm_opt_ollama') ?></option>
+											<option value="comfyui"><?= __('adm_opt_comfy') ?></option>
+										</select>
+									</div>
+									<div class="col-md-2">
+										<label class="small text-secondary fw-bold"><?= __('tit_pan_categ') ?></label>
+										<select class="form-select bg-dark text-light border-secondary" id="modCat">
+											<option value="chat">💬 <?= __('adm_cat_chat_conv') ?></option>
+											<option value="vision">👁️ <?= __('adm_cat_vis_ana') ?></option>
+											<option value="sd15">🎨 <?= __('adm_cat_img_sd15') ?></option>
+											<option value="sdxl">⚡ <?= __('adm_cat_img_sdxl') ?></option>
+											<option value="flux" <?= !$is_pro ? 'disabled' : '' ?>>💎 <?= __('adm_cat_img_flux') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?></option>
+											<option value="video" <?= !$is_pro ? 'disabled' : '' ?>>🎬 <?= __('adm_cat_vid_wan') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?></option>
+											<option value="sys_llm">⚙️ <?= __('adm_cat_hid_txt') ?></option>
+											<option value="sys_vision">👁️‍🗨️ <?= __('adm_cat_hid_vis') ?></option>
+											<option value="sys_refiner">🛠️ <?= __('adm_cat_hid_ref') ?? 'Refinador / Rostros (DiT)' ?></option>
+										</select>
+									</div>
+									<div class="col-md-2">
+										<label class="small text-warning fw-bold"><?= __('tit_pan_nivel') ?></label>
+										<select class="form-select bg-dark text-light border-warning" id="modNivel">
+											<option value="usuario">👤 <?= __('adm_lvl_user') ?></option>
+											<option value="avanzado" <?= !$is_pro ? 'disabled' : '' ?>>⭐ <?= __('adm_lvl_adv') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?></option>
+										</select>
+									</div>
+									<div class="col-md-1">
+										<button type="button" class="btn btn-success w-100 fw-bold shadow px-0" onclick="guardarModeloBD()" title="<?= __('adm_btn_save_title') ?>"><i class="bi bi-save"></i></button>
+									</div>
+									
+									<!-- NUEVO: CHECKBOX DE MODELO DESMEMBRADO (UNBUNDLED) -->
+									<div class="col-12 mt-2 text-start">
+										<div class="form-check form-switch d-inline-block">
+											<input class="form-check-input border-success" type="checkbox" id="modUnbundled" value="1">
+											<label class="form-check-label small text-info fw-bold ms-1" for="modUnbundled">
+												<i class="bi bi-puzzle"></i> <?= __('adm_lbl_unbundled') ?? 'Modelo Desmembrado (Solo UNET. Usa nodos separados para CLIP/VAE)' ?>
+											</label>
+										</div>
+									</div>
+								</form>
                             </div>
                         </div>
                         <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                             <table class="table table-dark table-hover table-bordered border-secondary text-center align-middle m-0">
                                 <thead class="table-active text-success" style="position: sticky; top: 0; z-index: 1;">
-                                    <tr><th><?= __('tit_pan_id') ?></th><th><?= __('tit_pan_nomenu') ?></th><th><?= __('tit_pan_arxsist') ?></th><th><?= __('tit_pan_motor') ?></th><th><?= __('tit_pan_categ') ?></th><th><?= __('tit_pan_nivel') ?></th><th><?= __('tit_pan_estado') ?></th><th><?= __('tit_pan_accion') ?></th></tr>
+                                    <tr>
+										<th><?= __('tit_pan_id') ?></th>
+										<th><?= __('tit_pan_nomenu') ?></th>
+										<th><?= __('tit_pan_arxsist') ?></th>
+										<th><?= __('tit_pan_motor') ?></th>
+										<th><?= __('tit_pan_categ') ?></th>
+										<th><?= __('tit_pan_unbundled') ?></th>
+										<th><?= __('tit_pan_nivel') ?></th>
+										<th><?= __('tit_pan_estado') ?></th>
+										<th><?= __('tit_pan_accion') ?></th>
+									</tr>
                                 </thead>
-                                <tbody id="tablaModelosBody"></tbody>
+							    <tbody id="tablaModelosBody"></tbody>
                             </table>
                         </div>
                     </div>
