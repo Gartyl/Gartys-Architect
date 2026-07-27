@@ -317,6 +317,11 @@ if ($action === 'generar_imagen') {
     
     // Reasignamos las variables para que el resto del código no se entere del cambio
     $model_path = $info_modelo['nombre_archivo'];
+	
+	// 👇 UNBUNDLED 👇
+    $es_unbundled_db = isset($info_modelo['es_unbundled']) && $info_modelo['es_unbundled'] == 1;
+    // 👆 ======================= 👆
+	
     // Si en la base de datos has definido un VAE específico, lo preparamos aquí para el futuro
     if (!empty($info_modelo['vae_requerido'])) {
         $vae_name = $info_modelo['vae_requerido']; 
@@ -1897,7 +1902,10 @@ if ($action === 'generar_imagen') {
     $ruta_minusculas = strtolower($model_path);
     
     $esta_en_carpeta_unet = (strpos($ruta_minusculas, 'unet') !== false || strpos($ruta_minusculas, 'diffusion_models') !== false);
-    $es_arquitectura_nueva = ($is_unet || $is_zimage || $esta_en_carpeta_unet || strpos($ruta_minusculas, 'base') !== false || strpos($ruta_minusculas, 'flux') !== false || $is_chroma);
+    
+    // El control absoluto lo tiene la BD ($es_unbundled_db). 
+    // Pero MANTENEMOS las heurísticas como salvavidas automático para no romper los modelos antiguos que aún no has editado en el panel.
+    $es_arquitectura_nueva = ($es_unbundled_db || $esta_en_carpeta_unet || $is_flux || $is_chroma || $is_zimage || $is_gguf || $is_qwen || $is_krea2 || $is_hunyuan || $is_hidream);
 
     if ($es_arquitectura_nueva) {
         $clean_path = str_replace('\\', '/', $model_path);
@@ -1937,7 +1945,9 @@ if ($action === 'generar_imagen') {
         } elseif ($is_krea2) {
             $workflow["90"] = [ "inputs" => ["clip_name" => "qwen3vl_4b_fp8_scaled.safetensors", "type" => "krea2", "device" => "default"], "class_type" => "CLIPLoader" ];
         } elseif ($is_zimage) {
+            // 👇 ¡RESTAURAMOS TU BLOQUE ORIGINAL! 👇
             $workflow["90"] = [ "inputs" => ["clip_name" => "qwen_3_4b.safetensors", "type" => "lumina2"], "class_type" => "CLIPLoader" ];
+            // 👆 ================================== 👆
         } elseif ($is_hunyuan) {
             // Hunyuan-Image nativo de ComfyUI: Arquitectura Dual (Qwen 2.5 VL + ByT5 Small)
             $workflow["90"] = [ 

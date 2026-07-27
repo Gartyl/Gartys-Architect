@@ -143,10 +143,14 @@ if ($action === 'descargar_civitai') {
         }
 
         try {
-            $stmt = $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso) VALUES (?, ?, ?, ?, ?)");
+            $stmt = $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled) VALUES (?, ?, ?, ?, ?, ?)");
             $subcarpeta = (strpos($categoria_dropdown, 'unet') !== false) ? 'unet/' : '';
             $nombre_para_bd = $subcarpeta . $nombre_archivo_seguro;
-            $stmt->execute([$nombre_visual, $nombre_para_bd, $db_motor, $db_cat, 'usuario']);
+            
+            // AUTOMATIZACIÓN: Si en el selector de Civitai elegiste 'unet', la base de datos lo registra como desmembrado.
+            $es_unbundled_auto = (strpos($categoria_dropdown, 'unet') !== false) ? 1 : 0;
+            
+            $stmt->execute([$nombre_visual, $nombre_para_bd, $db_motor, $db_cat, 'usuario', $es_unbundled_auto]);
             echo json_encode(['success' => true, 'mensaje' => __('msg_model_downloaded')]);
         } catch (Exception $e) {
             echo json_encode(['error' => __('err_db_register') . ' ' . $e->getMessage()]);
@@ -223,7 +227,17 @@ if ($action === 'get_active_models') {
 
 if ($action === 'save_modelo_bd') {
     try {
-        $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso) VALUES (?, ?, ?, ?, ?)")->execute([$_POST['nombre_visual'], $_POST['nombre_archivo'], $_POST['motor'], $_POST['categoria'], $_POST['nivel_acceso']]);
+        $es_unbundled = isset($_POST['es_unbundled']) ? intval($_POST['es_unbundled']) : 0;
+        
+        $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled) VALUES (?, ?, ?, ?, ?, ?)")
+            ->execute([
+                $_POST['nombre_visual'], 
+                $_POST['nombre_archivo'], 
+                $_POST['motor'], 
+                $_POST['categoria'], 
+                $_POST['nivel_acceso'], 
+                $es_unbundled
+            ]);
         echo json_encode(['success' => true]);
     } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
     exit();
