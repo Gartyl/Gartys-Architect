@@ -474,7 +474,7 @@ function abrirGestorModelos() {
 
 async function cargarTablaModelos() {
     const tbody = document.getElementById('tablaModelosBody');
-    tbody.innerHTML = `<tr><td colspan="8" class="text-info"><span class="spinner-border spinner-border-sm"></span> ${GartyLang.msg_query_engines}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="text-info"><span class="spinner-border spinner-border-sm"></span> ${GartyLang.msg_query_engines}</td></tr>`;
     
     try {
         let fd = new FormData();
@@ -489,30 +489,41 @@ async function cargarTablaModelos() {
                               : '';
                 let textoNivel = (m.nivel_acceso === 'avanzado') ? GartyLang.adm_lvl_adv : GartyLang.adm_lvl_user;
 
-                return `
-                <tr>
-                    <td class="text-secondary">${m.id}</td>
-                    <td class="fw-bold text-light">${m.nombre_visual}${candado}</td>
-                    <td class="text-muted small"><code>${m.nombre_archivo}</code></td>
-                    <td><span class="badge ${m.motor === 'ollama' ? 'bg-info text-dark' : 'bg-primary'}"><i class="bi bi-cpu-fill"></i> ${m.motor.toUpperCase()}</span></td>
-                    <td><span class="badge bg-secondary text-light">${m.categoria.toUpperCase()}</span></td>
-                    <td><span class="badge ${m.nivel_acceso === 'avanzado' ? 'bg-warning text-dark' : 'border border-secondary text-secondary'}"><i class="bi ${m.nivel_acceso === 'avanzado' ? 'bi-star-fill' : 'bi-person'}"></i> ${textoNivel.toUpperCase()}</span></td>
-                    <td>
-                        <div class="form-check form-switch d-flex justify-content-center m-0">
-                            <input class="form-check-input border-success" type="checkbox" ${m.activo == 1 ? 'checked' : ''} onchange="cambiarEstadoModelo(${m.id}, this.checked)">
-                        </div>
-                    </td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-danger shadow-sm" onclick="borrarModeloBD(${m.id}, '${m.nombre_visual}')" title="${GartyLang.btn_eliminar}"><i class="bi bi-trash3-fill"></i></button>
-                    </td>
-                </tr>
-                `;
+                let badgeUnbundled = (m.es_unbundled == 1) 
+                    ? `<span class="badge bg-info text-dark shadow-sm" title="UNET Desmembrado"><i class="bi bi-puzzle-fill"></i> UNET</span>` 
+                    : `<span class="badge border border-secondary text-secondary" title="Checkpoint Estándar"><i class="bi bi-box-seam"></i> CKPT</span>`;
+
+                // NUEVO: Interceptor visual de la categoría. Si el sistema dice 'flux', nosotros pintamos 'DiT'.
+                let categoriaVisual = m.categoria.toLowerCase() === 'flux' ? 'DiT' : m.categoria.toUpperCase();
+
+				return `
+				<tr>
+					<td class="text-secondary">${m.id}</td>
+					<td class="fw-bold text-light">${m.nombre_visual}${candado}</td>
+					<td class="text-muted small"><code>${m.nombre_archivo}</code></td>
+					<td><span class="badge ${m.motor === 'ollama' ? 'bg-info text-dark' : 'bg-primary'}"><i class="bi bi-cpu-fill"></i> ${m.motor.toUpperCase()}</span></td>
+					
+					<!-- MAGIA: Metemos la categoría real (m.categoria) oculta con d-none para que el buscador la encuentre -->
+					<td><span class="badge bg-secondary text-light"><span class="d-none">${m.categoria.toLowerCase()}</span>${categoriaVisual}</span></td>
+					
+					<td>${badgeUnbundled}</td>
+					<td><span class="badge ${m.nivel_acceso === 'avanzado' ? 'bg-warning text-dark' : 'border border-secondary text-secondary'}"><i class="bi ${m.nivel_acceso === 'avanzado' ? 'bi-star-fill' : 'bi-person'}"></i> ${textoNivel.toUpperCase()}</span></td>
+					<td>
+						<div class="form-check form-switch d-flex justify-content-center m-0">
+							<input class="form-check-input border-success" type="checkbox" ${m.activo == 1 ? 'checked' : ''} onchange="cambiarEstadoModelo(${m.id}, this.checked)">
+						</div>
+					</td>
+					<td>
+						<button class="btn btn-sm btn-outline-danger shadow-sm" onclick="borrarModeloBD(${m.id}, '${m.nombre_visual}')" title="${GartyLang.btn_eliminar}"><i class="bi bi-trash3-fill"></i></button>
+					</td>
+				</tr>
+				`;
             }).join('');
         } else {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-warning fw-bold py-4"><i class="bi bi-exclamation-triangle"></i> ${GartyLang.msg_db_models_empty}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" class="text-warning fw-bold py-4"><i class="bi bi-exclamation-triangle"></i> ${GartyLang.msg_db_models_empty}</td></tr>`;
         }
     } catch(e) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-danger py-4">${GartyLang.msg_err_conn_proc}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="text-danger py-4">${GartyLang.msg_err_conn_proc}</td></tr>`;
     }
 }
 
@@ -522,6 +533,9 @@ async function guardarModeloBD() {
     const motor = document.getElementById('modMotor').value;
     const cat = document.getElementById('modCat').value;
     const nivel = document.getElementById('modNivel') ? document.getElementById('modNivel').value : 'usuario';
+    
+    // NUEVO: Capturamos el estado del checkbox (1 si está marcado, 0 si no)
+    const es_unbundled = document.getElementById('modUnbundled') && document.getElementById('modUnbundled').checked ? 1 : 0;
 
     if(!nombre || !archivo) {
         SwalDark.fire({icon: 'error', title: GartyLang.swal_miss_data_title, text: GartyLang.swal_miss_data_text});
@@ -535,6 +549,9 @@ async function guardarModeloBD() {
     fd.append('motor', motor);
     fd.append('categoria', cat);
     fd.append('nivel_acceso', nivel); 
+    
+    // NUEVO: Lo inyectamos en el paquete que viaja a procesar.php
+    fd.append('es_unbundled', es_unbundled);
 
    try {
         let res = await fetch('procesar.php', { method: 'POST', body: fd });
