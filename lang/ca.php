@@ -131,6 +131,8 @@ return [
 	'swal_pure_upscale_text' => "Per a escalar la imatge que has pujat, NO necessites a l'Arquitecte. Prem directament el botó de 'Renderitzar' (el del llamp).",
 	'err_pro_rembg' => "L'eina per eliminar el fons és exclusiva per a usuaris PRO.",
 	'tit_herramientas_pro' => "EINES AVANÇADES",
+	'adm_lbl_unbundled' => "Model Desmembrat (Només UNET. Usa nodes separats per a CLIP/VAE)",
+	'tit_pan_unbundled' => "Estructura",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Galeria",

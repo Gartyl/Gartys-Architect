@@ -131,6 +131,8 @@ return [
 	'swal_pure_upscale_text' => "Para escalar la imagen que has subido, NO necesitas al Arquitecto. Pulsa directamente el botón de 'Renderizar' (el del rayo).",
 	'err_pro_rembg' => "La herramienta para eliminar el fondo es exclusiva para usuarios PRO.",
 	'tit_herramientas_pro' => "HERRAMIENTAS AVANZADAS",
+	'adm_lbl_unbundled' => "Modelo Desmembrado (Solo UNET. Usa nodos separados para CLIP/VAE)",
+	'tit_pan_unbundled' => "Estructura",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Galería",
