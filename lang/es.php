@@ -1006,6 +1006,7 @@ return [
 	'opt_age_middle' => "Mediana edad",
 	'opt_age_elderly' => "Anciano/a",
 	'ph_tts_speech' => "Escribe aquí exactamente lo que quieres que diga la voz...",
+	'lbl_sync_wav2lip' => "Sincronizar Labios (Wav2Lip)",
     
     // --- IDIOMAS ---
     'lang_custom' => "✨ Idioma Personalizado / Traducción de Usuario",

@@ -1005,6 +1005,7 @@ return [
 	'opt_age_middle' => "Mitjana edat",
 	'opt_age_elderly' => "Ancià/na",
 	'ph_tts_speech' => "Escriu aquí exactament el que vols que digui la veu...",
+	'lbl_sync_wav2lip' => "Sincronitzar Llavis (Wav2Lip)",
     
     // --- IDIOMAS ---
     'lang_custom' => "✨ Idioma Personalitzat / Traducció d'Usuari",
