@@ -43,7 +43,7 @@
                     <div class="col-md-4">
                         <label class="small text-secondary fw-bold"><?= __('lbl_tts_engine') ?? 'Motor' ?></label>
                         <select id="ttsEngine" name="tts_engine" class="form-select form-select-sm bg-dark text-light border-info pref-track" onchange="toggleTTSOptions()">
-                            <option value="indextts" selected><?= __('opt_indextts') ?? 'IndexTTS-2 (Clonación)' ?></option>
+                            <option value="indextts" selected><?= __('opt_indextts') ?? 'IndexTTS-2 (Clonaci贸n)' ?></option>
                             <option value="omnivoice">OmniVoice (Zero-Shot)</option>
                             <option value="f5"><?= __('opt_f5_tts') ?? 'F5-TTS (Legacy)' ?></option>
                         </select>
@@ -103,7 +103,7 @@
                         <small id="audioRefName" class="text-info d-block text-truncate" style="max-width: 100%;"></small>
                     </div>
                     <div class="mb-2">
-                        <label class="small text-secondary fw-bold"><?= __('lbl_audio_ref_text') ?? 'Transcripción exacta' ?></label>
+                        <label class="small text-secondary fw-bold"><?= __('lbl_audio_ref_text') ?? 'Transcripci贸n exacta' ?></label>
                         <input type="text" class="form-control form-control-sm bg-dark text-light border-info pref-track" id="audioRefText" placeholder="<?= __('ph_audio_ref_text') ?? 'Escribe lo que dice la muestra...' ?>">
                     </div>
                 </div>
@@ -168,13 +168,23 @@
             </div>
         </div>
 
-        <!-- Opción transversal: Sincronizar con Video Combine -->
+        <!-- Opciones transversales: Sincronización y Efectos de Vídeo -->
         <div class="mt-3 pt-2 border-top border-info d-flex justify-content-between align-items-center">
-            <div class="form-check form-switch m-0">
-                <input class="form-check-input pref-track" type="checkbox" id="syncAudioVideo" checked>
-                <label class="form-check-label small text-info fw-bold" for="syncAudioVideo">
-                    <i class="bi bi-film me-1"></i> <?= __('lbl_sync_video_vhs') ?>
-                </label>
+            <div>
+                <!-- Mezcla de Audio Normal -->
+                <div class="form-check form-switch m-0 mb-2">
+                    <input class="form-check-input pref-track" type="checkbox" id="syncAudioVideo" checked>
+                    <label class="form-check-label small text-info fw-bold" for="syncAudioVideo">
+                        <i class="bi bi-film me-1"></i> <?= __('lbl_sync_video_vhs') ?? 'Sincronizar Audio/Vídeo' ?>
+                    </label>
+                </div>
+                <!-- Efecto de Sincronización Labial -->
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input pref-track" type="checkbox" id="wav2lipToggle">
+                    <label class="form-check-label small text-warning fw-bold" for="wav2lipToggle">
+						<i class="bi bi-person-video me-1"></i> <?= __('lbl_sync_wav2lip') ?? 'Sincronizar Labios (Wav2Lip)' ?>
+					</label>
+                </div>
             </div>
             <button type="button" class="btn btn-sm btn-outline-danger d-none" id="btnClearAudio" onclick="clearAudioModule()"><i class="bi bi-trash"></i></button>
         </div>
