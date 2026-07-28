@@ -1197,7 +1197,15 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
     }
     
     // 5. AUDIO Y UTILIDADES EXTRA
-    if (currentAudioBase64) { fd.append('audio_data', currentAudioBase64.split(',')[1]); }
+    if (currentAudioBase64) { 
+        fd.append('audio_data', currentAudioBase64.split(',')[1]); 
+        
+        // Comprobamos si existe un interruptor de Wav2Lip y si está encendido
+        const wav2lipToggle = document.getElementById('wav2lipToggle');
+        if (wav2lipToggle && wav2lipToggle.checked) {
+            fd.append('wav2lip', 'true');
+        }
+    }
     
     const adetailerToggle = document.getElementById('adetailer');
     if (adetailerToggle && adetailerToggle.checked && document.getElementById('adetailerBlock').style.display !== 'none') {
@@ -2285,7 +2293,7 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
     const pText = document.getElementById('progressText');
     if(pText) pText.innerHTML = `<span style="color: #0dcaf0 !important; font-weight: bold;">${GartyLang.radar_msg_rendering} (${promptId})</span>`;
 
-    let intentosRadar = 0; const maxIntentos = 600; 
+    let intentosRadar = 0; const maxIntentos = 1500; // 1500 intentos * 3seg = 75 minutos 
     
     window.activeRadars = window.activeRadars || {};
     if (window.activeRadars[promptId]) clearInterval(window.activeRadars[promptId]);
