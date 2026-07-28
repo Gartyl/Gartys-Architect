@@ -1297,36 +1297,40 @@ if ($action === 'generar_imagen') {
                 // =======================================================
                 
             // =======================================================
-            // 💋 INYECCIÓN LIMPIA DE WAV2LIP PARA WAN (BLINDAJE A 30 FPS)
+            // 🎵 AUDIO PARA WAN (MÚSICA DE FONDO O WAV2LIP)
             // =======================================================
-            // (¡Blindado! Solo se ejecuta si subes audio por la vía vieja y NO tienes activado el panel PRO)
             if ($tiene_audio && !$tiene_audio_pro) { 
-                // EL DESCUBRIMIENTO MATEMÁTICO: Wav2Lip opera a 30 FPS internamente y manda sobre la longitud.
-                // Si el audio dura 22s, generará 660 frames. Debemos guardar a 30fps para que no se ralentice a 41s.
-                $fps_final_wan = 30; 
+                
+                // Capturamos si el usuario ha pedido sincronización labial
+                $usar_wav2lip = filter_var($_POST['wav2lip'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
 
                 $workflow["1001_audio"] = [
                     "inputs" => ["audio" => $comfy_audio_filename],
                     "class_type" => "LoadAudio"
                 ];
 
-                $workflow["1002_wav2lip"] = [
-                    "inputs" => [
-                        "mode" => "sequential",       
-                        "face_detect_batch" => 8,     
-                        "images" => ["87", 0], // Vídeo descodificado del VAE de Wan
-                        "audio" => ["1001_audio", 0]                      
-                    ],
-                    "class_type" => "Wav2Lip"
-                ];
-                
-                $workflow["99"]["inputs"]["images"] = ["1002_wav2lip", 0]; 
-                $workflow["99"]["inputs"]["audio"] = ["1001_audio", 0];
-                
-                // Forzamos el MP4 a empaquetarse a 30 FPS para sincronizar perfectamente con Wav2Lip
-                $workflow["99"]["inputs"]["frame_rate"] = $fps_final_wan; 
+                if ($usar_wav2lip) {
+                    // --- RUTA A: SINCRONIZACIÓN LABIAL (WAV2LIP) ---
+                    $fps_final_wan = 30; 
+                    
+                    $workflow["1002_wav2lip"] = [
+                        "inputs" => [
+                            "mode" => "sequential",       
+                            "face_detect_batch" => 8,     
+                            "images" => ["87", 0], // Vídeo descodificado
+                            "audio" => ["1001_audio", 0]                      
+                        ],
+                        "class_type" => "Wav2Lip"
+                    ];
+                    
+                    $workflow["99"]["inputs"]["images"] = ["1002_wav2lip", 0]; 
+                    $workflow["99"]["inputs"]["audio"] = ["1001_audio", 0];
+                    $workflow["99"]["inputs"]["frame_rate"] = $fps_final_wan; 
+                } else {
+                    // --- RUTA B: SOLO MÚSICA DE FONDO ---
+                    $workflow["99"]["inputs"]["audio"] = ["1001_audio", 0];
+                }
             }
-            // =======================================================
                 
             } else {
                 // Mantenemos WebP para vídeos mudos ligeros

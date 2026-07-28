@@ -126,9 +126,18 @@ if ($action === 'angel_guardia') {
         }
         
         $ch_q = curl_init(COMFY_URL . '/queue');
-        curl_setopt($ch_q, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch_q, CURLOPT_TIMEOUT, 3);
-        $res_q = curl_exec($ch_q);
+		curl_setopt($ch_q, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($ch_q, CURLOPT_TIMEOUT, 8); // Subimos a 8 segundos
+		$res_q = curl_exec($ch_q);
+		$err_q = curl_errno($ch_q); // Capturamos el error
+		curl_close($ch_q); // Cerramos la conexión limpiamente
+
+		// Si da Timeout (28), rechazo por colapso (7) o directamente no hay respuesta
+		if ($err_q == 28 || $err_q == 7 || $res_q === false) {
+			// Asumimos que está trabajando a tope, NO cancelamos
+			echo json_encode(['status' => 'processing']);
+			exit();
+		}
         
         $queue = json_decode($res_q, true);
         $is_in_queue = false;
@@ -175,8 +184,17 @@ if ($action === 'check_ticket') {
 
     $ch_q = curl_init(COMFY_URL . '/queue');
     curl_setopt($ch_q, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch_q, CURLOPT_TIMEOUT, 3);
+    curl_setopt($ch_q, CURLOPT_TIMEOUT, 8); // Subimos a 8 segundos
     $res_q = curl_exec($ch_q);
+    $err_q = curl_errno($ch_q); // Capturamos el error
+    curl_close($ch_q); // Cerramos la conexión limpiamente
+
+    // Si da Timeout (28), rechazo por colapso (7) o directamente no hay respuesta
+    if ($err_q == 28 || $err_q == 7 || $res_q === false) {
+        // Asumimos que está trabajando a tope, NO cancelamos
+        echo json_encode(['status' => 'processing']);
+        exit();
+    }
     
     $queue = json_decode($res_q, true);
     $is_in_queue = false;
@@ -198,9 +216,15 @@ if ($action === 'check_ticket') {
     
     $ch_h = curl_init(COMFY_URL . '/history/' . $prompt_id);
     curl_setopt($ch_h, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch_h, CURLOPT_TIMEOUT, 3);
+    curl_setopt($ch_h, CURLOPT_TIMEOUT, 8); // Subimos a 8 segundos
     $res_h = curl_exec($ch_h);
+    $err_h = curl_errno($ch_h);
     curl_close($ch_h);
+
+    if ($err_h == 28 || $err_h == 7 || $res_h === false) {
+        echo json_encode(['status' => 'processing']);
+        exit();
+    }
     
     $history = json_decode($res_h, true);
     if (isset($history[$prompt_id])) {
