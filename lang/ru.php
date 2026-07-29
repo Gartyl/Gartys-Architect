@@ -647,6 +647,10 @@ return [
     'ups_fac_20' => "2.0x (Высокое разрешение)",
 	'tit_ipadapter' => "ПЕРЕНОС СТИЛЯ (IP-Adapter)",
 	'tit_flux_redux' => "ПЕРЕНОС СТИЛЯ (FLUX Redux)",
+	'lbl_dwpose_opts' => "Опции DW Pose",
+    'lbl_dwpose_body' => "Тело",
+    'lbl_dwpose_face' => "Лицо",
+    'lbl_dwpose_hands' => "Руки",
     
     // --- INPAINT / OUTPAINT ---
     'img_zoom_title' => "Обычный клик для просмотра в инспекторе",

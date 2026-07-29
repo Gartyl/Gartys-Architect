@@ -646,6 +646,10 @@ return [
     'ups_fac_20' => "2.0x (Alta Resolució)",
 	'tit_ipadapter' => "TRANSFERÈNCIA D'ESTIL (IP-Adapter)",
 	'tit_flux_redux' => "TRANSFERÈNCIA D'ESTIL (FLUX Redux)",
+	'lbl_dwpose_opts' => "Opcions DW Pose",
+    'lbl_dwpose_body' => "Cos",
+    'lbl_dwpose_face' => "Cara",
+    'lbl_dwpose_hands' => "Mans",
     
     // --- INPAINT / OUTPAINT ---
     'img_zoom_title' => "Clic normal per veure en visor d'inspecció",
