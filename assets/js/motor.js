@@ -818,11 +818,33 @@ function updateUIForSelector(sel) {
         }
     });
 
-    // 2. IP-Adapter: Exclusivo para SD1.5 y SDXL
+    // 2. IP-Adapter / FLUX Redux
     const ipaBlock = document.getElementById('ipAdapterBlock');
     const ipaToggle = document.getElementById('ipAdapterToggle');
+    const ipaAdvancedControls = document.getElementById('ipaAdvancedControls');
+    const ipaTitleLabel = document.getElementById('ipaTitleLabel');
+
     if (ipaBlock) {
-        if (['[SD15]', '[SDXL]'].includes(sel) && isAvanzado) ipaBlock.style.display = 'block';
+        if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel) && isAvanzado) {
+            ipaBlock.style.display = 'block';
+            
+           // MUTACIÓN VISUAL DINÁMICA DE LA INTERFAZ
+            if (sel === '[NATURAL_IMAGE]') {
+                // Modo FLUX Redux: Ocultamos lo que no sirve y re-etiquetamos
+                if (ipaAdvancedControls) ipaAdvancedControls.style.display = 'none';
+                if (ipaTitleLabel) {
+                    const tituloRedux = (typeof GartyLang !== 'undefined' && GartyLang.tit_flux_redux) ? GartyLang.tit_flux_redux : 'TRANSFERENCIA DE ESTILO (FLUX Redux)';
+                    ipaTitleLabel.innerHTML = '<i class="bi bi-images me-1"></i> ' + tituloRedux + (APP_ENV.isAvanzado ? '' : ' 🔒 (Pro)');
+                }
+            } else {
+                // Modo SDXL/SD1.5: Mostramos todo el panel avanzado
+                if (ipaAdvancedControls) ipaAdvancedControls.style.display = 'flex';
+                if (ipaTitleLabel) {
+                    const tituloBase = (typeof GartyLang !== 'undefined' && GartyLang.tit_ipadapter) ? GartyLang.tit_ipadapter : 'TRANSFERENCIA DE ESTILO (IP-Adapter)';
+                    ipaTitleLabel.innerHTML = '<i class="bi bi-images me-1"></i> ' + tituloBase + (APP_ENV.isAvanzado ? '' : ' 🔒 (Pro)');
+                }
+            }
+        }
         else { 
             ipaBlock.style.display = 'none'; 
             if(ipaToggle) {
