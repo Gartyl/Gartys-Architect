@@ -644,6 +644,8 @@ return [
     'opt_no_lora' => "Sense LoRA",
     'ups_fac_15' => "1.5x (Recomanat)",
     'ups_fac_20' => "2.0x (Alta Resolució)",
+	'tit_ipadapter' => "TRANSFERÈNCIA D'ESTIL (IP-Adapter)",
+	'tit_flux_redux' => "TRANSFERÈNCIA D'ESTIL (FLUX Redux)",
     
     // --- INPAINT / OUTPAINT ---
     'img_zoom_title' => "Clic normal per veure en visor d'inspecció",

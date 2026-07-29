@@ -645,6 +645,8 @@ return [
     'opt_no_lora' => "Без LoRA",
     'ups_fac_15' => "1.5x (Рекомендуется)",
     'ups_fac_20' => "2.0x (Высокое разрешение)",
+	'tit_ipadapter' => "ПЕРЕНОС СТИЛЯ (IP-Adapter)",
+	'tit_flux_redux' => "ПЕРЕНОС СТИЛЯ (FLUX Redux)",
     
     // --- INPAINT / OUTPAINT ---
     'img_zoom_title' => "Обычный клик для просмотра в инспекторе",

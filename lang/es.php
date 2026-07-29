@@ -645,6 +645,8 @@ return [
     'opt_no_lora' => "Sin LoRA",
     'ups_fac_15' => "1.5x (Recomendado)",
     'ups_fac_20' => "2.0x (Alta Resolución)",
+	'tit_ipadapter' => "TRANSFERENCIA DE ESTILO (IP-Adapter)",
+	'tit_flux_redux' => "TRANSFERENCIA DE ESTILO (FLUX Redux)",
     
     // --- INPAINT / OUTPAINT ---
     'img_zoom_title' => "Clic normal para ver en visor de inspección",
