@@ -1201,6 +1201,19 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
         fd.append('controlnet_model', document.getElementById('cnModelSelector').value); fd.append('controlnet_preprocessor', document.getElementById('cnPreprocessor').value);
         fd.append('controlnet_weight', document.getElementById('cnWeight').value); fd.append('controlnet_start', document.getElementById('cnStart').value);
         fd.append('controlnet_end', document.getElementById('cnEnd').value); fd.append('controlnet_mode', document.getElementById('cnMode').value);
+        
+        // --- NUEVO: PARÁMETROS DW POSE ---
+        const cnPreproc = document.getElementById('cnPreprocessor').value;
+        if (cnPreproc === 'DWPreprocessor') {
+            const dwBody = document.getElementById('dwDetectBody') ? document.getElementById('dwDetectBody').checked : true;
+            const dwFace = document.getElementById('dwDetectFace') ? document.getElementById('dwDetectFace').checked : true;
+            const dwHand = document.getElementById('dwDetectHand') ? document.getElementById('dwDetectHand').checked : true;
+            
+            fd.append('dw_body', dwBody);
+            fd.append('dw_face', dwFace);
+            fd.append('dw_hand', dwHand);
+        }
+        // ---------------------------------
     }
 
     // 4. IMÁGENES BASE / INPAINT / OUTPAINT
