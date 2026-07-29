@@ -2110,7 +2110,22 @@ if ($action === 'generar_imagen') {
                 if (strpos(strtolower($controlnet_preprocessor), 'lineart') !== false) {
                     $inputs_preprocesador["coarse"] = "disable";
                     $inputs_preprocesador["resolution"] = 512; 
+                } 
+               // 👇 NUEVO BLOQUE DW POSE (DINÁMICO) 👇
+                elseif (strpos(strtolower($controlnet_preprocessor), 'dwpose') !== false || strpos(strtolower($controlnet_preprocessor), 'dw preprocessor') !== false) {
+                    // Forzamos el nombre exacto de la clase del nodo
+                    $controlnet_preprocessor = "DWPreprocessor"; 
+                    
+                    // Capturamos el estado de los switches del panel web (por defecto enable por seguridad)
+                    $inputs_preprocesador["detect_body"] = ($_POST['dw_body'] ?? 'true') === 'true' ? "enable" : "disable";
+                    $inputs_preprocesador["detect_face"] = ($_POST['dw_face'] ?? 'true') === 'true' ? "enable" : "disable";
+                    $inputs_preprocesador["detect_hand"] = ($_POST['dw_hand'] ?? 'true') === 'true' ? "enable" : "disable";
+                    
+                    $inputs_preprocesador["resolution"] = 512;
+                    $inputs_preprocesador["bbox_detector"] = "yolox_l.onnx";
+                    $inputs_preprocesador["pose_estimator"] = "dw-ll_ucoco_384.onnx"; 
                 }
+                // 👆 FIN BLOQUE DW POSE 👆
 
                 $workflow["301"] = ["inputs" => $inputs_preprocesador, "class_type" => $controlnet_preprocessor];
                 $final_cn_image_node = ["301", 0]; 
