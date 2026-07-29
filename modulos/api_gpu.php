@@ -366,6 +366,19 @@ if ($action === 'generar_imagen') {
         // Si no, leemos la imagen normal de la web
         $init_image_base64 = $_POST['init_image'] ?? null;
     }
+	
+	// ====================================================================
+    // 🛡️ AUTO-ENRUTADOR INTELIGENTE PARA VLM (KREA-2 Y QWEN) 🛡️
+    // ====================================================================
+    $temp_mod_lower = strtolower($model_path);
+    $es_modelo_vlm = (strpos($temp_mod_lower, 'qwen') !== false || strpos($temp_mod_lower, 'krea2') !== false || strpos($temp_mod_lower, 'krea-2') !== false);
+
+    // Si el modelo es Krea/Qwen, el lienzo principal está vacío, pero el usuario subió foto al IP-Adapter...
+    if ($es_modelo_vlm && empty($init_image_base64) && !empty($_POST['ipadapter_image'])) {
+        $init_image_base64 = $_POST['ipadapter_image']; // Trasvasamos la imagen internamente
+        $_POST['ipadapter_enabled'] = 'false'; // Desactivamos la bandera para que no salte la alerta roja
+    }
+    // ====================================================================
     
     // ====================================================================
     // --- 2. SUBIR LA IMAGEN Y AUDIO A COMFYUI (EL TRANSPORTISTA CORREGIDO) ---
@@ -2144,18 +2157,16 @@ if ($action === 'generar_imagen') {
     }
 
     // ==============================================================================
-    // --- FASE 6: IP-ADAPTER AVANZADO (BLINDADO PARA DISTRIBUCIÓN COMERCIAL) ---
+    // --- FASE 6: IP-ADAPTER AVANZADO Y FLUX REDUX ---
     // ==============================================================================
     if ($ipadapter_enabled === 'true' && !empty($ipadapter_image_base64)) {
         
-        // 1. ESCUDO ARQUITECTÓNICO: Bloqueo de seguridad para Transformers (DiT)
-        // Evita depender de nodos abandonados (XLabs) que rompen instalaciones limpias de ComfyUI.
-        if ($is_flux || $is_chroma || $is_zimage || $is_qwen || $is_krea2) {
-            echo json_encode(['error' => __('err_ipadapter_unsupported_dit')]);
+        // 1. ESCUDO: Qwen y Krea-2 usan Img2Img para referencia visual, no IP-Adapter.
+        if ($is_qwen || $is_krea2) {
+            echo json_encode(['error' => 'Krea-2 y Qwen procesan referencias visuales directamente desde el lienzo base. Por favor, sube tu referencia como imagen principal y desactiva el IP-Adapter.']);
             exit();
         }
 
-        // 2. CARRIL ESTÁNDAR Y ESTABLE (SDXL / SD 1.5 via ComfyUI_IPAdapter_plus de Matteo)
         $tmp_ipa = sys_get_temp_dir() . '/ipa_' . uniqid() . '.png';
         file_put_contents($tmp_ipa, base64_decode($ipadapter_image_base64));
         
@@ -2174,32 +2185,61 @@ if ($action === 'generar_imagen') {
                 "class_type" => "LoadImage"
             ];
 
-            $workflow["201"] = [
-                "inputs" => ["ipadapter_file" => $ipa_model],
-                "class_type" => "IPAdapterModelLoader"
-            ];
+            if ($is_flux || $is_chroma || $is_zimage) {
+                // 🌟 RUTA NEXT-GEN: FLUX REDUX (Nativo, actualizado a la última versión de ComfyUI) 🌟
+                $workflow["201"] = [
+                    "inputs" => ["clip_name" => "sigclip_vision_patch14_384.safetensors"],
+                    "class_type" => "CLIPVisionLoader"
+                ];
+                $workflow["202"] = [
+                    "inputs" => ["crop" => "center", "clip_vision" => ["201", 0], "image" => ["200", 0]],
+                    "class_type" => "CLIPVisionEncode"
+                ];
+                $workflow["203"] = [
+                    "inputs" => ["style_model_name" => "flux1-redux-dev.safetensors"],
+                    "class_type" => "StyleModelLoader"
+                ];
+                $workflow["204"] = [
+                    "inputs" => [
+                        "conditioning" => $current_positive,
+                        "style_model" => ["203", 0],
+                        "clip_vision_output" => ["202", 0],
+                        "strength" => $ipa_weight, // <-- ¡Inyección nativa directa!
+                        "strength_type" => "multiply" // <-- Escalado lineal del vector (recomendado)
+                    ],
+                    "class_type" => "StyleModelApply"
+                ];
+                
+                // Redux ahora modula la fuerza internamente, así que la salida es siempre la 204
+                $current_positive = ["204", 0];
 
-            $workflow["202"] = [
-                "inputs" => ["clip_name" => "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors"],
-                "class_type" => "CLIPVisionLoader"
-            ];
-
-            $workflow["203"] = [
-                "inputs" => [
-                    "weight" => $ipa_weight,
-                    "weight_type" => $ipa_weight_type,
-                    "combine_embeds" => "concat",
-                    "start_at" => $ipa_start,
-                    "end_at" => $ipa_end,
-                    "embeds_scaling" => "V only",
-                    "model" => [$current_model_node, 0],
-                    "ipadapter" => ["201", 0],
-                    "image" => ["200", 0],
-                    "clip_vision" => ["202", 0]
-                ], 
-                "class_type" => "IPAdapterAdvanced"
-            ];
-            $current_model_node = "203";
+            } else {
+                // 🧱 RUTA CLÁSICA: IP-Adapter Advanced (SDXL / SD1.5 de Matteo) 🧱
+                $workflow["201"] = [
+                    "inputs" => ["ipadapter_file" => $ipa_model],
+                    "class_type" => "IPAdapterModelLoader"
+                ];
+                $workflow["202"] = [
+                    "inputs" => ["clip_name" => "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors"],
+                    "class_type" => "CLIPVisionLoader"
+                ];
+                $workflow["203"] = [
+                    "inputs" => [
+                        "weight" => $ipa_weight,
+                        "weight_type" => $ipa_weight_type,
+                        "combine_embeds" => "concat",
+                        "start_at" => $ipa_start,
+                        "end_at" => $ipa_end,
+                        "embeds_scaling" => "V only",
+                        "model" => [$current_model_node, 0],
+                        "ipadapter" => ["201", 0],
+                        "image" => ["200", 0],
+                        "clip_vision" => ["202", 0]
+                    ], 
+                    "class_type" => "IPAdapterAdvanced"
+                ];
+                $current_model_node = "203";
+            }
         } else {
             echo json_encode(['error' => __('err_ipadapter_upload')]);
             exit();
