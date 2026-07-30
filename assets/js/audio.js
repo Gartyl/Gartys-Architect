@@ -152,7 +152,6 @@ handleAudioRefUpload = async function(input) {
 };
 
 /**
- /**
  * Función pública que core.js o video.js invocarán antes de lanzar un prompt
  * Devuelve un objeto con la configuración de audio lista para inyectarse en el workflow, o null si está inactivo.
  */
@@ -160,8 +159,22 @@ function getActiveAudioConfig() {
     const toggle = document.getElementById('audioToggle');
     if (!toggle || !toggle.checked) return null;
 
+    // --- NUEVO: INTERCEPTOR INTELIGENTE PARA AUDIO CLÁSICO ---
+    // Si el usuario subió un MP3 al panel principal (currentAudioBase64 existe)
+    // pero NO ha escrito texto para generar un TTS nuevo, anulamos la validación
+    // del panel Pro y dejamos que motor.js procese el MP3 clásico sin lanzar alertas.
+    const ttsSpeechEl = document.getElementById('ttsSpeechText');
+    const ttsSpeech = ttsSpeechEl ? ttsSpeechEl.value.trim() : '';
+
+    if (typeof currentAudioBase64 !== 'undefined' && currentAudioBase64 !== null && ttsSpeech === '') {
+        return null;
+    }
+    // ---------------------------------------------------------
+
     const isTTS = document.getElementById('tts-tab').classList.contains('active');
     let syncVideo = document.getElementById('syncAudioVideo') ? document.getElementById('syncAudioVideo').checked : false;
+
+    // ... (el resto de la función sigue exactamente igual) ...
 
     // 🛡️ ESCUDO ANTI-IMÁGENES: Si no estamos explícitamente en la pestaña de Vídeo,
     // forzamos que el audio se genere de forma aislada para no chocar con los modelos de imagen.

@@ -1073,7 +1073,7 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
         if(document.getElementById('videoFormat')) fd.append('video_format', document.getElementById('videoFormat').value);
     }
     
-    // 2. BLOQUE DE LORAS (Ahora se cierra correctamente aquí)
+    // 2. BLOQUE DE LORAS
     if (document.getElementById('loraContainer') && document.getElementById('loraContainer').style.display !== 'none') {
         document.querySelectorAll('.lora-row').forEach(row => {
             const lSelector = row.querySelector('.lora-selector'); const lVal = lSelector ? lSelector.value : null;
@@ -1083,7 +1083,7 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
                 fd.append('lora_strengths_low[]', row.querySelector('.lora-strength-low') ? row.querySelector('.lora-strength-low').value : 0.8);
             }
         });
-    } // <-- CORRECCIÓN: Cerramos la llave aquí para liberar el resto de parámetros
+    }
 
     // 3. PARÁMETROS GENERALES Y EXTENSIONES GRÁFICAS
     const wInp = document.getElementById('imgWidth'); const hInp = document.getElementById('imgHeight');
@@ -1091,7 +1091,7 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
         
     const denoiseSlider = document.getElementById('denoiseSlider'); if(denoiseSlider) fd.append('denoise', denoiseSlider.value);
     
-    // 👇 NUEVA LÍNEA: Envía a PHP si el panel de edición está activo (1) o no (0)
+	// 👇 NUEVA LÍNEA: Envía a PHP si el panel de edición está activo (1) o no (0)
     const editToggle = document.getElementById('editToolsToggle'); if(editToggle) fd.append('edit_tools_active', editToggle.checked ? '1' : '0');
 
     const batchSize = document.getElementById('batchSize'); if(batchSize) fd.append('batch_size', batchSize.value);
@@ -1104,12 +1104,12 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
             fd.append('upscale_model', document.getElementById('upscaleModelSelector').value); 
             fd.append('upscale_factor', document.getElementById('upscaleFactor').value);
             
-            // --- NUEVO: Capturar AuraSR ---
+			// --- NUEVO: Capturar AuraSR ---
             const auraToggle = document.getElementById('aurasrToggle');
             if (auraToggle && auraToggle.checked) fd.append('aurasr_enabled', 'true');
-            // ------------------------------
+			// ------------------------------
             
-            /// Detección de Upscale Puro: Si hay imagen cargada, ES un upscale puro siempre (ignoramos si hay texto)
+			/// Detección de Upscale Puro: Si hay imagen cargada, ES un upscale puro siempre (ignoramos si hay texto)
             const hayImagen = (typeof currentImageBase64 !== 'undefined' && currentImageBase64 !== null) || 
                               (typeof compareImageA !== 'undefined' && compareImageA !== null);
             
@@ -1136,25 +1136,25 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
             const ddModel = document.getElementById('ddcolor_model');
             if (ddModel) fd.append('ddcolor_model', ddModel.value);
             
-            // NUEVO: Capturar si es modo puro
+			// NUEVO: Capturar si es modo puro
             const pureDDColorToggle = document.getElementById('pureDDColorToggle');
             if (pureDDColorToggle && pureDDColorToggle.checked) fd.append('pure_ddcolor', 'true');
         }
     }
     
-    // --- NUEVO: IC-Light (Relighting Neural) ---
+    // IC-Light (Relighting Neural)
     const toggleIcLight = document.getElementById('iclight_enabled');
     if (toggleIcLight && toggleIcLight.checked && document.getElementById('icLightBlock') && document.getElementById('icLightBlock').style.display !== 'none') {
         fd.append('iclight_enabled', 'true');
         const dirSelect = document.getElementById('iclight_direction');
         const prInput = document.getElementById('iclight_prompt');
-        const multSlider = document.getElementById('iclight_multiplier'); // <-- NUEVO: Captura el deslizador
+        const multSlider = document.getElementById('iclight_multiplier');
         
         if (dirSelect) fd.append('iclight_direction', dirSelect.value);
         if (prInput && prInput.value.trim() !== '') fd.append('iclight_prompt', prInput.value.trim());
-        if (multSlider) fd.append('iclight_multiplier', multSlider.value); // <-- NUEVO: Lo inyecta al FormData
+        if (multSlider) fd.append('iclight_multiplier', multSlider.value);
     }
-    // -------------------------------------------
+	// -------------------------------------------
     
    // LaMa Remover (Borrado Mágico)
     const toggleLama = document.getElementById('toggleLamaMode');
@@ -1164,7 +1164,7 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
 
     // IP-Adapter
     const ipAdapterToggle = document.getElementById('ipAdapterToggle');
-    if (ipAdapterToggle && ipAdapterToggle.checked && currentIpAdapterBase64) {
+    if (ipAdapterToggle && ipAdapterToggle.checked && typeof currentIpAdapterBase64 !== 'undefined' && currentIpAdapterBase64) {
         fd.append('ipadapter_enabled', 'true'); 
         fd.append('ipadapter_image', currentIpAdapterBase64.split(',')[1]);
             
@@ -1185,7 +1185,7 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
 
     // FaceSwap / Reactor
     const reactorToggle = document.getElementById('reactorToggle');
-    if (reactorToggle && reactorToggle.checked && currentFaceBase64) {
+    if (reactorToggle && reactorToggle.checked && typeof currentFaceBase64 !== 'undefined' && currentFaceBase64) {
         fd.append('reactor_enabled', 'true'); fd.append('reactor_image', currentFaceBase64.split(',')[1]);
         const pureFaceSwapToggle = document.getElementById('pureFaceSwapToggle'); if (pureFaceSwapToggle && pureFaceSwapToggle.checked) fd.append('pure_faceswap', 'true');
         fd.append('reactor_target_index', document.getElementById('reactorTargetIndex').value); fd.append('reactor_source_index', document.getElementById('reactorSourceIndex').value);
@@ -1196,13 +1196,13 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
         
     // ControlNet
     const controlNetToggle = document.getElementById('controlNetToggle');
-    if (controlNetToggle && controlNetToggle.checked && currentCnBase64 && document.getElementById('cnModelSelector').value) {
+    if (controlNetToggle && controlNetToggle.checked && typeof currentCnBase64 !== 'undefined' && currentCnBase64 && document.getElementById('cnModelSelector').value) {
         fd.append('controlnet_enabled', 'true'); fd.append('controlnet_image', currentCnBase64.split(',')[1]);
         fd.append('controlnet_model', document.getElementById('cnModelSelector').value); fd.append('controlnet_preprocessor', document.getElementById('cnPreprocessor').value);
         fd.append('controlnet_weight', document.getElementById('cnWeight').value); fd.append('controlnet_start', document.getElementById('cnStart').value);
         fd.append('controlnet_end', document.getElementById('cnEnd').value); fd.append('controlnet_mode', document.getElementById('cnMode').value);
         
-        // --- NUEVO: PARÁMETROS DW POSE ---
+		// --- NUEVO: PARÁMETROS DW POSE ---									 
         const cnPreproc = document.getElementById('cnPreprocessor').value;
         if (cnPreproc === 'DWPreprocessor') {
             const dwBody = document.getElementById('dwDetectBody') ? document.getElementById('dwDetectBody').checked : true;
@@ -1213,11 +1213,11 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
             fd.append('dw_face', dwFace);
             fd.append('dw_hand', dwHand);
         }
-        // ---------------------------------
+		// ---------------------------------									
     }
 
     // 4. IMÁGENES BASE / INPAINT / OUTPAINT
-    if (document.getElementById('imgPreviewContainer') && document.getElementById('imgPreviewContainer').style.display !== 'none' && currentImageBase64) {
+    if (document.getElementById('imgPreviewContainer') && document.getElementById('imgPreviewContainer').style.display !== 'none' && typeof currentImageBase64 !== 'undefined' && currentImageBase64) {
         fd.append('init_image', currentImageBase64.split(',')[1]);
         const extractedMask = extractMaskBase64();
         if (extractedMask) { fd.append('mask_data', extractedMask); }
@@ -1232,12 +1232,25 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
     }
     
     // 5. AUDIO Y UTILIDADES EXTRA
-    if (currentAudioBase64) { 
+    if (typeof currentAudioBase64 !== 'undefined' && currentAudioBase64) { 
         fd.append('audio_data', currentAudioBase64.split(',')[1]); 
         
-        // Comprobamos si existe un interruptor de Wav2Lip y si está encendido
         const wav2lipToggle = document.getElementById('wav2lipToggle');
-        if (wav2lipToggle && wav2lipToggle.checked) {
+        const proSyncToggle = document.getElementById('syncAudioVideo'); 
+        const audioPanelToggle = document.getElementById('audioToggle');
+        
+        let syncActive = false;
+        
+        // 1. Si el panel Pro está ABIERTO, domina su interruptor
+        if (audioPanelToggle && audioPanelToggle.checked) {
+            if (proSyncToggle && proSyncToggle.checked) syncActive = true;
+        } 
+        // 2. Si el panel Pro está CERRADO, ignoramos el anterior y usamos el clásico
+        else {
+            if (wav2lipToggle && wav2lipToggle.checked) syncActive = true;
+        }
+        
+        if (syncActive) {
             fd.append('wav2lip', 'true');
         }
     }
@@ -1247,7 +1260,6 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
         fd.append('adetailer', 'on');
         const adDenoise = document.getElementById('adetailerDenoise'); if (adDenoise) fd.append('adetailer_denoise', adDenoise.value);
         
-        // --- AQUÍ VA LA CAPTURA DEL MODO PURO ---
         const pureAdToggle = document.getElementById('pureAdetailerToggle'); 
         if (pureAdToggle && pureAdToggle.checked) fd.append('pure_adetailer', 'true');
     }
