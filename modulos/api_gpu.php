@@ -839,28 +839,43 @@ if ($action === 'generar_imagen') {
            }
 
            // =======================================================
-            // 🛑 1. DESACTIVAR REACTIVIDAD NATIVA SI USAMOS AUDIO PRO 
-            // =======================================================
-            // LTX nativo no sabe manejar nuestro Audio Pro directamente en su json predefinido.
-            // Borramos esos tensores para evitar crash, confiaremos el lip-sync a Wav2Lip.
-            if (!$tiene_audio || !$tiene_imagen || $tiene_audio_pro) {
-                if (isset($workflow["289"]["inputs"]["latent_image"])) {
-                    $workflow["289"]["inputs"]["latent_image"] = $video_origen;
-                }
-                
-                unset($workflow["248"], $workflow["166"], $workflow["242"], $workflow["320"], $workflow["309"]);
-                
-                if (!$tiene_audio && !$tiene_audio_pro) {
-                    if (isset($workflow["234"]["inputs"]["samples"])) {
-                        $workflow["234"]["inputs"]["samples"] = ["289", 0]; 
-                    }
-                    unset($workflow["245"]); 
-                }
-            } else {
-                if (isset($workflow["166"]["inputs"]["video_latent"])) {
-                    $workflow["166"]["inputs"]["video_latent"] = $video_origen;
-                }
-            }
+           // 🛑 1. ENRUTAMIENTO LTX-AV NATIVO (SÁNDWICH OBLIGATORIO)
+           // =======================================================
+           if (isset($workflow["166"])) {
+               // 1. Conectamos siempre el lienzo de vídeo (vacío o con imagen) al fusionador
+               $workflow["166"]["inputs"]["video_latent"] = $video_origen;
+
+               // 2. Decidimos qué audio le damos de comer al modelo
+               if ($tiene_audio && !$tiene_audio_pro) {
+                   $workflow["166"]["inputs"]["audio_latent"] = ["248", 0];
+               } else {
+                   // INYECCIÓN DINÁMICA: Creamos el nodo de silencio desde PHP por si el JSON físico no lo tiene
+                    $workflow["500"] = [
+                        "inputs" => [
+                            "frames_number" => $video_frames_ltx,
+                            "frame_rate" => 24,
+                            "batch_size" => 1,
+                            "audio_vae" => ["320", 0] // <-- ¡Aquí está el cable obligatorio que me faltó poner!
+                        ],
+                        "class_type" => "LTXVEmptyLatentAudio"
+                    ];
+                   $workflow["166"]["inputs"]["audio_latent"] = ["500", 0];
+                   
+                   // Limpiamos los nodos de carga física para evitar fallos si el usuario no sube audio
+                   unset($workflow["309"], $workflow["242"], $workflow["248"]);
+               }
+
+               // INYECCIÓN DINÁMICA: Aseguramos que exista el decodificador de audio para extraer el sonido al final
+               if (!isset($workflow["501"])) {
+                   $workflow["501"] = [
+                       "inputs" => [
+                           "samples" => ["245", 1],
+                           "audio_vae" => ["320", 0]
+                       ],
+                       "class_type" => "LTXVAudioVAEDecode"
+                   ];
+               }
+           }
 
             // =======================================================
             // 🎵 2. GESTIÓN UNIFICADA DE AUDIO (PRO + ANTIGUO) EN LTX
@@ -962,9 +977,16 @@ if ($action === 'generar_imagen') {
                     $workflow["2026"] = ["inputs" => ["samples" => ["2025", 0], "vae" => ["2020", 2]], "class_type" => "VAEDecodeAudio"];
                     $audio_source_node = ["2026", 0];
                 }
-            } elseif ($tiene_audio) {
-                // Audio antiguo cargado por el JSON
-                $audio_source_node = ["248", 0]; 
+				} else {
+					// ¡LA MAGIA DE LTX-AV!
+					// Si no usas Audio Pro, el audio FINAL siempre saldrá del decodificador de LTX (Nodo 501)
+					// Ya sea porque subiste un mp3 (y el modelo lo procesó) o porque lo generó de la nada (silencio)
+					if (isset($workflow["501"])) {
+						$audio_source_node = ["501", 0]; 
+					} elseif ($tiene_audio) {
+						// Fallback de seguridad por si usas un modelo antiguo
+						$audio_source_node = ["309", 0]; 
+					}
             }
 
             // =======================================================
