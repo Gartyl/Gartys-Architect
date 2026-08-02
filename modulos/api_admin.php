@@ -217,9 +217,9 @@ if ($action === 'get_modelos_bd') {
 
 if ($action === 'get_active_models') {
     try {
-        if ($is_admin) $stmt = $pdo->query("SELECT id, nombre_visual, motor, categoria FROM modelos_ia WHERE activo = 1 ORDER BY nombre_visual ASC");
-        elseif ($is_pro) $stmt = $pdo->query("SELECT id, nombre_visual, motor, categoria FROM modelos_ia WHERE activo = 1 AND nivel_acceso IN ('usuario', 'avanzado') ORDER BY nombre_visual ASC");
-        else $stmt = $pdo->query("SELECT id, nombre_visual, motor, categoria FROM modelos_ia WHERE activo = 1 AND nivel_acceso = 'usuario' ORDER BY nombre_visual ASC");
+        if ($is_admin) $stmt = $pdo->query("SELECT id, nombre_visual, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler FROM modelos_ia WHERE activo = 1 ORDER BY nombre_visual ASC");
+        elseif ($is_pro) $stmt = $pdo->query("SELECT id, nombre_visual, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler FROM modelos_ia WHERE activo = 1 AND nivel_acceso IN ('usuario', 'avanzado') ORDER BY nombre_visual ASC");
+        else $stmt = $pdo->query("SELECT id, nombre_visual, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler FROM modelos_ia WHERE activo = 1 AND nivel_acceso = 'usuario' ORDER BY nombre_visual ASC");
         echo json_encode(['modelos' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
     } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
     exit();
@@ -229,17 +229,58 @@ if ($action === 'save_modelo_bd') {
     try {
         $es_unbundled = isset($_POST['es_unbundled']) ? intval($_POST['es_unbundled']) : 0;
         
-        $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled) VALUES (?, ?, ?, ?, ?, ?)")
+        // Recogemos los nuevos parámetros o aplicamos los de seguridad por defecto
+        $d_steps = !empty($_POST['default_steps']) ? intval($_POST['default_steps']) : 30;
+        $d_cfg = !empty($_POST['default_cfg']) ? floatval($_POST['default_cfg']) : 5.0;
+        $d_sampler = !empty($_POST['default_sampler']) ? $_POST['default_sampler'] : 'euler_ancestral';
+        $d_scheduler = !empty($_POST['default_scheduler']) ? $_POST['default_scheduler'] : 'beta';
+
+        $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled, default_steps, default_cfg, default_sampler, default_scheduler) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
             ->execute([
                 $_POST['nombre_visual'], 
                 $_POST['nombre_archivo'], 
                 $_POST['motor'], 
                 $_POST['categoria'], 
                 $_POST['nivel_acceso'], 
-                $es_unbundled
+                $es_unbundled,
+                $d_steps,
+                $d_cfg,
+                $d_sampler,
+                $d_scheduler
             ]);
         echo json_encode(['success' => true]);
     } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
+    exit();
+}
+
+if ($action === 'update_modelo_bd') {
+    try {
+        $es_unbundled = isset($_POST['es_unbundled']) ? intval($_POST['es_unbundled']) : 0;
+        
+        // Parámetros opcionales
+        $d_steps = !empty($_POST['default_steps']) ? intval($_POST['default_steps']) : null;
+        $d_cfg = !empty($_POST['default_cfg']) ? floatval($_POST['default_cfg']) : null;
+        $d_sampler = !empty($_POST['default_sampler']) ? $_POST['default_sampler'] : null;
+        $d_scheduler = !empty($_POST['default_scheduler']) ? $_POST['default_scheduler'] : null;
+
+        $pdo->prepare("UPDATE modelos_ia SET nombre_visual = ?, nombre_archivo = ?, motor = ?, categoria = ?, nivel_acceso = ?, es_unbundled = ?, default_steps = ?, default_cfg = ?, default_sampler = ?, default_scheduler = ? WHERE id = ?")
+            ->execute([
+                $_POST['nombre_visual'], 
+                $_POST['nombre_archivo'], 
+                $_POST['motor'], 
+                $_POST['categoria'], 
+                $_POST['nivel_acceso'], 
+                $es_unbundled,
+                $d_steps,
+                $d_cfg,
+                $d_sampler,
+                $d_scheduler,
+                $_POST['id'] // El ID que manda el frontend
+            ]);
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) { 
+        echo json_encode(['error' => $e->getMessage()]); 
+    }
     exit();
 }
 
