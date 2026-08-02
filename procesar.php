@@ -121,6 +121,7 @@ try {
         case 'get_modelos_bd':
         case 'get_active_models':
         case 'save_modelo_bd':
+		case 'update_modelo_bd':
         case 'delete_modelo_bd':
         case 'toggle_modelo_bd':
         case 'duplicar_prompt':
