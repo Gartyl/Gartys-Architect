@@ -474,7 +474,8 @@ function abrirGestorModelos() {
 
 async function cargarTablaModelos() {
     const tbody = document.getElementById('tablaModelosBody');
-    tbody.innerHTML = `<tr><td colspan="9" class="text-info"><span class="spinner-border spinner-border-sm"></span> ${GartyLang.msg_query_engines}</td></tr>`;
+    // Actualizamos colspan de 9 a 10 por la nueva columna
+    tbody.innerHTML = `<tr><td colspan="10" class="text-info"><span class="spinner-border spinner-border-sm"></span> ${GartyLang.msg_query_engines || 'Consultando motores...'}</td></tr>`;
     
     try {
         let fd = new FormData();
@@ -485,57 +486,117 @@ async function cargarTablaModelos() {
         if (data.modelos && data.modelos.length > 0) {
             tbody.innerHTML = data.modelos.map(m => {
                 let candado = (typeof currentUserRole !== 'undefined' && currentUserRole === 'free' && (m.nivel_acceso === 'avanzado' || m.nivel_acceso === 'pro')) 
-                              ? ` <span class="text-warning small fw-bold" title="${GartyLang.msg_pro_exclusive}">🔒 (Pro)</span>` 
+                              ? ` <span class="text-warning small fw-bold" title="${GartyLang.msg_pro_exclusive || 'Exclusivo Pro'}">🔒 (Pro)</span>` 
                               : '';
-                let textoNivel = (m.nivel_acceso === 'avanzado') ? GartyLang.adm_lvl_adv : GartyLang.adm_lvl_user;
+                let textoNivel = (m.nivel_acceso === 'avanzado') ? (GartyLang.adm_lvl_adv || 'Avanzado') : (GartyLang.adm_lvl_user || 'Usuario');
 
                 let badgeUnbundled = (m.es_unbundled == 1) 
                     ? `<span class="badge bg-info text-dark shadow-sm" title="UNET Desmembrado"><i class="bi bi-puzzle-fill"></i> UNET</span>` 
                     : `<span class="badge border border-secondary text-secondary" title="Checkpoint Estándar"><i class="bi bi-box-seam"></i> CKPT</span>`;
 
-                // NUEVO: Interceptor visual de la categoría. Si el sistema dice 'flux', nosotros pintamos 'DiT'.
+                // Interceptor visual de la categoría. Si el sistema dice 'flux', nosotros pintamos 'DiT'.
                 let categoriaVisual = m.categoria.toLowerCase() === 'flux' ? 'DiT' : m.categoria.toUpperCase();
 
-				return `
-				<tr>
-					<td class="text-secondary">${m.id}</td>
-					<td class="fw-bold text-light">${m.nombre_visual}${candado}</td>
-					<td class="text-muted small"><code>${m.nombre_archivo}</code></td>
-					<td><span class="badge ${m.motor === 'ollama' ? 'bg-info text-dark' : 'bg-primary'}"><i class="bi bi-cpu-fill"></i> ${m.motor.toUpperCase()}</span></td>
-					
-					<!-- MAGIA: Metemos la categoría real (m.categoria) oculta con d-none para que el buscador la encuentre -->
-					<td><span class="badge bg-secondary text-light"><span class="d-none">${m.categoria.toLowerCase()}</span>${categoriaVisual}</span></td>
-					
-					<td>${badgeUnbundled}</td>
-					<td><span class="badge ${m.nivel_acceso === 'avanzado' ? 'bg-warning text-dark' : 'border border-secondary text-secondary'}"><i class="bi ${m.nivel_acceso === 'avanzado' ? 'bi-star-fill' : 'bi-person'}"></i> ${textoNivel.toUpperCase()}</span></td>
-					<td>
-						<div class="form-check form-switch d-flex justify-content-center m-0">
-							<input class="form-check-input border-success" type="checkbox" ${m.activo == 1 ? 'checked' : ''} onchange="cambiarEstadoModelo(${m.id}, this.checked)">
-						</div>
-					</td>
-					<td>
-						<button class="btn btn-sm btn-outline-danger shadow-sm" onclick="borrarModeloBD(${m.id}, '${m.nombre_visual}')" title="${GartyLang.btn_eliminar}"><i class="bi bi-trash3-fill"></i></button>
-					</td>
-				</tr>
-				`;
+                // NUEVO: Renderizado visual de los parámetros
+                let paramsText = [];
+                if (m.default_steps) paramsText.push(`${m.default_steps}s`);
+                if (m.default_cfg) paramsText.push(`${m.default_cfg}c`);
+                
+                let badgeParams = '';
+                if (paramsText.length > 0) {
+                    let tooltipParams = `Steps: ${m.default_steps || '-'} | CFG: ${m.default_cfg || '-'} | Sampler: ${m.default_sampler || '-'} | Scheduler: ${m.default_scheduler || '-'}`;
+                    badgeParams = `<span class="badge bg-dark border border-info text-info shadow-sm" title="${tooltipParams}"><i class="bi bi-sliders"></i> ${paramsText.join(' | ')}</span>`;
+                } else {
+                    badgeParams = `<span class="badge bg-dark border border-secondary text-secondary" title="Parámetros Estándar"><i class="bi bi-dash"></i> Estándar</span>`;
+                }
+
+                // Codificamos el objeto del modelo entero de forma segura para el botón Editar
+                let mDataSeguro = encodeURIComponent(JSON.stringify(m));
+
+                return `
+                <tr>
+                    <td class="text-secondary">${m.id}</td>
+                    <td class="fw-bold text-light">${m.nombre_visual}${candado}</td>
+                    <td class="text-muted small"><code>${m.nombre_archivo}</code></td>
+                    <td><span class="badge ${m.motor === 'ollama' ? 'bg-info text-dark' : 'bg-primary'}"><i class="bi bi-cpu-fill"></i> ${m.motor.toUpperCase()}</span></td>
+                    
+                    <!-- MAGIA: Metemos la categoría real (m.categoria) oculta con d-none para que el buscador la encuentre -->
+                    <td><span class="badge bg-secondary text-light"><span class="d-none">${m.categoria.toLowerCase()}</span>${categoriaVisual}</span></td>
+                    
+                    <!-- NUEVA COLUMNA: PARÁMETROS -->
+                    <td>${badgeParams}</td>
+                    
+                    <td>${badgeUnbundled}</td>
+                    <td><span class="badge ${m.nivel_acceso === 'avanzado' ? 'bg-warning text-dark' : 'border border-secondary text-secondary'}"><i class="bi ${m.nivel_acceso === 'avanzado' ? 'bi-star-fill' : 'bi-person'}"></i> ${textoNivel.toUpperCase()}</span></td>
+                    <td>
+                        <div class="form-check form-switch d-flex justify-content-center m-0">
+                            <input class="form-check-input border-success" type="checkbox" ${m.activo == 1 ? 'checked' : ''} onchange="cambiarEstadoModelo(${m.id}, this.checked)">
+                        </div>
+                    </td>
+                    <td>
+                        <!-- BOTONES DE ACCIÓN: Editar y Borrar -->
+                        <div class="d-flex justify-content-center gap-1">
+                            <button class="btn btn-sm btn-outline-info shadow-sm" onclick="editarModelo('${mDataSeguro}')" title="Editar"><i class="bi bi-pencil-fill"></i></button>
+                            <button class="btn btn-sm btn-outline-danger shadow-sm" onclick="borrarModeloBD(${m.id}, '${m.nombre_visual}')" title="${GartyLang.btn_eliminar || 'Eliminar'}"><i class="bi bi-trash3-fill"></i></button>
+                        </div>
+                    </td>
+                </tr>
+                `;
             }).join('');
         } else {
-            tbody.innerHTML = `<tr><td colspan="9" class="text-warning fw-bold py-4"><i class="bi bi-exclamation-triangle"></i> ${GartyLang.msg_db_models_empty}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="10" class="text-warning fw-bold py-4"><i class="bi bi-exclamation-triangle"></i> ${GartyLang.msg_db_models_empty || 'No hay modelos en la Base de Datos.'}</td></tr>`;
         }
     } catch(e) {
-        tbody.innerHTML = `<tr><td colspan="9" class="text-danger py-4">${GartyLang.msg_err_conn_proc}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="text-danger py-4">${GartyLang.msg_err_conn_proc || 'Error al conectar con el servidor.'}</td></tr>`;
+    }
+}
+
+// ============================================================================
+// NUEVA FUNCIÓN: Cargar datos en el formulario para editar
+// ============================================================================
+function editarModelo(mDataSeguro) {
+    let m = JSON.parse(decodeURIComponent(mDataSeguro));
+    
+    // Rellenamos el ID oculto
+    if(document.getElementById('modId')) document.getElementById('modId').value = m.id;
+    
+    // Rellenamos datos básicos
+    document.getElementById('modNombre').value = m.nombre_visual;
+    document.getElementById('modArchivo').value = m.nombre_archivo;
+    document.getElementById('modMotor').value = m.motor;
+    document.getElementById('modCat').value = m.categoria;
+    if(document.getElementById('modNivel')) document.getElementById('modNivel').value = m.nivel_acceso;
+    if(document.getElementById('modUnbundled')) document.getElementById('modUnbundled').checked = (m.es_unbundled == 1);
+    
+    // Rellenamos los nuevos parámetros
+    if(document.getElementById('modSteps')) document.getElementById('modSteps').value = m.default_steps || '';
+    if(document.getElementById('modCfg')) document.getElementById('modCfg').value = m.default_cfg || '';
+    if(document.getElementById('modSampler')) document.getElementById('modSampler').value = m.default_sampler || '';
+    if(document.getElementById('modScheduler')) document.getElementById('modScheduler').value = m.default_scheduler || '';
+    
+    // Cambiamos el estilo del botón de guardar para indicar "Modo Edición"
+    const btn = document.getElementById('btnSubmitModelo');
+    if(btn) {
+        btn.className = 'btn btn-info w-100 fw-bold shadow px-0 text-dark';
+        btn.innerHTML = '<i class="bi bi-pencil-square"></i>';
     }
 }
 
 async function guardarModeloBD() {
+    // NUEVO: Buscamos si estamos editando un modelo existente
+    const idModelo = document.getElementById('modId') ? document.getElementById('modId').value : '';
+    
     const nombre = document.getElementById('modNombre').value.trim();
     const archivo = document.getElementById('modArchivo').value.trim();
     const motor = document.getElementById('modMotor').value;
     const cat = document.getElementById('modCat').value;
     const nivel = document.getElementById('modNivel') ? document.getElementById('modNivel').value : 'usuario';
-    
-    // NUEVO: Capturamos el estado del checkbox (1 si está marcado, 0 si no)
     const es_unbundled = document.getElementById('modUnbundled') && document.getElementById('modUnbundled').checked ? 1 : 0;
+
+    const defSteps = document.getElementById('modSteps') ? document.getElementById('modSteps').value : '';
+    const defCfg = document.getElementById('modCfg') ? document.getElementById('modCfg').value : '';
+    const defSampler = document.getElementById('modSampler') ? document.getElementById('modSampler').value : '';
+    const defScheduler = document.getElementById('modScheduler') ? document.getElementById('modScheduler').value : '';
 
     if(!nombre || !archivo) {
         SwalDark.fire({icon: 'error', title: GartyLang.swal_miss_data_title, text: GartyLang.swal_miss_data_text});
@@ -543,21 +604,26 @@ async function guardarModeloBD() {
     }
 
     let fd = new FormData();
-    fd.append('action', 'save_modelo_bd');
+    // MAGIA: Cambiamos la acción dinámicamente
+    fd.append('action', idModelo !== '' ? 'update_modelo_bd' : 'save_modelo_bd');
+    if (idModelo !== '') fd.append('id', idModelo);
+
     fd.append('nombre_visual', nombre);
     fd.append('nombre_archivo', archivo);
     fd.append('motor', motor);
     fd.append('categoria', cat);
     fd.append('nivel_acceso', nivel); 
-    
-    // NUEVO: Lo inyectamos en el paquete que viaja a procesar.php
     fd.append('es_unbundled', es_unbundled);
+    fd.append('default_steps', defSteps);
+    fd.append('default_cfg', defCfg);
+    fd.append('default_sampler', defSampler);
+    fd.append('default_scheduler', defScheduler);
 
    try {
         let res = await fetch('procesar.php', { method: 'POST', body: fd });
         let data = await res.json();
         if(data.success) {
-            document.getElementById('formNuevoModelo').reset();
+            cancelarEdicionModelo(); // Resetea el formulario y el botón
             cargarTablaModelos();
             SwalDark.fire({icon: 'success', title: GartyLang.swal_mod_inst_title, text: GartyLang.swal_mod_inst_text, timer: 2000, showConfirmButton: false});
         } else {
@@ -565,6 +631,19 @@ async function guardarModeloBD() {
         }
     } catch(e) {
         SwalDark.fire({icon: 'error', title: GartyLang.swal_err_save_title, text: e.message});
+    }
+}
+
+// Función auxiliar para limpiar el modo edición
+function cancelarEdicionModelo() {
+    document.getElementById('formNuevoModelo').reset();
+    if(document.getElementById('modId')) document.getElementById('modId').value = '';
+    
+    // Devolvemos el botón a su estado original (verde de guardar)
+    const btn = document.getElementById('btnSubmitModelo');
+    if(btn) {
+        btn.className = 'btn btn-success w-100 fw-bold shadow px-0';
+        btn.innerHTML = '<i class="bi bi-save"></i>';
     }
 }
 
@@ -832,60 +911,72 @@ function sugerirAjustesMotor() {
     const modelSel = document.getElementById('modelSelector');
     if (!modelSel || modelSel.selectedIndex === -1) return;
 
-    // Leemos el nombre del modelo seleccionado
-    const opcion = modelSel.options[modelSel.selectedIndex].text.toLowerCase();
+    const opcionEl = modelSel.options[modelSel.selectedIndex];
+    const modeloId = opcionEl.value;
+    const opcion = opcionEl.text.toLowerCase();
 
-    // Capturamos las cajas (Ajusta los IDs de steps y cfg si en tu HTML se llaman diferente)
+    // Buscamos si el modelo tiene parámetros personalizados en la Base de Datos
+    const modeloBD = window.modelosDBSistema ? window.modelosDBSistema.find(m => m.id == modeloId) : null;
+
     const stepsInput = document.getElementById('stepsInput') || document.querySelector('input[name="steps"]');
     const cfgInput = document.getElementById('cfgInput') || document.querySelector('input[name="cfg"]');
     const samplerInput = document.getElementById('samplerInput');
     const schedulerInput = document.getElementById('schedulerInput');
 
-    // 1. Valores base por defecto (Ej: para SDXL clásico o genéricos)
-    let newSteps = 30;
-    let newCfg = 5.0;
-    let newSampler = 'euler_ancestral';
-    let newScheduler = 'beta';
+    let newSteps, newCfg, newSampler, newScheduler;
 
-    // 2. Replicamos tu árbol de decisiones de api_gpu.php
-    if (opcion.includes('turbo') || opcion.includes('schnell')) {
-        newSteps = 6;
-        newCfg = 1.5;
-        newSampler = 'euler';
-        newScheduler = 'simple';
-    } else if (opcion.includes('krea2') || opcion.includes('krea-2') || opcion.includes('krea 2')) {
-        newSteps = 8;
-        newCfg = 1.0;
-        newSampler = 'euler';
-        newScheduler = 'simple';
-    } else if (opcion.includes('qwen')) {
-        newSteps = 20;
-        newCfg = 1.0;
-        newSampler = 'euler';
-        newScheduler = 'simple';
-    } else if (opcion.includes('chroma')) {
-        newSteps = 10; 
-        newCfg = 1.0;
-        newSampler = 'euler';
-        newScheduler = 'simple';
-    } else if (opcion.includes('flux') || opcion.includes('sd35') || opcion.includes('sd3.5') || opcion.includes('z-image') || opcion.includes('zimage') || opcion.includes('z_image')) {
-        newSteps = 25;
-        newCfg = 4.0;
-        newSampler = 'euler';
-        newScheduler = 'simple';
+    // 1. PRIORIDAD: Si el modelo tiene valores configurados en la BBDD, respetamos esos
+    if (modeloBD && modeloBD.default_steps && modeloBD.default_steps > 0) {
+        newSteps = modeloBD.default_steps;
+        newCfg = modeloBD.default_cfg !== null ? modeloBD.default_cfg : 5.0;
+        newSampler = modeloBD.default_sampler || 'euler_ancestral';
+        newScheduler = modeloBD.default_scheduler || 'beta';
+    } else {
+        // 2. FALLBACK: Si no tiene parámetros propios en BBDD, aplicamos las reglas automáticas por nombre
+        newSteps = 30;
+        newCfg = 5.0;
+        newSampler = 'euler_ancestral';
+        newScheduler = 'beta';
+
+        if (opcion.includes('turbo') || opcion.includes('schnell')) {
+            newSteps = 6;
+            newCfg = 1.5;
+            newSampler = 'euler';
+            newScheduler = 'simple';
+        } else if (opcion.includes('krea2') || opcion.includes('krea-2') || opcion.includes('krea 2')) {
+            newSteps = 8;
+            newCfg = 1.0;
+            newSampler = 'euler';
+            newScheduler = 'simple';
+        } else if (opcion.includes('qwen')) {
+            newSteps = 20;
+            newCfg = 1.0;
+            newSampler = 'euler';
+            newScheduler = 'simple';
+        } else if (opcion.includes('chroma')) {
+            newSteps = 10; 
+            newCfg = 1.0;
+            newSampler = 'euler';
+            newScheduler = 'simple';
+        } else if (opcion.includes('flux') || opcion.includes('sd35') || opcion.includes('sd3.5') || opcion.includes('z-image') || opcion.includes('zimage') || opcion.includes('z_image')) {
+            newSteps = 25;
+            newCfg = 4.0;
+            newSampler = 'euler';
+            newScheduler = 'simple';
+        }
     }
 
-    // 3. Aplicamos los valores sugeridos a las cajas
+    // Aplicamos los valores a las cajas de la interfaz
     if (stepsInput) stepsInput.value = newSteps;
     if (cfgInput) cfgInput.value = newCfg;
     if (samplerInput) samplerInput.value = newSampler;
     if (schedulerInput) schedulerInput.value = newScheduler;
 
-    // 4. Efecto visual: un parpadeo para que el usuario sepa que la IA ha ajustado los valores
+    // Efecto visual de parpadeo azul para indicar que se han cargado los ajustes
     const inputs = [stepsInput, cfgInput, samplerInput, schedulerInput];
     inputs.forEach(input => {
         if (input) {
-            input.classList.add('border-info', 'text-info'); // Se iluminarán en azul/info
+            input.classList.add('border-info', 'text-info');
             setTimeout(() => input.classList.remove('border-info', 'text-info'), 800);
         }
     });
