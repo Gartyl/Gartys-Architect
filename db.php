@@ -72,7 +72,7 @@ if (defined('APP_MODE') && APP_MODE === 'local') {
     $port = '3306';      
     $db   = 'ia_prompts';
     $user = 'root';      
-    $pass = ''; // Tu contraseña de MariaDB
+    $pass = ''; // Tu contraseña de MySQL
     $charset = 'utf8mb4';
 
     $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
