@@ -55,6 +55,7 @@
                                 </div>
                                 
                                 <form id="formNuevoModelo" class="row g-2 align-items-end">
+									<input type="hidden" id="modId" value="">
 									<div class="col-md-2">
 										<label class="small text-secondary fw-bold"><?= __('tit_pan_nom') ?></label>
 										<input type="text" class="form-control bg-dark text-light border-secondary" id="modNombre" placeholder="<?= __('adm_ph_nom') ?>">
@@ -92,19 +93,127 @@
 										</select>
 									</div>
 									<div class="col-md-1">
-										<button type="button" class="btn btn-success w-100 fw-bold shadow px-0" onclick="guardarModeloBD()" title="<?= __('adm_btn_save_title') ?>"><i class="bi bi-save"></i></button>
+										<button type="button" id="btnSubmitModelo" class="btn btn-success w-100 fw-bold shadow px-0" onclick="guardarModeloBD()" title="<?= __('adm_btn_save_title') ?>"><i class="bi bi-save"></i></button>
 									</div>
 									
-									<!-- NUEVO: CHECKBOX DE MODELO DESMEMBRADO (UNBUNDLED) -->
-									<div class="col-12 mt-2 text-start">
-										<div class="form-check form-switch d-inline-block">
-											<input class="form-check-input border-success" type="checkbox" id="modUnbundled" value="1">
-											<label class="form-check-label small text-info fw-bold ms-1" for="modUnbundled">
-												<i class="bi bi-puzzle"></i> <?= __('adm_lbl_unbundled') ?? 'Modelo Desmembrado (Solo UNET. Usa nodos separados para CLIP/VAE)' ?>
-											</label>
+									<!-- CHECKBOX DE MODELO DESMEMBRADO (UNBUNDLED) -->
+                                    <div class="col-12 mt-2 text-start">
+                                        <div class="form-check form-switch d-inline-block">
+                                            <input class="form-check-input border-success" type="checkbox" id="modUnbundled" value="1">
+                                            <label class="form-check-label small text-info fw-bold ms-1" for="modUnbundled">
+                                                <i class="bi bi-puzzle"></i> <?= __('adm_lbl_unbundled') ?? 'Modelo Desmembrado (Solo UNET. Usa nodos separados para CLIP/VAE)' ?>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- NUEVOS CAMPOS: PARÁMETROS POR DEFECTO DEL MOTOR -->
+									<div class="col-12 mt-3">
+										<div class="p-2 border border-secondary rounded shadow-sm" style="background-color: rgba(13, 202, 240, 0.05);">
+											<label class="small text-info fw-bold mb-2"><i class="bi bi-sliders"></i> <?= __('adm_lbl_params_def') ?></label>
+											<div class="row g-2">
+												<div class="col-md-3">
+													<input type="number" id="modSteps" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="<?= __('adm_ph_steps') ?>">
+												</div>
+												<div class="col-md-3">
+													<input type="number" id="modCfg" step="0.1" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="<?= __('adm_ph_cfg') ?>">
+												</div>
+												<div class="col-md-3">
+                                                    <select id="modSampler" class="form-select form-select-sm bg-dark text-light border-secondary">
+                                                        <option value=""><?= __('adm_ph_sampler') ?? 'Sampler (Automático)' ?></option>
+                                                        <optgroup label="<?= __('adm_opt_estandar') ?? 'Estándar' ?>">
+                                                            <option value="euler">euler</option>
+                                                            <option value="euler_ancestral">euler_ancestral</option>
+                                                            <option value="dpmpp_2m">dpmpp_2m</option>
+                                                            <option value="dpmpp_2m_sde_gpu">dpmpp_2m_sde_gpu</option>
+                                                            <option value="dpmpp_3m_sde_gpu">dpmpp_3m_sde_gpu</option>
+                                                            <option value="lcm">lcm</option>
+                                                        </optgroup>
+                                                        <optgroup label="<?= __('adm_opt_avanzados') ?? 'Avanzados' ?>">
+                                                            <option value="euler_cfg_pp">euler_cfg_pp</option>
+                                                            <option value="euler_ancestral_cfg_pp">euler_ancestral_cfg_pp</option>
+                                                            <option value="heun">heun</option>
+                                                            <option value="heunpp2">heunpp2</option>
+                                                            <option value="exp_heun_2_x0">exp_heun_2_x0</option>
+                                                            <option value="exp_heun_2_x0_sde">exp_heun_2_x0_sde</option>
+                                                            <option value="dpm_2">dpm_2</option>
+                                                            <option value="dpm_2_ancestral">dpm_2_ancestral</option>
+                                                            <option value="lms">lms</option>
+                                                            <option value="dpm_fast">dpm_fast</option>
+                                                            <option value="dpm_adaptive">dpm_adaptive</option>
+                                                            <option value="dpmpp_2s_ancestral">dpmpp_2s_ancestral</option>
+                                                            <option value="dpmpp_2s_ancestral_cfg_pp">dpmpp_2s_ancestral_cfg_pp</option>
+                                                            <option value="dpmpp_sde">dpmpp_sde</option>
+                                                            <option value="dpmpp_sde_gpu">dpmpp_sde_gpu</option>
+                                                            <option value="dpmpp_2m_cfg_pp">dpmpp_2m_cfg_pp</option>
+                                                            <option value="dpmpp_2m_sde">dpmpp_2m_sde</option>
+                                                            <option value="dpmpp_2m_sde_heun">dpmpp_2m_sde_heun</option>
+                                                            <option value="dpmpp_2m_sde_heun_gpu">dpmpp_2m_sde_heun_gpu</option>
+                                                            <option value="dpmpp_3m_sde">dpmpp_3m_sde</option>
+                                                            <option value="ddpm">ddpm</option>
+                                                            <option value="ipndm">ipndm</option>
+                                                            <option value="ipndm_v">ipndm_v</option>
+                                                            <option value="deis">deis</option>
+                                                            <option value="res_multistep">res_multistep</option>
+                                                            <option value="res_multistep_cfg_pp">res_multistep_cfg_pp</option>
+                                                            <option value="res_multistep_ancestral">res_multistep_ancestral</option>
+                                                            <option value="res_multistep_ancestral_cfg_pp">res_multistep_ancestral_cfg_pp</option>
+                                                            <option value="gradient_estimation">gradient_estimation</option>
+                                                            <option value="gradient_estimation_cfg_pp">gradient_estimation_cfg_pp</option>
+                                                            <option value="er_sde">er_sde</option>
+                                                            <option value="seeds_2">seeds_2</option>
+                                                            <option value="seeds_3">seeds_3</option>
+                                                            <option value="sa_solver">sa_solver</option>
+                                                            <option value="sa_solver_pece">sa_solver_pece</option>
+                                                            <option value="ddim">ddim</option>
+                                                            <option value="uni_pc">uni_pc</option>
+                                                            <option value="uni_pc_bh2">uni_pc_bh2</option>
+                                                            <option value="legacy_rk">legacy_rk</option>
+                                                            <option value="rk">rk</option>
+                                                            <option value="rk_beta">rk_beta</option>
+                                                            <option value="deis_3m_ode">deis_3m_ode</option>
+                                                            <option value="deis_2m_ode">deis_2m_ode</option>
+                                                            <option value="deis_3m">deis_3m</option>
+                                                            <option value="deis_2m">deis_2m</option>
+                                                            <option value="res_6s_ode">res_6s_ode</option>
+                                                            <option value="res_5s_ode">res_5s_ode</option>
+                                                            <option value="res_3s_ode">res_3s_ode</option>
+                                                            <option value="res_2s_ode">res_2s_ode</option>
+                                                            <option value="res_3m_ode">res_3m_ode</option>
+                                                            <option value="res_2m_ode">res_2m_ode</option>
+                                                            <option value="res_6s">res_6s</option>
+                                                            <option value="res_5s">res_5s</option>
+                                                            <option value="res_3s">res_3s</option>
+                                                            <option value="res_2s">res_2s</option>
+                                                            <option value="res_3m">res_3m</option>
+                                                            <option value="res_2m">res_2m</option>
+                                                        </optgroup>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <select id="modScheduler" class="form-select form-select-sm bg-dark text-light border-secondary">
+                                                        <option value=""><?= __('adm_ph_scheduler') ?? 'Scheduler (Automático)' ?></option>
+                                                        <optgroup label="<?= __('adm_opt_estandar') ?? 'Estándar' ?>">
+                                                            <option value="beta">beta</option>
+                                                            <option value="exponential">exponential</option>
+                                                            <option value="karras">karras</option>
+                                                            <option value="simple">simple</option>
+                                                            <option value="sgm_uniform">sgm_uniform</option>
+                                                        </optgroup>
+                                                        <optgroup label="<?= __('adm_opt_avanzados') ?? 'Avanzados' ?>">
+                                                            <option value="linear_quadratic">linear_quadratic</option>
+                                                            <option value="beta57">beta57</option>
+                                                            <option value="bong_tangent">bong_tangent</option>
+                                                            <option value="kl_optimal">kl_optimal</option>
+                                                            <option value="normal">normal</option>
+                                                            <option value="ddim_uniform">ddim_uniform</option>
+                                                        </optgroup>
+                                                    </select>
+                                                </div>
+											</div>
+											<small class="text-muted mt-1 d-block" style="font-size: 0.7rem;"><i class="bi bi-info-circle"></i> <?= __('adm_desc_params_def') ?></small>
 										</div>
 									</div>
-								</form>
+                                </form>
                             </div>
                         </div>
                         <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
@@ -116,6 +225,7 @@
 										<th><?= __('tit_pan_arxsist') ?></th>
 										<th><?= __('tit_pan_motor') ?></th>
 										<th><?= __('tit_pan_categ') ?></th>
+										<th><?= __('tit_pan_parametros') ?? 'Parámetros' ?></th>
 										<th><?= __('tit_pan_unbundled') ?></th>
 										<th><?= __('tit_pan_nivel') ?></th>
 										<th><?= __('tit_pan_estado') ?></th>
