@@ -103,7 +103,7 @@
                         <small id="audioRefName" class="text-info d-block text-truncate" style="max-width: 100%;"></small>
                     </div>
                     <div class="mb-2">
-                        <label class="small text-secondary fw-bold"><?= __('lbl_audio_ref_text') ?? 'Transcripci贸n exacta' ?></label>
+                        <label class="small text-secondary fw-bold"><?= __('lbl_audio_ref_text') ?? 'Transcripción exacta' ?></label>
                         <input type="text" class="form-control form-control-sm bg-dark text-light border-info pref-track" id="audioRefText" placeholder="<?= __('ph_audio_ref_text') ?? 'Escribe lo que dice la muestra...' ?>">
                     </div>
                 </div>
