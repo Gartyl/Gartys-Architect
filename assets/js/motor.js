@@ -2191,6 +2191,40 @@ async function runGpu(mode = 'directo') {
         }
         return;
     }
+	
+	// === NUEVO: 3. GESTIÓN DE BENCHMARK (TODOS LOS MODELOS) ===
+    if (batchVal === 'all') {
+        // Capturamos todos los modelos válidos cargados en el desplegable actual
+        const modelSelect = document.getElementById('modelSelector');
+        const opcionesModelos = Array.from(modelSelect.options).filter(opt => opt.value !== "");
+        const totalModelos = opcionesModelos.length;
+
+        if (totalModelos === 0) {
+            showError(GartyLang.err_no_models_benchmark || "No hay modelos disponibles en esta categoría para hacer el Benchmark.");
+            if (buttonUsed) buttonUsed.disabled = false;
+            return;
+        }
+
+        // Semilla fija para poder comparar manzanas con manzanas. 
+        // Si el usuario puso -1, calculamos una y la anclamos para todos los modelos de este pase.
+        const semillaFija = (seedVal === -1 || isNaN(seedVal)) 
+            ? Math.floor(Math.random() * 9007199254740991) 
+            : seedVal;
+
+        // Disparamos las peticiones a la cola
+        for (let i = 0; i < totalModelos; i++) {
+            let fdSingle = new FormData();
+            fd.forEach((value, key) => fdSingle.append(key, value));
+            
+            fdSingle.set('batch_size', 1); // Forzamos a 1 para no colapsar la petición
+            fdSingle.set('model_path', opcionesModelos[i].value); // Inyectamos el modelo de la iteración
+            fdSingle.set('seed', semillaFija); // Fijamos la semilla
+
+            // Usamos tu función blindada existente para mandar la tarea a la cola
+            enviarTareaIndividualGpu(fdSingle, resDiv, buttonUsed, currentPromptId, originalCategory, i + 1, totalModelos);
+        }
+        return;
+    }
     // === FIN DE LA INTERCEPCIÓN (Si es 1 imagen, continúa con el try normal de abajo) ===
 
     try {
@@ -2398,10 +2432,19 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
                     });
 
                     // Permitir renderizado en la categoría actual o en [AUDIO]
-                    if (currentCategory === originalCategory || originalCategory === '[AUDIO]') {
-                        if (targetDiv) targetDiv.innerHTML = `<div class="row g-3">${htmlElements}</div>`;
-                        const gpuArea = document.getElementById('gpuActionArea'); if (gpuArea) gpuArea.classList.remove('d-none');
-                    } else {
+						if (currentCategory === originalCategory || originalCategory === '[AUDIO]') {
+							if (targetDiv) {
+								// Buscamos si ya existe la cuadrícula; si no, la creamos vacía
+								let rowContainer = targetDiv.querySelector('.row.g-3');
+								if (!rowContainer) {
+									targetDiv.innerHTML = '<div class="row g-3"></div>';
+									rowContainer = targetDiv.querySelector('.row.g-3');
+								}
+								// Añadimos las nuevas imágenes al final sin borrar las anteriores
+								rowContainer.insertAdjacentHTML('beforeend', htmlElements);
+							}
+							const gpuArea = document.getElementById('gpuActionArea'); if (gpuArea) gpuArea.classList.remove('d-none');
+						} else {
                         let asyncGallery = document.getElementById('asyncGallery');
                         if (!asyncGallery) {
                             asyncGallery = document.createElement('div'); asyncGallery.id = 'asyncGallery';
@@ -2930,7 +2973,27 @@ window.sincResVid = function() {
 };
 window.desmarcarPropVid = function() { document.getElementById('video_aspect_ratio').selectedIndex = -1; };
 
-document.addEventListener('DOMContentLoaded', () => { sincRes(); sincResVid(); });
+document.addEventListener('DOMContentLoaded', () => { 
+    sincRes(); 
+    sincResVid(); 
+
+    // === PASO 3: EFECTO VISUAL BENCHMARK ===
+    const batchSizeSelect = document.getElementById('batchSize');
+    const modelSelectorBlock = document.getElementById('modelSelector');
+    
+    if (batchSizeSelect && modelSelectorBlock) {
+        batchSizeSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'all') {
+                modelSelectorBlock.disabled = true;
+                modelSelectorBlock.style.opacity = '0.5';
+            } else {
+                modelSelectorBlock.disabled = false;
+                modelSelectorBlock.style.opacity = '1';
+            }
+        });
+    }
+    // =======================================
+});
 
 // --- CONTROL DEL MODO BORRADO MÁGICO (LaMa Remover) ---
 function toggleLamaUI(isLama) {
