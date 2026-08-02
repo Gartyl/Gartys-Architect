@@ -255,6 +255,8 @@ return [
     'ph_prompt_neg' => "Pega aquí tu Prompt Negativo...",
 	'sel_cimag_inf' => "∞ Generación Infinita",
 	'btn_stop_inf'  => "DETENER BUCLE ∞",
+	'sel_cimag_all' => '📊 Todos los Modelos (Benchmark)',
+    'err_no_models_benchmark' => 'No hay modelos disponibles en esta categoría para hacer el Benchmark.',
     
     'flt_seed' => "Semilla",
     'flt_random' => "Aleatorio",

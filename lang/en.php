@@ -255,6 +255,8 @@ return [
     'ph_prompt_neg' => "Paste your Negative Prompt here...",
 	'sel_cimag_inf' => "∞ Infinite Generation",
 	'btn_stop_inf'  => "STOP ∞ LOOP",
+	'sel_cimag_all' => '📊 All Models (Benchmark)',
+    'err_no_models_benchmark' => 'No models available in this category to run the Benchmark.',
     
     'flt_seed' => "Seed",
     'flt_random' => "Random",

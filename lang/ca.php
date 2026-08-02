@@ -255,6 +255,8 @@ return [
     'ph_prompt_neg' => "Enganxa aquí el teu Prompt Negatiu...",
 	'sel_cimag_inf' => "∞ Generació Infinita",
 	'btn_stop_inf'  => "ATURAR BUCLE ∞",
+	'sel_cimag_all' => '📊 Tots els Models (Benchmark)',
+    'err_no_models_benchmark' => 'No hi ha models disponibles en aquesta categoria per fer el Benchmark.',
     
     'flt_seed' => "Llavor",
     'flt_random' => "Aleatori",
