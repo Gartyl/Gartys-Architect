@@ -26,7 +26,7 @@
         </select>
     </div>
     
-	<div class="col-md-3 mt-3 mt-md-0" id="proporcionIndependienteBlock" style="display: none;">
+    <div class="col-md-3 mt-3 mt-md-0" id="proporcionIndependienteBlock" style="display: none;">
         <label class="small text-secondary fw-bold"><?= __('tit_proporcion') ?></label>
         <select class="form-select bg-dark text-light border-secondary pref-track" id="aspectRatio" onchange="if(typeof sincRes==='function') sincRes()">
             <option value="1024x1024"><?= __('sel_prop_1') ?></option>
@@ -41,6 +41,7 @@
             <option value="1"><?= __('sel_cimag_1') ?></option>
             <option value="2"><?= __('sel_cimag_2') ?></option>
             <option value="4"><?= __('sel_cimag_4') ?></option>
+            <option value="all"><?= __('sel_cimag_all') ?></option>
             <option value="inf" class="text-warning fw-bold"><?= __('sel_cimag_inf') ?></option>
         </select>
     </div>
