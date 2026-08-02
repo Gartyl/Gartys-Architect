@@ -133,6 +133,12 @@ return [
 	'tit_herramientas_pro' => "ADVANCED TOOLS",
 	'adm_lbl_unbundled' => "Unbundled Model (UNET Only. Uses separate nodes for CLIP/VAE)",
 	'tit_pan_unbundled' => "Structure",
+	'adm_lbl_params_def'  => "Optimal Factory Parameters (Optional)",
+	'adm_ph_steps'        => "Steps (Ex: 30 or 4)",
+	'adm_ph_cfg'          => "CFG (Ex: 5.0 or 1.0)",
+	'adm_ph_sampler'      => "Sampler (Ex: euler)",
+	'adm_ph_scheduler'    => "Scheduler (Ex: beta)",
+	'adm_desc_params_def' => "If left blank, the system will use standard safety values.",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Gallery",
@@ -255,8 +261,8 @@ return [
     'ph_prompt_neg' => "Paste your Negative Prompt here...",
 	'sel_cimag_inf' => "∞ Infinite Generation",
 	'btn_stop_inf'  => "STOP ∞ LOOP",
-	'sel_cimag_all' => '📊 All Models (Benchmark)',
-    'err_no_models_benchmark' => 'No models available in this category to run the Benchmark.',
+	'sel_cimag_all' => "📊 All Models (Benchmark)",
+    'err_no_models_benchmark' => "No models available in this category to run the Benchmark.",
     
     'flt_seed' => "Seed",
     'flt_random' => "Random",
@@ -285,6 +291,14 @@ return [
     'ptype_dado_sub' => "Surprise me",
     'ptype_arq_tit' => "Architect Mode",
     'ptype_arq_sub' => "ComfyUI / LTX",
+	
+	'tit_pan_parametros'  => "Parameters",
+	'msg_query_engines'   => "Querying engines...",
+	'msg_pro_exclusive'   => "Pro Exclusive",
+	'msg_db_models_empty' => "No models found in the Database.",
+	'msg_err_conn_proc'   => "Error connecting to the server.",
+	'adm_opt_estandar'  => "Standard",
+	'adm_opt_avanzados' => "Advanced",
     
     // --- TEXTOS GENERALES ---
     'txt_arrast_meta' => "Drag a PNG here to extract metadata",

@@ -133,6 +133,12 @@ return [
 	'tit_herramientas_pro' => "ПРОДВИНУТЫЕ ИНСТРУМЕНТЫ",
 	'adm_lbl_unbundled' => "Разделенная модель (Только UNET. Использует отдельные узлы для CLIP/VAE)",
 	'tit_pan_unbundled' => "Структура",
+	'adm_lbl_params_def'  => "Оптимальные заводские параметры (Необязательно)",
+	'adm_ph_steps'        => "Шаги (Напр.: 30 или 4)",
+	'adm_ph_cfg'          => "CFG (Напр.: 5.0 или 1.0)",
+	'adm_ph_sampler'      => "Сэмплер (Напр.: euler)",
+	'adm_ph_scheduler'    => "Планировщик (Напр.: beta)",
+	'adm_desc_params_def' => "Если оставить пустым, система будет использовать стандартные безопасные значения.",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Галерея",
@@ -255,8 +261,8 @@ return [
     'ph_prompt_neg' => "Вставьте сюда ваш негативный промпт...",
 	'sel_cimag_inf' => "∞ Бесконечная генерация",
 	'btn_stop_inf'  => "ОСТАНОВИТЬ ∞ ЦИКЛ",
-	'sel_cimag_all' => '📊 Все модели (Бенчмарк)',
-    'err_no_models_benchmark' => 'В этой категории нет доступных моделей для запуска бенчмарка.',
+	'sel_cimag_all' => "📊 Все модели (Бенчмарк)",
+    'err_no_models_benchmark' => "В этой категории нет доступных моделей для запуска бенчмарка.",
     
     'flt_seed' => "Сид",
     'flt_random' => "Случайный",
@@ -285,6 +291,14 @@ return [
     'ptype_dado_sub' => "Удиви меня",
     'ptype_arq_tit' => "Режим Архитектора",
     'ptype_arq_sub' => "ComfyUI / LTX",
+	
+	'tit_pan_parametros'  => "Параметры",
+	'msg_query_engines'   => "Опрос движков...",
+	'msg_pro_exclusive'   => "Эксклюзив Pro",
+	'msg_db_models_empty' => "В базе данных нет моделей.",
+	'msg_err_conn_proc'   => "Ошибка подключения к серверу.",
+	'adm_opt_estandar'  => "Стандартные",
+	'adm_opt_avanzados' => "Продвинутые",
     
     // --- TEXTOS GENERALES ---
     'txt_arrast_meta' => "Перетащите сюда PNG для извлечения метаданных",

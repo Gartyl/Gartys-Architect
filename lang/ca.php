@@ -133,6 +133,12 @@ return [
 	'tit_herramientas_pro' => "EINES AVANÇADES",
 	'adm_lbl_unbundled' => "Model Desmembrat (Només UNET. Usa nodes separats per a CLIP/VAE)",
 	'tit_pan_unbundled' => "Estructura",
+	'adm_lbl_params_def'  => "Paràmetres Òptims de Fàbrica (Opcional)",
+	'adm_ph_steps'        => "Steps (Ex: 30 o 4)",
+	'adm_ph_cfg'          => "CFG (Ex: 5.0 o 1.0)",
+	'adm_ph_sampler'      => "Sampler (Ex: euler)",
+	'adm_ph_scheduler'    => "Scheduler (Ex: beta)",
+	'adm_desc_params_def' => "Si els deixes buits, el sistema farà servir els valors estàndard de seguretat.",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Galeria",
@@ -255,8 +261,8 @@ return [
     'ph_prompt_neg' => "Enganxa aquí el teu Prompt Negatiu...",
 	'sel_cimag_inf' => "∞ Generació Infinita",
 	'btn_stop_inf'  => "ATURAR BUCLE ∞",
-	'sel_cimag_all' => '📊 Tots els Models (Benchmark)',
-    'err_no_models_benchmark' => 'No hi ha models disponibles en aquesta categoria per fer el Benchmark.',
+	'sel_cimag_all' => "📊 Tots els Models (Benchmark)",
+    'err_no_models_benchmark' => "No hi ha models disponibles en aquesta categoria per fer el Benchmark.",
     
     'flt_seed' => "Llavor",
     'flt_random' => "Aleatori",
@@ -285,6 +291,14 @@ return [
     'ptype_dado_sub' => "Sorprèn-me",
     'ptype_arq_tit' => "Mode Arquitecte",
     'ptype_arq_sub' => "ComfyUI / LTX",
+	
+	'tit_pan_parametros'  => "Paràmetres",
+	'msg_query_engines'   => "Consultant motors...",
+	'msg_pro_exclusive'   => "Exclusiu Pro",
+	'msg_db_models_empty' => "No hi ha models a la Base de Dades.",
+	'msg_err_conn_proc'   => "Error en connectar amb el servidor.",
+	'adm_opt_estandar'  => "Estàndard",
+	'adm_opt_avanzados' => "Avançats",
     
     // --- TEXTOS GENERALES ---
     'txt_arrast_meta' => "Arrossega un PNG aquí per extreure metadades",

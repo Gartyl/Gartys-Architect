@@ -133,6 +133,12 @@ return [
 	'tit_herramientas_pro' => "HERRAMIENTAS AVANZADAS",
 	'adm_lbl_unbundled' => "Modelo Desmembrado (Solo UNET. Usa nodos separados para CLIP/VAE)",
 	'tit_pan_unbundled' => "Estructura",
+	'adm_lbl_params_def'  => "Parámetros Óptimos de Fábrica (Opcional)",
+	'adm_ph_steps'        => "Steps (Ej: 30 o 4)",
+	'adm_ph_cfg'          => "CFG (Ej: 5.0 o 1.0)",
+	'adm_ph_sampler'      => "Sampler (Ej: euler)",
+	'adm_ph_scheduler'    => "Scheduler (Ej: beta)",
+	'adm_desc_params_def' => "Si los dejas vacíos, el sistema usará los valores estándar de seguridad.",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Galería",
@@ -255,8 +261,8 @@ return [
     'ph_prompt_neg' => "Pega aquí tu Prompt Negativo...",
 	'sel_cimag_inf' => "∞ Generación Infinita",
 	'btn_stop_inf'  => "DETENER BUCLE ∞",
-	'sel_cimag_all' => '📊 Todos los Modelos (Benchmark)',
-    'err_no_models_benchmark' => 'No hay modelos disponibles en esta categoría para hacer el Benchmark.',
+	'sel_cimag_all' => "📊 Todos los Modelos (Benchmark)",
+    'err_no_models_benchmark' => "No hay modelos disponibles en esta categoría para hacer el Benchmark.",
     
     'flt_seed' => "Semilla",
     'flt_random' => "Aleatorio",
@@ -285,6 +291,14 @@ return [
     'ptype_dado_sub' => "Sorpréndeme",
     'ptype_arq_tit' => "Modo Arquitecto",
     'ptype_arq_sub' => "ComfyUI / LTX",
+	
+	'tit_pan_parametros'  => "Parámetros",
+	'msg_query_engines'   => "Consultando motores...",
+	'msg_pro_exclusive'   => "Exclusivo Pro",
+	'msg_db_models_empty' => "No hay modelos en la Base de Datos.",
+	'msg_err_conn_proc'   => "Error al conectar con el servidor.",
+	'adm_opt_estandar'  => "Estándar",
+	'adm_opt_avanzados' => "Avanzados",
     
     // --- TEXTOS GENERALES ---
     'txt_arrast_meta' => "Arrastra un PNG aquí para extraer metadatos",
