@@ -2472,7 +2472,7 @@ if ($action === 'generar_imagen') {
 	// ==============================================================================
     // 🌟 INYECCIÓN FLUX 2 KLEIN EDIT (Kontext Conditioner)
     // ==============================================================================
-    $is_flux2 = (strpos($model_lower, 'flux2') !== false || strpos($model_lower, 'klein') !== false);
+    $is_flux2 = (strpos($model_lower, 'flux2') !== false || strpos($model_lower, 'klein') !== false || strpos($model_lower, 'kontext') !== false);
 
     if ($is_flux2 && !empty($init_image_base64) && !$is_outpainting) {
         
