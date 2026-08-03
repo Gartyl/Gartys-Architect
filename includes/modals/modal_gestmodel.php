@@ -356,9 +356,17 @@
                         </div>
                         <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                             <table class="table table-dark table-hover table-bordered border-secondary text-center align-middle m-0">
-                                <thead class="table-active text-info" style="position: sticky; top: 0; z-index: 1;">
-                                    <tr><th><?= __('tit_pan_id') ?></th><th><?= __('tit_pan_titulo') ?></th><th><?= __('tit_pan_tipo') ?></th><th><?= __('tit_pan_idioma') ?></th><th><?= __('tit_pan_param') ?></th><th><?= __('tit_pan_estado') ?></th><th><?= __('tit_pan_accion') ?></th></tr>
-                                </thead>
+                                <thead class="table-active text-info text-nowrap" style="position: sticky; top: 0; z-index: 1;">
+									<tr>
+										<th style="width: 5%;"><?= __('tit_pan_id') ?></th>
+										<th class="text-wrap" style="width: 40%; min-width: 250px;"><?= __('tit_pan_titulo') ?></th>
+										<th><?= __('tit_pan_tipo') ?></th>
+										<th><?= __('tit_pan_idioma') ?></th>
+										<th><?= __('tit_pan_param') ?></th>
+										<th><?= __('tit_pan_estado') ?></th>
+										<th><?= __('tit_pan_accion') ?></th>
+									</tr>
+								</thead>
                                 <tbody id="tablaPromptsBody"></tbody>
                             </table>
                         </div>
