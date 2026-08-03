@@ -2219,6 +2219,9 @@ async function runGpu(mode = 'directo') {
             fdSingle.set('batch_size', 1); // Forzamos a 1 para no colapsar la petición
             fdSingle.set('model_path', opcionesModelos[i].value); // Inyectamos el modelo de la iteración
             fdSingle.set('seed', semillaFija); // Fijamos la semilla
+			
+			// 👇 NUEVA LÍNEA: Avisamos al backend de que esto es un Benchmark 👇
+            fdSingle.set('is_benchmark', 'true');
 
             // Usamos tu función blindada existente para mandar la tarea a la cola
             enviarTareaIndividualGpu(fdSingle, resDiv, buttonUsed, currentPromptId, originalCategory, i + 1, totalModelos);
