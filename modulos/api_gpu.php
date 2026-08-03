@@ -658,18 +658,49 @@ if ($action === 'generar_imagen') {
         $scheduler = "simple";
     }
     
-   // --- APLICAR OVERRIDE DEL USUARIO SI EXISTE ---
-    if (isset($_POST['steps']) && intval($_POST['steps']) > 0) {
-        $steps = intval($_POST['steps']);
-    }
-    if (isset($_POST['cfg']) && floatval($_POST['cfg']) > 0) {
-        $cfg = floatval($_POST['cfg']);
-    }
-    if (!empty($_POST['sampler'])) {
-        $sampler = $_POST['sampler'];
-    }
-    if (!empty($_POST['scheduler'])) {
-        $scheduler = $_POST['scheduler'];
+	// ====================================================================
+    // --- APLICAR CONFIGURACIÓN (INTERFAZ vs BENCHMARK) ---
+    // ====================================================================
+    $es_benchmark = filter_var($_POST['is_benchmark'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+
+    if ($es_benchmark) {
+        // 🚀 MODO BENCHMARK: Consultamos directamente a la BD
+        $ruta_limpia = str_replace('\\', '/', $model_path);
+        $solo_nombre = basename($ruta_limpia); 
+        
+        $stmt_ajustes = $pdo->prepare("SELECT * FROM modelos_ia WHERE nombre_archivo LIKE ? LIMIT 1");
+        $stmt_ajustes->execute(['%' . $solo_nombre]);
+        $ajustes_bd = $stmt_ajustes->fetch(PDO::FETCH_ASSOC);
+
+        if ($ajustes_bd) {
+            // ¡Nombres de columnas extraídos de tu tabla real!
+            if (!empty($ajustes_bd['default_steps']) && intval($ajustes_bd['default_steps']) > 0) {
+                $steps = intval($ajustes_bd['default_steps']);
+            }
+            if (!empty($ajustes_bd['default_cfg']) && floatval($ajustes_bd['default_cfg']) > 0) {
+                $cfg = floatval($ajustes_bd['default_cfg']);
+            }
+            if (!empty($ajustes_bd['default_sampler'])) {
+                $sampler = $ajustes_bd['default_sampler'];
+            }
+            if (!empty($ajustes_bd['default_scheduler'])) {
+                $scheduler = $ajustes_bd['default_scheduler'];
+            }
+        }
+    } else {
+        // 🖱️ MODO NORMAL: Mandan las cajas de texto de la interfaz
+        if (isset($_POST['steps']) && intval($_POST['steps']) > 0) {
+            $steps = intval($_POST['steps']);
+        }
+        if (isset($_POST['cfg']) && floatval($_POST['cfg']) > 0) {
+            $cfg = floatval($_POST['cfg']);
+        }
+        if (!empty($_POST['sampler'])) {
+            $sampler = $_POST['sampler'];
+        }
+        if (!empty($_POST['scheduler'])) {
+            $scheduler = $_POST['scheduler'];
+        }
     }
 	
 	// =========================================================

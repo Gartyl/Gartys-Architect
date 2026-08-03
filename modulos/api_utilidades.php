@@ -134,9 +134,16 @@ if ($action === 'generar_prompt_sorpresa') {
 
         $sys = $semilla;
         $factor_caos = rand(10000, 99999);
-        $usr = __('cmd_adopt_persona') . "\n[" . $resultado_db['prompt_texto'] . "]\n\n" . __('cmd_adopt_persona_rules') . "\n\n[SYSTEM DIRECTIVE: This is a highly creative task. Chaos Factor: " . $factor_caos . ". DO NOT rely on common concepts like robots, bugs, beetles, or clocks. Be radically original and explore completely different themes.]";
+        
+        // 🔍 CHIVATO DE ENTRADA (Comentado para producción, actívalo para depurar)
+        // $titulo_personaje = $resultado_db['titulo'] ?? 'Desconocido';
+        // $debug_usr = "[DEBUG: Personaje -> $titulo_personaje]\n\n";
+        $debug_usr = ""; 
+        
+        // 🛑 INSTRUCCIÓN BASE Y BLOQUEO DE REPETICIONES
+        $usr = $debug_usr . __('cmd_adopt_persona') . "\n[" . $resultado_db['prompt_texto'] . "]\n\n" . __('cmd_adopt_persona_rules') . "\n\n[SYSTEM DIRECTIVE: This is a highly creative task. Chaos Factor: " . $factor_caos . ". DO NOT rely on common concepts like A24 movies, miniatures, giant heads, robots, bugs, beetles, or clocks. Be radically original and explore completely different themes.]";
 
-        $temperatura_final = 0.9;
+        $temperatura_final = 0.95; // Temperatura por defecto para asegurar máxima creatividad
         $modelo_base = !empty($_POST['llm_model']) ? $_POST['llm_model'] : '';
         
         if (empty($modelo_base)) {
@@ -154,18 +161,26 @@ if ($action === 'generar_prompt_sorpresa') {
 
         if (!empty($resultado_db['parametros'])) {
             $json_params = json_decode($resultado_db['parametros'], true);
+            // ✅ Respetamos la temperatura de la BD si el usuario la ha configurado ahí
             if (isset($json_params['temperature'])) $temperatura_final = (float)$json_params['temperature'];
             if (isset($json_params['model']) && !empty($json_params['model'])) $modelo_dado = $json_params['model'];
         }
 
-		$keep_alive_val = !empty($_POST['llm_model']) ? "1h" : 0;
+        $keep_alive_val = !empty($_POST['llm_model']) ? "1h" : 0;
 
+        // 🚀 PAYLOAD ÚNICO CON INYECCIÓN DE CAOS
         $payload = [
             "model" => $modelo_dado, 
             "messages" => [ ["role" => "system", "content" => $sys], ["role" => "user", "content" => $usr] ], 
             "stream" => false, 
             "keep_alive" => $keep_alive_val, 
-            "options" => [ "temperature" => $temperatura_final, "seed" => rand(1, 2147483647) ]
+            "options" => [ 
+                "temperature" => $temperatura_final, 
+                "top_p" => 0.95,           
+                "top_k" => 80,             
+                "repeat_penalty" => 1.3,   
+                "seed" => rand(1, 2147483647) 
+            ]
         ];
         
         $ch = curl_init("http://" . LLM_IP . ":" . LLM_PORT . "/api/chat");
@@ -182,7 +197,15 @@ if ($action === 'generar_prompt_sorpresa') {
             $clean = preg_replace('/<think>.*?<\/think>/is', '', $raw);
             if ($clean === null) $clean = $raw;
             if (empty(trim($clean))) $clean = trim(strip_tags($raw)); 
-            echo json_encode(['success' => true, 'prompt' => trim(str_replace('"', '', $clean))]);
+            
+            // 🔍 CHIVATO DE SALIDA (Comentado para producción, actívalo para depurar)
+            // $titulo_personaje = $resultado_db['titulo'] ?? 'Desconocido';
+            // $texto_final = "[PERSONAJE ELEGIDO POR BD: $titulo_personaje]\n\n" . trim(str_replace('"', '', $clean));
+            
+            // Texto de salida final limpio
+            $texto_final = trim(str_replace('"', '', $clean));
+            
+            echo json_encode(['success' => true, 'prompt' => $texto_final]);
         } else {
             $err = $result_data['error'] ?? __('err_surprise_empty');
             echo json_encode(['error' => is_string($err) ? $err : json_encode($err)]);
