@@ -130,16 +130,16 @@ async function cargarTablaPrompts() {
                 return `
                 <tr>
                     <td class="text-secondary">${p.id}</td>
-                    <td class="fw-bold text-light">${p.titulo}${candado}</td>
-                    <td><span class="badge bg-secondary text-light">${tipoVisual}</span></td>
+                    <td class="fw-bold text-light text-wrap text-start" style="max-width: 350px;">${p.titulo}${candado}</td>
+                    <td class="text-nowrap"><span class="badge bg-secondary text-light">${tipoVisual}</span></td>
                     <td><span class="badge border border-info text-info">${p.idioma.toUpperCase()}</span></td>
-                    <td class="small text-muted">${p.parametros ? '⚙️ ' + GartyLang.lbl_yes : '-'}</td>
+                    <td class="small text-muted text-nowrap">${p.parametros ? '⚙️ ' + GartyLang.lbl_yes : '-'}</td>
                     <td>
                         <div class="form-check form-switch d-flex justify-content-center m-0">
                             <input class="form-check-input border-info" type="checkbox" ${p.activo == 1 ? 'checked' : ''} onchange="cambiarEstadoPrompt(${p.id}, this.checked)">
                         </div>
                     </td>
-                    <td>
+                    <td class="text-nowrap">
                         <button class="btn btn-sm btn-info shadow-sm me-1" onclick="duplicarRegistro(${p.id}, '${p.titulo}')" title="${GartyLang.btn_duplicar}"><i class="bi bi-copy"></i></button>
                         <button class="btn btn-sm btn-warning me-1" onclick="cargarPromptEnFormulario(${p.id})" title="${GartyLang.btn_editar}"><i class="bi bi-pencil-fill"></i></button>
                         <button class="btn btn-sm btn-outline-danger shadow-sm" onclick="borrarPromptBD(${p.id}, '${p.titulo}')" title="${GartyLang.btn_eliminar}"><i class="bi bi-trash3-fill"></i></button>
