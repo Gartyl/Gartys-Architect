@@ -33,7 +33,7 @@ let audioCtx = null;
 function inicializarEntornoAvanzado() {
     if ("Notification" in window && Notification.permission === "default") {
         Notification.requestPermission().then(permission => {
-            if (permission !== 'granted') console.warn("Permiso de notificaciones denegado.");
+            if (permission !== 'granted') console.warn(typeof GartyLang !== 'undefined' ? GartyLang.log_warn_notif_denied : "Permiso de notificaciones denegado.");
         });
     }
     
@@ -70,7 +70,7 @@ function tocarCampana() {
         gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
         osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.6);
-    } catch(e) { console.warn("Audio falló", e); }
+    } catch(e) { console.warn(typeof GartyLang !== 'undefined' ? GartyLang.log_warn_audio_fail : "Audio falló", e); }
 }
 
 // 4. DISPARADOR DE AVISOS (Push Nativo + Parpadeo de Pestaña)
@@ -100,7 +100,7 @@ function avisarAlSistema(titulo, mensaje, imagenData) {
         
         // Usamos el 'titulo' que recibe la función (el mismo de la notificación)
         // Añadimos un texto "salvavidas" por si llegara vacío
-        let textoParpadeo = titulo || "¡Tarea terminada!"; 
+        let textoParpadeo = titulo || (typeof GartyLang !== 'undefined' ? GartyLang.notif_task_done : "¡Tarea terminada!"); 
 
         titleBlinkInterval = setInterval(() => {
             // Alternamos entre el título original ("Garty's Architect") y el texto
@@ -157,7 +157,7 @@ async function cargarDatosImagen(imgId) {
             SwalDark.fire({
                 icon: 'error',
                 title: typeof GartyLang !== 'undefined' ? GartyLang.swal_rest_err_title : 'Error de Restauración',
-                text: data.error || 'Datos vacíos',
+                text: data.error || (typeof GartyLang !== 'undefined' ? GartyLang.err_empty_data : 'Datos vacíos'),
                 confirmButtonText: `<i class="bi bi-check2-circle"></i> ${typeof GartyLang !== 'undefined' ? GartyLang.btn_entendido : 'Entendido'}`
             });
             return; 
@@ -420,12 +420,13 @@ function comprobarActualizaciones() {
                 if (contenedor && texto && btn) {
                     contenedor.style.display = 'block';
                     // Al estar en el navbar, mostramos un texto compacto
-                    texto.innerText = `🚀 v${data.remote_version} disponible`;
+                    const lblDisp = typeof GartyLang !== 'undefined' ? GartyLang.lbl_update_available : 'disponible';
+                    texto.innerText = `🚀 v${data.remote_version} ${lblDisp}`;
                     btn.dataset.zipUrl = data.zip_url || '';
                 }
             }
         })
-        .catch(err => console.log("Comprobación de versión omitida (offline o error de red)."));
+        .catch(err => console.log(typeof GartyLang !== 'undefined' ? GartyLang.log_info_update_skip : "Comprobación de versión omitida (offline o error de red)."));
 }
 
 function ejecutarActualizacion() {
@@ -472,8 +473,8 @@ function ejecutarActualizacion() {
                     } else {
                         SwalDark.fire({
                             icon: 'error',
-                            title: 'Error de Actualización',
-                            text: data.error || 'No se pudo completar la actualización.'
+                            title: typeof GartyLang !== 'undefined' ? GartyLang.swal_upd_err_title : 'Error de Actualización',
+                            text: data.error || (typeof GartyLang !== 'undefined' ? GartyLang.swal_upd_err_text : 'No se pudo completar la actualización.')
                         });
                         if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
                         if (progreso) progreso.style.display = 'none';
@@ -483,7 +484,7 @@ function ejecutarActualizacion() {
                     SwalDark.fire({
                         icon: 'error',
                         title: typeof GartyLang !== 'undefined' ? GartyLang.swal_net_err_title : 'Error de Red',
-                        text: 'Fallo crítico de comunicación con el servidor al intentar actualizar.'
+                        text: typeof GartyLang !== 'undefined' ? GartyLang.swal_upd_net_err_text : 'Fallo crítico de comunicación con el servidor al intentar actualizar.'
                     });
                     if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
                     if (progreso) progreso.style.display = 'none';
