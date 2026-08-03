@@ -24,9 +24,9 @@
                  <div class="col-md-3 mb-2" id="manualResBoxesBlock">
                      <label class="small text-secondary fw-bold mb-1"><?= __('tit_proporcion') ?> (W x H)</label>
                      <div class="input-group input-group-sm shadow-sm">
-                         <input type="number" class="form-control bg-dark text-light border-secondary text-center px-1" id="imgWidth" min="256" step="8" title="<?= __('tit_ancho') ?? 'Ancho' ?>" oninput="if(typeof desmarcarProp==='function') desmarcarProp()">
+                         <input type="number" class="form-control bg-dark text-light border-secondary text-center px-1" id="imgWidth" min="256" step="1" title="<?= __('tit_ancho') ?? 'Ancho' ?>" oninput="if(typeof desmarcarProp==='function') desmarcarProp()">
                          <span class="input-group-text bg-dark border-secondary text-secondary px-1 border-start-0 border-end-0">x</span>
-                         <input type="number" class="form-control bg-dark text-light border-secondary text-center px-1" id="imgHeight" min="256" step="8" title="<?= __('tit_alto') ?? 'Alto' ?>" oninput="if(typeof desmarcarProp==='function') desmarcarProp()">
+                         <input type="number" class="form-control bg-dark text-light border-secondary text-center px-1" id="imgHeight" min="256" step="1" title="<?= __('tit_alto') ?? 'Alto' ?>" oninput="if(typeof desmarcarProp==='function') desmarcarProp()">
                      </div>
                  </div>
                  
