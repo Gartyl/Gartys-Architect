@@ -439,8 +439,10 @@ function toggleFaceSwapPuro(activo) {
         if (activo) {
             if (inputPrompt) { inputPrompt.dataset.oldValue = inputPrompt.value; inputPrompt.value = ''; inputPrompt.style.setProperty('display', 'none', 'important'); }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'none', 'important');
-            if (btnAmplify) btnAmplify.style.setProperty('display', 'none', 'important');
-            if (btnSurprise) btnSurprise.style.setProperty('display', 'none', 'important');
+            //if (btnAmplify) btnAmplify.style.setProperty('display', 'none', 'important');
+			if (btnAmplify) btnAmplify.style.removeProperty('display');
+            //if (btnSurprise) btnSurprise.style.setProperty('display', 'none', 'important');
+			if (btnSurprise) btnSurprise.style.removeProperty('display');
             if (translateToggle) translateToggle.classList.add('d-none'); 
             if (resultsArea) resultsArea.classList.add('d-none');
             
@@ -457,9 +459,12 @@ function toggleFaceSwapPuro(activo) {
                 if (inputPrompt.dataset.oldValue !== undefined) { inputPrompt.value = inputPrompt.dataset.oldValue; delete inputPrompt.dataset.oldValue; }
             }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
-            if (btnAmplify) btnAmplify.style.setProperty('display', 'inline-block', 'important');
-            if (btnSurprise) btnSurprise.style.setProperty('display', 'inline-block', 'important');
+            //if (btnAmplify) btnAmplify.style.setProperty('display', 'inline-block', 'important');
+			if (btnAmplify) btnAmplify.style.removeProperty('display');
+            //if (btnSurprise) btnSurprise.style.setProperty('display', 'inline-block', 'important');
+			if (btnSurprise) btnSurprise.style.removeProperty('display');
             if (btnDirecto) {
+				btnDirecto.style.removeProperty('display'); //AÑADIR ESTO
                 btnDirecto.innerHTML = btnDirecto.dataset.oldText || '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
                 btnDirecto.className = 'btn btn-gpu flex-grow-1 text-white fw-bold shadow';
                 const sel = document.getElementById('selector').value;
@@ -480,8 +485,10 @@ function toggleRembgPuro(activo) {
         if (activo) {
             if (inputPrompt) { inputPrompt.dataset.oldValue = inputPrompt.value; inputPrompt.value = ''; inputPrompt.style.setProperty('display', 'none', 'important'); }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'none', 'important');
-            if (btnAmplify) btnAmplify.style.setProperty('display', 'none', 'important');
-            if (btnSurprise) btnSurprise.style.setProperty('display', 'none', 'important');
+            //if (btnAmplify) btnAmplify.style.setProperty('display', 'none', 'important');
+			if (btnAmplify) btnAmplify.style.removeProperty('display');
+            //if (btnSurprise) btnSurprise.style.setProperty('display', 'none', 'important');
+			if (btnSurprise) btnSurprise.style.removeProperty('display');
             if (translateToggle) translateToggle.classList.add('d-none'); if (resultsArea) resultsArea.classList.add('d-none');
             if (btnDirecto) {
                 btnDirecto.classList.remove('d-none'); btnDirecto.style.setProperty('display', 'inline-block', 'important');
@@ -496,9 +503,12 @@ function toggleRembgPuro(activo) {
                 if (inputPrompt.dataset.oldValue !== undefined) { inputPrompt.value = inputPrompt.dataset.oldValue; delete inputPrompt.dataset.oldValue; }
             }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
-            if (btnAmplify) btnAmplify.style.setProperty('display', 'inline-block', 'important');
-            if (btnSurprise) btnSurprise.style.setProperty('display', 'inline-block', 'important');
+            //if (btnAmplify) btnAmplify.style.setProperty('display', 'inline-block', 'important');
+			if (btnAmplify) btnAmplify.style.removeProperty('display');
+            //if (btnSurprise) btnSurprise.style.setProperty('display', 'inline-block', 'important');
+			if (btnSurprise) btnSurprise.style.removeProperty('display');
             if (btnDirecto) {
+				btnDirecto.style.removeProperty('display'); //AÑADIR ESTO
                 btnDirecto.innerHTML = btnDirecto.dataset.oldText || '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
                 btnDirecto.className = 'btn btn-gpu flex-grow-1 text-white fw-bold shadow';
                 const sel = document.getElementById('selector').value;
@@ -519,8 +529,10 @@ function toggleAdetailerPuro(activo) {
         if (activo) {
             if (inputPrompt) { inputPrompt.dataset.oldValue = inputPrompt.value; inputPrompt.value = ''; inputPrompt.style.setProperty('display', 'none', 'important'); }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'none', 'important');
-            if (btnAmplify) btnAmplify.style.setProperty('display', 'none', 'important');
-            if (btnSurprise) btnSurprise.style.setProperty('display', 'none', 'important');
+            //if (btnAmplify) btnAmplify.style.setProperty('display', 'none', 'important');
+			if (btnAmplify) btnAmplify.style.removeProperty('display');
+            //if (btnSurprise) btnSurprise.style.setProperty('display', 'none', 'important');
+			if (btnSurprise) btnSurprise.style.removeProperty('display');
             if (translateToggle) translateToggle.classList.add('d-none'); if (resultsArea) resultsArea.classList.add('d-none');
             if (btnDirecto) {
                 btnDirecto.classList.remove('d-none'); btnDirecto.style.setProperty('display', 'inline-block', 'important');
@@ -535,9 +547,12 @@ function toggleAdetailerPuro(activo) {
                 if (inputPrompt.dataset.oldValue !== undefined) { inputPrompt.value = inputPrompt.dataset.oldValue; delete inputPrompt.dataset.oldValue; }
             }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
-            if (btnAmplify) btnAmplify.style.setProperty('display', 'inline-block', 'important');
-            if (btnSurprise) btnSurprise.style.setProperty('display', 'inline-block', 'important');
+            //if (btnAmplify) btnAmplify.style.setProperty('display', 'inline-block', 'important');
+			if (btnAmplify) btnAmplify.style.removeProperty('display');
+            //if (btnSurprise) btnSurprise.style.setProperty('display', 'inline-block', 'important');
+			if (btnSurprise) btnSurprise.style.removeProperty('display');
             if (btnDirecto) {
+				btnDirecto.style.removeProperty('display'); //AÑADIR ESTO
                 btnDirecto.innerHTML = btnDirecto.dataset.oldText || '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
                 btnDirecto.className = 'btn btn-gpu flex-grow-1 text-white fw-bold shadow';
                 const sel = document.getElementById('selector').value;
@@ -564,10 +579,11 @@ function toggleDDColorPuro(activo) {
         if (activo) {
             if (inputPrompt) { inputPrompt.dataset.oldValue = inputPrompt.value; inputPrompt.value = ''; inputPrompt.style.setProperty('display', 'none', 'important'); }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'none', 'important');
-            if (btnAmplify) btnAmplify.style.setProperty('display', 'none', 'important');
-            if (btnSurprise) btnSurprise.style.setProperty('display', 'none', 'important');
+            if (btnAmplify) btnAmplify.style.removeProperty('display');
+            if (btnSurprise) btnSurprise.style.removeProperty('display');															   
             if (translateToggle) translateToggle.classList.add('d-none'); if (resultsArea) resultsArea.classList.add('d-none');
             if (btnDirecto) {
+				btnDirecto.style.removeProperty('display'); //AÑADIR ESTO
                 btnDirecto.classList.remove('d-none'); btnDirecto.style.setProperty('display', 'inline-block', 'important');
                 btnDirecto.dataset.oldText = btnDirecto.innerHTML;
                 btnDirecto.innerHTML = '<i class="bi bi-palette-fill"></i> Colorear Directo';
@@ -580,8 +596,8 @@ function toggleDDColorPuro(activo) {
                 if (inputPrompt.dataset.oldValue !== undefined) { inputPrompt.value = inputPrompt.dataset.oldValue; delete inputPrompt.dataset.oldValue; }
             }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
-            if (btnAmplify) btnAmplify.style.setProperty('display', 'inline-block', 'important');
-            if (btnSurprise) btnSurprise.style.setProperty('display', 'inline-block', 'important');
+            if (btnAmplify) btnAmplify.style.removeProperty('display');
+            if (btnSurprise) btnSurprise.style.removeProperty('display');													  
             if (btnDirecto) {
                 btnDirecto.innerHTML = btnDirecto.dataset.oldText || '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
                 btnDirecto.className = 'btn btn-gpu flex-grow-1 text-white fw-bold shadow';
@@ -804,8 +820,24 @@ function updateUIForSelector(sel) {
 
     const chatView = document.getElementById('chatView'); if (chatView) chatView.classList.toggle('d-none', sel !== '[CHAT]');
     const chatRoleBlock = document.getElementById('chatRoleBlock'); if (chatRoleBlock) chatRoleBlock.style.display = (sel === '[CHAT]') ? 'block' : 'none';
-    const surpriseBtn = document.getElementById('surpriseBtn'); if (surpriseBtn) surpriseBtn.classList.toggle('d-none', sel === '[VISION]');
     
+	// --- CONTROL BOTONES HERRAMIENTAS (DADO Y AUTO-ARQUITECTO) ---
+    const surpriseBtn = document.getElementById('surpriseBtn'); 
+    const autoArchBtn = document.getElementById('autoArchitectBtn');
+    const amplifyBtnTop = document.getElementById('amplifyBtn'); // <-- AÑADIR
+
+    // 1. El Dado SOLO lo queremos en los generadores de Imagen y Video
+    const mostrarDado = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]'].includes(sel);
+    if (surpriseBtn) surpriseBtn.classList.toggle('d-none', !mostrarDado);
+
+    // 2. El botón Amplificar (Magia) también lo queremos solo en generadores gráficos
+    const mostrarAmplify = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]'].includes(sel); // <-- AÑADIR
+    if (amplifyBtnTop) amplifyBtnTop.classList.toggle('d-none', !mostrarAmplify); // <-- AÑADIR
+
+    // 3. El Auto-Arquitecto lo queremos SOLO en LLM
+    const mostrarAutoArch = ['[LLM]'].includes(sel);
+    if (autoArchBtn) autoArchBtn.classList.toggle('d-none', !mostrarAutoArch);
+    // ----------------------------------------------------											
     const loraContainer = document.getElementById('loraContainer'); if (loraContainer) loraContainer.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]', '[CHAT]', '[VISION]'].includes(sel)) ? 'block' : 'none';
 
     // 1. Herramientas que SÍ funcionan en todas las arquitecturas
@@ -2266,6 +2298,7 @@ window.restaurarBotonesGpu = function() {
 
     const btnDirecto = document.getElementById('gpuDirectBtn');
     if (btnDirecto) {
+		btnDirecto.style.removeProperty('display'); // <--- AÑADIR ESTO
         btnDirecto.innerHTML = '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
         btnDirecto.classList.remove('btn-danger', 'btn-warning'); // Limpiamos rojo (LaMa) y naranja (IC-Light)
         btnDirecto.classList.add('btn-gpu');
@@ -3074,3 +3107,97 @@ function toggleIcLightUI() {
         }
     }
 }
+
+// ==============================================================================
+// --- AUTO-ARQUITECTO (ENRUTADOR INTELIGENTE POR REGLAS) ---
+// ==============================================================================
+
+window.ejecutarAutoArquitecto = async function() {
+    const cajaTexto = document.getElementById('descripcion');
+    const idea = cajaTexto ? cajaTexto.value.trim() : '';
+
+    if (!idea) {
+        SwalDark.fire({ icon: 'warning', title: GartyLang.avis_falta_idea || "Falta la idea", text: GartyLang.avis_falta_idea_txt || "Escribe algo primero." });
+        return;
+    }
+
+    const btn = document.getElementById('autoArchitectBtn');
+    const iconoOriginal = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm text-warning" role="status"></span>';
+    btn.disabled = true;
+
+    try {
+        const formData = new FormData();
+        formData.append('action', 'procesar_auto_arquitecto');
+        formData.append('idea', idea);
+
+        const response = await fetch('procesar.php', { method: 'POST', body: formData });
+        const data = await response.json();
+
+        if (data.success && data.reglas) {
+            // 1. Establecer Categoría (Ej: [NATURAL_IMAGE])
+            const selectorPrincipal = document.getElementById('selector');
+            if (selectorPrincipal && data.reglas.categoria) {
+                selectorPrincipal.value = data.reglas.categoria; 
+                
+                // 👇 CORRECCIÓN 1: Disparamos el evento nativo para que actualice la lista de modelos y LoRAs
+                selectorPrincipal.dispatchEvent(new Event('change'));
+            }
+
+            // 2. Timeout un pelín más largo para asegurar que la lista de modelos se ha repintado
+            setTimeout(() => {
+                // A. Seleccionar Modelo Exacto
+                const modelSelector = document.getElementById('modelSelector');
+                if (modelSelector && data.reglas.modelo_exacto) {
+                    // 👇 CORRECCIÓN 2: Búsqueda súper flexible (ignoramos las barras de carpeta)
+                    let exactMatch = Array.from(modelSelector.options).find(opt => 
+                        opt.value.replace(/\\/g, '/').endsWith(data.reglas.modelo_exacto.replace(/\\/g, '/'))
+                    );
+                    
+                    if (exactMatch) {
+                        modelSelector.value = exactMatch.value;
+                    }
+                }
+
+                // B. Establecer Proporción de aspecto
+                const aspectSel = document.getElementById('aspectRatio');
+                if (aspectSel && data.reglas.proporcion) {
+                    aspectSel.value = data.reglas.proporcion;
+                    if (typeof sincRes === 'function') sincRes();
+                }
+
+                // C. Activar herramientas Pro (Ej: FLUX Redux para la ropa)
+                if (data.reglas.activar_redux) {
+                    const ipaToggle = document.getElementById('ipAdapterToggle');
+                    if (ipaToggle && !ipaToggle.checked) {
+                        ipaToggle.checked = true;
+                        if (typeof toggleIpAdapterUI === 'function') toggleIpAdapterUI();
+                    }
+                }
+				
+				// 👇 NUEVO: Restauramos la idea que se borró al cambiar de categoría
+                if (cajaTexto) {
+                    cajaTexto.value = idea;
+                }
+
+                // 3. ¡Magia! Simulamos el clic en el botón principal para que empiece a renderizar
+                const submitBtn = document.getElementById('submitBtn');
+                if (submitBtn) submitBtn.click();
+                
+                // Restauramos el botón del arquitecto
+                btn.innerHTML = iconoOriginal;
+                btn.disabled = false;
+            }, 300); // 300ms da margen de sobra al navegador
+            
+            return;
+        } else {
+            SwalDark.fire({ icon: 'error', title: GartyLang.swal_err_enrutador || 'Error', text: data.error || 'No se pudo procesar la regla.' });
+        }
+    } catch (error) {
+        console.error("Error en Auto-Arquitecto:", error);
+        SwalDark.fire({ icon: 'error', title: GartyLang.swal_err_enrutador || 'Error', text: "Error de red al contactar al enrutador." });
+    }
+    
+    btn.innerHTML = iconoOriginal;
+    btn.disabled = false;
+};
