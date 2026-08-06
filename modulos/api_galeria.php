@@ -103,7 +103,7 @@ if ($action === 'concatenar_videos') {
 
     $nombre_final = 'byGarty_LTX_Epic_' . time() . '.mp4';
     $ruta_final = __DIR__ . '/../galeria/' . $nombre_final;
-    //$vf_scale = "scale={$lienzo_w}:{$lienzo_h}:force_original_aspect_ratio=decrease,pad={$lienzo_w}:{$lienzo_h}:(ow-iw)/2:(oh-ih)/2,fps=24";
+	//$vf_scale = "scale={$lienzo_w}:{$lienzo_h}:force_original_aspect_ratio=decrease,pad={$lienzo_w}:{$lienzo_h}:(ow-iw)/2:(oh-ih)/2,fps=24";
 	
 	// NUEVO: Recibimos los FPS reales (por defecto 16 si no llega nada)
     $video_fps = isset($_POST['video_fps']) ? intval($_POST['video_fps']) : 16;
