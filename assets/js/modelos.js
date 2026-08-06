@@ -309,19 +309,19 @@ function updateLoraFilter(category) {
                     let low = m.toLowerCase();
                     return low.includes('sd3') || low.includes('3.5');
                 });
-			// =========================================================================
+            // =========================================================================
             // --- NUEVO: FILTRO AISLADO PARA CARPETAS HUNYUAN Y HIDREAM ---
             // =========================================================================
             } else if (modeloSeleccionado.includes('hunyuan') && !modeloSeleccionado.includes('video')) {
                 tempLoras = loadedLoras.filter(m => {
-					let low = m.toLowerCase();
-					return low.includes('hunyuan');
-				});
+                    let low = m.toLowerCase();
+                    return low.includes('hunyuan');
+                });
             } else if (modeloSeleccionado.includes('hidream')) {
                 tempLoras = loadedLoras.filter(m => {
-					let low = m.toLowerCase();
-					return low.includes('hidream');
-				});
+                    let low = m.toLowerCase();
+                    return low.includes('hidream');
+                });
             // =========================================================================
             } else {
                 tempLoras = loadedLoras.filter(m => {
@@ -329,8 +329,20 @@ function updateLoraFilter(category) {
                     return low.includes('flux') || low.includes('sd35') || low.includes('sd3.5') || low.includes('sd3_5') || low.includes('zimage') || low.includes('z_image') || low.includes('z-image') || low.includes('qwen') || low.includes('krea2') || low.includes('krea-2') || low.includes('hunyuan') || low.includes('hidream');      
                 });
             }
+        // =========================================================================
+        // --- CORRECCIÓN: FILTRO ESPECÍFICO PARA MODELOS DE VIDEO ---
+        // =========================================================================
         } else if (targetArch === '[VIDEO]') {
-            tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('wan') || m.toLowerCase().includes('ltx'));
+            // Evaluamos si el modelo seleccionado es Wan o LTX específicamente
+            if (modeloSeleccionado.includes('wan')) {
+                tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('wan'));
+            } else if (modeloSeleccionado.includes('ltx')) {
+                tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('ltx'));
+            } else {
+                // Fallback por si acaso: muestra ambos si no detecta la sub-arquitectura
+                tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('wan') || m.toLowerCase().includes('ltx'));
+            }
+        // =========================================================================
         } else {
             tempLoras = [...loadedLoras];
         }
