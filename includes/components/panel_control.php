@@ -39,6 +39,17 @@
         <button type="button" class="btn btn-gpu flex-grow-1 text-white fw-bold shadow d-none" id="gpuDirectBtn" onclick="runGpu('directo')"><i class="bi bi-lightning-fill"></i> <?= __('btn_renderizar') ?></button>
         <button type="button" class="btn btn-primary flex-grow-1 text-white fw-bold shadow d-none" id="llmDirectBtn" onclick="runLlmDirect()"><i class="bi bi-robot"></i> <?= __('btn_textdirecto') ?></button>
         
+        <!-- NUEVO BOTÓN: AUTO-ARQUITECTO (Con control PRO y variables de idioma) -->
+        <?php if (isset($is_pro) && $is_pro): ?>
+            <button type="button" class="btn btn-primary px-3 fw-bold shadow border-0" id="autoArchitectBtn" onclick="ejecutarAutoArquitecto()" title="<?= __('btn_title_autoarch') ?>" style="background: linear-gradient(45deg, #0d6efd, #6610f2);">
+                <i class="bi bi-stars fs-5 text-warning"></i>
+            </button>
+        <?php else: ?>
+            <button type="button" class="btn btn-secondary px-3 fw-bold shadow-sm" id="autoArchitectBtn" title="<?= __('btn_title_autoarch_free') ?>" disabled>
+                <i class="bi bi-stars fs-5 text-muted"></i> 🔒
+            </button>
+        <?php endif; ?>
+
         <button type="button" class="btn btn-info px-3 fw-bold text-dark" id="amplifyBtn" title="<?= __('btn_title_amplify') ?>"><i class="bi bi-magic fs-5"></i></button>
         <button type="button" class="btn btn-warning px-3 fw-bold" id="surpriseBtn" title="<?= __('btn_title_surprise') ?>"><i class="bi bi-dice-5-fill fs-5"></i></button>
         <button type="button" class="btn btn-secondary px-4" id="clearBtn"><?= __('btn_limpiar') ?></button>
