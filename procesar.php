@@ -89,6 +89,9 @@ try {
             break;
 
         // --- LLM Y VISIÓN ---
+		case 'procesar_auto_arquitecto':
+            require_once __DIR__ . '/modulos/api_auto_arquitecto.php';
+            break;
         case 'vision_extract':
         case 'describir_imagen':
             require_once __DIR__ . '/modulos/api_vision.php';
