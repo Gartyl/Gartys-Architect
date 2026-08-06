@@ -773,7 +773,7 @@ if ($action === 'generar_imagen') {
                 '__CFG__' => $cfg,
                 '__SAMPLER__' => $sampler,
                 '__SCHEDULER__' => $scheduler,
-                '__MODELO__' => basename(str_replace('\\', '/', $modelo_seguro)),
+                '__MODELO__' => $modelo_seguro,
                 '__PROMPT_POSITIVO__' => $posPrompt,
                 '__PROMPT_NEGATIVO__' => $neg_prompt,
                 '__INIT_IMAGE__' => $comfy_image_filename,
@@ -2015,10 +2015,10 @@ if ($action === 'generar_imagen') {
     $es_arquitectura_nueva = ($es_unbundled_db || $esta_en_carpeta_unet || $is_flux || $is_chroma || $is_zimage || $is_gguf || $is_qwen || $is_krea2 || $is_hunyuan || $is_hidream);
 
     if ($es_arquitectura_nueva) {
-        $clean_path = str_replace('\\', '/', $model_path);
-        $unet_filename = basename($clean_path);
+        // Dejamos la ruta absolutamente intacta para que coincida 100% con Windows/ComfyUI
+        $unet_filename = $model_path;
         
-		// 1. CARGAMOS EL UNET (100% Nativos para que ComfyUI no sature)
+        // 1. CARGAMOS EL UNET (100% Nativos para que ComfyUI no sature)
         if ($is_gguf) {
             $workflow["4"] = [ "inputs" => ["unet_name" => $unet_filename], "class_type" => "UnetLoaderGGUF" ];
             $current_model_node = "4";
