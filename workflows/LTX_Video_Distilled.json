@@ -26,6 +26,6 @@
   "309": { "inputs": { "audio": "__INIT_AUDIO__" }, "class_type": "LoadAudio" },
   "310": { "inputs": { "unet_name": "__MODELO__" }, "class_type": "UnetLoaderGGUF" },
   "314": { "inputs": { "chunks": 2, "dim_threshold": 2048, "model": [ "293", 0 ] }, "class_type": "LTXVChunkFeedForward" },
-  "318": { "inputs": { "vae_name": "LTX\\LTX23_video_vae_bf16.safetensors" }, "class_type": "VAELoader" },
-  "320": { "inputs": { "vae_name": "LTX\\LTX23_audio_vae_bf16.safetensors", "device": "main_device", "weight_dtype": "bf16" }, "class_type": "VAELoaderKJ" }
+  "318": { "inputs": { "vae_name": "LTX23_video_vae_bf16.safetensors" }, "class_type": "VAELoader" },
+  "320": { "inputs": { "vae_name": "LTX23_audio_vae_bf16.safetensors", "device": "main_device", "weight_dtype": "bf16" }, "class_type": "VAELoaderKJ" }
 }
