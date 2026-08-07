@@ -2647,6 +2647,78 @@ if ($action === 'generar_imagen') {
         // Enganchamos el modelo normalizado para que el KSampler lo recoja
         $current_model_node = "851_qwen_cfg"; 
     }
+	
+	// ==============================================================================
+    // 🌟 INYECCIÓN IDEOGRAM 4 (Vía JSON Plantilla Estricta)
+    // ==============================================================================
+    $is_ideogram = (strpos($model_lower, 'ideogram') !== false);
+    
+    if ($is_ideogram && !$is_outpainting && empty($init_image_base64)) {
+        
+        $ruta_json = __DIR__ . '/../workflows/Ideogram4.json';
+        
+        $reemplazos = [
+            '__SEED__' => $seed,
+            '__WIDTH__' => $width,
+            '__HEIGHT__' => $height,
+            '__SAMPLER__' => $sampler,
+            '__MODELO__' => $model_path,
+            '__PROMPT_POSITIVO__' => $posPrompt
+        ];
+
+        // Cargamos el JSON e inyectamos los valores del usuario
+        $workflow = cargarWorkflowJSON($ruta_json, $reemplazos);
+        
+        // --- 1. Lógica interna de calidad Ideogram ---
+        // Ideogram no usa "steps" directos en el UI, usa 3 modos (Quality, Default, Turbo)
+        // Convertimos los steps de Garty's Architect a esos modos para no romper la matemática
+        $modo_calidad = "Quality";
+        if ($steps <= 15) {
+            $modo_calidad = "Turbo";
+        } elseif ($steps > 15 && $steps <= 25) {
+            $modo_calidad = "Default";
+        }
+        $workflow["98:156"]["inputs"]["choice"] = $modo_calidad;
+        
+        // --- 2. Inyección de LoRAs ---
+        $current_model_node_ideo = "98:23";
+        $current_clip_node_ideo = "98:177";
+        
+        if (!empty($lora_names)) {
+            $l_id = 500;
+            foreach ($lora_names as $j => $lname) {
+                if (empty(trim($lname))) continue;
+                $lstr = floatval($lora_strengths_high[$j] ?? 0.8);
+                
+                // Formateamos la ruta para Ideogram (Ajustado a ideogram4)
+                if (strpos($lname, '\\') === false && strpos($lname, '/') === false) {
+                    $lname = "ideogram4\\" . $lname;
+                }
+                
+                $workflow[(string)$l_id] = [
+                    "inputs" => [
+                        "lora_name" => $lname,
+                        "strength_model" => $lstr,
+                        "strength_clip" => $lstr,
+                        "model" => [$current_model_node_ideo, 0],
+                        "clip" => [$current_clip_node_ideo, 0]
+                    ],
+                    "class_type" => "LoraLoader"
+                ];
+                
+                $current_model_node_ideo = (string)$l_id;
+                $current_clip_node_ideo = (string)$l_id;
+                $l_id++;
+            }
+            
+            // Actualizamos los nodos principales para que recojan la salida con los LoRAs
+            $workflow["98:157"]["inputs"]["model"] = [$current_model_node_ideo, 0];
+            $workflow["98:24"]["inputs"]["clip"] = [$current_clip_node_ideo, 1];
+        }
+
+        $current_image_node = "184"; // El nodo SaveImage
+        goto EJECUTAR_COMFYUI;
+    }
     
     // --- FASE EXTRA: DYNAMIC THRESHOLDING ---
     if ($dynamic_thresholding) {
