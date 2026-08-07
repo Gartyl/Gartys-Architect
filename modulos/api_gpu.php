@@ -1074,7 +1074,7 @@ if ($action === 'generar_imagen') {
         $repl_low  = ['low_noise',  'LOW_NOISE',  'Low_Noise',  'Low_noise',  '_low_',  '_LOW_',  '_Low_'];
         
         $low_noise_model = str_replace($find_high, $repl_low, $model_path);
-        $wan_vae = (strpos(strtolower($model_path), '5b') !== false) ? "Wan\\Wan2.2_VAE.safetensors" : "Wan\\wan_2.1_VAE.safetensors";
+        $wan_vae = (strpos(strtolower($model_path), '5b') !== false) ? "Wan2.2_VAE.safetensors" : "wan_2.1_VAE.safetensors";
 
         $workflow["95"] = ["inputs" => ["unet_name" => $high_noise_model, "weight_dtype" => "default"], "class_type" => "UNETLoader"];
         $workflow["96"] = ["inputs" => ["unet_name" => $low_noise_model, "weight_dtype" => "default"], "class_type" => "UNETLoader"];
@@ -3225,7 +3225,12 @@ if ($action === 'generar_imagen') {
                     $node_fail = "ControlNet";
                 }
                 
-                echo json_encode(['error' => __('err_gen_node_fail') . " [$node_fail]: $exception"]);
+                // Formateamos el error para que tu JS (core.js/herramientas.js) lo atrape y dispare tu SwalDark
+                $err_msg = "<b>" . __('err_gen_node_fail') . "</b><br>"
+                         . "<span class='badge bg-danger mt-2 mb-1'>Nodo: " . htmlspecialchars($node_fail) . "</span><br>"
+                         . "<span class='text-warning small'>" . htmlspecialchars($exception) . "</span>";
+
+                echo json_encode(['error' => $err_msg]);
                 exit();
             }
 
