@@ -290,11 +290,30 @@ function updateLoraFilter(category) {
             // === FILTRO AISLADO POR ARQUITECTURAS ===
             if (modeloSeleccionado.includes('chroma') && !modeloSeleccionado.includes('zavy')) {
                 tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('chroma\\') || m.toLowerCase().includes('chroma/'));
-            } else if (modeloSeleccionado.includes('flux')) {
+            // =========================================================================
+            // --- NUEVO: FILTRO AISLADO PARA IDEOGRAM 4 ---
+            // =========================================================================
+            } else if (modeloSeleccionado.includes('ideogram')) {
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
-                    return low.includes('flux\\') || low.includes('flux/') || low.startsWith('f1_') || low.startsWith('f2_');
+                    return low.includes('ideogram4');
                 });
+            // =========================================================================
+            // --- NUEVO: SEPARACIÓN ESTRICTA FLUX 1 vs FLUX 2 ---
+            // =========================================================================
+            } else if (modeloSeleccionado.includes('flux2') || modeloSeleccionado.includes('klein') || modeloSeleccionado.includes('kontext')) {
+                // FLUX 2: Exclusivo para la subcarpeta flux2 (o archivos que empiecen por f2_)
+                tempLoras = loadedLoras.filter(m => {
+                    let low = m.toLowerCase();
+                    return low.includes('flux2\\') || low.includes('flux2/') || low.startsWith('f2_');
+                });
+            } else if (modeloSeleccionado.includes('flux')) {
+                // FLUX 1: Exclusivo para la subcarpeta flux original, excluyendo explícitamente a flux2
+                tempLoras = loadedLoras.filter(m => {
+                    let low = m.toLowerCase();
+                    return (low.includes('flux\\') || low.includes('flux/') || low.startsWith('f1_')) && !low.includes('flux2');
+                });
+            // =========================================================================
             } else if (modeloSeleccionado.includes('z-image') || modeloSeleccionado.includes('zimage') || modeloSeleccionado.includes('z_image')) {
                 tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('zimage'));
             } else if (modeloSeleccionado.includes('qwen')) {
@@ -309,9 +328,6 @@ function updateLoraFilter(category) {
                     let low = m.toLowerCase();
                     return low.includes('sd3') || low.includes('3.5');
                 });
-            // =========================================================================
-            // --- NUEVO: FILTRO AISLADO PARA CARPETAS HUNYUAN Y HIDREAM ---
-            // =========================================================================
             } else if (modeloSeleccionado.includes('hunyuan') && !modeloSeleccionado.includes('video')) {
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
@@ -322,11 +338,11 @@ function updateLoraFilter(category) {
                     let low = m.toLowerCase();
                     return low.includes('hidream');
                 });
-            // =========================================================================
             } else {
                 tempLoras = loadedLoras.filter(m => {
                     const low = m.toLowerCase();
-                    return low.includes('flux') || low.includes('sd35') || low.includes('sd3.5') || low.includes('sd3_5') || low.includes('zimage') || low.includes('z_image') || low.includes('z-image') || low.includes('qwen') || low.includes('krea2') || low.includes('krea-2') || low.includes('hunyuan') || low.includes('hidream');      
+                    // AÑADIDO: ideogram4 al fallback general por si falla el string del modelo
+                    return low.includes('flux') || low.includes('sd35') || low.includes('sd3.5') || low.includes('sd3_5') || low.includes('zimage') || low.includes('z_image') || low.includes('z-image') || low.includes('qwen') || low.includes('krea2') || low.includes('krea-2') || low.includes('hunyuan') || low.includes('hidream') || low.includes('ideogram4');      
                 });
             }
         // =========================================================================
