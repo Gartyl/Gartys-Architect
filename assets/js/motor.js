@@ -1460,7 +1460,8 @@ async function executeProcess(fd, selValue, retries = 2, loadingId = null, silen
                 }
                 return executeProcess(fd, selValue, retries - 1, loadingId, silentMainBtn);
             }
-            SwalDark.fire({ icon: 'warning', title: GartyLang.swal_sys_warn, text: data.error, confirmButtonColor: '#17a2b8', confirmButtonText: '<i class="bi bi-check-lg"></i> ' + GartyLang.btn_understood_check });
+            // Cambiado a html: data.error
+            SwalDark.fire({ toast: false, position: 'center', timer: undefined, showConfirmButton: true, icon: 'warning', title: GartyLang.swal_sys_warn, html: data.error, confirmButtonColor: '#17a2b8', confirmButtonText: '<i class="bi bi-check-lg"></i> ' + (GartyLang.btn_understood_check || 'Entendido') });
             if (typeof stopProgressBar === 'function') stopProgressBar();
             return; 
         }
@@ -1903,7 +1904,8 @@ async function runLlmDirect() {
                     const data = JSON.parse(line);
                     
                     if (data.error) {
-                        SwalDark.fire({ icon: 'error', title: GartyLang.swal_llm_err_title, text: data.error, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${GartyLang.btn_entendido}` });
+                        // Cambiado a html: data.error
+                        SwalDark.fire({ icon: 'error', title: GartyLang.swal_llm_err_title, html: data.error, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${GartyLang.btn_entendido}` });
                         if (textoIAResolucion === "") resBox.innerText = GartyLang.llm_msg_err_cancel;
                         return; 
                     }
@@ -2266,9 +2268,9 @@ async function runGpu(mode = 'directo') {
         const res = await fetch('procesar.php', { method: 'POST', body: fd }); const data = await res.json();
         if (data.error) {
             if (typeof stopProgressBar === 'function') stopProgressBar(); 
-            SwalDark.fire({ icon: 'error', title: GartyLang.swal_gen_cancel_title, html: data.error, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${GartyLang.btn_entendido}` });
+            SwalDark.fire({ toast: false, position: 'center', timer: undefined, showConfirmButton: true, icon: 'error', title: GartyLang.swal_gen_cancel_title, html: data.error, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${GartyLang.btn_entendido}` });
             buttonUsed.innerHTML = originalBtnText; buttonUsed.disabled = false; return; 
-        }
+            }
         
         if (data.status === 'ticket_issued' && data.prompt_id) {
             currentPromptId = data.historial_id || currentPromptId; 
@@ -2446,7 +2448,7 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
                         setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.classList.replace('btn-danger', 'btn-primary'); btnElement.disabled = false; }, 4000);
                     }
                 }
-                SwalDark.fire({ icon: 'error', title: GartyLang.swal_radar_gpu_err_title, text: data.error, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${GartyLang.btn_entendido}` });
+                SwalDark.fire({ toast: false, position: 'center', timer: undefined, showConfirmButton: true, icon: 'error', title: GartyLang.swal_radar_gpu_err_title, html: data.error, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${GartyLang.btn_entendido}` });
                 return; 
             }
 
