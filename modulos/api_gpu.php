@@ -1070,18 +1070,37 @@ if ($action === 'generar_imagen') {
         
         $high_noise_model = $model_path;
         
-        $find_high = ['high_noise', 'HIGH_NOISE', 'High_Noise', 'High_noise', '_high_', '_HIGH_', '_High_'];
-        $repl_low  = ['low_noise',  'LOW_NOISE',  'Low_Noise',  'Low_noise',  '_low_',  '_LOW_',  '_Low_'];
+        $find_high = ['high_noise', 'HIGH_NOISE', 'High_Noise', 'High_noise', '_high_', '_HIGH_', '_High_', 'High.gguf', 'high.gguf', 'High.safetensors', 'high.safetensors'];
+        $repl_low  = ['low_noise',  'LOW_NOISE',  'Low_Noise',  'Low_noise',  '_low_',  '_LOW_',  '_Low_',  'Low.gguf', 'low.gguf', 'Low.safetensors', 'low.safetensors'];
         
         $low_noise_model = str_replace($find_high, $repl_low, $model_path);
         $wan_vae = (strpos(strtolower($model_path), '5b') !== false) ? "Wan2.2_VAE.safetensors" : "wan_2.1_VAE.safetensors";
 
-        $workflow["95"] = ["inputs" => ["unet_name" => $high_noise_model, "weight_dtype" => "default"], "class_type" => "UNETLoader"];
-        $workflow["96"] = ["inputs" => ["unet_name" => $low_noise_model, "weight_dtype" => "default"], "class_type" => "UNETLoader"];
-        $workflow["84"] = ["inputs" => ["clip_name" => "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "type" => "wan", "device" => "default"], "class_type" => "CLIPLoader"];
+        // 1. Cargadores UNET y VAE
+        if (strpos(strtolower($model_path), '.gguf') !== false) {
+            $workflow["95"] = ["inputs" => ["unet_name" => $high_noise_model], "class_type" => "UnetLoaderGGUF"];
+            $workflow["96"] = ["inputs" => ["unet_name" => $low_noise_model], "class_type" => "UnetLoaderGGUF"];
+        } else {
+            $workflow["95"] = ["inputs" => ["unet_name" => $high_noise_model, "weight_dtype" => "default"], "class_type" => "UNETLoader"];
+            $workflow["96"] = ["inputs" => ["unet_name" => $low_noise_model, "weight_dtype" => "default"], "class_type" => "UNETLoader"];
+        }
+
         $workflow["90"] = ["inputs" => ["vae_name" => $wan_vae], "class_type" => "VAELoader"];
 
-        // 2. Inyección Inteligente de LoRAs
+        // 2. Cargador de Texto (Dinámico: GGUF o Safetensors según el modelo base)
+        if (strpos(strtolower($model_path), '.gguf') !== false) {
+            $workflow["84"] = [
+                "inputs" => ["clip_name" => "umt5-xxl-encoder-Q5_K_M.gguf", "type" => "wan"], 
+                "class_type" => "CLIPLoaderGGUF"
+            ];
+        } else {
+            $workflow["84"] = [
+                "inputs" => ["clip_name" => "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "type" => "wan", "device" => "default"], 
+                "class_type" => "CLIPLoader"
+            ];
+        }
+
+        // 3. Inyección Inteligente de LoRAs
         $current_hn = ["95", 0];
         $current_ln = ["96", 0];
         $current_clip = ["84", 0];
@@ -1099,8 +1118,8 @@ if ($action === 'generar_imagen') {
                 $lstr_high = floatval($lora_strengths_high[$j] ?? 0.8);
                 $lstr_low = floatval($lora_strengths_low[$j] ?? $lstr_high);
 
-                $is_high_by_name = preg_match('/(high_noise|_high_)/i', $lname);
-                $is_low_by_name  = preg_match('/(low_noise|_low_)/i', $lname);
+                $is_high_by_name = preg_match('/(high_noise|_high_|High\.gguf|High\.safetensors)/i', $lname);
+                $is_low_by_name  = preg_match('/(low_noise|_low_|Low\.gguf|Low\.safetensors)/i', $lname);
 
                 $actual_high = $lname;
                 $actual_low  = $lname;
@@ -1111,7 +1130,7 @@ if ($action === 'generar_imagen') {
                     $actual_high = str_replace($repl_low, $find_high, $lname);
                 }
 
-                $prefix_parts = preg_split('/(high_noise|low_noise|_high_|_low_)/i', $lname);
+                $prefix_parts = preg_split('/(high_noise|low_noise|_high_|_low_|High\.gguf|Low\.gguf)/i', $lname);
                 $prefix = $prefix_parts[0] ?? ''; 
 
                 if (($is_high_by_name || $is_low_by_name) && !empty($prefix)) {
@@ -1121,12 +1140,12 @@ if ($action === 'generar_imagen') {
                         $lname2 = trim($lora_names[$k]);
                         if (empty($lname2)) continue;
 
-                        $prefix_parts2 = preg_split('/(high_noise|low_noise|_high_|_low_)/i', $lname2);
+                        $prefix_parts2 = preg_split('/(high_noise|low_noise|_high_|_low_|High\.gguf|Low\.gguf)/i', $lname2);
                         $prefix2 = $prefix_parts2[0] ?? '';
 
                         if ($prefix === $prefix2) {
-                            $is_lname2_low = preg_match('/(low_noise|_low_)/i', $lname2);
-                            $is_lname2_high = preg_match('/(high_noise|_high_)/i', $lname2);
+                            $is_lname2_low = preg_match('/(low_noise|_low_|Low\.gguf|Low\.safetensors)/i', $lname2);
+                            $is_lname2_high = preg_match('/(high_noise|_high_|High\.gguf|High\.safetensors)/i', $lname2);
 
                             if ($is_high_by_name && $is_lname2_low) {
                                 $actual_low = $lname2;
@@ -1154,8 +1173,8 @@ if ($action === 'generar_imagen') {
                 $current_ln = [(string)$v_lora_id, 0]; 
                 $v_lora_id++;
 
-                $nombre_h = basename($actual_high, '.safetensors');
-                $nombre_l = basename($actual_low, '.safetensors');
+                $nombre_h = basename($actual_high);
+                $nombre_l = basename($actual_low);
                 if ($nombre_h === $nombre_l) {
                     $lora_metadata_list[] = "$nombre_h (High: $lstr_high / Low: $lstr_low)";
                 } else {
@@ -1170,7 +1189,7 @@ if ($action === 'generar_imagen') {
         $workflow["104"] = ["inputs" => ["shift" => 5.0, "model" => $current_hn], "class_type" => "ModelSamplingSD3"];
         $workflow["103"] = ["inputs" => ["shift" => 5.0, "model" => $current_ln], "class_type" => "ModelSamplingSD3"];
 
-        // 4. Preparación del Latente
+        // 4. Preparación del Latente Blindada (Truco de la imagen negra)
         $split_step = max(1, round($steps / 2));
         $latent_source = "";
         $positive_source = ["93", 0]; 
@@ -1186,25 +1205,24 @@ if ($action === 'generar_imagen') {
             $res_up = json_decode(curl_exec($ch_up), true); @unlink($tmp_file);
 
             $workflow["97"] = ["inputs" => ["image" => $res_up['name'], "upload" => "image"], "class_type" => "LoadImage"];
-            
-            $workflow["97_scale"] = [
-                "inputs" => ["upscale_method" => "bilinear", "width" => $width, "height" => $height, "crop" => "center", "image" => ["97", 0]], 
-                "class_type" => "ImageScale"
-            ];
-
-            $workflow["98"] = [
-                "inputs" => ["width" => $width, "height" => $height, "length" => $video_frames, "batch_size" => 1, "positive" => ["93", 0], "negative" => ["89", 0], "vae" => ["90", 0], "start_image" => ["97_scale", 0]],
-                "class_type" => "WanImageToVideo"
-            ];
-            
-            $positive_source = ["98", 0];
-            $negative_source = ["98", 1];
-            $latent_source = ["98", 2];
-            
         } else {
-            $workflow["98"] = ["inputs" => ["width" => $width, "height" => $height, "length" => $video_frames, "batch_size" => 1], "class_type" => "EmptyHunyuanLatentVideo"];
-            $latent_source = ["98", 0];
+            // TRUCO: Creamos una imagen negra al vuelo para T2V y evitamos latentes incompatibles
+            $workflow["97"] = ["inputs" => ["width" => $width, "height" => $height, "batch_size" => 1, "color" => 0], "class_type" => "EmptyImage"];
         }
+        
+        $workflow["97_scale"] = [
+            "inputs" => ["upscale_method" => "bilinear", "width" => $width, "height" => $height, "crop" => "center", "image" => ["97", 0]], 
+            "class_type" => "ImageScale"
+        ];
+
+        $workflow["98"] = [
+            "inputs" => ["width" => $width, "height" => $height, "length" => $video_frames, "batch_size" => 1, "positive" => ["93", 0], "negative" => ["89", 0], "vae" => ["90", 0], "start_image" => ["97_scale", 0]],
+            "class_type" => "WanImageToVideo"
+        ];
+        
+        $positive_source = ["98", 0];
+        $negative_source = ["98", 1];
+        $latent_source = ["98", 2];
 
         // 5. El Corazón de Wan: Doble KSampler
         $workflow["86"] = [
@@ -3273,7 +3291,7 @@ if ($action === 'generar_imagen') {
     $is_first_image = true;
 
     $fetched_images_raw = [];
-    $max_retries = 300; 
+    $max_retries = 600; 
     for ($i = 0; $i < $max_retries; $i++) {
         sleep(2);
         $ch_hist = curl_init(COMFY_URL . '/history/' . $prompt_id);
