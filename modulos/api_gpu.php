@@ -2369,10 +2369,14 @@ if ($action === 'generar_imagen') {
         }
     }
 
-    // ==============================================================================
+   // ==============================================================================
     // --- FASE 7: INPAINTING & OUTPAINTING ---
     // ==============================================================================
     $current_latent = ["5", 0];
+    
+    // 🎯 INYECCIÓN: Detección FLUX FILL
+    $is_flux_fill = ($is_flux && (strpos($model_lower, 'fill') !== false || strpos($model_lower, 'inpaint') !== false));
+
     if (!empty($init_image_base64)) {
         $tmp_file = sys_get_temp_dir() . '/init_' . uniqid() . '.png';
         file_put_contents($tmp_file, base64_decode($init_image_base64));
@@ -2386,6 +2390,10 @@ if ($action === 'generar_imagen') {
             $comfy_filename = $res_up['name'];
             $workflow["11"] = ["inputs" => ["image" => $comfy_filename, "upload" => "image"], "class_type" => "LoadImage"];
 
+            $flux_fill_pixels = null;
+            $flux_fill_mask = null;
+            $flux_noise_mask = false;
+
             if ($is_outpainting) {
                 $sampler_denoise = 1.0; 
                 $workflow["111"] = [
@@ -2395,15 +2403,22 @@ if ($action === 'generar_imagen') {
                     ],
                     "class_type" => "ImagePadForOutpaint"
                 ];
-                $workflow["12"] = [
-                    "inputs" => [
-                        "grow_mask_by" => 12, "pixels" => ["111", 0], "vae" => [$base_vae_node, $base_vae_index], "mask" => ["111", 1]
-                    ],
-                    "class_type" => "VAEEncodeForInpaint"
-                ];
-                unset($workflow["5"]); 
-                $workflow["14"] = ["inputs" => ["amount" => $batch_size, "samples" => ["12", 0]], "class_type" => "RepeatLatentBatch"];
-                $current_latent = ["14", 0];
+
+                if ($is_flux_fill) {
+                    $flux_fill_pixels = ["111", 0];
+                    $flux_fill_mask = ["111", 1];
+                    $flux_noise_mask = false;
+                } else {
+                    $workflow["12"] = [
+                        "inputs" => [
+                            "grow_mask_by" => 12, "pixels" => ["111", 0], "vae" => [$base_vae_node, $base_vae_index], "mask" => ["111", 1]
+                        ],
+                        "class_type" => "VAEEncodeForInpaint"
+                    ];
+                    unset($workflow["5"]); 
+                    $workflow["14"] = ["inputs" => ["amount" => $batch_size, "samples" => ["12", 0]], "class_type" => "RepeatLatentBatch"];
+                    $current_latent = ["14", 0];
+                }
 
             } else {
                 $sampler_denoise = $denoise_slider;
@@ -2423,25 +2438,89 @@ if ($action === 'generar_imagen') {
                         $workflow["22"] = ["inputs" => ["upscale_method" => "bilinear", "width" => $width, "height" => $height, "crop" => "center", "image" => ["21", 0]], "class_type" => "ImageScale"];
                         $workflow["23"] = ["inputs" => ["channel" => "red", "image" => ["22", 0]], "class_type" => "ImageToMask"];
                         
-                        $workflow["12"] = ["inputs" => ["grow_mask_by" => $mask_blur, "pixels" => ["13", 0], "vae" => [$base_vae_node, $base_vae_index], "mask" => ["23", 0]], "class_type" => "VAEEncodeForInpaint"];
-                        
-                        $latent_source = ["12", 0];
-                        if ($inpaint_fill === 'latent_noise') {
-                            $workflow["12_noise"] = ["inputs" => ["samples" => ["12", 0], "mask" => ["23", 0]], "class_type" => "SetLatentNoiseMask"];
-                            $latent_source = ["12_noise", 0];
+                        if ($is_flux_fill) {
+                            $flux_fill_pixels = ["13", 0];
+                            $flux_fill_mask = ["23", 0];
+                            $flux_noise_mask = true;
+                        } else {
+                            $workflow["12"] = ["inputs" => ["grow_mask_by" => $mask_blur, "pixels" => ["13", 0], "vae" => [$base_vae_node, $base_vae_index], "mask" => ["23", 0]], "class_type" => "VAEEncodeForInpaint"];
+                            
+                            $latent_source = ["12", 0];
+                            if ($inpaint_fill === 'latent_noise') {
+                                $workflow["12_noise"] = ["inputs" => ["samples" => ["12", 0], "mask" => ["23", 0]], "class_type" => "SetLatentNoiseMask"];
+                                $latent_source = ["12_noise", 0];
+                            }
                         }
                     }
                 }
                 
-                if (!isset($workflow["12"])) {
+                if (!isset($workflow["12"]) && !$is_flux_fill) {
                     $workflow["12"] = ["inputs" => ["pixels" => ["13", 0], "vae" => [$base_vae_node, $base_vae_index]], "class_type" => "VAEEncode"];
                     $latent_source = ["12", 0];
                 }
 
-                unset($workflow["5"]);
+                if (!$is_flux_fill) {
+                    unset($workflow["5"]);
+                    $workflow["14"] = ["inputs" => ["amount" => $batch_size, "samples" => $latent_source], "class_type" => "RepeatLatentBatch"];
+                    $current_latent = ["14", 0];
+                }
+            }
+            
+            // 🌟 ENSAMBLAJE FINAL PARA FLUX FILL 🌟
+            if ($is_flux_fill && isset($flux_fill_pixels) && isset($flux_fill_mask)) {
                 
-                $workflow["14"] = ["inputs" => ["amount" => $batch_size, "samples" => $latent_source], "class_type" => "RepeatLatentBatch"];
-                $current_latent = ["14", 0];
+                // 🚀 FIX CRÍTICO: Flux Fill requiere Guidance 30. Si se queda en 3.5, produce el ruido marrón.
+                if (isset($workflow["600"]["inputs"]["guidance"])) {
+                    $workflow["600"]["inputs"]["guidance"] = 30.0;
+                }
+
+                // 1. Conditioning Zero Out (Reutiliza el prompt positivo base sin guiar)
+                $workflow["800_zero"] = [
+                    "inputs" => ["conditioning" => ["6", 0]], 
+                    "class_type" => "ConditioningZeroOut"
+                ];
+                $current_negative = ["800_zero", 0];
+
+                // 2. Differential Diffusion en el modelo
+                $workflow["801_diff"] = [
+                    "inputs" => ["strength" => 1.0, "model" => [$current_model_node, 0]],
+                    "class_type" => "DifferentialDiffusion"
+                ];
+                $current_model_node = "801_diff";
+
+                // 3. Inpaint Model Conditioning
+                $workflow["802_inpaint_cond"] = [
+                    "inputs" => [
+                        "noise_mask" => $flux_noise_mask,
+                        "positive" => $current_positive, 
+                        "negative" => $current_negative,
+                        "vae" => [$base_vae_node, $base_vae_index],
+                        "pixels" => $flux_fill_pixels,
+                        "mask" => $flux_fill_mask
+                    ],
+                    "class_type" => "InpaintModelConditioning"
+                ];
+
+                // Redirigir el KSampler para que tome todo del InpaintConditioning
+                $current_positive = ["802_inpaint_cond", 0];
+                $current_negative = ["802_inpaint_cond", 1];
+                $current_latent   = ["802_inpaint_cond", 2];
+                
+                // Forzamos parámetros óptimos
+                $sampler_denoise = 1.0;
+                $sampler = "euler";
+                $scheduler = "normal";
+
+                unset($workflow["5"]); // Matamos el EmptyLatentImage
+                
+                // 🚀 EXTRA: Blindaje por si al usuario le da por poner Batch Size > 1 en la interfaz
+                if ($batch_size > 1) {
+                    $workflow["803_batch"] = [
+                        "inputs" => ["amount" => $batch_size, "samples" => $current_latent],
+                        "class_type" => "RepeatLatentBatch"
+                    ];
+                    $current_latent = ["803_batch", 0];
+                }
             }
         }
     }
@@ -2754,7 +2833,7 @@ if ($action === 'generar_imagen') {
     }
     
     // --- ENSAMBLAJE DEL GENERADOR PRINCIPAL ---
-    if ($inpaint_area === 'Only Masked' && !empty($mask_data_base64) && isset($workflow["23"])) {
+    if ($inpaint_area === 'Only Masked' && !empty($mask_data_base64) && isset($workflow["23"]) && !$is_flux_fill) {
         
         $workflow["800"] = [
             "inputs" => [
