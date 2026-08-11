@@ -1258,7 +1258,7 @@ if ($action === 'generar_imagen') {
                         "filename_prefix" => "byGartyVideo",
                         "format" => "video/h264-mp4", 
                         "pix_fmt" => "yuv420p", 
-                        "crf" => 19,                
+                        "crf" => 15,                
                         "save_metadata" => true,
                         "pingpong" => false,
                         "save_output" => true,
@@ -1456,7 +1456,7 @@ if ($action === 'generar_imagen') {
             } else {
                 // Mantenemos WebP para vídeos mudos ligeros
                 $workflow["99"] = [
-                    "inputs" => ["filename_prefix" => "byGartyVideo", "fps" => $video_fps, "lossless" => false, "quality" => 85, "method" => "default", "images" => ["87", 0]],
+                    "inputs" => ["filename_prefix" => "byGartyVideo", "fps" => $video_fps, "lossless" => false, "quality" => 95, "method" => "default", "images" => ["87", 0]],
                     "class_type" => "SaveAnimatedWEBP"
                 ];
             }
@@ -2750,7 +2750,15 @@ if ($action === 'generar_imagen') {
     // ==============================================================================
     $is_ideogram = (strpos($model_lower, 'ideogram') !== false);
     
-    if ($is_ideogram && !$is_outpainting && empty($init_image_base64)) {
+    // 👇 Fíjate que el IF ahora solo pregunta si es ideogram. Lo atrapa SIEMPRE.
+    if ($is_ideogram) {
+        
+        // 🛑 ESCUDO ANTI-CRASH: Si el usuario intenta usar Img2Img con Ideogram, 
+        // lo frenamos aquí mismo y le mostramos un aviso en la web.
+        if (!empty($init_image_base64) || $is_outpainting) {
+            echo json_encode(['error' => 'Ideogram 4 actualmente es un modelo puro de Texto-a-Imagen. Por favor, elimina la imagen base o la máscara del panel para poder renderizar.']);
+            exit();
+        }
         
         $ruta_json = __DIR__ . '/../workflows/Ideogram4.json';
         
@@ -2778,8 +2786,9 @@ if ($action === 'generar_imagen') {
         $workflow["98:156"]["inputs"]["choice"] = $modo_calidad;
         
         // --- 2. Inyección de LoRAs ---
-        $current_model_node_ideo = "98:23";
-        $current_clip_node_ideo = "98:177";
+        // Convertimos los punteros en arrays completos [nodo, puerto]
+        $current_model_ideo = ["98:23", 0];
+        $current_clip_ideo  = ["98:177", 0];
         
         if (!empty($lora_names)) {
             $l_id = 500;
@@ -2797,20 +2806,23 @@ if ($action === 'generar_imagen') {
                         "lora_name" => $lname,
                         "strength_model" => $lstr,
                         "strength_clip" => $lstr,
-                        "model" => [$current_model_node_ideo, 0],
-                        "clip" => [$current_clip_node_ideo, 0]
+                        "model" => $current_model_ideo,
+                        "clip" => $current_clip_ideo
                     ],
                     "class_type" => "LoraLoader"
                 ];
                 
-                $current_model_node_ideo = (string)$l_id;
-                $current_clip_node_ideo = (string)$l_id;
+                // ACTUALIZAMOS LOS PUNTEROS: 
+                // El modelo sale por el puerto 0 y el CLIP por el puerto 1 del LoraLoader
+                $current_model_ideo = [(string)$l_id, 0];
+                $current_clip_ideo  = [(string)$l_id, 1];
+                
                 $l_id++;
             }
             
             // Actualizamos los nodos principales para que recojan la salida con los LoRAs
-            $workflow["98:157"]["inputs"]["model"] = [$current_model_node_ideo, 0];
-            $workflow["98:24"]["inputs"]["clip"] = [$current_clip_node_ideo, 1];
+            $workflow["98:157"]["inputs"]["model"] = $current_model_ideo;
+            $workflow["98:24"]["inputs"]["clip"] = $current_clip_ideo;
         }
 
         $current_image_node = "184"; // El nodo SaveImage
