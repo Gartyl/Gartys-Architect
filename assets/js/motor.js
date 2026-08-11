@@ -121,7 +121,9 @@ function setBaseImageFromDataUrl(dataUrl) {
     const img = new Image();
     img.onload = () => {
         const sel = document.getElementById('selector').value; 
-        let width = img.width; let height = img.height; const MAX_DIM = 1280; 
+        let width = img.width; let height = img.height; 
+		// Reducimos el tamaño a 768px solo para Visión, acelerando a Ollama y evitando cuelgues
+		const MAX_DIM = (sel === '[VISION]') ? 768 : 1280; 
         const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
         
         if (sel === '[VIDEO]') {
@@ -1249,7 +1251,10 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
     }
 
     // 4. IMÁGENES BASE / INPAINT / OUTPAINT
-    if (document.getElementById('imgPreviewContainer') && document.getElementById('imgPreviewContainer').style.display !== 'none' && typeof currentImageBase64 !== 'undefined' && currentImageBase64) {
+    const activeSelector = document.getElementById('selector') ? document.getElementById('selector').value : '';
+    
+    // 🛑 ESCUDO FRONTEND: Si estamos en Visión o Chat, ignoramos la imagen residual para forzar Text-To-Image
+    if (!['[VISION]', '[CHAT]', '[LLM]'].includes(activeSelector) && document.getElementById('imgPreviewContainer') && document.getElementById('imgPreviewContainer').style.display !== 'none' && typeof currentImageBase64 !== 'undefined' && currentImageBase64) {
         fd.append('init_image', currentImageBase64.split(',')[1]);
         const extractedMask = extractMaskBase64();
         if (extractedMask) { fd.append('mask_data', extractedMask); }
@@ -1652,6 +1657,11 @@ document.getElementById('promptForm').onsubmit = async (e) => {
                     if (chatPromptId > 0) fdImg.append('historial_id', chatPromptId);
                     
                     fdImg = appendUIParametersToFormData(fdImg, true); 
+					
+					// 🛑 FIX: Forzamos Text-to-Image desde comandos del chat.
+					fdImg.delete('init_image');
+					fdImg.delete('mask_data');
+					
                     fdImg.append('async_mode', 'true');
 
                     const resImg = await fetch('procesar.php', { method: 'POST', body: fdImg });
@@ -2774,6 +2784,10 @@ window.generateImageFromChatBtn = async function(btnElement, encodedText) {
     fd.append('model_path', modeloSeleccionado);
     
     fd.set('batch_size', 1); fd = appendUIParametersToFormData(fd, true);
+	
+	// 🛑 FIX: Forzamos Text-to-Image. Borramos cualquier imagen residual del análisis.
+    fd.delete('init_image');
+    fd.delete('mask_data');
     
     // ¡AQUÍ ESTABA EL TRUCO! Le decimos a PHP que lo queremos de forma asíncrona
     fd.append('async_mode', 'true'); 
