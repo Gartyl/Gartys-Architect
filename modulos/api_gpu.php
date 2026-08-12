@@ -576,7 +576,7 @@ if ($action === 'generar_imagen') {
     // --- DETECCIÓN DE ARQUITECTURA ---
     $model_lower = strtolower($model_path);
     
-   // 1. Separamos Arquitecturas
+    // 1. Separamos Arquitecturas
     $is_flux = (strpos($model_lower, 'flux') !== false);
     $is_sd35 = (strpos($model_lower, 'sd35') !== false || strpos($model_lower, 'sd3.5') !== false);
     $is_qwen = (strpos($model_lower, 'qwen') !== false);
@@ -584,13 +584,14 @@ if ($action === 'generar_imagen') {
     $is_gguf = (strpos($model_lower, '.gguf') !== false);
     $is_chroma = (strpos($model_lower, 'chroma') !== false && strpos($model_lower, 'zavy') === false);
     $is_hunyuan = (strpos($model_lower, 'hunyuan') !== false && strpos($model_lower, 'video') === false);
-    $is_hidream = (strpos($model_lower, 'hidream') !== false); // <-- NUEVO: Detección de HiDream
+    $is_hidream = (strpos($model_lower, 'hidream') !== false);
+    $is_anima = (strpos($model_lower, 'anima') !== false);
     
     // 2. Bandera exclusiva para Z-Image
     $is_zimage = (strpos($model_lower, 'z-image') !== false || strpos($model_lower, 'z_image') !== false || strpos($model_lower, 'zimage') !== false);
     
     // 3. Añadimos a la familia UNETs
-    $is_unet = (stripos($model_path, 'unet/') !== false || stripos($model_path, 'unet\\') !== false || $is_flux || $is_chroma || $is_sd35 || $is_zimage || $is_qwen || $is_gguf || $is_krea2 || $is_hunyuan || $is_hidream); // <-- AÑADIDO $is_hidream
+    $is_unet = (stripos($model_path, 'unet/') !== false || stripos($model_path, 'unet\\') !== false || $is_flux || $is_chroma || $is_sd35 || $is_zimage || $is_qwen || $is_gguf || $is_krea2 || $is_hunyuan || $is_hidream || $is_anima);
     
     // 4. Turbo (Añadida también la versión sin guion)
     $is_turbo = (strpos($model_lower, 'turbo') !== false || strpos($model_lower, 'schnell') !== false);
@@ -610,8 +611,10 @@ if ($action === 'generar_imagen') {
         $vae_name = "flux_vae.safetensors";    
     } elseif ($is_hunyuan) {
         $vae_name = "hunyuan_image_2.1_vae_fp16.safetensors";
-	} elseif ($is_hidream) {
+    } elseif ($is_hidream) {
         $vae_name = "ae.safetensors";
+    } elseif ($is_anima) {
+        $vae_name = "qwen_image_vae.safetensors";
     } elseif ($is_zimage) {
         if ($is_turbo) {
             $vae_name = "zImageTurbo_vae.safetensors";
@@ -641,16 +644,21 @@ if ($action === 'generar_imagen') {
         $cfg = 1.0; 
         $sampler = "euler"; 
         $scheduler = "simple";
-	} elseif ($is_hunyuan) {
+    } elseif ($is_hunyuan) {
         $steps = 25; 
         $cfg = 6.0; 
         $sampler = "euler"; 
         $scheduler = "normal";
     } elseif ($is_hidream) {
-        $steps = 30; //
-        $cfg = 5.0; //
-        $sampler = "ipndm"; //
-        $scheduler = "beta"; //[cite: 1]
+        $steps = 30; 
+        $cfg = 5.0; 
+        $sampler = "ipndm"; 
+        $scheduler = "beta"; 
+    } elseif ($is_anima) {
+        $steps = 30; 
+        $cfg = 5.0; 
+        $sampler = "euler"; 
+        $scheduler = "normal"; 
     } elseif ($is_flux || $is_sd35 || $is_zimage) {
         $steps = 25; 
         $cfg = 4.0; 
@@ -717,8 +725,8 @@ if ($action === 'generar_imagen') {
     }*/
     // =========================================================
 
-  // Añadimos !$is_krea2 !$is_hunyuan !$is_hidream a la lista de excepciones permitidas
-    if ($is_unet && !$is_flux && !$is_chroma && !$is_sd35 && !$is_zimage && !$is_qwen && !$is_gguf && !$is_krea2 && !$is_hunyuan && !$is_hidream && strpos($model_lower, 'video') === false) {
+  // Añadimos excepciones a la lista permitida para no bloquear la carga
+    if ($is_unet && !$is_flux && !$is_chroma && !$is_sd35 && !$is_zimage && !$is_qwen && !$is_gguf && !$is_krea2 && !$is_hunyuan && !$is_hidream && !$is_anima && strpos($model_lower, 'video') === false) {
         echo json_encode(['error' => __('err_pure_unet_load')]); 
         exit();
     }
@@ -2029,8 +2037,8 @@ if ($action === 'generar_imagen') {
     $esta_en_carpeta_unet = (strpos($ruta_minusculas, 'unet') !== false || strpos($ruta_minusculas, 'diffusion_models') !== false);
     
     // El control absoluto lo tiene la BD ($es_unbundled_db). 
-    // Pero MANTENEMOS las heurísticas como salvavidas automático para no romper los modelos antiguos que aún no has editado en el panel.
-    $es_arquitectura_nueva = ($es_unbundled_db || $esta_en_carpeta_unet || $is_flux || $is_chroma || $is_zimage || $is_gguf || $is_qwen || $is_krea2 || $is_hunyuan || $is_hidream);
+    // Pero MANTENEMOS las heurísticas como salvavidas automático
+    $es_arquitectura_nueva = ($es_unbundled_db || $esta_en_carpeta_unet || $is_flux || $is_chroma || $is_zimage || $is_gguf || $is_qwen || $is_krea2 || $is_hunyuan || $is_hidream || $is_anima);
 
     if ($es_arquitectura_nueva) {
         // Dejamos la ruta absolutamente intacta para que coincida 100% con Windows/ComfyUI
@@ -2072,27 +2080,35 @@ if ($action === 'generar_imagen') {
         } elseif ($is_zimage) {
             // 👇 ¡RESTAURAMOS TU BLOQUE ORIGINAL! 👇
             $workflow["90"] = [ "inputs" => ["clip_name" => "qwen_3_4b.safetensors", "type" => "lumina2"], "class_type" => "CLIPLoader" ];
-            // 👆 ================================== 👆
         } elseif ($is_hunyuan) {
             // Hunyuan-Image nativo de ComfyUI: Arquitectura Dual (Qwen 2.5 VL + ByT5 Small)
             $workflow["90"] = [ 
                 "inputs" => [
-                    "clip_name1" => "qwen_2.5_vl_7b_fp8_scaled.safetensors", // <-- AQUÍ ESTABA EL ERROR: Usamos Qwen, no CLIP-L
-                    "clip_name2" => "byt5_small_glyphxl_fp16.safetensors",    // <-- Tu nuevo archivo ByT5 encaja perfecto
+                    "clip_name1" => "qwen_2.5_vl_7b_fp8_scaled.safetensors", 
+                    "clip_name2" => "byt5_small_glyphxl_fp16.safetensors",    
                     "type" => "hunyuan_image" 
                 ], 
                 "class_type" => "DualCLIPLoader" 
             ];
-		} elseif ($is_hidream) {
-            // HiDream-I1: Arquitectura Quadruple CLIP (CLIP-L + CLIP-G + T5XXL + Llama 3.1 8B FP8)[cite: 1]
+        } elseif ($is_hidream) {
+            // HiDream-I1: Arquitectura Quadruple CLIP (CLIP-L + CLIP-G + T5XXL + Llama 3.1 8B FP8)
             $workflow["90"] = [ 
                 "inputs" => [
-                    "clip_name1" => "clip_l_hidream.safetensors", // (O "clip_l.safetensors" si tienes el estándar)[cite: 1]
-                    "clip_name2" => "clip_g_hidream.safetensors", // (O "clip_g.safetensors")[cite: 1]
-                    "clip_name3" => "t5xxl_fp8_e4m3fn.safetensors", //[cite: 1]
-                    "clip_name4" => "llama_3.1_8b_instruct_fp8_scaled.safetensors" //[cite: 1]
+                    "clip_name1" => "clip_l_hidream.safetensors", 
+                    "clip_name2" => "clip_g_hidream.safetensors", 
+                    "clip_name3" => "t5xxl_fp8_e4m3fn.safetensors", 
+                    "clip_name4" => "llama_3.1_8b_instruct_fp8_scaled.safetensors" 
                 ], 
-                "class_type" => "QuadrupleCLIPLoader" //[cite: 1]
+                "class_type" => "QuadrupleCLIPLoader" 
+            ];
+        } elseif ($is_anima) {
+            // Anima: Usa Qwen con la denominación genérica stable_diffusion
+            $workflow["90"] = [ 
+                "inputs" => [
+                    "clip_name" => "qwen_3_06b_base.safetensors", 
+                    "type" => "stable_diffusion" 
+                ], 
+                "class_type" => "CLIPLoader" 
             ];
         } elseif (strpos($model_lower, 'flux2') !== false) {
             // EL INTOCABLE FLUX 2
@@ -2650,7 +2666,7 @@ if ($action === 'generar_imagen') {
             }
 			
 			// =========================================================
-            // --- NUEVO: AUTOMATIZACIÓN CARPETAS HUNYUAN Y HIDREAM ---
+            // --- NUEVO: AUTOMATIZACIÓN CARPETAS HUNYUAN, HIDREAM y ANIMA ---
             // =========================================================
             if ($is_hunyuan && strpos($lname, '\\') === false && strpos($lname, '/') === false) {
                 $lname = "Hunyuan\\" . $lname; // (o "HunyuanImage\\" si prefieres ese nombre en tu disco)
@@ -2658,6 +2674,10 @@ if ($action === 'generar_imagen') {
             
             if ($is_hidream && strpos($lname, '\\') === false && strpos($lname, '/') === false) {
                 $lname = "HiDream\\" . $lname;
+            }
+			
+			if ($is_anima && strpos($lname, '\\') === false && strpos($lname, '/') === false) {
+                $lname = "Anima\\" . $lname;
             }
             // =========================================================
             
