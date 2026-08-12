@@ -697,6 +697,12 @@ return [
     'outp_bottom' => "Abajo",
     'outp_left' => "Izquierda",
     'outp_right' => "Derecha",
+	'title_multicarga' => "Activar bandeja para múltiples imágenes de referencia",
+	'lbl_multicarga' => "Multicarga",
+	'swal_limit_tray_title' => "Límite alcanzado",
+	'swal_limit_tray_text' => "Puedes subir un máximo de 3 imágenes de referencia a la bandeja.",
+	'btn_tray_remove' => "Quitar imagen",
+	'btn_tray_insert' => "Clic para insertar en el prompt",
     
     // --- REACTOR ---
     'reac_ph_target' => "Ej: 0 o 0,1",

@@ -698,6 +698,12 @@ return [
     'outp_bottom' => "A baix",
     'outp_left' => "Esquerra",
     'outp_right' => "Dreta",
+	'title_multicarga' => "Activar safata per a múltiples imatges de referència",
+	'lbl_multicarga' => "Multicàrrega",
+	'swal_limit_tray_title' => "Límit assolit",
+	'swal_limit_tray_text' => "Pots pujar un màxim de 3 imatges de referència a la safata.",
+	'btn_tray_remove' => "Treure imatge",
+	'btn_tray_insert' => "Clic per inserir al prompt",
     
     // --- REACTOR ---
     'reac_ph_target' => "Ex: 0 o 0,1",

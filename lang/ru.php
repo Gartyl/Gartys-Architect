@@ -698,6 +698,12 @@ return [
     'outp_bottom' => "Снизу",
     'outp_left' => "Слева",
     'outp_right' => "Справа",
+	'title_multicarga' => "Включить лоток для нескольких эталонных изображений",
+	'lbl_multicarga' => "Мультизагрузка",
+	'swal_limit_tray_title' => "Достигнут лимит",
+	'swal_limit_tray_text' => "Вы можете загрузить максимум 3 эталонных изображения в лоток.",
+	'btn_tray_remove' => "Удалить изображение",
+	'btn_tray_insert' => "Нажмите для вставки в промпт",
     
     // --- REACTOR ---
     'reac_ph_target' => "Напр: 0 или 0,1",

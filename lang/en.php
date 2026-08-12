@@ -698,6 +698,12 @@ return [
     'outp_bottom' => "Bottom",
     'outp_left' => "Left",
     'outp_right' => "Right",
+	'title_multicarga' => "Enable tray for multiple reference images",
+	'lbl_multicarga' => "Multi-load",
+	'swal_limit_tray_title' => "Limit reached",
+	'swal_limit_tray_text' => "You can upload a maximum of 3 reference images to the tray.",
+	'btn_tray_remove' => "Remove image",
+	'btn_tray_insert' => "Click to insert into prompt",
     
     // --- REACTOR ---
     'reac_ph_target' => "Ex: 0 or 0,1",
