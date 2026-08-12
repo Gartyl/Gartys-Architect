@@ -16,7 +16,7 @@
                      <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary pref-track" id="stepsInput" value="30" min="1" max="150">
                  </div>
                 
-				 <div class="col-md-2 mb-2">
+                 <div class="col-md-2 mb-2">
                      <label class="small text-secondary fw-bold mb-1" id="cfgLabel">CFG SCALE</label>
                      <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary pref-track" id="cfgInput" value="5.0" min="0.1" max="99.9" step="0.1">
                  </div>
@@ -28,6 +28,17 @@
                          <span class="input-group-text bg-dark border-secondary text-secondary px-1 border-start-0 border-end-0">x</span>
                          <input type="number" class="form-control bg-dark text-light border-secondary text-center px-1" id="imgHeight" min="256" step="1" title="<?= __('tit_alto') ?? 'Alto' ?>" oninput="if(typeof desmarcarProp==='function') desmarcarProp()">
                      </div>
+                 </div>
+
+                 <!-- NUEVO: SELECTOR DE FORMATO (AHORA EN LA PRIMERA FILA) -->
+                 <div class="col-md-2 mb-2">
+                     <!-- He puesto "FORMATO" fijo para evitar el fallo de tu diccionario de traducciones -->
+                     <label class="small text-secondary fw-bold mb-1">FORMATO</label>
+                     <select class="form-select form-select-sm bg-dark text-light border-secondary pref-track" id="imageFormatInput">
+                         <option value="png" selected>PNG</option>
+                         <option value="webp">WEBP</option>
+                         <option value="jpg">JPG</option>
+                     </select>
                  </div>
                  
                  <div class="w-100 d-none d-md-block m-0"></div>
@@ -191,8 +202,8 @@
 							<div class="input-group input-group-sm shadow-sm">
 								<span class="input-group-text bg-dark border-secondary text-secondary"><i class="bi bi-file-earmark-play-fill"></i></span>
 								<select id="videoFormat" class="form-select form-select-sm bg-dark text-light border-secondary">
-									<option value="image/webp" selected><?= __('vid_out_webp') ?></option>
-									<option value="video/h264-mp4"><?= __('vid_out_mp4') ?></option>
+									<option value="image/webp"><?= __('vid_out_webp') ?></option>
+									<option value="video/h264-mp4" selected><?= __('vid_out_mp4') ?></option>
 								</select>
 							</div>
 						</div>
