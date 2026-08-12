@@ -20,6 +20,70 @@ let isDrawing = false;
 let hasMaskStrokes = false;
 window.isErasing = false; 
 
+// ==============================================================================
+// --- NUEVO: LÓGICA DE LA BANDEJA MULTIENTRADA (OmniGen, etc.) ---
+// ==============================================================================
+window.bandejaArchivos = [];
+
+window.agregarImagenABandeja = function(base64Data) {
+    if (window.bandejaArchivos.length >= 3) {
+        SwalDark.fire({ 
+            icon: 'info', 
+            title: typeof GartyLang !== 'undefined' && GartyLang.swal_limit_tray_title ? GartyLang.swal_limit_tray_title : 'Límite alcanzado', 
+            text: typeof GartyLang !== 'undefined' && GartyLang.swal_limit_tray_text ? GartyLang.swal_limit_tray_text : 'Puedes subir un máximo de 3 imágenes de referencia a la bandeja.' 
+        });
+        return;
+    }
+    window.bandejaArchivos.push(base64Data);
+    window.renderizarBandeja();
+};
+
+window.eliminarImagenDeBandeja = function(index) {
+    window.bandejaArchivos.splice(index, 1);
+    window.renderizarBandeja();
+};
+
+window.insertarTagEnPrompt = function(tag) {
+    const input = document.getElementById('descripcion');
+    if (input) {
+        input.value = input.value + (input.value.endsWith(' ') ? '' : ' ') + tag + ' ';
+        input.focus();
+    }
+};
+
+window.renderizarBandeja = function() {
+    const bandeja = document.getElementById('bandejaImagenes');
+    if (!bandeja) return;
+
+    if (window.bandejaArchivos.length === 0) {
+        bandeja.style.setProperty('display', 'none', 'important');
+        bandeja.innerHTML = '';
+        return;
+    }
+
+    bandeja.style.setProperty('display', 'flex', 'important');
+    let html = '';
+    const titleRemove = typeof GartyLang !== 'undefined' && GartyLang.btn_tray_remove ? GartyLang.btn_tray_remove : 'Quitar imagen';
+    const titleInsert = typeof GartyLang !== 'undefined' && GartyLang.btn_tray_insert ? GartyLang.btn_tray_insert : 'Clic para insertar en el prompt';
+
+    window.bandejaArchivos.forEach((base64, index) => {
+        const promptTag = `<|image_${index + 1}|>`;
+        const safeTag = promptTag.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        html += `
+        <div class="tray-item position-relative shadow-sm" style="width: 70px; height: 70px; border-radius: 6px;">
+            <img src="${base64}" class="rounded border border-info w-100 h-100" style="object-fit: cover;">
+            <button type="button" class="btn btn-danger position-absolute top-0 start-100 translate-middle rounded-circle p-0 d-flex align-items-center justify-content-center border border-dark" style="width: 22px; height: 22px; font-size: 12px; z-index: 10;" onclick="eliminarImagenDeBandeja(${index})" title="${titleRemove}">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            <span class="badge bg-dark border border-secondary text-info position-absolute bottom-0 start-50 translate-middle-x mb-1 shadow-sm" style="font-size: 0.60rem; white-space: nowrap; opacity: 0.95; cursor: pointer; z-index: 10;" onclick="insertarTagEnPrompt('${promptTag}')" title="${titleInsert}">
+                ${safeTag}
+            </span>
+        </div>`;
+    });
+    bandeja.innerHTML = html;
+};
+// ==============================================================================
+
 // --- GESTIÓN DE PINCEL Y CANVAS ---
 window.setBrushMode = function(mode) {
     window.isErasing = (mode === 'erase');
@@ -92,6 +156,10 @@ window.clearUploadData = function() {
     currentDocumentText = "";
     window.rawUploadedDataUrl = null;
     
+    // Vaciamos también la bandeja
+    window.bandejaArchivos = [];
+    window.renderizarBandeja();
+    
     const mainInput = document.getElementById('imageInput');
     if (mainInput) mainInput.value = "";
     
@@ -117,6 +185,24 @@ window.clearUploadData = function() {
 };
 
 function setBaseImageFromDataUrl(dataUrl) {
+    // =========================================================================
+    // --- NUEVO: ESCUDO INTERCEPTOR CONTROLADO POR INTERRUPTOR ---
+    // =========================================================================
+    const multiInputToggle = document.getElementById('multiInputToggle');
+    const isMultiInputActive = multiInputToggle && multiInputToggle.checked;
+
+    if (isMultiInputActive) {
+        if (typeof window.agregarImagenABandeja === 'function') {
+            window.agregarImagenABandeja(dataUrl);
+            
+            // Si venía del input tradicional, lo limpiamos para no atascarlo
+            const mainInput = document.getElementById('imageInput');
+            if (mainInput) mainInput.value = "";
+        }
+        return; // 🛑 CORTAMOS AQUÍ: La imagen va a la bandeja, no al visor gigante
+    }
+    // =========================================================================
+
     window.rawUploadedDataUrl = dataUrl;
     const img = new Image();
     img.onload = () => {
@@ -615,9 +701,22 @@ const mainImageInput = document.getElementById('imageInput');
 if (mainImageInput) {
     mainImageInput.onchange = () => {
         const file = mainImageInput.files[0]; if (!file) return;
+        
+        // --- NUEVO: OBEDECER SOLO AL INTERRUPTOR DE LA INTERFAZ ---
+        const multiInputToggle = document.getElementById('multiInputToggle');
+        const isMultiInputActive = multiInputToggle && multiInputToggle.checked;
+        // ----------------------------------------------------------
+
         if (file.type.startsWith('image/')) {
             const reader = new FileReader();
-            reader.onload = (e) => { setBaseImageFromDataUrl(e.target.result); };
+            reader.onload = (e) => { 
+                if (isMultiInputActive) { // <--- AHORA MIRA EL INTERRUPTOR
+                    window.agregarImagenABandeja(e.target.result);
+                    mainImageInput.value = ""; // Vaciamos el input
+                } else {
+                    setBaseImageFromDataUrl(e.target.result); 
+                }
+            };
             reader.readAsDataURL(file);
         } else if (file.type.startsWith('video/')) {
             const videoURL = URL.createObjectURL(file);
@@ -630,8 +729,8 @@ if (mainImageInput) {
                 const imgPreviewContainer = document.getElementById('imgPreviewContainer');
                 imgPreviewContainer.innerHTML = `
                 <div class="badge bg-warning text-dark p-3 mt-2 mb-2 fs-6 w-100 text-start shadow-sm">
-                    <i class="bi bi-film fs-4 me-2"></i> ${GartyLang.msg_frame_extracted} ${file.name} 
-                    <i class="bi bi-x-circle ms-auto float-end" style="cursor:pointer;" onclick="if(typeof clearVideoUpload === 'function') clearVideoUpload()" title="${GartyLang.btn_quitar}"></i>
+                    <i class="bi bi-film fs-4 me-2"></i> ${typeof GartyLang !== 'undefined' && GartyLang.msg_frame_extracted ? GartyLang.msg_frame_extracted : 'Frame extraído:'} ${file.name} 
+                    <i class="bi bi-x-circle ms-auto float-end" style="cursor:pointer;" onclick="if(typeof clearVideoUpload === 'function') clearVideoUpload()" title="Quitar"></i>
                 </div>
                 <img src="${currentImageBase64}" class="img-fluid rounded shadow-sm mt-2" style="max-height: 200px; border: 2px solid #ffc107;">`;
                 imgPreviewContainer.style.display = 'block'; URL.revokeObjectURL(videoURL);
@@ -652,8 +751,8 @@ if (mainImageInput) {
                 imgPreviewContainer.insertAdjacentHTML('afterbegin', `
                 <div id="chatDocBadge" class="badge bg-secondary p-3 mt-2 mb-2 fs-6 w-100 text-start shadow-sm d-flex align-items-center">
                     <i class="bi bi-file-earmark-text fs-4 me-3"></i> 
-                    <span class="text-truncate">${GartyLang.msg_doc_loaded || 'Documento adjunto'}: ${file.name}</span>
-                    <i class="bi bi-x-circle ms-auto fs-5 text-light" style="cursor:pointer; z-index: 10;" onclick="clearUploadData()" title="${GartyLang.btn_quitar || 'Quitar'}"></i>
+                    <span class="text-truncate">Documento adjunto: ${file.name}</span>
+                    <i class="bi bi-x-circle ms-auto fs-5 text-light" style="cursor:pointer; z-index: 10;" onclick="clearUploadData()" title="Quitar"></i>
                 </div>`);
                 
                 imgPreviewContainer.style.display = 'block'; 
@@ -810,6 +909,37 @@ function updateUIForSelector(sel) {
     }
     
     const estilosContainer = document.getElementById('estilosContainer'); if (estilosContainer) estilosContainer.style.display = (['[LLM]', '[VISION]', '[VIDEO]', '[CHAT]'].includes(sel)) ? 'none' : 'block';
+	
+	
+	// --- CONTROL DE VISIBILIDAD: INTERRUPTOR MULTICARGA ---
+    const multiInputWrapper = document.getElementById('multiInputWrapper');
+    if (multiInputWrapper) {
+        // Solo mostramos la multicarga en las categorías gráficas
+        if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]'].includes(sel)) {
+            multiInputWrapper.style.setProperty('display', 'flex', 'important');
+        } else {
+            multiInputWrapper.style.setProperty('display', 'none', 'important');
+            
+            // Si el usuario cambia a LLM con el botón encendido, se lo apagamos por seguridad
+            const multiToggle = document.getElementById('multiInputToggle');
+            if (multiToggle && multiToggle.checked) {
+                multiToggle.checked = false;
+                // Vaciamos la bandeja para no dejar fotos fantasma
+                if (typeof window.renderizarBandeja === 'function') {
+                    window.bandejaArchivos = [];
+                    window.renderizarBandeja();
+                }
+            }
+        }
+    }
+	
+	
+	
+	
+	
+	
+	
+	
     
     const presetBlock = document.getElementById('presetBlock');
     if (presetBlock) { if (['[LLM]', '[VISION]', '[VIDEO]'].includes(sel) || (sel === '[CHAT]' && !isAvanzado)) presetBlock.style.display = 'none'; else presetBlock.style.display = 'block'; }
@@ -1043,6 +1173,14 @@ if (mainSelector) {
         const imageInput = document.getElementById('imageInput'); if(imageInput) imageInput.value = ""; 
         if(typeof clearAudio === 'function') clearAudio(); 
         document.getElementById('imgPreviewContainer').style.display = 'none'; currentDocumentText = ""; currentImageBase64 = null; 
+        
+        // --- NUEVO: Limpiar la bandeja al cambiar de modelo ---
+        if (typeof window.renderizarBandeja === 'function') {
+            window.bandejaArchivos = [];
+            window.renderizarBandeja();
+        }
+        // ------------------------------------------------------
+
         clearResultsUI(); updateUIForSelector(e.target.value);
         if(typeof updateModelFilter === 'function') updateModelFilter(e.target.value); 
         if(typeof updateLoraFilter === 'function') updateLoraFilter(e.target.value);
@@ -1096,6 +1234,11 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
         if(document.getElementById('samplerInput')) fd.append('sampler', document.getElementById('samplerInput').value);
         if(document.getElementById('schedulerInput')) fd.append('scheduler', document.getElementById('schedulerInput').value);
         if(document.getElementById('seedInput')) fd.append('seed', document.getElementById('seedInput').value);
+        
+        // 👇 NUEVO: Capturar el formato de imagen elegido (PNG, WEBP, JPG)
+        if(document.getElementById('imageFormatInput')) fd.append('image_format', document.getElementById('imageFormatInput').value);
+        // ---------------------------------------------------------------
+
         if(document.getElementById('dynThreshToggle')) fd.append('dynamic_thresholding', document.getElementById('dynThreshToggle').checked);
         if(document.getElementById('videoFramesInput')) fd.append('video_frames', document.getElementById('videoFramesInput').value);        
         if(document.getElementById('video_aspect_ratio')) {
@@ -1250,7 +1393,17 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
 		// ---------------------------------									
     }
 
-    // 4. IMÁGENES BASE / INPAINT / OUTPAINT
+    // --- NUEVO: ADJUNTAR IMÁGENES DE LA BANDEJA MULTIENTRADA ---
+    if (window.bandejaArchivos && window.bandejaArchivos.length > 0) {
+        window.bandejaArchivos.forEach((base64, index) => {
+            // Mandamos solo la parte en crudo del base64 (quitamos la cabecera)
+            fd.append(`tray_image_${index + 1}`, base64.split(',')[1]);
+        });
+        fd.append('has_tray_images', 'true');
+    }
+    // -------------------------------------------------------------
+
+   // 4. IMÁGENES BASE / INPAINT / OUTPAINT
     const activeSelector = document.getElementById('selector') ? document.getElementById('selector').value : '';
     
     // 🛑 ESCUDO FRONTEND: Si estamos en Visión o Chat, ignoramos la imagen residual para forzar Text-To-Image
@@ -1672,11 +1825,21 @@ document.getElementById('promptForm').onsubmit = async (e) => {
                         document.getElementById(loadingId).innerHTML = `<b>${GartyLang.chat_msg_prompt_designed || 'Diseñado:'}</b><br><code class="text-light">${finalP}</code><br><br><div class="d-flex align-items-center text-warning"><div class="spinner-grow spinner-grow-sm me-2"></div> <small>${GartyLang.chat_msg_gpu_processing || 'Procesando en GPU'} (${dataImg.prompt_id})...</small></div>`;
                         thread.scrollTop = thread.scrollHeight;
 
-                        const chatRadarInterval = setInterval(async () => {
-                            let fdCheck = new FormData(); fdCheck.append('action', 'check_ticket'); fdCheck.append('prompt_id', dataImg.prompt_id); fdCheck.append('historial_id', dataImg.historial_id || chatPromptId);
-                            try {
-                                const resCheck = await fetch('procesar.php', { method: 'POST', body: fdCheck }); const dataCheck = await resCheck.json();
-                                if (dataCheck.status === 'completed') {
+                    	const chatRadarInterval = setInterval(async () => {
+                        let fdCheck = new FormData(); 
+                        fdCheck.append('action', 'check_ticket'); 
+                        fdCheck.append('prompt_id', dataImg.prompt_id); 
+                        fdCheck.append('historial_id', dataImg.historial_id || chatPromptId);
+                        
+                        // 👇 NUEVO: Inyectar formato de imagen en el radar de comandos de chat
+                        const formatInput = document.getElementById('imageFormatInput');
+                        if (formatInput) fdCheck.append('image_format', formatInput.value);
+                        // ---------------------------------------------------------
+
+                        try {
+                            const resCheck = await fetch('procesar.php', { method: 'POST', body: fdCheck }); 
+                            const dataCheck = await resCheck.json();	
+					            if (dataCheck.status === 'completed') {
                                     clearInterval(chatRadarInterval);
                                     if (dataCheck.images && dataCheck.images.length > 0) {
                                         let html = `<b>${GartyLang.chat_msg_prompt_label || 'Prompt:'}</b> <code class="text-light">${finalP}</code><div class="row g-2 mt-2">`;
@@ -2445,6 +2608,8 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
         }
 
         let fd = new FormData(); fd.append('action', 'check_ticket'); fd.append('prompt_id', promptId); fd.append('historial_id', dbId || 0);
+		const formatInput = document.getElementById('imageFormatInput');
+		if (formatInput) fd.append('image_format', formatInput.value);
 
         try {
             let res = await fetch('procesar.php', { method: 'POST', body: fd }); let data = await res.json();
@@ -2807,10 +2972,20 @@ window.generateImageFromChatBtn = async function(btnElement, encodedText) {
             thread.scrollTop = thread.scrollHeight;
 
             const chatRadarInterval = setInterval(async () => {
-                let fdCheck = new FormData(); fdCheck.append('action', 'check_ticket'); fdCheck.append('prompt_id', data.prompt_id); fdCheck.append('historial_id', data.historial_id || 0);
+                let fdCheck = new FormData(); 
+                fdCheck.append('action', 'check_ticket'); 
+                fdCheck.append('prompt_id', data.prompt_id); 
+                fdCheck.append('historial_id', data.historial_id || 0);
+                
+                // 👇 NUEVO: Inyectar formato de imagen en el radar del chat
+                const formatInput = document.getElementById('imageFormatInput');
+                if (formatInput) fdCheck.append('image_format', formatInput.value);
+                // ---------------------------------------------------------
+
                 try {
-                    const resCheck = await fetch('procesar.php', { method: 'POST', body: fdCheck }); const dataCheck = await resCheck.json();
-                    
+                    const resCheck = await fetch('procesar.php', { method: 'POST', body: fdCheck }); 
+                    const dataCheck = await resCheck.json();	
+
                     if (dataCheck.status === 'completed') {
                         clearInterval(chatRadarInterval);
                         if (dataCheck.images && dataCheck.images.length > 0) {
