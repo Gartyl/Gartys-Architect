@@ -338,11 +338,21 @@ function updateLoraFilter(category) {
                     let low = m.toLowerCase();
                     return low.includes('hidream');
                 });
+            // =========================================================================
+            // --- NUEVO: FILTRO AISLADO PARA ANIMA ---
+            // =========================================================================
+            } else if (modeloSeleccionado.includes('anima')) {
+                tempLoras = loadedLoras.filter(m => {
+                    let low = m.toLowerCase();
+                    // Filtramos para que solo muestre archivos dentro de la carpeta Anima
+                    return low.includes('anima\\') || low.includes('anima/');
+                });
+            // =========================================================================
             } else {
                 tempLoras = loadedLoras.filter(m => {
                     const low = m.toLowerCase();
-                    // AÑADIDO: ideogram4 al fallback general por si falla el string del modelo
-                    return low.includes('flux') || low.includes('sd35') || low.includes('sd3.5') || low.includes('sd3_5') || low.includes('zimage') || low.includes('z_image') || low.includes('z-image') || low.includes('qwen') || low.includes('krea2') || low.includes('krea-2') || low.includes('hunyuan') || low.includes('hidream') || low.includes('ideogram4');      
+                    // AÑADIDO: anima al fallback general
+                    return low.includes('flux') || low.includes('sd35') || low.includes('sd3.5') || low.includes('sd3_5') || low.includes('zimage') || low.includes('z_image') || low.includes('z-image') || low.includes('qwen') || low.includes('krea2') || low.includes('krea-2') || low.includes('hunyuan') || low.includes('hidream') || low.includes('ideogram4') || low.includes('anima');      
                 });
             }
         // =========================================================================
