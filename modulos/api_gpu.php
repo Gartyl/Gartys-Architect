@@ -381,17 +381,40 @@ if ($action === 'generar_imagen') {
     // ====================================================================
     
     // ====================================================================
-    // --- 2. SUBIR LA IMAGEN Y AUDIO A COMFYUI (EL TRANSPORTISTA CORREGIDO) ---
+    // --- 2. SUBIR IMÁGENES A COMFYUI (MODO CLÁSICO Y MULTICARGA) ---
     // ====================================================================
     $comfy_image_filename = "none";
     $comfy_audio_filename = "none";
+    $tray_comfy_filenames = [];
 
+    // A. Subir imágenes de la Bandeja Multicarga al servidor de ComfyUI
+    if (isset($_POST['has_tray_images']) && $_POST['has_tray_images'] === 'true') {
+        for ($i = 1; $i <= 3; $i++) {
+            if (!empty($_POST["tray_image_$i"])) {
+                $tmp_tray = sys_get_temp_dir() . '/tray_img_' . $i . '_' . uniqid() . '.png';
+                file_put_contents($tmp_tray, base64_decode($_POST["tray_image_$i"]));
+                $cfile_tray = function_exists('curl_file_create') ? curl_file_create($tmp_tray, 'image/png', "tray_ref_$i.png") : '@' . realpath($tmp_tray);
+                
+                $ch_tray = curl_init(COMFY_URL . '/upload/image');
+                curl_setopt($ch_tray, CURLOPT_POST, true);
+                curl_setopt($ch_tray, CURLOPT_POSTFIELDS, ['image' => $cfile_tray]);
+                curl_setopt($ch_tray, CURLOPT_RETURNTRANSFER, true);
+                $res_tray = json_decode(curl_exec($ch_tray), true);
+                @unlink($tmp_tray);
+                
+                if (isset($res_tray['name'])) {
+                    $tray_comfy_filenames[$i] = $res_tray['name']; // Guardamos el nombre que le dio ComfyUI
+                }
+            }
+        }
+    }
+
+    // B. Subir Imagen Base Clásica (Visor Gigante)
     if (!empty($init_image_base64)) {
         $imgData = $init_image_base64;
         if (strpos($imgData, 'base64,') !== false) {
             $imgData = explode('base64,', $imgData)[1];
         }
-        // Creamos un archivo físico temporal (El método infalible que usa Wan)
         $tmp_file = sys_get_temp_dir() . '/upload_img_' . uniqid() . '.png';
         file_put_contents($tmp_file, base64_decode($imgData));
         $cfile = function_exists('curl_file_create') ? curl_file_create($tmp_file, 'image/png', 'init_image.png') : '@' . realpath($tmp_file);
@@ -401,8 +424,7 @@ if ($action === 'generar_imagen') {
         curl_setopt($ch_img, CURLOPT_POSTFIELDS, ['image' => $cfile]);
         curl_setopt($ch_img, CURLOPT_RETURNTRANSFER, true);
         $res_img = curl_exec($ch_img);
-        //curl_close($ch_img);
-        @unlink($tmp_file); // Borramos el rastro
+        @unlink($tmp_file);
         
         if ($res_img) {
             $img_data_res = json_decode($res_img, true);
@@ -410,10 +432,15 @@ if ($action === 'generar_imagen') {
                 $comfy_image_filename = $img_data_res['name'];
             }
         }
+    } elseif (!empty($tray_comfy_filenames[1])) {
+        // Magia Retrocompatible: Si el usuario usó la bandeja y no el visor gigante, 
+        // la primera imagen de la bandeja asume el rol de "imagen_principal" por defecto.
+        $comfy_image_filename = $tray_comfy_filenames[1];
+        $init_image_base64 = "TRAY_IMAGE_USED"; // Bandera interna para no volver a subirla
     }
     
     // ====================================================================
-    // --- 2. SUBIR EL AUDIO A COMFYUI (NOMBRE ÚNICO, RAÍZ) ---
+    // --- 3. SUBIR EL AUDIO A COMFYUI (NOMBRE ÚNICO, RAÍZ) ---
     // ====================================================================
     if (!empty($_POST['audio_data'])) {
         $audData = $_POST['audio_data'];
@@ -1204,17 +1231,25 @@ if ($action === 'generar_imagen') {
         $negative_source = ["89", 0]; 
 
         if (!empty($init_image_base64)) {
-            $tmp_file = sys_get_temp_dir() . '/init_vid_' . uniqid() . '.png';
-            file_put_contents($tmp_file, base64_decode($init_image_base64));
-            $cfile = function_exists('curl_file_create') ? curl_file_create($tmp_file, 'image/png', 'init_image.png') : '@' . realpath($tmp_file);
-            
-            $ch_up = curl_init(COMFY_URL . '/upload/image');
-            curl_setopt($ch_up, CURLOPT_POST, true); curl_setopt($ch_up, CURLOPT_POSTFIELDS, ['image' => $cfile]); curl_setopt($ch_up, CURLOPT_RETURNTRANSFER, true);
-            $res_up = json_decode(curl_exec($ch_up), true); @unlink($tmp_file);
+            if ($init_image_base64 === "TRAY_IMAGE_USED") {
+                // Si la imagen viene de la bandeja, ya está en ComfyUI
+                $workflow["97"] = ["inputs" => ["image" => $comfy_image_filename, "upload" => "image"], "class_type" => "LoadImage"];
+            } else {
+                // Subida estándar de Wan
+                $tmp_file = sys_get_temp_dir() . '/init_vid_' . uniqid() . '.png';
+                file_put_contents($tmp_file, base64_decode($init_image_base64));
+                $cfile = function_exists('curl_file_create') ? curl_file_create($tmp_file, 'image/png', 'init_image.png') : '@' . realpath($tmp_file);
+                
+                $ch_up = curl_init(COMFY_URL . '/upload/image');
+                curl_setopt($ch_up, CURLOPT_POST, true); curl_setopt($ch_up, CURLOPT_POSTFIELDS, ['image' => $cfile]); curl_setopt($ch_up, CURLOPT_RETURNTRANSFER, true);
+                $res_up = json_decode(curl_exec($ch_up), true); @unlink($tmp_file);
 
-            $workflow["97"] = ["inputs" => ["image" => $res_up['name'], "upload" => "image"], "class_type" => "LoadImage"];
+                if (isset($res_up['name'])) {
+                    $workflow["97"] = ["inputs" => ["image" => $res_up['name'], "upload" => "image"], "class_type" => "LoadImage"];
+                }
+            }
         } else {
-            // TRUCO: Creamos una imagen negra al vuelo para T2V y evitamos latentes incompatibles
+            // TRUCO: Creamos una imagen negra al vuelo para T2V
             $workflow["97"] = ["inputs" => ["width" => $width, "height" => $height, "batch_size" => 1, "color" => 0], "class_type" => "EmptyImage"];
         }
         
@@ -2385,7 +2420,7 @@ if ($action === 'generar_imagen') {
         }
     }
 
-   // ==============================================================================
+    // ==============================================================================
     // --- FASE 7: INPAINTING & OUTPAINTING ---
     // ==============================================================================
     $current_latent = ["5", 0];
@@ -2394,22 +2429,34 @@ if ($action === 'generar_imagen') {
     $is_flux_fill = ($is_flux && (strpos($model_lower, 'fill') !== false || strpos($model_lower, 'inpaint') !== false));
 
     if (!empty($init_image_base64)) {
-        $tmp_file = sys_get_temp_dir() . '/init_' . uniqid() . '.png';
-        file_put_contents($tmp_file, base64_decode($init_image_base64));
-        $cfile = function_exists('curl_file_create') ? curl_file_create($tmp_file, 'image/png', 'init_image.png') : '@' . realpath($tmp_file);
         
-        $ch_up = curl_init(COMFY_URL . '/upload/image');
-        curl_setopt($ch_up, CURLOPT_POST, true); curl_setopt($ch_up, CURLOPT_POSTFIELDS, ['image' => $cfile]); curl_setopt($ch_up, CURLOPT_RETURNTRANSFER, true);
-        $res_up = json_decode(curl_exec($ch_up), true); @unlink($tmp_file);
+        $comfy_filename = null;
 
-        if (isset($res_up['name'])) {
-            $comfy_filename = $res_up['name'];
+        if ($init_image_base64 === "TRAY_IMAGE_USED") {
+            // Ya subimos la imagen de la bandeja al inicio, reutilizamos su nombre validado
+            $comfy_filename = $comfy_image_filename;
+        } else {
+            // Proceso normal de decodificación y subida para el visor gigante
+            $tmp_file = sys_get_temp_dir() . '/init_' . uniqid() . '.png';
+            file_put_contents($tmp_file, base64_decode($init_image_base64));
+            $cfile = function_exists('curl_file_create') ? curl_file_create($tmp_file, 'image/png', 'init_image.png') : '@' . realpath($tmp_file);
+            
+            $ch_up = curl_init(COMFY_URL . '/upload/image');
+            curl_setopt($ch_up, CURLOPT_POST, true); curl_setopt($ch_up, CURLOPT_POSTFIELDS, ['image' => $cfile]); curl_setopt($ch_up, CURLOPT_RETURNTRANSFER, true);
+            $res_up = json_decode(curl_exec($ch_up), true); @unlink($tmp_file);
+
+            if (isset($res_up['name'])) {
+                $comfy_filename = $res_up['name'];
+            }
+        }
+
+        if ($comfy_filename && $comfy_filename !== "none") {
             $workflow["11"] = ["inputs" => ["image" => $comfy_filename, "upload" => "image"], "class_type" => "LoadImage"];
 
             $flux_fill_pixels = null;
             $flux_fill_mask = null;
             $flux_noise_mask = false;
-
+            
             if ($is_outpainting) {
                 $sampler_denoise = 1.0; 
                 $workflow["111"] = [
@@ -2583,66 +2630,76 @@ if ($action === 'generar_imagen') {
     }
 	
 	// ==============================================================================
-    // 🌟 INYECCIÓN FLUX 2 KLEIN EDIT (Kontext Conditioner)
+    // 🌟 INYECCIÓN FLUX 2 KLEIN EDIT & MULTICARGA (Kontext Conditioner)
     // ==============================================================================
     $is_flux2 = (strpos($model_lower, 'flux2') !== false || strpos($model_lower, 'klein') !== false || strpos($model_lower, 'kontext') !== false);
 
-    if ($is_flux2 && !empty($init_image_base64) && !$is_outpainting) {
+    if ($is_flux2 && (!empty($init_image_base64) || !empty($tray_comfy_filenames)) && !$is_outpainting) {
         
-        // Capturamos la imagen escalada o base
-        $flux2_image_source = isset($workflow["13"]) ? ["13", 0] : ["11", 0];
+        // 1. Agrupar Imágenes (de la bandeja o del visor)
+        $kontext_images = [];
+        
+        if (!empty($tray_comfy_filenames)) {
+            // MODO BANDEJA: Cargamos dinámicamente tantas fotos como subiera el usuario
+            foreach ($tray_comfy_filenames as $index => $filename) {
+                $node_id = "11_tray_" . $index;
+                $workflow[$node_id] = [
+                    "inputs" => ["image" => $filename, "upload" => "image"],
+                    "class_type" => "LoadImage"
+                ];
+                $kontext_images[$index] = [$node_id, 0];
+            }
+        } else {
+            // MODO VISOR GIGANTE: Solo hay una
+            $kontext_images[1] = isset($workflow["13"]) ? ["13", 0] : ["11", 0];
+        }
 
-        // 1. Nodo positivo
+        // 2. Construimos la estructura base del Conditioner
+        $inputs_pos = [
+            "prompt" => $posPrompt, 
+            "target_resolution" => 1024,
+            "alignment" => 16,
+            "upscale_method" => "lanczos",
+            "guidance" => $flux_guidance ?? 3.5,
+            "system_prompt_mode" => "none",
+            "vae_tiling" => false,
+            "custom_system_prompt" => "",
+            "clip" => [$base_clip_node, $base_clip_index],
+            "vae" => [$base_vae_node, $base_vae_index] 
+        ];
+        
+        // 3. Inyectamos dinámicamente image1, image2, image3...
+        $contador = 1;
+        foreach ($kontext_images as $real_index => $node_ref) {
+            $inputs_pos["image" . $contador] = $node_ref;
+            $inputs_pos["image" . $contador . "_strength"] = 1.0;
+            $inputs_pos["image" . $contador . "_resolution"] = 1024;
+            $contador++;
+        }
+        
+        // 4. Replicamos todo exactamente igual para el Negativo
+        $inputs_neg = $inputs_pos;
+        $inputs_neg["prompt"] = $neg_prompt;
+
         $workflow["6"] = [
-            "inputs" => [
-                "prompt" => $posPrompt, 
-                "target_resolution" => 1024,
-                "alignment" => 16,               // El JSON confirmaba que usa 16 o múltiplos de ahí
-                "upscale_method" => "lanczos",   // El JSON pedía 'lanczos' por defecto
-                "guidance" => $flux_guidance ?? 3.5,
-                "system_prompt_mode" => "none",
-                "image1" => $flux2_image_source, // <-- ¡Clave exacta descubierta en el JSON!
-                "image1_strength" => 1,
-                "image1_resolution" => 1024,
-                "vae_tiling" => false,
-                "custom_system_prompt" => "",
-                "clip" => [$base_clip_node, $base_clip_index],
-                "vae" => [$base_vae_node, $base_vae_index] 
-            ],
+            "inputs" => $inputs_pos,
             "class_type" => "Flux2KontextConditioner"
         ];
         
-        // 2. Nodo negativo (mantiene la misma estructura limpia)
         $workflow["7"] = [
-            "inputs" => [
-                "prompt" => $neg_prompt, 
-                "target_resolution" => 1024,
-                "alignment" => 16,
-                "upscale_method" => "lanczos",
-                "guidance" => $flux_guidance ?? 3.5,
-                "system_prompt_mode" => "none",
-                "image1" => $flux2_image_source,
-                "image1_strength" => 1,
-                "image1_resolution" => 1024,
-                "vae_tiling" => false,
-                "custom_system_prompt" => "",
-                "clip" => [$base_clip_node, $base_clip_index],
-                "vae" => [$base_vae_node, $base_vae_index]
-            ],
+            "inputs" => $inputs_neg,
             "class_type" => "Flux2KontextConditioner" 
         ];
         
-        // 3. Matamos el FluxGuidance estándar
+        // 5. Matamos el FluxGuidance estándar para evitar conflictos
         if (isset($workflow["600"])) {
             $current_positive = ["6", 0]; 
             unset($workflow["600"]);
         }
         
-        // 4. Modo edición dinámico
+        // 6. Modo edición dinámico
         $is_edit_panel_active = !empty($_POST['edit_tools_active']) || !empty($mask_base64);
         $panel_denoise = isset($_POST['denoise']) ? (float)$_POST['denoise'] : 0.65;
-        
-        // Si se despliega el panel, manda el usuario. Si solo se sube imagen (edición pura automática), denoise 1.0.
         $sampler_denoise = $is_edit_panel_active ? $panel_denoise : 1.0; 
     }
 
@@ -3494,6 +3551,47 @@ if ($action === 'generar_imagen') {
     foreach ($fetched_images_raw as $index => $item) { 
         $img_binary = $item['data'];
         $ext = $item['ext'];
+		
+		// --- NUEVO: MOTOR DE CONVERSIÓN DE FORMATOS (PNG -> WEBP/JPG) ---
+        $formato_salida = $_POST['image_format'] ?? 'png';
+        
+        // 🛡️ PROTECCIÓN INTELIGENTE: Si el usuario quitó el fondo (Rembg) y eligió JPG, 
+        // lo pasamos a WebP automáticamente para que no pierda la transparencia.
+        if (isset($remove_background) && $remove_background && $formato_salida === 'jpg') {
+            $formato_salida = 'webp';
+        }
+
+        // Si el usuario eligió algo distinto a PNG, convertimos la imagen al vuelo
+        if ($formato_salida !== 'png' && !empty($img_binary)) {
+            $im = @imagecreatefromstring($img_binary);
+            if ($im !== false) {
+                ob_start(); // Encendemos el buffer de salida para atrapar el nuevo archivo
+                
+                if ($formato_salida === 'webp') {
+                    imagesavealpha($im, true); // Preservar transparencias
+                    imagewebp($im, null, 90);  // 90% de calidad (excelente compresión/calidad)
+                } elseif ($formato_salida === 'jpg') {
+                    // El JPG odia las transparencias. Le ponemos un fondo blanco "por si acaso" 
+                    // venía algún pixel transparente para evitar artefactos negros.
+                    $bg = imagecreatetruecolor(imagesx($im), imagesy($im));
+                    $blanco = imagecolorallocate($bg, 255, 255, 255);
+                    imagefill($bg, 0, 0, $blanco);
+                    imagecopy($bg, $im, 0, 0, 0, 0, imagesx($im), imagesy($im));
+                    imagejpeg($bg, null, 90); // 90% de calidad
+                    imagedestroy($bg);
+                    $im = $bg; // Truco técnico para el imagedestroy final
+                }
+                
+                $img_convertida = ob_get_clean(); // Apagamos el buffer y nos guardamos la imagen
+                imagedestroy($im); // Liberamos la memoria RAM del servidor
+                
+                if (!empty($img_convertida)) {
+                    $img_binary = $img_convertida; // Sustituimos el original
+                    $ext = $formato_salida;        // Le cambiamos la extensión al archivo
+                }
+            }
+        }
+        // ------------------------------------------------------------------
 
         // Bloque unificado y limpio
         $meta_json_array = [

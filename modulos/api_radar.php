@@ -16,6 +16,13 @@ if ($action === 'angel_guardia') {
     for ($i = 0; $i < 120; $i++) {
         sleep(5);
         
+        // 🌟 ESCUDO ANTI-DUPLICADOS: Si el radar de la web ya guardó la imagen, el ángel se retira.
+        $stmt_check_done = $pdo->prepare("SELECT imagen_path FROM historial_prompts WHERE id = ?");
+        $stmt_check_done->execute([$historial_id]);
+        if (($row_done = $stmt_check_done->fetch()) && !empty($row_done['imagen_path'])) {
+            exit(); 
+        }
+        
         $ch = curl_init(COMFY_URL . '/history/' . $prompt_id);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 10);
@@ -76,6 +83,42 @@ if ($action === 'angel_guardia') {
                             $ext = pathinfo($filename, PATHINFO_EXTENSION);
                             if (empty($ext)) $ext = 'png';
                             
+                            // =======================================================
+                            // 🌟 INYECCIÓN: MOTOR DE COMPRESIÓN AL VUELO (WEBP/JPG)
+                            // =======================================================
+                            $formato_salida = $_POST['image_format'] ?? 'png';
+                            
+                            // Solo intentamos convertir si es una imagen y pidieron algo distinto a PNG
+                            if ($formato_salida !== 'png' && in_array(strtolower($ext), ['png', 'jpg', 'jpeg', 'webp'])) {
+                                $im = @imagecreatefromstring($file_data);
+                                if ($im !== false) {
+                                    ob_start();
+                                    
+                                    if ($formato_salida === 'webp') {
+                                        imagesavealpha($im, true);
+                                        imagewebp($im, null, 90); // 90% calidad
+                                    } elseif ($formato_salida === 'jpg') {
+                                        $bg = imagecreatetruecolor(imagesx($im), imagesy($im));
+                                        $blanco = imagecolorallocate($bg, 255, 255, 255);
+                                        imagefill($bg, 0, 0, $blanco);
+                                        imagecopy($bg, $im, 0, 0, 0, 0, imagesx($im), imagesy($im));
+                                        imagejpeg($bg, null, 90); // 90% calidad
+                                        imagedestroy($bg);
+                                        $im = $bg;
+                                    }
+                                    
+                                    $file_data_convertida = ob_get_clean();
+                                    imagedestroy($im);
+                                    
+                                    if (!empty($file_data_convertida)) {
+                                        $file_data = $file_data_convertida; // Reemplazamos los datos pesados por los ligeros
+                                        $ext = $formato_salida;             // Cambiamos la extensión final
+                                    }
+                                }
+                            }
+                            // =======================================================
+                            
+                            // ÚNICO GUARDADO
                             $new_name = 'byGarty_' . md5($prompt_id . $filename) . '.' . $ext;
                             
                             @file_put_contents(__DIR__ . '/../galeria/' . $new_name, $file_data);
@@ -302,6 +345,42 @@ if ($action === 'check_ticket') {
                     $ext = pathinfo($filename, PATHINFO_EXTENSION);
                     if (empty($ext)) $ext = 'png';
                     
+                    // =======================================================
+                    // 🌟 INYECCIÓN: MOTOR DE COMPRESIÓN AL VUELO (WEBP/JPG)
+                    // =======================================================
+                    $formato_salida = $_POST['image_format'] ?? 'png';
+                    
+                    // Solo intentamos convertir si es una imagen y pidieron algo distinto a PNG
+                    if ($formato_salida !== 'png' && in_array(strtolower($ext), ['png', 'jpg', 'jpeg', 'webp'])) {
+                        $im = @imagecreatefromstring($file_data);
+                        if ($im !== false) {
+                            ob_start();
+                            
+                            if ($formato_salida === 'webp') {
+                                imagesavealpha($im, true);
+                                imagewebp($im, null, 90); // 90% calidad
+                            } elseif ($formato_salida === 'jpg') {
+                                $bg = imagecreatetruecolor(imagesx($im), imagesy($im));
+                                $blanco = imagecolorallocate($bg, 255, 255, 255);
+                                imagefill($bg, 0, 0, $blanco);
+                                imagecopy($bg, $im, 0, 0, 0, 0, imagesx($im), imagesy($im));
+                                imagejpeg($bg, null, 90); // 90% calidad
+                                imagedestroy($bg);
+                                $im = $bg;
+                            }
+                            
+                            $file_data_convertida = ob_get_clean();
+                            imagedestroy($im);
+                            
+                            if (!empty($file_data_convertida)) {
+                                $file_data = $file_data_convertida; // Reemplazamos los datos pesados por los ligeros
+                                $ext = $formato_salida;             // Cambiamos la extensión final
+                            }
+                        }
+                    }
+                    // =======================================================
+                    
+                    // ÚNICO GUARDADO
                     $new_name = 'byGarty_' . md5($prompt_id . $filename) . '.' . $ext;
                     
                     @file_put_contents(__DIR__ . '/../galeria/' . $new_name, $file_data);
