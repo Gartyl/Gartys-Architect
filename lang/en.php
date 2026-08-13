@@ -151,6 +151,7 @@ return [
 	'adm_ph_sampler'      => "Sampler (Ex: euler)",
 	'adm_ph_scheduler'    => "Scheduler (Ex: beta)",
 	'adm_desc_params_def' => "If left blank, the system will use standard safety values.",
+	'tit_formato' => "FORMAT",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Gallery",

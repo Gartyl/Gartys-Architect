@@ -151,6 +151,7 @@ return [
 	'adm_ph_sampler'      => "Сэмплер (Напр.: euler)",
 	'adm_ph_scheduler'    => "Планировщик (Напр.: beta)",
 	'adm_desc_params_def' => "Если оставить пустым, система будет использовать стандартные безопасные значения.",
+	'tit_formato' => "ФОРМАТ",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Галерея",

@@ -150,6 +150,7 @@ return [
 	'adm_ph_sampler'      => "Sampler (Ej: euler)",
 	'adm_ph_scheduler'    => "Scheduler (Ej: beta)",
 	'adm_desc_params_def' => "Si los dejas vacíos, el sistema usará los valores estándar de seguridad.",
+	'tit_formato' => "FORMATO",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Galería",

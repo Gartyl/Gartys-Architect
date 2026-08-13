@@ -151,6 +151,7 @@ return [
 	'adm_ph_sampler'      => "Sampler (Ex: euler)",
 	'adm_ph_scheduler'    => "Scheduler (Ex: beta)",
 	'adm_desc_params_def' => "Si els deixes buits, el sistema farà servir els valors estàndard de seguretat.",
+	'tit_formato' => "FORMAT",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Galeria",
