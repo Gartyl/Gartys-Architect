@@ -828,6 +828,18 @@ function updateUIForSelector(sel) {
             return; // Detenemos aquí para no pisar la ejecución
         }
     }
+	
+	// Ocultar formato en todo lo que no sea generación pura de imágenes estáticas
+    const formatoBlock = document.getElementById('formatoImagenBlock');
+    if (formatoBlock) {
+        formatoBlock.style.display = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel) ? 'block' : 'none';
+    }
+	
+	const separador = document.getElementById('separadorBotones');
+    if (separador) {
+        // Solo mostramos el separador en las categorías donde se ven sus botones adyacentes
+        separador.style.display = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]'].includes(sel) ? 'block' : 'none';
+    }
     
     const isDirectMode = modoDirectoToggle ? modoDirectoToggle.checked : false;
 
@@ -910,7 +922,6 @@ function updateUIForSelector(sel) {
     
     const estilosContainer = document.getElementById('estilosContainer'); if (estilosContainer) estilosContainer.style.display = (['[LLM]', '[VISION]', '[VIDEO]', '[CHAT]'].includes(sel)) ? 'none' : 'block';
 	
-	
 	// --- CONTROL DE VISIBILIDAD: INTERRUPTOR MULTICARGA ---
     const multiInputWrapper = document.getElementById('multiInputWrapper');
     if (multiInputWrapper) {
@@ -932,15 +943,7 @@ function updateUIForSelector(sel) {
             }
         }
     }
-	
-	
-	
-	
-	
-	
-	
-	
-    
+
     const presetBlock = document.getElementById('presetBlock');
     if (presetBlock) { if (['[LLM]', '[VISION]', '[VIDEO]'].includes(sel) || (sel === '[CHAT]' && !isAvanzado)) presetBlock.style.display = 'none'; else presetBlock.style.display = 'block'; }
 	
@@ -1140,6 +1143,8 @@ function updateUIForSelector(sel) {
         const aDetailer = document.getElementById('pureAdetailerToggle');
         if (aDetailer && aDetailer.checked && typeof toggleAdetailerPuro === 'function') toggleAdetailerPuro(true);
     }, 150);
+	
+	setTimeout(checkToolbarScroll, 150);
 }
 
 function clearResultsUI() {
@@ -3392,3 +3397,28 @@ window.ejecutarAutoArquitecto = async function() {
     btn.innerHTML = iconoOriginal;
     btn.disabled = false;
 };
+
+// ==============================================================================
+// --- CONTROL DE SCROLL HORIZONTAL DE BOTONES (FLECHAS DINÁMICAS) ---
+// ==============================================================================
+window.checkToolbarScroll = function() {
+    const t = document.getElementById('toolbarScroll');
+    const bL = document.getElementById('btnScrollL');
+    const bR = document.getElementById('btnScrollR');
+    if (!t || !bL || !bR) return;
+
+    // Tolerancia de 2px para evitar errores por decimales del navegador
+    const canScrollLeft = t.scrollLeft > 0;
+    const canScrollRight = t.scrollLeft < (t.scrollWidth - t.clientWidth - 2);
+
+    bL.style.display = canScrollLeft ? 'block' : 'none';
+    bR.style.display = canScrollRight ? 'block' : 'none';
+};
+
+// Comprobamos si hacen falta las flechas al redimensionar la ventana
+window.addEventListener('resize', checkToolbarScroll);
+
+// Comprobamos tras arrancar la aplicación
+document.addEventListener('DOMContentLoaded', () => { 
+    setTimeout(checkToolbarScroll, 300); 
+});
