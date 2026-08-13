@@ -31,15 +31,14 @@
                  </div>
 
                  <!-- NUEVO: SELECTOR DE FORMATO (AHORA EN LA PRIMERA FILA) -->
-                 <div class="col-md-2 mb-2">
-                     <!-- He puesto "FORMATO" fijo para evitar el fallo de tu diccionario de traducciones -->
-                     <label class="small text-secondary fw-bold mb-1">FORMATO</label>
-                     <select class="form-select form-select-sm bg-dark text-light border-secondary pref-track" id="imageFormatInput">
-                         <option value="png" selected>PNG</option>
-                         <option value="webp">WEBP</option>
-                         <option value="jpg">JPG</option>
-                     </select>
-                 </div>
+                 <div class="col-md-2 mb-2" id="formatoImagenBlock"> <!-- Le añadimos este ID -->
+					<label class="small text-secondary fw-bold mb-1"><?= __('tit_formato') ?></label>
+					<select class="form-select form-select-sm bg-dark text-light border-secondary pref-track" id="imageFormatInput">
+						<option value="png" selected>PNG</option>
+						<option value="webp">WEBP</option>
+						<option value="jpg">JPG</option>
+					</select>
+				</div>
                  
                  <div class="w-100 d-none d-md-block m-0"></div>
 

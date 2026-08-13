@@ -2,47 +2,60 @@
 <div class="mb-4" id="upperInputBlock">
     
 <!-- Contenedor principal: Aumentamos el padding-bottom a 15px -->
-    <div class="input-toolbar d-flex justify-content-between align-items-center mb-2 flex-nowrap gap-2" style="overflow-x: auto; padding-bottom: 15px;">
-        
-        <!-- GRUPO IZQUIERDO: Interruptores -->
-        <div class="d-flex align-items-center flex-nowrap gap-3">
-            
-            <div class="form-check form-switch m-0 text-nowrap" id="modoDirectoWrapper" title="<?= __('lbl_modo_directo') ?>">
-                <input class="form-check-input border-warning" style="cursor: pointer;" type="checkbox" id="modoDirectoToggle" onchange="toggleModoIngreso()">
-                <label class="form-check-label small text-warning fw-bold" for="modoDirectoToggle">
-                    <i class="bi bi-input-cursor-text"></i> <?= __('lbl_modo_directo') ?>
-                </label>
-            </div>
-            
-            <div class="vr text-secondary" style="opacity: 0.3; height: 1.2rem;"></div> 
-            
-            <div class="d-flex align-items-center text-nowrap" id="multiInputWrapper">
-                <div class="form-check form-switch m-0" title="<?= __('title_multicarga') ?>">
-                    <input class="form-check-input border-info" style="cursor: pointer;" type="checkbox" id="multiInputToggle">
-                    <label class="form-check-label small text-info fw-bold" for="multiInputToggle">
-                        <i class="bi bi-collection"></i> <?= __('lbl_multicarga') ?>
-                    </label>
-                </div>
-            </div>
+    <!-- ENVOLTORIO CON FLECHAS DE SCROLL -->
+	<div class="d-flex align-items-center mb-2 w-100 gap-1">
+		<!-- Flecha Izquierda (Oculta por defecto) -->
+		<button type="button" id="btnScrollL" class="btn btn-link text-info px-1 py-0 border-0" style="display: none;" onclick="document.getElementById('toolbarScroll').scrollBy({left: -200, behavior: 'smooth'})">
+			<i class="bi bi-chevron-left fs-5"></i>
+		</button>
 
-        </div>
+		<!-- TU CONTENEDOR ORIGINAL MODIFICADO -->
+		<div id="toolbarScroll" class="input-toolbar ocultar-scroll d-flex justify-content-between align-items-center flex-nowrap gap-2 flex-grow-1" style="overflow-x: auto; scroll-behavior: smooth;" onscroll="checkToolbarScroll()">
+			
+			<!-- GRUPO IZQUIERDO: Interruptores -->
+			<div class="d-flex align-items-center flex-nowrap gap-3">
+				
+				<div class="form-check form-switch m-0 text-nowrap" id="modoDirectoWrapper" title="<?= __('lbl_modo_directo') ?>">
+					<input class="form-check-input border-warning" style="cursor: pointer;" type="checkbox" id="modoDirectoToggle" onchange="toggleModoIngreso()">
+					<label class="form-check-label small text-warning fw-bold" for="modoDirectoToggle">
+						<i class="bi bi-input-cursor-text"></i> <?= __('lbl_modo_directo') ?>
+					</label>
+				</div>
+				
+				<div class="vr text-secondary" id="separadorBotones" style="opacity: 0.3; height: 1.2rem;"></div> 
+				
+				<div class="d-flex align-items-center text-nowrap" id="multiInputWrapper">
+					<div class="form-check form-switch m-0" title="<?= __('title_multicarga') ?>">
+						<input class="form-check-input border-info" style="cursor: pointer;" type="checkbox" id="multiInputToggle">
+						<label class="form-check-label small text-info fw-bold" for="multiInputToggle">
+							<i class="bi bi-collection"></i> <?= __('lbl_multicarga') ?>
+						</label>
+					</div>
+				</div>
 
-        <!-- GRUPO DERECHO: Cambiamos también flex-wrap por flex-nowrap -->
-        <div class="d-flex gap-2 align-items-center ms-auto flex-nowrap justify-content-end">
-            <!-- (Tus botones siguen aquí tal cual...) -->
-            <button type="button" class="btn-tool text-nowrap" id="uploadBtn" onclick="document.getElementById('imageInput').click()"><i class="bi bi-paperclip"></i> <?= __('btn_subiranalisis') ?></button>
-            <button type="button" class="btn-tool border-info text-info text-nowrap" id="btnCargarGaleria" onclick="abrirModalGaleria()"><i class="bi bi-images"></i> <?= __('btn_cargaleria') ?></button>
-            <button type="button" class="btn-tool border-warning text-warning fw-bold text-nowrap" id="btnWildcards" onclick="abrirModalWildcards()" title="<?= __('btn_title_wildcards') ?>"><i class="bi bi-suit-spade-fill"></i> <?= __('btn_wildcards') ?></button>
-            
-            <input type="file" id="imageInput" accept="image/*,.pdf,.doc,.docx,.txt,.csv,.md,video/mp4" class="d-none">
-            
-            <button type="button" class="btn-tool border-success text-success text-nowrap d-none" id="audioUploadBtn" onclick="document.getElementById('audioInput').click()"><i class="bi bi-music-note-beamed"></i> <?= __('audio_pista') ?></button>
-            <input type="file" id="audioInput" accept="audio/*" class="d-none">
-            
-            <button type="button" class="btn-tool" id="micBtn" title="<?= __('btn_title_dictation') ?>"><i class="bi bi-mic-fill"></i></button>
-        </div>
-        
-    </div>
+			</div>
+
+			<!-- GRUPO DERECHO -->
+			<div class="d-flex gap-2 align-items-center ms-auto flex-nowrap justify-content-end">
+				<button type="button" class="btn-tool text-nowrap" id="uploadBtn" onclick="document.getElementById('imageInput').click()"><i class="bi bi-paperclip"></i> <?= __('btn_subiranalisis') ?></button>
+				<button type="button" class="btn-tool border-info text-info text-nowrap" id="btnCargarGaleria" onclick="abrirModalGaleria()"><i class="bi bi-images"></i> <?= __('btn_cargaleria') ?></button>
+				<button type="button" class="btn-tool border-warning text-warning fw-bold text-nowrap" id="btnWildcards" onclick="abrirModalWildcards()" title="<?= __('btn_title_wildcards') ?>"><i class="bi bi-suit-spade-fill"></i> <?= __('btn_wildcards') ?></button>
+				
+				<input type="file" id="imageInput" accept="image/*,.pdf,.doc,.docx,.txt,.csv,.md,video/mp4" class="d-none">
+				
+				<button type="button" class="btn-tool border-success text-success text-nowrap d-none" id="audioUploadBtn" onclick="document.getElementById('audioInput').click()"><i class="bi bi-music-note-beamed"></i> <?= __('audio_pista') ?></button>
+				<input type="file" id="audioInput" accept="audio/*" class="d-none">
+				
+				<button type="button" class="btn-tool" id="micBtn" title="<?= __('btn_title_dictation') ?>"><i class="bi bi-mic-fill"></i></button>
+			</div>
+			
+		</div>
+
+		<!-- Flecha Derecha (Oculta por defecto) -->
+		<button type="button" id="btnScrollR" class="btn btn-link text-info px-1 py-0 border-0" style="display: none;" onclick="document.getElementById('toolbarScroll').scrollBy({left: 200, behavior: 'smooth'})">
+			<i class="bi bi-chevron-right fs-5"></i>
+		</button>
+	</div>
     
     <!-- ============================================================== -->
     <!-- NUEVA BANDEJA MULTIENTRADA (Oculta por defecto) -->
