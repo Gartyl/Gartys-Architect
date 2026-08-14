@@ -7,7 +7,7 @@ let currentVideoUploadBase64 = null;
 
 // --- MOTOR AUTOREGRESIVO JS (EL DIRECTOR DE ORQUESTA DE FRAMES) ---
 async function lanzarVideoEncadenado(fdOriginal, totalFramesPeticion) {
-    const framesPorTramo = 65; 
+    const framesPorTramo = 121; 
     const totalTramos = Math.ceil(totalFramesPeticion / framesPorTramo);
     let tramosNombres = [];
     

@@ -456,11 +456,131 @@ function toggleReactorUI() {
     const isChecked = document.getElementById('reactorToggle').checked;
     document.getElementById('reactorUI').classList.toggle('d-none', !isChecked);
     if (!isChecked) clearFace();
+    if (isChecked && typeof cargarRostrosGuardados === 'function') cargarRostrosGuardados();
 }
 
 function clearFace() {
-    currentFaceBase64 = null; document.getElementById('faceInput').value = ""; document.getElementById('facePreviewContainer').classList.add('d-none');
+    currentFaceBase64 = null; 
+    const faceInput = document.getElementById('faceInput'); if (faceInput) faceInput.value = ""; 
+    const facePreview = document.getElementById('facePreviewContainer'); if (facePreview) facePreview.classList.add('d-none');
+    const savedFaces = document.getElementById('reactorSavedFaces'); if (savedFaces) savedFaces.value = "";
+    if (typeof handleSavedFaceSelection === 'function') handleSavedFaceSelection();
 }
+
+// --- NUEVAS FUNCIONES PARA ROSTROS GUARDADOS ---
+function toggleSaveFaceForm() {
+    const form = document.getElementById('saveFaceFormContainer');
+    form.classList.toggle('d-none');
+    if (!form.classList.contains('d-none')) {
+        const select = document.getElementById('reactorSavedFaces');
+        if(select) { select.value = ""; handleSavedFaceSelection(); }
+    }
+}
+
+function handleSavedFaceSelection() {
+    const select = document.getElementById('reactorSavedFaces');
+    const uploadWrapper = document.getElementById('reactorUploadWrapper');
+    const btnDelete = document.getElementById('btnDeleteSavedFace'); // <-- AÑADIDO
+    
+    if (select && select.value !== "") {
+        if(uploadWrapper) uploadWrapper.classList.add('d-none');
+        const preview = document.getElementById('facePreviewContainer');
+        if(preview) preview.classList.add('d-none');
+        if(btnDelete) btnDelete.classList.remove('d-none'); // Mostrar basurero
+    } else {
+        if(uploadWrapper) uploadWrapper.classList.remove('d-none');
+        if (currentFaceBase64) {
+            const preview = document.getElementById('facePreviewContainer');
+            if(preview) preview.classList.remove('d-none');
+        }
+        if(btnDelete) btnDelete.classList.add('d-none'); // Ocultar basurero
+    }
+}
+
+// --- NUEVA FUNCIÓN PARA ELIMINAR ROSTRO ---
+async function eliminarModeloRostro() {
+    const select = document.getElementById('reactorSavedFaces');
+    if (!select || select.value === "") return;
+    
+    const filename = select.value;
+    const faceName = select.options[select.selectedIndex].text;
+    
+    const confirm = await SwalDark.fire({
+        title: GartyLang.swal_del_face_title || '¿Eliminar rostro?',
+        text: `Vas a quitar a "${faceName}" de tu galería. ¿Estás seguro?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: GartyLang.btn_yes_delete || 'Sí, eliminar',
+        cancelButtonText: GartyLang.btn_cancelar || 'Cancelar'
+    });
+    
+    if (!confirm.isConfirmed) return;
+    
+    try {
+        let fd = new FormData();
+        fd.append('action', 'eliminar_cara_reactor');
+        fd.append('filename', filename);
+        
+        const res = await fetch('procesar.php', { method: 'POST', body: fd });
+        const data = await res.json();
+        
+        if (data.error) throw new Error(data.error);
+        
+        SwalDark.fire({ toast: true, position: 'top-end', icon: 'success', title: GartyLang.msg_face_deleted || 'Rostro eliminado', showConfirmButton: false, timer: 2000 });
+        select.value = "";
+        handleSavedFaceSelection();
+        cargarRostrosGuardados(); // Recarga la lista para que desaparezca
+    } catch (e) {
+        SwalDark.fire({ icon: 'error', title: 'Error', text: e.message });
+    }
+}
+
+async function cargarRostrosGuardados() {
+    if (!APP_ENV.isAvanzado) return;
+    const select = document.getElementById('reactorSavedFaces');
+    if (!select || select.options.length > 1) return; // Evita recargas innecesarias
+    try {
+        let fd = new FormData(); fd.append('action', 'obtener_caras_reactor');
+        const res = await fetch('procesar.php', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.success && data.caras) {
+            const optTemp = typeof GartyLang !== 'undefined' && GartyLang.opt_reac_temporal ? GartyLang.opt_reac_temporal : 'Subir imagen temporal';
+            const optionsHTML = data.caras.map(c => `<option value="${c.filename}">${c.face_name}</option>`).join('');
+            select.innerHTML = `<option value="">-- ${optTemp} --</option>` + optionsHTML;
+        }
+    } catch (e) { console.warn("Error cargando rostros:", e); }
+}
+
+async function guardarModeloRostro() {
+    const btn = document.getElementById('btnSaveFaceModel');
+    const nameInput = document.getElementById('newFaceName');
+    const faceName = nameInput.value.trim();
+    
+    if (!currentFaceBase64) { SwalDark.fire({ icon: 'warning', title: GartyLang.swal_err_title || 'Atención', text: 'Sube una imagen de referencia primero.' }); return; }
+    if (!faceName) { SwalDark.fire({ icon: 'warning', title: GartyLang.swal_err_title || 'Atención', text: 'Escribe un nombre para el rostro.' }); return; }
+
+    const originalBtnHtml = btn.innerHTML;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Guardando...`;
+    btn.disabled = true;
+
+    try {
+        let fd = new FormData(); 
+        fd.append('action', 'guardar_cara_reactor'); fd.append('face_name', faceName); fd.append('image', currentFaceBase64);
+        const res = await fetch('procesar.php', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        if (data.success) {
+            SwalDark.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Modelo de rostro extraído', showConfirmButton: false, timer: 2000 });
+            nameInput.value = ''; toggleSaveFaceForm();
+            document.getElementById('reactorSavedFaces').innerHTML = `<option value="">-- ${GartyLang.opt_reac_temporal || 'Subir imagen temporal'} --</option>`;
+            setTimeout(cargarRostrosGuardados, 1500); 
+        }
+    } catch (e) { SwalDark.fire({ icon: 'error', title: 'Error', text: e.message }); } 
+    finally { btn.innerHTML = originalBtnHtml; btn.disabled = false; }
+}
+// -----------------------------------------------
 
 const faceInputElem = document.getElementById('faceInput');
 if (faceInputElem) {
@@ -1365,10 +1485,19 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
         fd.append('ipa_end', ipaEnd);
     }
 
-    // FaceSwap / Reactor
+   // FaceSwap / Reactor
     const reactorToggle = document.getElementById('reactorToggle');
-    if (reactorToggle && reactorToggle.checked && typeof currentFaceBase64 !== 'undefined' && currentFaceBase64) {
-        fd.append('reactor_enabled', 'true'); fd.append('reactor_image', currentFaceBase64.split(',')[1]);
+    const savedFaceSelect = document.getElementById('reactorSavedFaces');
+    const hasSavedFace = savedFaceSelect && savedFaceSelect.value !== "";
+    const hasTempFace = typeof currentFaceBase64 !== 'undefined' && currentFaceBase64;
+
+    if (reactorToggle && reactorToggle.checked && (hasSavedFace || hasTempFace)) {
+        fd.append('reactor_enabled', 'true'); 
+        if (hasSavedFace) {
+            fd.append('reactor_saved_face', savedFaceSelect.value);
+        } else {
+            fd.append('reactor_image', currentFaceBase64.split(',')[1]);
+        }
         const pureFaceSwapToggle = document.getElementById('pureFaceSwapToggle'); if (pureFaceSwapToggle && pureFaceSwapToggle.checked) fd.append('pure_faceswap', 'true');
         fd.append('reactor_target_index', document.getElementById('reactorTargetIndex').value); fd.append('reactor_source_index', document.getElementById('reactorSourceIndex').value);
         fd.append('reactor_restore_model', document.getElementById('reactorRestoreModel').value); fd.append('reactor_gender', document.getElementById('reactorGender').value);
@@ -2292,7 +2421,8 @@ async function runGpu(mode = 'directo') {
     }
     
     const isReactorOn = document.getElementById('reactorToggle') && document.getElementById('reactorToggle').checked;
-    if (isReactorOn && (!currentFaceBase64 || currentFaceBase64.indexOf(',') === -1)) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_reactor_title, text: GartyLang.swal_reactor_text}); buttonUsed.disabled = false; return; }
+    const reacSavedSel = document.getElementById('reactorSavedFaces');
+    if (isReactorOn && (!reacSavedSel || reacSavedSel.value === "") && (!currentFaceBase64 || currentFaceBase64.indexOf(',') === -1)) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_reactor_title, text: GartyLang.swal_reactor_text}); buttonUsed.disabled = false; return; }
     	
 	const isIpAdapterOn = document.getElementById('ipAdapterToggle') && document.getElementById('ipAdapterToggle').checked;
     if (isIpAdapterOn && (!currentIpAdapterBase64 || currentIpAdapterBase64.indexOf(',') === -1)) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_ip_title, text: GartyLang.swal_ip_text}); buttonUsed.disabled = false; return; }
@@ -2354,7 +2484,7 @@ async function runGpu(mode = 'directo') {
     const esLTX = modeloSeleccionado.includes('ltx') || nombreModeloVisible.includes('ltx');
 
     // --- CONTROL DE VÍDEOS LARGOS AUTOREGRESIVOS (LTX) ---
-    if (modoActual === '[VIDEO]' && numFrames > 65 && esLTX) {
+    if (modoActual === '[VIDEO]' && numFrames > 121 && esLTX) {
         if (tieneAudio) console.log("Detectado vídeo LTX largo con audio...");
         if (typeof lanzarVideoEncadenado === 'function') {
             lanzarVideoEncadenado(fd, numFrames).finally(() => {
