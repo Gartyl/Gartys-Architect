@@ -380,6 +380,15 @@ code {
     border: 2px solid; 
 }
 
+/* Ocultar la barra de desplazamiento visualmente manteniendo la funcionalidad */
+.ocultar-scroll::-webkit-scrollbar {
+	display: none !important; /* Chrome, Safari y Opera */
+}
+.ocultar-scroll {
+    -ms-overflow-style: none !important;  /* IE y Edge */
+    scrollbar-width: none !important;  /* Firefox */
+}
+
 .btn-fav-img:hover, .btn-pub-img:hover, .btn-fab:hover { 
     transform: scale(1.1); 
 }
