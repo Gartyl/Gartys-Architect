@@ -42,10 +42,48 @@ $facedetect_options = '
                 <input class="form-check-input pref-track" style="cursor: pointer;" type="checkbox" id="reactorToggle" onchange="toggleReactorUI()" <?= !$is_pro ? 'disabled' : '' ?>>
             </div>
         </div>
+        
         <div id="reactorUI" class="d-none mt-3 text-center">
-            <button type="button" class="btn btn-sm btn-outline-warning w-100 mb-2" onclick="document.getElementById('faceInput').click()"><i class="bi bi-upload"></i> <?= __('btn_selfrostro') ?></button>
-            <input type="file" id="faceInput" accept="image/*" class="d-none">
             
+            <!-- ========================================================= -->
+            <!-- NUEVO: SELECTOR DE ROSTROS GUARDADOS -->
+            <!-- ========================================================= -->
+            <div class="mb-3 text-start">
+                <label class="small text-secondary fw-bold mb-1"><?= __('tit_reac_saved_faces') ?></label>
+                <div class="input-group input-group-sm">
+                    <select class="form-select bg-dark text-light border-warning" id="reactorSavedFaces" onchange="handleSavedFaceSelection()">
+                        <option value="">-- <?= __('opt_reac_temporal') ?> --</option>
+                        <!-- Las opciones guardadas se inyectarán aquí por JS -->
+                    </select>
+                    
+                    <!-- BOTÓN ELIMINAR (Oculto por defecto) -->
+                    <button class="btn btn-outline-danger d-none" type="button" id="btnDeleteSavedFace" onclick="eliminarModeloRostro()" title="<?= __('btn_delete_face') ?>">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    
+                    <button class="btn btn-outline-warning" type="button" id="btnToggleSaveFace" onclick="toggleSaveFaceForm()" title="<?= __('btn_title_new_face') ?>">
+                        <i class="bi bi-person-plus-fill"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ========================================================= -->
+            <!-- NUEVO: FORMULARIO OCULTO PARA EXTRAER MODELO -->
+            <!-- ========================================================= -->
+            <div id="saveFaceFormContainer" class="d-none text-start border border-warning rounded p-2 mb-3 shadow-sm" style="background-color: rgba(255, 193, 7, 0.05);">
+                <label class="small text-warning fw-bold mb-1"><i class="bi bi-box-arrow-in-down"></i> <?= __('tit_reac_new_face') ?></label>
+                <input type="text" id="newFaceName" class="form-control form-control-sm bg-dark text-light border-warning mb-2" placeholder="<?= __('ph_reac_face_name') ?>" autocomplete="off">
+                <button type="button" class="btn btn-sm btn-warning w-100 fw-bold shadow-sm" id="btnSaveFaceModel" onclick="guardarModeloRostro()"><i class="bi bi-save"></i> <?= __('btn_save_face_model') ?></button>
+            </div>
+            <!-- ========================================================= -->
+
+            <!-- BOTÓN ORIGINAL DE SUBIDA (Se ocultará si eligen un rostro guardado) -->
+            <div id="reactorUploadWrapper">
+                <button type="button" class="btn btn-sm btn-outline-warning w-100 mb-2" onclick="document.getElementById('faceInput').click()"><i class="bi bi-upload"></i> <?= __('btn_selfrostro') ?></button>
+                <input type="file" id="faceInput" accept="image/*" class="d-none">
+            </div>
+            
+            <!-- PREVIEW ORIGINAL (Se ocultará si eligen un rostro guardado) -->
             <div id="facePreviewContainer" class="d-none mt-2">
                 <img id="facePreview" src="" class="img-fluid rounded border border-warning shadow-sm" style="max-height: 120px;">
                 <div class="mt-2"><button type="button" class="btn btn-sm btn-danger" onclick="clearFace()"><i class="bi bi-trash"></i> <?= __('btn_quitar') ?></button></div>
