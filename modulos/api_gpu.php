@@ -488,6 +488,7 @@ if ($action === 'generar_imagen') {
     // --- REACTOR ---
     $reactor_enabled = $_POST['reactor_enabled'] ?? 'false';
     $reactor_image_base64 = $_POST['reactor_image'] ?? null;
+    $reactor_saved_face = $_POST['reactor_saved_face'] ?? null;
     $reactor_target_index = $_POST['reactor_target_index'] ?? "0";
     $reactor_source_index = $_POST['reactor_source_index'] ?? "0";
     $reactor_restore_model = $_POST['reactor_restore_model'] ?? "codeformer-v0.1.0.pth";
@@ -880,7 +881,7 @@ if ($action === 'generar_imagen') {
            $tiene_audio_pro = (!empty($audioConfigPro) && $audioConfigPro['sync_with_video'] === true);
 
            // LA ÚNICA REGLA EXTRA: Si el vídeo es largo o un chunk, apagamos TODO el audio
-           if ($video_frames > 65 || !empty($previous_video)) {
+           if ($video_frames > 121 || !empty($previous_video)) {
                $comfy_audio_filename = "none";
                $tiene_audio_pro = false;
            }
@@ -1511,7 +1512,7 @@ if ($action === 'generar_imagen') {
     // ==============================================================================
     // --- TUBERÍA EXCLUSIVA: MODO PURO FACESWAP (BYPASS KSAMPLER) ---
     // ==============================================================================
-    if ($reactor_enabled === 'true' && $pure_faceswap && !empty($init_image_base64) && !empty($reactor_image_base64)) {
+    if ($reactor_enabled === 'true' && $pure_faceswap && !empty($init_image_base64) && (!empty($reactor_image_base64) || !empty($reactor_saved_face))) {
         // 1. Subimos la imagen original (Base/Destino)
         $tmp_base = sys_get_temp_dir() . '/base_' . uniqid() . '.png';
         file_put_contents($tmp_base, base64_decode($init_image_base64));
@@ -1521,22 +1522,35 @@ if ($action === 'generar_imagen') {
         $res_base = json_decode(curl_exec($ch_base), true);
         @unlink($tmp_base);
 
-        // 2. Subimos la foto de la cara (Origen)
-        $tmp_face = sys_get_temp_dir() . '/face_' . uniqid() . '.png';
-        file_put_contents($tmp_face, base64_decode($reactor_image_base64));
-        $cfile_face = function_exists('curl_file_create') ? curl_file_create($tmp_face, 'image/png', 'face.png') : '@' . realpath($tmp_face);
-        $ch_face = curl_init(COMFY_URL . '/upload/image');
-        curl_setopt($ch_face, CURLOPT_POST, true); curl_setopt($ch_face, CURLOPT_POSTFIELDS, ['image' => $cfile_face]); curl_setopt($ch_face, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch_face, CURLOPT_TIMEOUT, 30);
-        $res_face = json_decode(curl_exec($ch_face), true);
-        @unlink($tmp_face);
-
-        if (isset($res_base['name']) && isset($res_face['name'])) {
+        if (isset($res_base['name'])) {
             $use_adetailer = false;
-
             $workflow["10"] = ["inputs" => ["image" => $res_base['name'], "upload" => "image"], "class_type" => "LoadImage"];
-            $workflow["11"] = ["inputs" => ["image" => $res_face['name'], "upload" => "image"], "class_type" => "LoadImage"];
+
+            // 2. Lógica Híbrida: ¿Foto temporal o modelo .safetensors guardado?
+            if (!empty($reactor_saved_face)) {
+                $workflow["11"] = [
+                    "inputs" => ["face_model" => $reactor_saved_face], // <--- CORREGIDO AQUÍ
+                    "class_type" => "ReActorLoadFaceModel"
+                ];
+                $tipo_entrada_rostro = "face_model";
+            } else {
+                $tmp_face = sys_get_temp_dir() . '/face_' . uniqid() . '.png';
+                file_put_contents($tmp_face, base64_decode($reactor_image_base64));
+                $cfile_face = function_exists('curl_file_create') ? curl_file_create($tmp_face, 'image/png', 'face.png') : '@' . realpath($tmp_face);
+                $ch_face = curl_init(COMFY_URL . '/upload/image');
+                curl_setopt($ch_face, CURLOPT_POST, true); curl_setopt($ch_face, CURLOPT_POSTFIELDS, ['image' => $cfile_face]); curl_setopt($ch_face, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch_face, CURLOPT_TIMEOUT, 30);
+                $res_face = json_decode(curl_exec($ch_face), true);
+                @unlink($tmp_face);
+                
+                if (!isset($res_face['name'])) {
+                    echo json_encode(['error' => __('err_faceswap_upload')]); exit();
+                }
+                $workflow["11"] = ["inputs" => ["image" => $res_face['name'], "upload" => "image"], "class_type" => "LoadImage"];
+                $tipo_entrada_rostro = "source_image";
+            }
             
+            // 3. Nodo de ReActor Adaptativo
             $workflow["101"] = [ 
                 "inputs" => [ 
                     "enabled" => true,  
@@ -1551,13 +1565,12 @@ if ($action === 'generar_imagen') {
                     "source_faces_index" => $reactor_source_index,
                     "console_log_level" => 1, 
                     "input_image" => ["10", 0], 
-                    "source_image" => ["11", 0]
+                    $tipo_entrada_rostro => ["11", 0] // <- Enchufe dinámico
                 ], 
                 "class_type" => "ReActorFaceSwap" 
             ];
 
             $workflow["9"] = [ "inputs" => ["images" => ["101", 0]], "class_type" => "PreviewImage" ];
-            
             goto EJECUTAR_COMFYUI; 
         } else {
             echo json_encode(['error' => __('err_faceswap_upload')]);
@@ -3002,49 +3015,55 @@ if ($action === 'generar_imagen') {
         }
     }
 
-     // --- FASE 5: REACTOR (FACE SWAP) --- 
-            if ($reactor_enabled === 'true' && !empty($reactor_image_base64)) { 
-                $tmp_face = sys_get_temp_dir() . '/face_' . uniqid() . '.png'; 
-                file_put_contents($tmp_face, base64_decode($reactor_image_base64)); 
+    // --- FASE 5: REACTOR (FACE SWAP) --- 
+    if ($reactor_enabled === 'true' && (!empty($reactor_image_base64) || !empty($reactor_saved_face))) { 
+        // Lógica Híbrida
+        if (!empty($reactor_saved_face)) {
+            $workflow["100"] = [
+                "inputs" => ["face_model" => $reactor_saved_face], // <--- CORREGIDO AQUÍ
+                "class_type" => "ReActorLoadFaceModel"
+            ];
+            $tipo_entrada_rostro = "face_model";
+        } else {
+            $tmp_face = sys_get_temp_dir() . '/face_' . uniqid() . '.png'; 
+            file_put_contents($tmp_face, base64_decode($reactor_image_base64)); 
+            $cfile_face = function_exists('curl_file_create') ? curl_file_create($tmp_face, 'image/png', 'face_ref.png') : '@' . realpath($tmp_face); 
+            
+            $ch_face = curl_init(COMFY_URL . '/upload/image'); 
+            curl_setopt($ch_face, CURLOPT_POST, true); 
+            curl_setopt($ch_face, CURLOPT_POSTFIELDS, ['image' => $cfile_face]); 
+            curl_setopt($ch_face, CURLOPT_RETURNTRANSFER, true); 
+            curl_setopt($ch_face, CURLOPT_TIMEOUT, 30);
+            
+            $res_face = json_decode(curl_exec($ch_face), true); @unlink($tmp_face);
 
-                $cfile_face = function_exists('curl_file_create') ? 
-        curl_file_create($tmp_face, 'image/png', 'face_ref.png') : '@' . 
-        realpath($tmp_face); 
-                
-                $ch_face = curl_init(COMFY_URL . '/upload/image'); 
-
-                curl_setopt($ch_face, CURLOPT_POST, true); 
-                curl_setopt($ch_face, CURLOPT_POSTFIELDS, ['image' => $cfile_face]); 
-                curl_setopt($ch_face, CURLOPT_RETURNTRANSFER, true); 
-                curl_setopt($ch_face, CURLOPT_TIMEOUT, 30);
-        
-                $res_face = json_decode(curl_exec($ch_face), true); @unlink($tmp_face);
-
-                if (isset($res_face['name'])) { 
-
-                    $workflow["100"] = ["inputs" => ["image" => 
-        $res_face['name'], "upload" => "image"], "class_type" => 
-        "LoadImage"]; 
-                    $workflow["101"] = [ 
-                        "inputs" => [ 
-                            "enabled" => true,  
-                            "swap_model" => "inswapper_128.onnx",  
-                            "facedetection" => $reactor_detector,              
-                            "face_restore_model" => $reactor_restore_model,   
-                            "face_restore_visibility" => $reactor_visibility, 
-                            "codeformer_weight" => $reactor_fidelity,         
-                            "detect_gender_input" => $reactor_gender,         
-                            "detect_gender_source" => "no", 
-                            "input_faces_index" => $reactor_target_index,     
-                            "source_faces_index" => $reactor_source_index,    
-                            "console_log_level" => 1, 
-                            "input_image" => [$current_image_node, 0],  
-                            "source_image" => ["100", 0]             
-                        ], "class_type" => "ReActorFaceSwap" 
-                    ]; 
-                    $current_image_node = "101";  
-                } 
+            if (isset($res_face['name'])) { 
+                $workflow["100"] = ["inputs" => ["image" => $res_face['name'], "upload" => "image"], "class_type" => "LoadImage"]; 
+                $tipo_entrada_rostro = "source_image";
             }
+        }
+
+        if (isset($tipo_entrada_rostro)) {
+            $workflow["101"] = [ 
+                "inputs" => [ 
+                    "enabled" => true,  
+                    "swap_model" => "inswapper_128.onnx",  
+                    "facedetection" => $reactor_detector,              
+                    "face_restore_model" => $reactor_restore_model,   
+                    "face_restore_visibility" => $reactor_visibility, 
+                    "codeformer_weight" => $reactor_fidelity,         
+                    "detect_gender_input" => $reactor_gender,         
+                    "detect_gender_source" => "no", 
+                    "input_faces_index" => $reactor_target_index,     
+                    "source_faces_index" => $reactor_source_index,    
+                    "console_log_level" => 1, 
+                    "input_image" => [$current_image_node, 0],  
+                    $tipo_entrada_rostro => ["100", 0]             
+                ], "class_type" => "ReActorFaceSwap" 
+            ]; 
+            $current_image_node = "101";  
+        } 
+    }
 
     // --- FASE 5: UPSCALE ---
     if ($hires_fix) {
