@@ -81,6 +81,13 @@ try {
             require_once __DIR__ . '/modulos/api_nodos.php';
             break;
 			
+		// --- NUEVO: REACTOR FACESWAP ---
+        case 'obtener_caras_reactor':
+        case 'guardar_cara_reactor':
+        case 'eliminar_cara_reactor':  // <--- AÑADIR ESTA LÍNEA
+            require_once __DIR__ . '/modulos/api_reactor.php';
+            break;
+			
 		// --- NUEVO: AUDIO Y CLONACIÓN DE VOZ ---
         case 'generar_audio':
         case 'clonar_audio':
