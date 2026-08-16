@@ -425,32 +425,79 @@ function toggleIpAdapterUI() {
 function clearIpAdapter() {
     const input = document.getElementById('ipaInput') || document.getElementById('ipAdapterInput'); if (input) input.value = '';
     const container = document.getElementById('ipaPreviewContainer') || document.getElementById('ipAdapterPreviewContainer'); if (container) container.classList.add('d-none');
-    const preview = document.getElementById('ipaPreview') || document.getElementById('ipAdapterPreview'); if (preview) preview.src = '';
-    currentIpAdapterBase64 = null;
+    const gallery = document.getElementById('ipaGallery'); if (gallery) gallery.innerHTML = '';
+    window.currentIpAdapterImages = [];
 }
 
 const ipaInputElem = document.getElementById('ipaInput') || document.getElementById('ipAdapterInput');
 if (ipaInputElem) {
-    ipaInputElem.addEventListener('change', function(e) {
-        const file = e.target.files[0]; if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            const img = new Image();
-            img.onload = () => {
-                let width = img.width; let height = img.height;
-                if (width > height && width > 768) { height = Math.round(height * (768 / width)); width = 768; } 
-                else if (height >= width && height > 768) { width = Math.round(width * (768 / height)); height = 768; }
-                const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
-                canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                currentIpAdapterBase64 = canvas.toDataURL('image/jpeg', 0.85);
-                const preview = document.getElementById('ipaPreview') || document.getElementById('ipAdapterPreview'); if (preview) preview.src = currentIpAdapterBase64;
-                const container = document.getElementById('ipaPreviewContainer') || document.getElementById('ipAdapterPreviewContainer'); if (container) container.classList.remove('d-none');
-            };
-            img.src = event.target.result;
-        };
-        reader.readAsDataURL(file);
+    ipaInputElem.addEventListener('change', async function(e) {
+        const files = Array.from(e.target.files); if (!files.length) return;
+        window.currentIpAdapterImages = window.currentIpAdapterImages || [];
+
+        // Limitar a máximo 4 imágenes
+        if (window.currentIpAdapterImages.length + files.length > 4) {
+            SwalDark.fire({ icon: 'info', title: 'Límite alcanzado', text: 'Puedes usar un máximo de 4 referencias simultáneas en el IP-Adapter.' });
+            files.splice(4 - window.currentIpAdapterImages.length);
+        }
+
+        for (let file of files) {
+            await new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = () => {
+                        // Forzamos recorte perfecto 512x512 para que ComfyUI las empaquete sin crashear
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 512; canvas.height = 512;
+                        const ctx = canvas.getContext('2d');
+                        const size = Math.min(img.width, img.height);
+                        const sx = (img.width - size) / 2;
+                        const sy = (img.height - size) / 2;
+                        ctx.drawImage(img, sx, sy, size, size, 0, 0, 512, 512);
+                        window.currentIpAdapterImages.push(canvas.toDataURL('image/jpeg', 0.85));
+                        resolve();
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        renderIpaGallery();
+        ipaInputElem.value = ''; // Reseteamos el input
     });
 }
+
+function renderIpaGallery() {
+    const container = document.getElementById('ipaPreviewContainer') || document.getElementById('ipAdapterPreviewContainer');
+    const gallery = document.getElementById('ipaGallery');
+    if (!gallery || !container) return;
+
+    if (window.currentIpAdapterImages.length === 0) {
+        container.classList.add('d-none'); return;
+    }
+
+    container.classList.remove('d-none');
+    gallery.innerHTML = window.currentIpAdapterImages.map((b64, i) => `
+        <div class="position-relative" style="width: 70px; height: 70px;">
+            <img src="${b64}" class="img-fluid rounded border border-primary shadow-sm w-100 h-100" style="object-fit: cover;">
+            <button type="button" class="btn btn-danger position-absolute top-0 start-100 translate-middle rounded-circle p-0 d-flex align-items-center justify-content-center border border-dark" style="width: 20px; height: 20px; font-size: 10px; z-index: 10;" onclick="removeIpaImage(${i})" title="Quitar"><i class="bi bi-x-lg"></i></button>
+        </div>
+    `).join('');
+}
+
+window.removeIpaImage = function(index) {
+    window.currentIpAdapterImages.splice(index, 1);
+    renderIpaGallery();
+};
+
+window.autoCaptionReferenceMultiple = async function(btnElement) {
+    if (!window.currentIpAdapterImages || window.currentIpAdapterImages.length === 0) return;
+    const tempImg = new Image(); tempImg.id = 'tempIpaImgForCaption'; tempImg.src = window.currentIpAdapterImages[0];
+    document.body.appendChild(tempImg); tempImg.style.display = 'none';
+    await autoCaptionReference('tempIpaImgForCaption', btnElement);
+    tempImg.remove();
+};
 
 function toggleReactorUI() {
     const isChecked = document.getElementById('reactorToggle').checked;
@@ -1466,9 +1513,12 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
 
     // IP-Adapter
     const ipAdapterToggle = document.getElementById('ipAdapterToggle');
-    if (ipAdapterToggle && ipAdapterToggle.checked && typeof currentIpAdapterBase64 !== 'undefined' && currentIpAdapterBase64) {
+    if (ipAdapterToggle && ipAdapterToggle.checked && window.currentIpAdapterImages && window.currentIpAdapterImages.length > 0) {
         fd.append('ipadapter_enabled', 'true'); 
-        fd.append('ipadapter_image', currentIpAdapterBase64.split(',')[1]);
+        
+        window.currentIpAdapterImages.forEach((b64, idx) => {
+            fd.append(`ipadapter_images[${idx}]`, b64.split(',')[1]);
+        });
             
         const ipaModel = document.getElementById('ipaModel') ? document.getElementById('ipaModel').value : '';
         const ipaWeightType = document.getElementById('ipaWeightType') ? document.getElementById('ipaWeightType').value : 'linear';
@@ -2425,7 +2475,7 @@ async function runGpu(mode = 'directo') {
     if (isReactorOn && (!reacSavedSel || reacSavedSel.value === "") && (!currentFaceBase64 || currentFaceBase64.indexOf(',') === -1)) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_reactor_title, text: GartyLang.swal_reactor_text}); buttonUsed.disabled = false; return; }
     	
 	const isIpAdapterOn = document.getElementById('ipAdapterToggle') && document.getElementById('ipAdapterToggle').checked;
-    if (isIpAdapterOn && (!currentIpAdapterBase64 || currentIpAdapterBase64.indexOf(',') === -1)) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_ip_title, text: GartyLang.swal_ip_text}); buttonUsed.disabled = false; return; }
+    if (isIpAdapterOn && (!window.currentIpAdapterImages || window.currentIpAdapterImages.length === 0)) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_ip_title, text: GartyLang.swal_ip_text}); buttonUsed.disabled = false; return; }
     
     const isControlNetOn = document.getElementById('controlNetToggle') && document.getElementById('controlNetToggle').checked;
     if (isControlNetOn && (!currentCnBase64 || currentCnBase64.indexOf(',') === -1)) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_cn_title, text: GartyLang.swal_cn_text}); buttonUsed.disabled = false; return; }
