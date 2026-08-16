@@ -151,6 +151,7 @@ return [
 	'adm_ph_scheduler'    => "Scheduler (Ej: beta)",
 	'adm_desc_params_def' => "Si los dejas vacíos, el sistema usará los valores estándar de seguridad.",
 	'tit_formato' => "FORMATO",
+	'lbl_ref_images_max' => "Imágenes de Referencia (Máx. 4)",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Galería",

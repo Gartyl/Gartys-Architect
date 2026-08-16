@@ -152,6 +152,7 @@ return [
 	'adm_ph_scheduler'    => "Scheduler (Ex: beta)",
 	'adm_desc_params_def' => "If left blank, the system will use standard safety values.",
 	'tit_formato' => "FORMAT",
+	'lbl_ref_images_max' => "Reference Images (Max 4)",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Gallery",
