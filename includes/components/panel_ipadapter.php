@@ -7,7 +7,7 @@
         </div>
         <div id="ipAdapterUI" class="d-none mt-3 text-center">
             <button type="button" class="btn btn-sm btn-outline-primary w-100 mb-2" onclick="document.getElementById('ipaInput').click()"><i class="bi bi-upload"></i> <?= __('btn_subirireferencia') ?></button>
-            <input type="file" id="ipaInput" accept="image/*" class="d-none">
+            <input type="file" id="ipaInput" accept="image/*" class="d-none" multiple>
             
             <!-- BLOQUE 1: SIEMPRE VISIBLE (Fuerza) -->
             <div class="row g-2 mt-2 text-start border-top border-primary pt-3" style="border-color: rgba(13, 110, 253, 0.2) !important;">
@@ -57,10 +57,13 @@
                 </div>
             </div>
 
-            <div id="ipaPreviewContainer" class="d-none mt-3">
-                <img id="ipaPreview" src="" class="img-fluid rounded border border-primary shadow-sm" style="max-height: 120px;">
+            <div id="ipaPreviewContainer" class="d-none mt-3 border-top border-primary pt-3" style="border-color: rgba(13, 110, 253, 0.2) !important;">
+                <label class="small text-secondary fw-bold mb-2"><?= __('lbl_ref_images_max') ?></label>
+                <!-- Nueva Galería Flex -->
+                <div id="ipaGallery" class="d-flex flex-wrap gap-2 justify-content-center mb-2"></div>
+                
                 <div class="mt-2 d-flex gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-primary flex-grow-1" onclick="autoCaptionReference('ipaPreview', this)"><i class="bi bi-magic"></i> <?= __('btn_extraeprompt') ?></button>
+                    <button type="button" class="btn btn-sm btn-outline-primary flex-grow-1" onclick="autoCaptionReferenceMultiple(this)"><i class="bi bi-magic"></i> <?= __('btn_extraeprompt') ?></button>
                     <button type="button" class="btn btn-sm btn-danger" onclick="clearIpAdapter()"><i class="bi bi-trash"></i></button>
                 </div>
             </div>
