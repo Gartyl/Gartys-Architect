@@ -18,7 +18,7 @@ $user_id = $_SESSION['user_id'];
 // ---------------------------------------------------------
 if ($action === 'obtener_caras_reactor') {
     try {
-        $stmt = $pdo->prepare("SELECT id, face_name, filename FROM reactor_faces WHERE user_id = ? ORDER BY created_at DESC");
+        $stmt = $pdo->prepare("SELECT id, face_name, filename FROM reactor_faces WHERE user_id = ? ORDER BY face_name ASC");
         $stmt->execute([$user_id]);
         $caras = $stmt->fetchAll(PDO::FETCH_ASSOC);
         

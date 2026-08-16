@@ -2129,13 +2129,13 @@ if ($action === 'generar_imagen') {
             // 👇 ¡RESTAURAMOS TU BLOQUE ORIGINAL! 👇
             $workflow["90"] = [ "inputs" => ["clip_name" => "qwen_3_4b.safetensors", "type" => "lumina2"], "class_type" => "CLIPLoader" ];
         } elseif ($is_hunyuan) {
-            // Hunyuan-Image nativo de ComfyUI: Arquitectura Dual (Qwen 2.5 VL + ByT5 Small)
+            // HunyuanDiT nativo de ComfyUI: Arquitectura Dual (CLIP-L + uMT5)
             $workflow["90"] = [ 
                 "inputs" => [
-                    "clip_name1" => "qwen_2.5_vl_7b_fp8_scaled.safetensors", 
-                    "clip_name2" => "byt5_small_glyphxl_fp16.safetensors",    
-                    "type" => "hunyuan_image" 
-                ], 
+					"clip_name1" => "qwen_2.5_vl_7b_fp8_scaled.safetensors", 
+					"clip_name2" => "byt5_small_glyphxl_fp16.safetensors",    
+					"type" => "hunyuan_image" 
+				],
                 "class_type" => "DualCLIPLoader" 
             ];
         } elseif ($is_hidream) {
@@ -2344,9 +2344,11 @@ if ($action === 'generar_imagen') {
     }
 
     // ==============================================================================
-    // --- FASE 6: IP-ADAPTER AVANZADO Y FLUX REDUX ---
+    // --- FASE 6: IP-ADAPTER AVANZADO Y FLUX REDUX (MULTI-IMAGE BATCH) ---
     // ==============================================================================
-    if ($ipadapter_enabled === 'true' && !empty($ipadapter_image_base64)) {
+    $ipadapter_images = $_POST['ipadapter_images'] ?? [];
+    
+    if ($ipadapter_enabled === 'true' && !empty($ipadapter_images)) {
         
         // 1. ESCUDO: Qwen y Krea-2 usan Img2Img para referencia visual, no IP-Adapter.
         if ($is_qwen || $is_krea2) {
@@ -2354,32 +2356,63 @@ if ($action === 'generar_imagen') {
             exit();
         }
 
-        $tmp_ipa = sys_get_temp_dir() . '/ipa_' . uniqid() . '.png';
-        file_put_contents($tmp_ipa, base64_decode($ipadapter_image_base64));
-        
-        $cfile_ipa = function_exists('curl_file_create') ? curl_file_create($tmp_ipa, 'image/png', 'ipa_ref.png') : '@' . realpath($tmp_ipa);
-        
-        $ch_ipa = curl_init(COMFY_URL . '/upload/image');
-        curl_setopt($ch_ipa, CURLOPT_POST, true); 
-        curl_setopt($ch_ipa, CURLOPT_POSTFIELDS, ['image' => $cfile_ipa]); 
-        curl_setopt($ch_ipa, CURLOPT_RETURNTRANSFER, true);
-        $res_ipa = json_decode(curl_exec($ch_ipa), true); 
-        @unlink($tmp_ipa);
+        $ipa_uploaded_names = [];
+        foreach ($ipadapter_images as $idx => $b64) {
+            if ($idx >= 4) break; // Máximo 4 imágenes por límite de batch
+            
+            $tmp_ipa = sys_get_temp_dir() . '/ipa_' . uniqid() . "_{$idx}.png";
+            file_put_contents($tmp_ipa, base64_decode($b64));
+            
+            $cfile_ipa = function_exists('curl_file_create') ? curl_file_create($tmp_ipa, 'image/png', "ipa_ref_{$idx}.png") : '@' . realpath($tmp_ipa);
+            
+            $ch_ipa = curl_init(COMFY_URL . '/upload/image');
+            curl_setopt($ch_ipa, CURLOPT_POST, true); 
+            curl_setopt($ch_ipa, CURLOPT_POSTFIELDS, ['image' => $cfile_ipa]); 
+            curl_setopt($ch_ipa, CURLOPT_RETURNTRANSFER, true);
+            $res_ipa = json_decode(curl_exec($ch_ipa), true); 
+            @unlink($tmp_ipa);
 
-        if (isset($res_ipa['name'])) {
-            $workflow["200"] = [
-                "inputs" => ["image" => $res_ipa['name'], "upload" => "image"], 
-                "class_type" => "LoadImage"
-            ];
+            if (isset($res_ipa['name'])) {
+                $ipa_uploaded_names[] = $res_ipa['name'];
+            }
+        }
+
+        if (!empty($ipa_uploaded_names)) {
+            
+            // Construimos dinámicamente los nodos LoadImage y los empaquetamos
+            $last_image_node = null;
+            
+            foreach ($ipa_uploaded_names as $idx => $name) {
+                $node_id = "200_" . $idx;
+                $workflow[$node_id] = [
+                    "inputs" => ["image" => $name, "upload" => "image"], 
+                    "class_type" => "LoadImage"
+                ];
+                
+                if ($idx === 0) {
+                    $last_image_node = [$node_id, 0];
+                } else {
+                    // Empaquetamos la imagen anterior con la nueva mediante ImageBatch
+                    $batch_id = "200_batch_" . $idx;
+                    $workflow[$batch_id] = [
+                        "inputs" => [
+                            "image1" => $last_image_node,
+                            "image2" => [$node_id, 0]
+                        ],
+                        "class_type" => "ImageBatch"
+                    ];
+                    $last_image_node = [$batch_id, 0];
+                }
+            }
 
             if ($is_flux || $is_chroma || $is_zimage) {
-                // 🌟 RUTA NEXT-GEN: FLUX REDUX (Nativo, actualizado a la última versión de ComfyUI) 🌟
+                // 🌟 RUTA NEXT-GEN: FLUX REDUX (Nativo) 🌟
                 $workflow["201"] = [
                     "inputs" => ["clip_name" => "sigclip_vision_patch14_384.safetensors"],
                     "class_type" => "CLIPVisionLoader"
                 ];
                 $workflow["202"] = [
-                    "inputs" => ["crop" => "center", "clip_vision" => ["201", 0], "image" => ["200", 0]],
+                    "inputs" => ["crop" => "center", "clip_vision" => ["201", 0], "image" => $last_image_node],
                     "class_type" => "CLIPVisionEncode"
                 ];
                 $workflow["203"] = [
@@ -2391,17 +2424,16 @@ if ($action === 'generar_imagen') {
                         "conditioning" => $current_positive,
                         "style_model" => ["203", 0],
                         "clip_vision_output" => ["202", 0],
-                        "strength" => $ipa_weight, // <-- ¡Inyección nativa directa!
-                        "strength_type" => "multiply" // <-- Escalado lineal del vector (recomendado)
+                        "strength" => $ipa_weight,
+                        "strength_type" => "multiply" 
                     ],
                     "class_type" => "StyleModelApply"
                 ];
                 
-                // Redux ahora modula la fuerza internamente, así que la salida es siempre la 204
                 $current_positive = ["204", 0];
 
             } else {
-                // 🧱 RUTA CLÁSICA: IP-Adapter Advanced (SDXL / SD1.5 de Matteo) 🧱
+                // 🧱 RUTA CLÁSICA: IP-Adapter Advanced (SDXL / SD1.5) 🧱
                 $workflow["201"] = [
                     "inputs" => ["ipadapter_file" => $ipa_model],
                     "class_type" => "IPAdapterModelLoader"
@@ -2420,7 +2452,7 @@ if ($action === 'generar_imagen') {
                         "embeds_scaling" => "V only",
                         "model" => [$current_model_node, 0],
                         "ipadapter" => ["201", 0],
-                        "image" => ["200", 0],
+                        "image" => $last_image_node,
                         "clip_vision" => ["202", 0]
                     ], 
                     "class_type" => "IPAdapterAdvanced"
@@ -3167,7 +3199,16 @@ if ($action === 'generar_imagen') {
     // ==============================================================================
     if (isset($use_adetailer) && $use_adetailer) {
         if (isset($workflow["9"]["inputs"]["images"])) {
+            
+            // 1. ENRUTAMIENTO INTELIGENTE (ADETAILER ANTES QUE REACTOR)
             $nodo_origen_imagen = $workflow["9"]["inputs"]["images"][0];
+            $es_previo_a_reactor = false;
+
+            // Si ReActor está activo, interceptamos el cable ANTES de que ReActor actúe
+            if (isset($workflow["101"]) && $workflow["101"]["class_type"] === "ReActorFaceSwap") {
+                $nodo_origen_imagen = $workflow["101"]["inputs"]["input_image"];
+                $es_previo_a_reactor = true;
+            }
 
             $workflow["900"] = [
                 "inputs" => ["model_name" => "bbox/face_yolov8m.pt"],
@@ -3206,7 +3247,6 @@ if ($action === 'generar_imagen') {
                     ];
                     
                     // 2. CRÍTICO: Creamos nodos CLIPTextEncode dedicados con el CLIP del modelo 902
-                    // para que la matriz sea 768/2048 y no choque con los 4096 de Flux
                     $workflow["903_pos"] = [
                         "inputs" => ["text" => $posPrompt, "clip" => ["902", 1]],
                         "class_type" => "CLIPTextEncode"
@@ -3219,8 +3259,8 @@ if ($action === 'generar_imagen') {
                     $face_model_source = ["902", 0];
                     $face_clip_source  = ["902", 1];
                     $face_vae_source   = ["902", 2];
-                    $face_pos_source   = ["903_pos", 0]; // <-- Adiós al error mat1 and mat2
-                    $face_neg_source   = ["903_neg", 0]; // <-- Adiós al error mat1 and mat2
+                    $face_pos_source   = ["903_pos", 0]; 
+                    $face_neg_source   = ["903_neg", 0]; 
                     
                     $adetailer_denoise = 0.35; 
                     $adetailer_cfg     = 5.5; 
@@ -3231,7 +3271,7 @@ if ($action === 'generar_imagen') {
                 }
             }
 
-           // Nodo principal FaceDetailer (Actualizado con parámetros estrictos Impact Pack)
+            // Nodo principal FaceDetailer
             $workflow["901"] = [
                 "inputs" => [
                     "guide_size" => 384, 
@@ -3246,7 +3286,6 @@ if ($action === 'generar_imagen') {
                     "feather" => 5, 
                     "noise_mask" => true, 
                     "force_inpaint" => true,
-                    // --- PARÁMETROS ESTRICTOS AÑADIDOS ---
                     "bbox_threshold" => 0.5,
                     "bbox_dilation" => 10,
                     "bbox_margin" => 15,
@@ -3261,8 +3300,7 @@ if ($action === 'generar_imagen') {
                     "refiner_ratio" => 0.2,
                     "cycle" => 1,
                     "wildcard" => "",
-                    // ------------------------------------
-                    "image" => [$nodo_origen_imagen, 0],
+                    "image" => $nodo_origen_imagen, // <--- Bug arreglado (antes anidaba arrays)
                     "model" => $face_model_source,
                     "clip" => $face_clip_source,
                     "vae" => $face_vae_source,
@@ -3273,7 +3311,14 @@ if ($action === 'generar_imagen') {
                 "class_type" => "FaceDetailer"
             ];
 
-            $workflow["9"]["inputs"]["images"] = ["901", 0]; 
+            // 2. RECONECTAMOS LOS CABLES SEGÚN EL ORDEN
+            if ($es_previo_a_reactor) {
+                // ReActor ahora tomará la cara mejorada y en alta resolución de ADetailer
+                $workflow["101"]["inputs"]["input_image"] = ["901", 0];
+            } else {
+                // Comportamiento normal: salida directa al visor
+                $workflow["9"]["inputs"]["images"] = ["901", 0]; 
+            }
         }
     }
     
@@ -3360,11 +3405,9 @@ if ($action === 'generar_imagen') {
     
     if ($hires_fix && ($aurasr_enabled || !empty($upscale_model))) { 
         if (!empty($target_w) && !empty($target_h)) {
-            // Upscale Puro ya calculó los píxeles físicos
             $final_w = $target_w;
             $final_h = $target_h;
         } else {
-            // Upscale normal (Multiplica el slider de la interfaz)
             $final_w = intval($width * $upscale_factor); 
             $final_h = intval($height * $upscale_factor); 
         }
@@ -3398,7 +3441,6 @@ if ($action === 'generar_imagen') {
         $meta_json_array['Modo Outpaint'] = __('lbl_up') . ":$out_top, " . __('lbl_down') . ":$out_bottom, " . __('lbl_left') . ":$out_left, " . __('lbl_right') . ":$out_right";
     }
     
-    // ETIQUETADO CORRECTO DE HI-RES FIX
     if ($hires_fix) { 
         if ($aurasr_enabled) {
             $meta_json_array['Hi-Res Fix'] = 'AuraSR GigaGAN (' . $upscale_factor . 'x)';
@@ -3570,8 +3612,8 @@ if ($action === 'generar_imagen') {
     foreach ($fetched_images_raw as $index => $item) { 
         $img_binary = $item['data'];
         $ext = $item['ext'];
-		
-		// --- NUEVO: MOTOR DE CONVERSIÓN DE FORMATOS (PNG -> WEBP/JPG) ---
+        
+        // --- NUEVO: MOTOR DE CONVERSIÓN DE FORMATOS (PNG -> WEBP/JPG) ---
         $formato_salida = $_POST['image_format'] ?? 'png';
         
         // 🛡️ PROTECCIÓN INTELIGENTE: Si el usuario quitó el fondo (Rembg) y eligió JPG, 
