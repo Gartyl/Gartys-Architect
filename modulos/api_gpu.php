@@ -2379,61 +2379,80 @@ if ($action === 'generar_imagen') {
 
         if (!empty($ipa_uploaded_names)) {
             
-            // Construimos dinámicamente los nodos LoadImage y los empaquetamos
-            $last_image_node = null;
-            
-            foreach ($ipa_uploaded_names as $idx => $name) {
-                $node_id = "200_" . $idx;
-                $workflow[$node_id] = [
-                    "inputs" => ["image" => $name, "upload" => "image"], 
-                    "class_type" => "LoadImage"
-                ];
-                
-                if ($idx === 0) {
-                    $last_image_node = [$node_id, 0];
-                } else {
-                    // Empaquetamos la imagen anterior con la nueva mediante ImageBatch
-                    $batch_id = "200_batch_" . $idx;
-                    $workflow[$batch_id] = [
-                        "inputs" => [
-                            "image1" => $last_image_node,
-                            "image2" => [$node_id, 0]
-                        ],
-                        "class_type" => "ImageBatch"
-                    ];
-                    $last_image_node = [$batch_id, 0];
-                }
-            }
-
             if ($is_flux || $is_chroma || $is_zimage) {
-                // 🌟 RUTA NEXT-GEN: FLUX REDUX (Nativo) 🌟
+                // 🌟 RUTA NEXT-GEN: FLUX REDUX (Encadenado Secuencial) 🌟
                 $workflow["201"] = [
                     "inputs" => ["clip_name" => "sigclip_vision_patch14_384.safetensors"],
                     "class_type" => "CLIPVisionLoader"
-                ];
-                $workflow["202"] = [
-                    "inputs" => ["crop" => "center", "clip_vision" => ["201", 0], "image" => $last_image_node],
-                    "class_type" => "CLIPVisionEncode"
                 ];
                 $workflow["203"] = [
                     "inputs" => ["style_model_name" => "flux1-redux-dev.safetensors"],
                     "class_type" => "StyleModelLoader"
                 ];
-                $workflow["204"] = [
-                    "inputs" => [
-                        "conditioning" => $current_positive,
-                        "style_model" => ["203", 0],
-                        "clip_vision_output" => ["202", 0],
-                        "strength" => $ipa_weight,
-                        "strength_type" => "multiply" 
-                    ],
-                    "class_type" => "StyleModelApply"
-                ];
-                
-                $current_positive = ["204", 0];
+
+                // Dividimos la fuerza para que la suma de estilos no queme la imagen final
+                $num_images = count($ipa_uploaded_names);
+                $redux_weight = round($ipa_weight / $num_images, 2);
+
+                foreach ($ipa_uploaded_names as $idx => $name) {
+                    $node_img = "200_" . $idx;
+                    $node_clip = "202_" . $idx;
+                    $node_apply = "204_" . $idx;
+
+                    // 1. Cargar imagen individual
+                    $workflow[$node_img] = [
+                        "inputs" => ["image" => $name, "upload" => "image"], 
+                        "class_type" => "LoadImage"
+                    ];
+                    
+                    // 2. Codificar con CLIP Vision
+                    $workflow[$node_clip] = [
+                        "inputs" => ["crop" => "center", "clip_vision" => ["201", 0], "image" => [$node_img, 0]],
+                        "class_type" => "CLIPVisionEncode"
+                    ];
+                    
+                    // 3. Aplicar StyleModel (y encadenar los condicionamientos)
+                    $workflow[$node_apply] = [
+                        "inputs" => [
+                            "conditioning" => $current_positive, // Viene del anterior o del texto base
+                            "style_model" => ["203", 0],
+                            "clip_vision_output" => [$node_clip, 0],
+                            "strength" => $redux_weight,
+                            "strength_type" => "multiply" 
+                        ],
+                        "class_type" => "StyleModelApply"
+                    ];
+                    
+                    // Actualizamos el puntero para que el próximo bucle enganche a este
+                    $current_positive = [$node_apply, 0];
+                }
 
             } else {
-                // 🧱 RUTA CLÁSICA: IP-Adapter Advanced (SDXL / SD1.5) 🧱
+                // 🧱 RUTA CLÁSICA: IP-Adapter Advanced (ImageBatch) 🧱
+                $last_image_node = null;
+                foreach ($ipa_uploaded_names as $idx => $name) {
+                    $node_id = "200_" . $idx;
+                    $workflow[$node_id] = [
+                        "inputs" => ["image" => $name, "upload" => "image"], 
+                        "class_type" => "LoadImage"
+                    ];
+                    
+                    if ($idx === 0) {
+                        $last_image_node = [$node_id, 0];
+                    } else {
+                        // Juntamos las imágenes en un solo paquete (Batch)
+                        $batch_id = "200_batch_" . $idx;
+                        $workflow[$batch_id] = [
+                            "inputs" => [
+                                "image1" => $last_image_node,
+                                "image2" => [$node_id, 0]
+                            ],
+                            "class_type" => "ImageBatch"
+                        ];
+                        $last_image_node = [$batch_id, 0];
+                    }
+                }
+
                 $workflow["201"] = [
                     "inputs" => ["ipadapter_file" => $ipa_model],
                     "class_type" => "IPAdapterModelLoader"
