@@ -463,7 +463,9 @@ return [
     'swal_pure_text' => "Per usar un mode directe (FaceSwap Pur o Quitar Fons) necessites pujar una imatge principal al panell superior.",
     'swal_lipsync_title' => "🎬 Mode LipSync Activat",
     'swal_lipsync_text' => "Els vídeos con audio requereixen processar-se en un sol bloc per sincronitzar els llavis de forma natural. El motor de seguretat (trocejat) s'ha desactivat temporalment per a aquesta generació. ¡Atent a la memòria de la teva Gràfica!",
-    
+    'err_ipa_vlm' => "Krea-2 i Qwen processen referències visuals directament des del llenç base. Si us plau, puja la teva referència com a imatge principal i desactiva l'IP-Adapter.",
+    'err_ipa_flux2' => "Flux 2 (Klein/Kontext) no és compatible amb la transferència d'estil Redux. Aquest adaptador és exclusiu de l'arquitectura Flux 1.",
+	
     'swal_gen_cancel_title' => "Generació Cancel·lada",
     'swal_gpu_err_title' => "Error de GPU",
     'swal_gpu_err_text' => "No es va rebre el tiquet de torn de la targeta gràfica.",

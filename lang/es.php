@@ -462,7 +462,9 @@ return [
     'swal_pure_text' => "Para usar un modo directo (FaceSwap Puro o Quitar Fondo) necesitas subir una imagen principal en el panel superior.",
     'swal_lipsync_title' => "🎬 Modo LipSync Activado",
     'swal_lipsync_text' => "Los vídeos con audio requieren procesarse en un solo bloque para sincronizar los labios de forma natural. El motor de seguridad (troceado) se ha desactivado temporalmente para esta generación. ¡Atento a la memoria de tu Gráfica!",
-    
+    'err_ipa_vlm' => "Krea-2 y Qwen procesan referencias visuales directamente desde el lienzo base. Por favor, sube tu referencia como imagen principal y desactiva el IP-Adapter.",
+    'err_ipa_flux2' => "Flux 2 (Klein/Kontext) no es compatible con la transferencia de estilo Redux. Este adaptador es exclusivo de la arquitectura Flux 1.",
+	
     'swal_gen_cancel_title' => "Generación Cancelada",
     'swal_gpu_err_title' => "Error de GPU",
     'swal_gpu_err_text' => "No se recibió el ticket de turno de la tarjeta gráfica.",

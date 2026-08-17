@@ -463,7 +463,9 @@ return [
     'swal_pure_text' => "To use a direct mode (Pure FaceSwap or Remove Background) you need to upload a main image in the top panel.",
     'swal_lipsync_title' => "🎬 LipSync Mode Activated",
     'swal_lipsync_text' => "Videos with audio need to be processed in a single block to naturally synchronize lips. The safety engine (slicing) has been temporarily disabled for this generation. Keep an eye on your Graphics Card memory!",
-    
+    'err_ipa_vlm' => "Krea-2 and Qwen process visual references directly from the base canvas. Please upload your reference as the main image and disable the IP-Adapter.",
+    'err_ipa_flux2' => "Flux 2 (Klein/Kontext) is not compatible with Redux style transfer. This adapter is exclusive to the Flux 1 architecture.",
+	
     'swal_gen_cancel_title' => "Generation Canceled",
     'swal_gpu_err_title' => "GPU Error",
     'swal_gpu_err_text' => "The graphics card turn ticket was not received.",
