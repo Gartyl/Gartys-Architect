@@ -2947,7 +2947,7 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
 }
 
 // --- CONSTRUCTOR DE IMÁGENES ---
-function construirTarjetaImagen(imgData, dbId = 0, isChat = false, isVision = false) {
+function construirTarjetaImagen(imgData, dbId = 0, isChat = false, isVision = false, serverFilename = null) {
     if (!imgData) {
         console.error(GartyLang.log_err_img_null);
         return `<div class="alert alert-danger m-3 shadow"><i class="bi bi-exclamation-triangle-fill"></i> ${GartyLang.err_empty_result_ffmpeg}</div>`;
@@ -2957,27 +2957,32 @@ function construirTarjetaImagen(imgData, dbId = 0, isChat = false, isVision = fa
     const prefix = isChat ? 'byGartyChat_' : 'byGarty_';
     const selectorEl = document.getElementById('selector'); const currentCat = selectorEl ? selectorEl.value : '';
     let isVideo = false; let isAnimatedWebp = false; let mediaSrc = ''; let extension = 'png';
-    let isAudio = false; // Nueva bandera
+    let isAudio = false; 
 
+    // --- ENLAZAR EL JSON EXACTO POR ID ---
+    let jsonDownloadUrl = ''; 
+    if (dbId > 0) {
+        jsonDownloadUrl = `galeria/workflow_${dbId}.json`;
+    }
+    // -------------------------------------
     const isFilePath = typeof imgData === 'string' && imgData.length < 500 && imgData.includes('.');
     
     if (isFilePath) {
         const lowerPath = imgData.toLowerCase();
         isVideo = lowerPath.endsWith('.mp4') || lowerPath.endsWith('.webm') || lowerPath.endsWith('.mov');
-        isAudio = lowerPath.endsWith('.wav') || lowerPath.endsWith('.mp3') || lowerPath.endsWith('.flac'); // Detección
+        isAudio = lowerPath.endsWith('.wav') || lowerPath.endsWith('.mp3') || lowerPath.endsWith('.flac');
         isAnimatedWebp = lowerPath.endsWith('.webp') && currentCat === '[VIDEO]';
         mediaSrc = `galeria/${imgData}`; 
         extension = isVideo ? 'mp4' : (isAudio ? (lowerPath.endsWith('.flac') ? 'flac' : (lowerPath.endsWith('.mp3') ? 'mp3' : 'wav')) : (lowerPath.endsWith('.webp') ? 'webp' : 'png'));
     } else {
         if (imgData.startsWith('data:video')) { isVideo = true; } 
-        else if (imgData.startsWith('data:audio')) { isAudio = true; } // Detección Base64
+        else if (imgData.startsWith('data:audio')) { isAudio = true; } 
         else if (imgData.startsWith('data:image')) { isVideo = false; if (imgData.includes('webp') && currentCat === '[VIDEO]') isAnimatedWebp = true; } 
         else {
             const isPNG = typeof imgData === 'string' && imgData.startsWith('iVBORw0KGgo');
             const isJPEG = typeof imgData === 'string' && imgData.startsWith('/9j/');
             const isWebP = typeof imgData === 'string' && imgData.startsWith('UklGR');
             const isGIF = typeof imgData === 'string' && imgData.startsWith('R0lGOD');
-            // Detección inferida de audio (cabeceras comunes WAV RIFF)
             if (!isPNG && !isJPEG && !isWebP && !isGIF && imgData.startsWith('UklGR')) {
                 if (currentCat === '[AUDIO]') isAudio = true;
                 else if (currentCat === '[VIDEO]') isAnimatedWebp = true;
@@ -2991,7 +2996,6 @@ function construirTarjetaImagen(imgData, dbId = 0, isChat = false, isVision = fa
         else { mediaSrc = imgData.startsWith('data:') ? imgData : `data:image/png;base64,${imgData}`; extension = 'png'; }
     }
     
-    // Generación dinámica de la etiqueta HTML según el medio
     let mediaTag = '';
     if (isVideo) {
         mediaTag = `<video src="${mediaSrc}" onclick="if(typeof abrirVisor === 'function') abrirVisor(this.src)" style="cursor: pointer;" class="result-image w-100" muted loop autoplay playsinline onmouseover="this.play()" onmouseout="this.pause()"></video>`;
@@ -3014,7 +3018,13 @@ function construirTarjetaImagen(imgData, dbId = 0, isChat = false, isVision = fa
             ${showMergeCheckbox ? `<div style="position: absolute; top: 10px; left: 10px; z-index: 50;"><input type="checkbox" class="form-check-input shadow border border-dark merge-checkbox" style="width: 25px; height: 25px; cursor: pointer; border: 2px solid #0dcaf0;" value="${imgData}" onchange="if(typeof toggleVideoFusion === 'function') toggleVideoFusion(this.value, this.checked)" title="${GartyLang.gal_title_select_merge}"></div>` : ''}
             <a href="javascript:void(0)" onclick="if(typeof togglePublic === 'function') togglePublic(${dbId}, this)" class="btn-pub-img" title="${GartyLang.btn_pub_gallery}"><i class="bi bi-globe"></i></a>
             <a href="javascript:void(0)" onclick="if(typeof toggleFavorito === 'function') toggleFavorito(${dbId}, this)" class="btn-fav-img" title="${GartyLang.btn_fav_img}"><i class="bi bi-heart"></i></a>
-            <a href="${mediaSrc}" download="${prefix}${Date.now()}.${extension}" class="btn-fab btn-download-img-fab"><i class="bi bi-download"></i></a>
+            
+			<!-- Contenedor Flex para la derecha (JSON + Descarga) -->
+            <div style="position: absolute; bottom: 10px; right: 10px; display: flex; gap: 8px; z-index: 50;">
+                ${jsonDownloadUrl ? `<a href="${jsonDownloadUrl}" target="_blank" class="btn-fab" style="position: relative; right: auto; bottom: auto; background-color: #212529; color: #0dcaf0; border: 1px solid #0dcaf0;" title="${GartyLang.btn_download_json || 'Descargar Workflow (JSON)'}"><i class="bi bi-braces"></i></a>` : ''}
+                <a href="${mediaSrc}" download="${prefix}${Date.now()}.${extension}" class="btn-fab btn-download-img-fab" style="position: relative; right: auto; bottom: auto;"><i class="bi bi-download"></i></a>
+            </div>
+			
             ${!isChat ? `
             <div style="position: absolute; bottom: 10px; left: 10px; display: flex; gap: 6px; z-index: 50;">
                 ${!isVision ? `
@@ -3175,7 +3185,10 @@ window.generateImageFromChatBtn = async function(btnElement, encodedText) {
                         clearInterval(chatRadarInterval);
                         if (dataCheck.images && dataCheck.images.length > 0) {
                             let html = '<div class="row g-2 mb-2">';
-                            dataCheck.images.forEach(img => { html += construirTarjetaImagen(img, data.historial_id || 0, true); });
+                            dataCheck.images.forEach((img, idx) => { 
+								let fname = dataCheck.filenames ? dataCheck.filenames[idx] : null;
+								html += construirTarjetaImagen(img, data.historial_id || 0, true, false, fname); 
+							});
                             html += '</div>';
                             b.innerHTML = html + `<span class="bubble-meta">${GartyLang.chat_meta_gpu_engine || 'Motor GPU - '}${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>`;
                             btnElement.innerHTML = `<i class="bi bi-check-circle"></i> ${GartyLang.chat_btn_completed || 'Completado'}`;
