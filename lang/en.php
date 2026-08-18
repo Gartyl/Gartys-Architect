@@ -247,6 +247,7 @@ return [
 	'err_empty_interrupted'=> "Empty or interrupted response from the server.",
 	'log_err_conn'         => "Communication failure in execution engine:",
 	'msg_img_loaded' => "Attached image ready",
+	'btn_download_json' => "Download Workflow (.json)",
     
     // --- SELECTORES, FILTROS Y CONTROLES ---
     'sel_llm' => "LLM (Language Model)",

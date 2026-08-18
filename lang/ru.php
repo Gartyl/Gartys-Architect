@@ -247,6 +247,7 @@ return [
 	'err_empty_interrupted'=> "Пустой или прерванный ответ от сервера.",
 	'log_err_conn'         => "Ошибка связи в ядре выполнения:",
 	'msg_img_loaded' => "Прикрепленное изображение готово",
+	'btn_download_json' => "Скачать Workflow (.json)",
     
     // --- SELECTORES, FILTROS Y CONTROLES ---
     'sel_llm' => "LLM (Языковая модель)",

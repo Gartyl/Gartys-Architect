@@ -246,6 +246,7 @@ return [
 	'err_empty_interrupted'=> "Respuesta vacía o interrumpida por el servidor.",
 	'log_err_conn'         => "Fallo de comunicación en el motor de ejecución:",
 	'msg_img_loaded' => "Imagen adjunta lista",
+	'btn_download_json' => "Descargar Workflow (.json)",
     
     // --- SELECTORES, FILTROS Y CONTROLES ---
     'sel_llm' => "LLM (Modelo de Lenguaje)",

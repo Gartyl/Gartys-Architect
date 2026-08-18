@@ -247,6 +247,7 @@ return [
 	'err_empty_interrupted'=> "Resposta buida o interrompuda pel servidor.",
 	'log_err_conn'         => "Fallada de comunicació en el motor d\'execució:",
 	'msg_img_loaded' => "Imatge adjunta a punt",
+	'btn_download_json' => "Descarregar Workflow (.json)",
     
     // --- SELECTORES, FILTROS Y CONTROLES ---
     'sel_llm' => "LLM (Modelo de Lenguaje)",
