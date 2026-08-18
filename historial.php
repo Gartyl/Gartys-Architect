@@ -308,12 +308,24 @@ $items = groupHistoryItems($all_prompts);
                                                                 <i class="bi bi-globe"></i>
                                                             </a>
                                                             <a href="javascript:void(0)" onclick="toggleFavorito(<?php echo $msg['id']; ?>, this)" class="btn-fav-img <?php echo ($msg['favorito'] ? 'active' : ''); ?>" title="<?= __('btn_fav') ?>">
-                                                                <i class="bi <?php echo ($msg['favorito'] ? 'bi-heart-fill' : 'bi-heart'); ?>"></i>
-                                                            </a>
+                                                            <i class="bi <?php echo ($msg['favorito'] ? 'bi-heart-fill' : 'bi-heart'); ?>"></i>
+															</a>
 
-                                                            <a href="galeria/<?php echo htmlspecialchars($msg['imagen_path']); ?>" download class="btn-fab btn-download-img-fab" title="<?= __('btn_descargar') ?>">
-                                                                <i class="bi bi-download"></i>
-                                                            </a>
+															<!-- Contenedor Flex para la derecha (JSON + Descarga) -->
+															<div style="position: absolute; bottom: 10px; right: 10px; display: flex; gap: 8px; z-index: 50;">
+																<?php 
+																$json_file = 'workflow_' . $msg['id'] . '.json';
+																if (file_exists(__DIR__ . '/galeria/' . $json_file)): 
+																?>
+																<a href="galeria/<?php echo $json_file; ?>" target="_blank" class="btn-fab" style="position: relative; right: auto; bottom: auto; background-color: #212529; color: #0dcaf0; border: 1px solid #0dcaf0;" title="<?= __('btn_download_json') ?>">
+																	<i class="bi bi-braces"></i>
+																</a>
+																<?php endif; ?>
+
+																<a href="galeria/<?php echo htmlspecialchars($msg['imagen_path']); ?>" download class="btn-fab btn-download-img-fab" style="position: relative; right: auto; bottom: auto;" title="<?= __('btn_descargar') ?>">
+																	<i class="bi bi-download"></i>
+																</a>
+															</div>
 
                                                             <div class="cluster-btns-fab">
                                                                 <a href="index.php?reutilizar=<?php echo $msg['id']; ?>" class="btn-fab btn-reutilizar-fab" title="<?= __('btn_reutilizar') ?>">
@@ -451,12 +463,24 @@ $items = groupHistoryItems($all_prompts);
                                                                 <i class="bi bi-globe"></i>
                                                             </a>
                                                             <a href="javascript:void(0)" onclick="toggleFavorito(<?php echo $subItem['id']; ?>, this)" class="btn-fav-img <?php echo ($subItem['favorito'] ? 'active' : ''); ?>" title="<?= __('btn_fav') ?>">
-                                                                <i class="bi <?php echo ($subItem['favorito'] ? 'bi-heart-fill' : 'bi-heart'); ?>"></i>
-                                                            </a>
+                                                            <i class="bi <?php echo ($subItem['favorito'] ? 'bi-heart-fill' : 'bi-heart'); ?>"></i>
+															</a>
 
-                                                            <a href="galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>" download class="btn-fab btn-download-img-fab" title="<?= __('btn_descargar') ?>">
-                                                                <i class="bi bi-download"></i>
-                                                            </a>
+															<!-- Contenedor Flex para la derecha (JSON + Descarga) -->
+															<div style="position: absolute; bottom: 10px; right: 10px; display: flex; gap: 8px; z-index: 50;">
+																<?php 
+																$json_file = 'workflow_' . $subItem['id'] . '.json';
+																if (file_exists(__DIR__ . '/galeria/' . $json_file)): 
+																?>
+																<a href="galeria/<?php echo $json_file; ?>" target="_blank" class="btn-fab" style="position: relative; right: auto; bottom: auto; background-color: #212529; color: #0dcaf0; border: 1px solid #0dcaf0;" title="<?= __('btn_download_json') ?>">
+																	<i class="bi bi-braces"></i>
+																</a>
+																<?php endif; ?>
+
+																<a href="galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>" download class="btn-fab btn-download-img-fab" style="position: relative; right: auto; bottom: auto;" title="<?= __('btn_descargar') ?>">
+																	<i class="bi bi-download"></i>
+																</a>
+															</div>
 
                                                             <div class="cluster-btns-fab">
                                                                 <a href="index.php?reutilizar=<?php echo $subItem['id']; ?>" class="btn-fab btn-reutilizar-fab" title="<?= __('btn_reutilizar') ?>">
