@@ -3493,6 +3493,16 @@ if ($action === 'generar_imagen') {
     }
 
     // ====================================================================
+    // --- NUEVO: GUARDAR WORKFLOW JSON (Infalible para Asíncrono) ---
+    // ====================================================================
+    if ($historial_id > 0) {
+        $galeria_dir = __DIR__ . '/../galeria';
+        if (!is_dir($galeria_dir)) @mkdir($galeria_dir, 0777, true);
+        @file_put_contents($galeria_dir . '/workflow_' . $historial_id . '.json', json_encode($workflow, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    }
+    // ====================================================================
+
+   // ====================================================================
     // --- 2. INTERCEPTOR MODO ASÍNCRONO (TICKETS Y ÁNGEL) ---
     // ====================================================================
     if (isset($_POST['async_mode']) && $_POST['async_mode'] === 'true') {
@@ -3717,6 +3727,11 @@ if ($action === 'generar_imagen') {
                 $filename = 'img_' . $historial_id . '_' . mt_rand(1000, 9999) . '_' . time() . '_' . $index . '.' . $ext;
                 if (@file_put_contents($galeria_dir . '/' . $filename, $img_binary)) {
                     
+                    // --- NUEVO: GUARDAR WORKFLOW JSON CON EL MISMO NOMBRE EXACTO ---
+                    $ruta_json = $galeria_dir . '/' . pathinfo($filename, PATHINFO_FILENAME) . '.json';
+                    @file_put_contents($ruta_json, json_encode($workflow, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+                    // ---------------------------------------------------------------
+                    
                     $stmt_check = $pdo->prepare("SELECT imagen_path, user_id, modelo, descripcion_original, prompt_negativo FROM historial_prompts WHERE id = ?");
                     $stmt_check->execute([$historial_id]);
                     $row = $stmt_check->fetch();
@@ -3740,7 +3755,8 @@ if ($action === 'generar_imagen') {
         $final_base64_responses[] = base64_encode($img_binary);
         $filenames_for_db[] = $filename ?? '';
     }
-    echo json_encode(['status' => 'completed', 'images' => $final_base64_responses, 'filenames' => $filenames_for_db]);
+	
+	echo json_encode(['status' => 'completed', 'images' => $final_base64_responses, 'filenames' => $filenames_for_db]);
     exit();
 }
 ?>

@@ -51,8 +51,17 @@ if ($action === 'eliminar_prompt') {
     
     if ($row && !empty($row['imagen_path'])) {
         $filepath = __DIR__ . '/../galeria/' . $row['imagen_path'];
-        if (file_exists($filepath)) { @unlink($filepath); }
+        if (file_exists($filepath)) { 
+            @unlink($filepath); 
+        }
     }
+    
+    // --- NUEVO: BORRAR EL WORKFLOW JSON ASOCIADO A LA ID ---
+    $json_file = __DIR__ . '/../galeria/workflow_' . $prompt_id . '.json';
+    if (file_exists($json_file)) {
+        @unlink($json_file);
+    }
+    // -------------------------------------------------------
     
     $stmt = $pdo->prepare("DELETE FROM historial_prompts WHERE id = ? AND user_id = ?");
     $success = $stmt->execute([$prompt_id, $user_id]);
