@@ -350,16 +350,20 @@ if ($action === 'generar_imagen') {
     // Image2Image & Outpainting
     // --- 1. CAPTURA DE IMAGEN INICIAL (NUEVO EXTRACTOR INTEGRADO) ---
     $previous_video = $_POST['previous_video'] ?? null;
+    $is_chain_chunk = false; // Bandera para saber si es contexto autoregresivo
+    
     if (!empty($previous_video)) {
-        // Si venimos de encadenar, sacamos el frame con FFmpeg
+        // Si venimos de encadenar, sacamos un mini-clip de contexto
         $real_vid_path = __DIR__ . '/../galeria/' . basename($previous_video);
         if (file_exists($real_vid_path)) {
-            $tmp_frame = sys_get_temp_dir() . '/ltx_frame_' . uniqid() . '.png';
-            // Comando FFmpeg reforzado: barre el último segundo y extrae el frame de forma segura
-            exec("ffmpeg -sseof -1 -i " . escapeshellarg($real_vid_path) . " -update 1 -q:v 1 " . escapeshellarg($tmp_frame) . " 2>&1");
-            if (file_exists($tmp_frame)) {
-                $init_image_base64 = base64_encode(file_get_contents($tmp_frame));
-                @unlink($tmp_frame);
+            $is_chain_chunk = true; 
+            // 🌟 CAMBIO: Extraemos el último MEDIO SEGUNDO (inercia) en MP4
+            $tmp_clip = sys_get_temp_dir() . '/ltx_context_' . uniqid() . '.mp4';
+            exec("ffmpeg -sseof -0.5 -i " . escapeshellarg($real_vid_path) . " -c:v libx264 -an -preset ultrafast -crf 18 " . escapeshellarg($tmp_clip) . " 2>&1");
+            
+            if (file_exists($tmp_clip)) {
+                $init_image_base64 = base64_encode(file_get_contents($tmp_clip));
+                @unlink($tmp_clip);
             }
         }
     } else {
@@ -409,15 +413,24 @@ if ($action === 'generar_imagen') {
         }
     }
 
-    // B. Subir Imagen Base Clásica (Visor Gigante)
+    // B. Subir Imagen Base Clásica o Contexto de Vídeo
     if (!empty($init_image_base64)) {
         $imgData = $init_image_base64;
         if (strpos($imgData, 'base64,') !== false) {
             $imgData = explode('base64,', $imgData)[1];
         }
-        $tmp_file = sys_get_temp_dir() . '/upload_img_' . uniqid() . '.png';
+        
+        // 🌟 CAMBIO: Detectar automáticamente si le pasamos foto o vídeo
+        // Detectamos si es un trozo de cadena, o si el usuario subió un vídeo manualmente
+		$es_video_manual = (strpos($imgData, 'data:video/') === 0);
+		$is_video = ($is_chain_chunk || $es_video_manual);
+
+		$extension = $is_video ? 'mp4' : 'png';
+		$mime_type = $is_video ? 'video/mp4' : 'image/png';
+        
+        $tmp_file = sys_get_temp_dir() . '/upload_media_' . uniqid() . '.' . $extension;
         file_put_contents($tmp_file, base64_decode($imgData));
-        $cfile = function_exists('curl_file_create') ? curl_file_create($tmp_file, 'image/png', 'init_image.png') : '@' . realpath($tmp_file);
+        $cfile = function_exists('curl_file_create') ? curl_file_create($tmp_file, $mime_type, 'init_media.' . $extension) : '@' . realpath($tmp_file);
         
         $ch_img = curl_init(COMFY_URL . '/upload/image');
         curl_setopt($ch_img, CURLOPT_POST, true);
@@ -433,10 +446,9 @@ if ($action === 'generar_imagen') {
             }
         }
     } elseif (!empty($tray_comfy_filenames[1])) {
-        // Magia Retrocompatible: Si el usuario usó la bandeja y no el visor gigante, 
-        // la primera imagen de la bandeja asume el rol de "imagen_principal" por defecto.
+        // Magia Retrocompatible...
         $comfy_image_filename = $tray_comfy_filenames[1];
-        $init_image_base64 = "TRAY_IMAGE_USED"; // Bandera interna para no volver a subirla
+        $init_image_base64 = "TRAY_IMAGE_USED";
     }
     
     // ====================================================================
@@ -3316,6 +3328,31 @@ if ($action === 'generar_imagen') {
     } // 🚨 <--- CIERRE DEL IF (PRUEBA_JSON_ACTIVADA)
 
     EJECUTAR_COMFYUI:
+	
+	// ==============================================================================
+    // 🌟 INYECCIÓN AUTOREGRESIVA: VIDEO-TO-VIDEO UNIVERSAL (LTX / WAN)
+    // ==============================================================================
+	if (isset($is_video) && $is_video && $comfy_image_filename !== "none") {
+        foreach ($workflow as $id_nodo => $nodo) {
+            if (isset($nodo['class_type']) && $nodo['class_type'] === 'LoadImage') {
+                if (isset($nodo['inputs']['image']) && $nodo['inputs']['image'] === $comfy_image_filename) {
+                    $workflow[$id_nodo] = [
+                        "class_type" => "VHS_LoadVideo",
+                        "inputs" => [
+                            "video" => $comfy_image_filename,
+                            "force_rate" => 0,
+                            "force_size" => "Disabled",
+                            "custom_width" => 0,
+                            "custom_height" => 0,
+                            "frame_load_cap" => 0,
+                            "skip_first_frames" => 0,
+                            "select_every_nth" => 1
+                        ]
+                    ];
+                }
+            }
+        }
+    }
 
     // ==============================================================================
     // --- INYECCIÓN DE ADETAILER (Reparador con alineación de tensores DiT) ---
