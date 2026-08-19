@@ -794,6 +794,124 @@ if ($action === 'generar_imagen') {
             $video_frames_ltx = max(9, ($n * 8) + 1);
 
             $nombre_modelo_limpio = strtolower(basename($modelo_seguro));
+			
+			// ==========================================================
+            // 🌟 NUEVA RUTA: LTX 2.5 (Vía JSON Plantilla Estricta)
+            // ==========================================================
+            if (strpos($nombre_modelo_limpio, '25') !== false || strpos($nombre_modelo_limpio, '2.5') !== false) {
+                
+                // 🛡️ ESCUDO MATEMÁTICO LTX 2.5 🛡️
+                $width  = floor($width / 32) * 32;
+                $height = floor($height / 32) * 32;
+                
+                $n = round(($video_frames - 1) / 8);
+                $video_frames_ltx = max(9, ($n * 8) + 1);
+
+                $ruta_json = __DIR__ . '/../workflows/LTX2.5_Video.json';
+
+                $reemplazos = [
+                    '__SEED__' => $seed,
+                    '__WIDTH__' => $width,
+                    '__HEIGHT__' => $height,
+                    '__VIDEO_FRAMES__' => $video_frames_ltx,
+                    '__STEPS__' => $steps,
+                    '__CFG__' => $cfg,
+                    '__SAMPLER__' => $sampler,
+                    '__SCHEDULER__' => $scheduler,
+                    '__MODELO__' => $modelo_seguro,
+                    '__PROMPT_POSITIVO__' => $posPrompt,
+                    '__PROMPT_NEGATIVO__' => $neg_prompt,
+                    '__INIT_IMAGE__' => $comfy_image_filename
+                ];
+
+                $workflow = cargarWorkflowJSON($ruta_json, $reemplazos);
+
+                // --- 🛡️ FIX 1: CARGADOR GGUF DINÁMICO ---
+                if (strpos(strtolower($modelo_seguro), '.gguf') !== false) {
+                    $workflow["434:422"]["class_type"] = "UnetLoaderGGUF";
+                    unset($workflow["434:422"]["inputs"]["weight_dtype"]);
+                }
+
+                // --- 🛡️ FIX 2: RECONEXIÓN A CALIDAD MÁXIMA ---
+                $workflow["451"]["inputs"]["images"] = ["435:430", 0]; 
+                $workflow["451"]["inputs"]["audio"] = ["435:426", 0];
+                
+                unset($workflow["341"]);
+
+                // --- REPARACIÓN LTX: GUARDAR HISTORIAL Y LORAS ---
+                $lora_active = false;
+                if (empty($lora_metadata_list) && is_array($lora_names)) {
+                    foreach ($lora_names as $index => $lname) {
+                        if (!empty(trim($lname)) && strtolower($lname) !== 'ninguno') {
+                            $lstr = floatval($lora_strengths_high[$index] ?? 0.8);
+                            $lora_metadata_list[] = basename($lname, '.safetensors') . " ($lstr)";
+                            
+                            if ($index === 0) { 
+                                $workflow["432"]["inputs"]["lora_name"] = $lname;
+                                $workflow["432"]["inputs"]["strength_model"] = $lstr;
+                                $lora_active = true;
+                            }
+                        }
+                    }
+                }
+
+                // 🛡️ RECONEXIÓN DE CABLES CUANDO NO HAY LORA 🛡️
+                if (!$lora_active) {
+                    $workflow["391"]["inputs"]["model"] = ["434:422", 0]; // CFG Guider 1
+                    $workflow["442"]["inputs"]["model"] = ["434:422", 0]; // CFG Guider 2
+                    
+                    // 👇 AQUÍ ESTÁN LOS DOS CABLES QUE FALTABAN 👇
+                    $workflow["388"]["inputs"]["model"] = ["434:422", 0]; // Scheduler 1
+                    $workflow["440"]["inputs"]["model"] = ["434:422", 0]; // Scheduler 2 (Upscale)
+                    
+                    unset($workflow["432"]); // Destruimos el cargador de LoRAs
+                }
+
+                $meta_json_array = [
+                    'Model' => basename($model_path), 
+                    'Resolution' => $width . 'x' . $height, 
+                    'Seed' => $seed, 
+                    'Steps' => $steps, 
+                    'CFG Scale' => $cfg, 
+                    'Sampler' => ucfirst($sampler) . ' (' . ucfirst($scheduler) . ')', 
+                    'Batch Size' => 1, 
+                    'LoRAs' => empty($lora_metadata_list) ? __('lbl_none') : implode(', ', $lora_metadata_list)
+                ];
+                $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
+
+                if ($historial_id > 0) {
+                    $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ?, metadata = ? WHERE id = ?");
+                    $stmt_upd->execute([$posPrompt, $neg_prompt, $meta_json, $historial_id]);
+                } else {
+                    $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmt_ins->execute([$user_id, $selector, $posPrompt, $posPrompt, $neg_prompt, $meta_json]);
+                    $historial_id = $pdo->lastInsertId();
+                }
+
+                // --- ESCUDO TEXT-TO-VIDEO ---
+                $tiene_imagen = ($comfy_image_filename !== "none" && !empty($comfy_image_filename));
+                if (!$tiene_imagen) {
+                    $workflow["269"] = [
+                        "inputs" => ["width" => $width, "height" => $height, "batch_size" => 1, "color" => 0],
+                        "class_type" => "EmptyImage"
+                    ];
+                    if (isset($workflow["434:386"])) {
+                        $workflow["434:386"]["inputs"]["value"] = true; 
+                    }
+                }
+
+                // Ajuste de FPS final
+                if (isset($workflow["451"]["inputs"]["frame_rate"])) {
+                    $workflow["451"]["inputs"]["frame_rate"] = $video_fps;
+                }
+
+                $current_image_node = "451";
+                goto EJECUTAR_COMFYUI;
+            }
+            // ==========================================================
+            // 🧱 FIN RUTA LTX 2.5
+            // ==========================================================
+			
             if (strpos($nombre_modelo_limpio, 'dev') !== false || strpos($nombre_modelo_limpio, 'q4_') !== false || strpos($nombre_modelo_limpio, 'q5_') !== false) {
                 $ruta_json = __DIR__ . '/../workflows/LTX_Video_Dev.json';
             } else {
