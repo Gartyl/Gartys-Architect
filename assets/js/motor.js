@@ -3042,9 +3042,10 @@ function construirTarjetaImagen(imgData, dbId = 0, isChat = false, isVision = fa
                 ${!isVision ? `
                 <a href="javascript:void(0)" onclick="enviarImagenA('${mediaSrc}', 'principal')" class="btn btn-sm btn-danger rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_edit_inpaint}"><i class="bi bi-brush"></i></a>
                 ` : ''}
-                ${!isVision && !showMergeCheckbox ? `
-                <a href="javascript:void(0)" onclick="enviarImagenA('${mediaSrc}', 'reactor')" class="btn btn-sm btn-warning rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_use_face}"><i class="bi bi-person-bounding-box text-dark"></i></a>
-                <a href="javascript:void(0)" onclick="enviarImagenA('${mediaSrc}', 'ipadapter')" class="btn btn-sm btn-info rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_use_style}"><i class="bi bi-images text-dark"></i></a>
+               ${!isVision && !showMergeCheckbox ? `
+                <a href="javascript:void(0)" onclick="enviarImagenA('${mediaSrc}', 'reactor')" class="btn btn-sm btn-warning rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_use_face || 'Usar como Rostro'}"><i class="bi bi-person-bounding-box text-dark"></i></a>
+                <a href="javascript:void(0)" onclick="enviarImagenA('${mediaSrc}', 'ipadapter')" class="btn btn-sm btn-info rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_use_style || 'Usar en IP-Adapter'}"><i class="bi bi-images text-dark"></i></a>
+                <a href="javascript:void(0)" onclick="enviarImagenA('${mediaSrc}', 'controlnet')" class="btn btn-sm btn-success rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_use_cn || 'Usar en ControlNet'}"><i class="bi bi-magnet text-light"></i></a>
                 ` : ''}
                 <a href="javascript:void(0)" onclick="if(typeof prepararComparacion === 'function') prepararComparacion('${mediaSrc}', this)" class="btn btn-sm btn-secondary rounded-circle shadow btn-compare-ab" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_compare_ab}"><i class="bi bi-symmetry-vertical"></i></a>
             </div>
@@ -3116,18 +3117,32 @@ async function enviarImagenA(mediaSrc, destino) {
             if (typeof toggleReactorUI === 'function') toggleReactorUI();
         }
     } else if (destino === 'ipadapter') {
-        const preview = document.getElementById('ipaPreview') || document.getElementById('ipAdapterPreview');
-        const container = document.getElementById('ipaPreviewContainer') || document.getElementById('ipAdapterPreviewContainer');
+        window.currentIpAdapterImages = window.currentIpAdapterImages || [];
+        if (window.currentIpAdapterImages.length >= 4) {
+            SwalDark.fire({ icon: 'info', title: GartyLang.swal_limit_tray_title || 'Límite alcanzado', text: GartyLang.swal_limit_ipa_text || 'Puedes usar un máximo de 4 referencias simultáneas en el IP-Adapter.' });
+            return;
+        }
+        window.currentIpAdapterImages.push(base64Data);
+        if (typeof renderIpaGallery === 'function') renderIpaGallery();
+        
         const toggle = document.getElementById('ipAdapterToggle');
-        if (preview && container && toggle) {
-            preview.src = base64Data; 
-            container.classList.remove('d-none'); 
-            currentIpAdapterBase64 = base64Data; 
+        if (toggle) {
             toggle.checked = true;
             if (typeof toggleIpAdapterUI === 'function') toggleIpAdapterUI();
         }
+    } else if (destino === 'controlnet') {
+        const preview = document.getElementById('cnPreview');
+        const container = document.getElementById('cnPreviewContainer');
+        const toggle = document.getElementById('controlNetToggle');
+        if (preview && container && toggle) {
+            preview.src = base64Data;
+            container.classList.remove('d-none');
+            currentCnBase64 = base64Data;
+            toggle.checked = true;
+            if (typeof toggleControlNetUI === 'function') toggleControlNetUI();
+        }
     }
-    // Hacemos scroll arriba para que el usuario vea la imagen cargada
+    
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
