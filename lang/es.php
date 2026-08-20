@@ -152,6 +152,10 @@ return [
 	'adm_desc_params_def' => "Si los dejas vacíos, el sistema usará los valores estándar de seguridad.",
 	'tit_formato' => "FORMATO",
 	'lbl_ref_images_max' => "Imágenes de Referencia (Máx. 4)",
+	'btn_use_cn' => "Usar en ControlNet",
+	'swal_limit_ipa_text' => "Puedes usar un máximo de 4 referencias simultáneas en el IP-Adapter.",
+	'btn_use_face' => "Usar como Rostro",
+	'btn_use_style' => "Usar en IP-Adapter",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Galería",

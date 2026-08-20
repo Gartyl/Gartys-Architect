@@ -153,6 +153,10 @@ return [
 	'adm_desc_params_def' => "Если оставить пустым, система будет использовать стандартные безопасные значения.",
 	'tit_formato' => "ФОРМАТ",
 	'lbl_ref_images_max' => "Эталонные изображения (Макс. 4)",
+	'btn_use_cn' => "Использовать в ControlNet",
+	'swal_limit_ipa_text' => "Вы можете использовать максимум 4 ссылки одновременно в IP-Adapter.",
+	'btn_use_face' => "Использовать как Лицо",
+	'btn_use_style' => "Использовать в IP-Adapter",
     
     // --- MENÚ SUPERIOR ---
     'menu_galeria' => "Галерея",
