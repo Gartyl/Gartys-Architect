@@ -1142,8 +1142,8 @@ function updateUIForSelector(sel) {
     // ----------------------------------------------------											
     const loraContainer = document.getElementById('loraContainer'); if (loraContainer) loraContainer.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]', '[CHAT]', '[VISION]'].includes(sel)) ? 'block' : 'none';
 
-    // 1. Herramientas que SÍ funcionan en todas las arquitecturas
-    ['controlNet', 'reactor', 'adetailer'].forEach(id => {
+    // 1. Herramientas Universales (ControlNet y ADetailer para Imagen Estática)
+    ['controlNet', 'adetailer'].forEach(id => {
         const block = document.getElementById(id + 'Block');
         const toggle = document.getElementById(id + 'Toggle') || document.getElementById(id);
         if (block) {
@@ -1151,6 +1151,18 @@ function updateUIForSelector(sel) {
             else { block.style.display = 'none'; if(toggle) toggle.checked = false; }
         }
     });
+
+    // 1.5 REACTOR (Permitido también en la categoría de VIDEO)
+    const reactorBlock = document.getElementById('reactorBlock');
+    const reactorToggle = document.getElementById('reactorToggle');
+    if (reactorBlock) {
+        if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]'].includes(sel) && isAvanzado) {
+            reactorBlock.style.display = 'block';
+        } else {
+            reactorBlock.style.display = 'none'; 
+            if(reactorToggle) reactorToggle.checked = false;
+        }
+    }
 
     // 2. IP-Adapter / FLUX Redux
     const ipaBlock = document.getElementById('ipAdapterBlock');
