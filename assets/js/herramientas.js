@@ -299,7 +299,19 @@ async function usarImagenDeGaleria(url) {
             const blob = await response.blob();
             const reader = new FileReader();
             reader.onloadend = function() {
-                if (typeof setBaseImageFromDataUrl === 'function') setBaseImageFromDataUrl(reader.result);
+                
+                // NUEVO: Enrutamiento inteligente con fallback al panel principal
+                const destino = window.destinoGaleriaModal || 'principal';
+                
+                if (typeof enviarImagenA === 'function') {
+                    enviarImagenA(reader.result, destino);
+                } else if (destino === 'principal' && typeof setBaseImageFromDataUrl === 'function') {
+                    setBaseImageFromDataUrl(reader.result);
+                }
+                
+                // Reseteamos el destino para la próxima vez
+                window.destinoGaleriaModal = 'principal';
+                
                 const inst = bootstrap.Modal.getInstance(document.getElementById('modalGaleriaReciente'));
                 if (inst) inst.hide();
             };
