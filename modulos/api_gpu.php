@@ -3182,56 +3182,6 @@ if ($action === 'generar_imagen') {
         }
     }
 
-    // --- FASE 5: REACTOR (FACE SWAP) --- 
-    if ($reactor_enabled === 'true' && (!empty($reactor_image_base64) || !empty($reactor_saved_face))) { 
-        // Lógica Híbrida
-        if (!empty($reactor_saved_face)) {
-            $workflow["100"] = [
-                "inputs" => ["face_model" => $reactor_saved_face], // <--- CORREGIDO AQUÍ
-                "class_type" => "ReActorLoadFaceModel"
-            ];
-            $tipo_entrada_rostro = "face_model";
-        } else {
-            $tmp_face = sys_get_temp_dir() . '/face_' . uniqid() . '.png'; 
-            file_put_contents($tmp_face, base64_decode($reactor_image_base64)); 
-            $cfile_face = function_exists('curl_file_create') ? curl_file_create($tmp_face, 'image/png', 'face_ref.png') : '@' . realpath($tmp_face); 
-            
-            $ch_face = curl_init(COMFY_URL . '/upload/image'); 
-            curl_setopt($ch_face, CURLOPT_POST, true); 
-            curl_setopt($ch_face, CURLOPT_POSTFIELDS, ['image' => $cfile_face]); 
-            curl_setopt($ch_face, CURLOPT_RETURNTRANSFER, true); 
-            curl_setopt($ch_face, CURLOPT_TIMEOUT, 30);
-            
-            $res_face = json_decode(curl_exec($ch_face), true); @unlink($tmp_face);
-
-            if (isset($res_face['name'])) { 
-                $workflow["100"] = ["inputs" => ["image" => $res_face['name'], "upload" => "image"], "class_type" => "LoadImage"]; 
-                $tipo_entrada_rostro = "source_image";
-            }
-        }
-
-        if (isset($tipo_entrada_rostro)) {
-            $workflow["101"] = [ 
-                "inputs" => [ 
-                    "enabled" => true,  
-                    "swap_model" => "inswapper_128.onnx",  
-                    "facedetection" => $reactor_detector,              
-                    "face_restore_model" => $reactor_restore_model,   
-                    "face_restore_visibility" => $reactor_visibility, 
-                    "codeformer_weight" => $reactor_fidelity,         
-                    "detect_gender_input" => $reactor_gender,         
-                    "detect_gender_source" => "no", 
-                    "input_faces_index" => $reactor_target_index,     
-                    "source_faces_index" => $reactor_source_index,    
-                    "console_log_level" => 1, 
-                    "input_image" => [$current_image_node, 0],  
-                    $tipo_entrada_rostro => ["100", 0]             
-                ], "class_type" => "ReActorFaceSwap" 
-            ]; 
-            $current_image_node = "101";  
-        } 
-    }
-
     // --- FASE 5: UPSCALE ---
     if ($hires_fix) {
         if ($aurasr_enabled) {
@@ -3352,6 +3302,82 @@ if ($action === 'generar_imagen') {
                 }
             }
         }
+    }
+	
+	// ==============================================================================
+    // 🌟 INYECCIÓN UNIVERSAL DE REACTOR (FACE SWAP PARA IMAGEN Y VÍDEO)
+    // ==============================================================================
+    if (isset($_POST['reactor_enabled']) && $_POST['reactor_enabled'] === 'true' && (!empty($_POST['reactor_image']) || !empty($_POST['reactor_saved_face']))) { 
+        
+        $reactor_saved_face = $_POST['reactor_saved_face'] ?? null;
+        $reactor_image_base64 = $_POST['reactor_image'] ?? null;
+
+        // 1. Carga de la cara de origen (Híbrida: Temporal o Guardada)
+        if (!empty($reactor_saved_face)) {
+            $workflow["100_reactor_face"] = [
+                "inputs" => ["face_model" => $reactor_saved_face], 
+                "class_type" => "ReActorLoadFaceModel"
+            ];
+            $tipo_entrada_rostro = "face_model";
+        } else {
+            $tmp_face = sys_get_temp_dir() . '/face_' . uniqid() . '.png'; 
+            file_put_contents($tmp_face, base64_decode($reactor_image_base64)); 
+            $cfile_face = function_exists('curl_file_create') ? curl_file_create($tmp_face, 'image/png', 'face_ref.png') : '@' . realpath($tmp_face); 
+            
+            $ch_face = curl_init(COMFY_URL . '/upload/image'); 
+            curl_setopt($ch_face, CURLOPT_POST, true); 
+            curl_setopt($ch_face, CURLOPT_POSTFIELDS, ['image' => $cfile_face]); 
+            curl_setopt($ch_face, CURLOPT_RETURNTRANSFER, true); 
+            curl_setopt($ch_face, CURLOPT_TIMEOUT, 30);
+            
+            $res_face = json_decode(curl_exec($ch_face), true); @unlink($tmp_face);
+
+            if (isset($res_face['name'])) { 
+                $workflow["100_reactor_face"] = ["inputs" => ["image" => $res_face['name'], "upload" => "image"], "class_type" => "LoadImage"]; 
+                $tipo_entrada_rostro = "source_image";
+            }
+        }
+
+        if (isset($tipo_entrada_rostro)) {
+            $nodo_empaquetador = null;
+
+            // 2. RADAR INTELIGENTE (Bug de referencia de PHP solucionado usando $n_temp)
+            foreach ($workflow as $id_nodo => $n_temp) {
+                if (isset($n_temp['class_type']) && in_array($n_temp['class_type'], ['PreviewImage', 'SaveImage', 'SaveAnimatedWEBP', 'VHS_VideoCombine'])) {
+                    $nodo_empaquetador = $id_nodo;
+                    break;
+                }
+            }
+
+            if ($nodo_empaquetador !== null && isset($workflow[$nodo_empaquetador]["inputs"]["images"])) {
+                
+                // 3. Desconectamos las imágenes/frames del empaquetador
+                $nodo_origen_imagenes = $workflow[$nodo_empaquetador]["inputs"]["images"];
+
+                // 4. Inyectamos ReActor en medio (¡Y con límite de seguridad!)
+                $workflow["101_reactor_swap"] = [ 
+                    "inputs" => [ 
+                        "enabled" => true,  
+                        "swap_model" => "inswapper_128.onnx",  
+                        "facedetection" => $_POST['reactor_detector'] ?? "retinaface_resnet50",              
+                        "face_restore_model" => $_POST['reactor_restore_model'] ?? "none",   
+                        // 👇 FIX CRÍTICO: max(0.1, ...) para que nunca baje del mínimo legal de ComfyUI
+                        "face_restore_visibility" => isset($_POST['reactor_visibility']) ? max(0.1, floatval($_POST['reactor_visibility'])) : 1.0, 
+                        "codeformer_weight" => isset($_POST['reactor_fidelity']) ? max(0.0, floatval($_POST['reactor_fidelity'])) : 0.75,         
+                        "detect_gender_input" => $_POST['reactor_gender'] ?? "no",         
+                        "detect_gender_source" => "no", 
+                        "input_faces_index" => $_POST['reactor_target_index'] ?? "0",     
+                        "source_faces_index" => $_POST['reactor_source_index'] ?? "0",    
+                        "console_log_level" => 1, 
+                        "input_image" => $nodo_origen_imagenes, // Toma el cable original
+                        $tipo_entrada_rostro => ["100_reactor_face", 0]             
+                    ], "class_type" => "ReActorFaceSwap" 
+                ]; 
+
+                // 5. Conectamos la salida de ReActor al empaquetador
+                $workflow[$nodo_empaquetador]["inputs"]["images"] = ["101_reactor_swap", 0];
+            }
+        } 
     }
 
     // ==============================================================================
