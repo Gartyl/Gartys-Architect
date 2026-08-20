@@ -51,9 +51,14 @@
             </div>
         </div>
         
-        <button type="button" class="btn btn-sm btn-outline-success w-100 mb-2" onclick="document.getElementById('cnInput').click()">
-            <i class="bi bi-upload"></i> <?= __('btn_subirmreferencia') ?>
-        </button>
+        <div class="d-flex gap-2 mb-2 w-100">
+            <button type="button" class="btn btn-sm btn-outline-success flex-grow-1" onclick="document.getElementById('cnInput').click()">
+                <i class="bi bi-upload"></i> <?= __('btn_subirmreferencia') ?>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-info" onclick="window.destinoGaleriaModal = 'controlnet'; abrirModalGaleria();" title="<?= __('btn_cargaleria') ?>">
+                <i class="bi bi-images"></i> <?= __('btn_cargaleria') ?>
+            </button>
+        </div>
         <input type="file" id="cnInput" accept="image/*" class="d-none">
         
         <div class="row g-2 mt-2 text-start">

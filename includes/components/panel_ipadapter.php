@@ -6,7 +6,14 @@
             </div>
         </div>
         <div id="ipAdapterUI" class="d-none mt-3 text-center">
-            <button type="button" class="btn btn-sm btn-outline-primary w-100 mb-2" onclick="document.getElementById('ipaInput').click()"><i class="bi bi-upload"></i> <?= __('btn_subirireferencia') ?></button>
+            <div class="d-flex gap-2 mb-2 w-100">
+                <button type="button" class="btn btn-sm btn-outline-primary flex-grow-1" onclick="document.getElementById('ipaInput').click()">
+                    <i class="bi bi-upload"></i> <?= __('btn_subirireferencia') ?>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-info" onclick="window.destinoGaleriaModal = 'ipadapter'; abrirModalGaleria();" title="<?= __('btn_cargaleria') ?>">
+                    <i class="bi bi-images"></i> <?= __('btn_cargaleria') ?>
+                </button>
+            </div>
             <input type="file" id="ipaInput" accept="image/*" class="d-none" multiple>
             
             <!-- BLOQUE 1: SIEMPRE VISIBLE (Fuerza) -->

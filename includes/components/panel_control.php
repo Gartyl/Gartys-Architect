@@ -38,7 +38,7 @@
 			<!-- GRUPO DERECHO -->
 			<div class="d-flex gap-2 align-items-center ms-auto flex-nowrap justify-content-end">
 				<button type="button" class="btn-tool text-nowrap" id="uploadBtn" onclick="document.getElementById('imageInput').click()"><i class="bi bi-paperclip"></i> <?= __('btn_subiranalisis') ?></button>
-				<button type="button" class="btn-tool border-info text-info text-nowrap" id="btnCargarGaleria" onclick="abrirModalGaleria()"><i class="bi bi-images"></i> <?= __('btn_cargaleria') ?></button>
+				<button type="button" class="btn-tool border-info text-info text-nowrap" id="btnCargarGaleria" onclick="window.destinoGaleriaModal = 'principal'; abrirModalGaleria();"><i class="bi bi-images"></i> <?= __('btn_cargaleria') ?></button>
 				<button type="button" class="btn-tool border-warning text-warning fw-bold text-nowrap" id="btnWildcards" onclick="abrirModalWildcards()" title="<?= __('btn_title_wildcards') ?>"><i class="bi bi-suit-spade-fill"></i> <?= __('btn_wildcards') ?></button>
 				
 				<input type="file" id="imageInput" accept="image/*,.pdf,.doc,.docx,.txt,.csv,.md,video/mp4" class="d-none">

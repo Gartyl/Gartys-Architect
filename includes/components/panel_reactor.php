@@ -77,9 +77,16 @@ $facedetect_options = '
             </div>
             <!-- ========================================================= -->
 
-            <!-- BOTÓN ORIGINAL DE SUBIDA (Se ocultará si eligen un rostro guardado) -->
+            <!-- BOTÓN ORIGINAL DE SUBIDA Y GALERÍA (Se ocultará si eligen un rostro guardado) -->
             <div id="reactorUploadWrapper">
-                <button type="button" class="btn btn-sm btn-outline-warning w-100 mb-2" onclick="document.getElementById('faceInput').click()"><i class="bi bi-upload"></i> <?= __('btn_selfrostro') ?></button>
+                <div class="d-flex gap-2 mb-2 w-100">
+                    <button type="button" class="btn btn-sm btn-outline-warning flex-grow-1" onclick="document.getElementById('faceInput').click()">
+                        <i class="bi bi-upload"></i> <?= __('btn_selfrostro') ?>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-info" onclick="window.destinoGaleriaModal = 'reactor'; abrirModalGaleria();" title="<?= __('btn_cargaleria') ?>">
+                        <i class="bi bi-images"></i> <?= __('btn_cargaleria') ?>
+                    </button>
+                </div>
                 <input type="file" id="faceInput" accept="image/*" class="d-none">
             </div>
             
