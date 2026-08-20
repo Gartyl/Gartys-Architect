@@ -3361,7 +3361,7 @@ if ($action === 'generar_imagen') {
         if (isset($workflow["9"]["inputs"]["images"])) {
             
             // 1. ENRUTAMIENTO INTELIGENTE (ADETAILER ANTES QUE REACTOR)
-            $nodo_origen_imagen = $workflow["9"]["inputs"]["images"][0];
+            $nodo_origen_imagen = $workflow["9"]["inputs"]["images"]; 
             $es_previo_a_reactor = false;
 
             // Si ReActor está activo, interceptamos el cable ANTES de que ReActor actúe
