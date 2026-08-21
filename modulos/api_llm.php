@@ -41,6 +41,54 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
             if (isset($json_params['temperature'])) $temp_llm = (float)$json_params['temperature'];
         }
 
+        // ====================================================================
+        // 🌐 RAG BÁSICO: BÚSQUEDA EN INTERNET (DUCKDUCKGO + WIKIPEDIA STRICT)
+        // ====================================================================
+        $usar_internet = isset($_POST['usar_internet']) && $_POST['usar_internet'] === 'true';
+        $contexto_web = "";
+
+        if ($usar_internet && !empty($prompt_final)) {
+            // Extraemos el idioma para forzar que busque en la Wikipedia correcta
+            $codigo_base = strtolower(substr($lang, 0, 2));
+            $excepciones_wiki = ['jp' => 'ja', 'kr' => 'ko', 'cn' => 'zh'];
+            $idioma_wiki = $excepciones_wiki[$codigo_base] ?? $codigo_base;
+
+            // Truco Maestro: Usamos DuckDuckGo pero le obligamos a leer SOLO Wikipedia en tu idioma
+            $query_inteligente = trim($prompt_final) . " site:{$idioma_wiki}.wikipedia.org";
+            $termino_url = urlencode($query_inteligente);
+
+            $url_ddg = "https://html.duckduckgo.com/html/?q={$termino_url}";
+
+            $ch_ddg = curl_init($url_ddg);
+            curl_setopt($ch_ddg, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch_ddg, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch_ddg, CURLOPT_TIMEOUT, 8);
+            curl_setopt($ch_ddg, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'); 
+            $res_ddg = curl_exec($ch_ddg);
+            curl_close($ch_ddg);
+
+            if ($res_ddg) {
+                // Extraemos los resúmenes limpios
+                preg_match_all('/class="result__snippet[^>]*>(.*?)<\/a>/is', $res_ddg, $matches);
+                if (!empty($matches[1])) {
+                    $top_resultados = array_slice($matches[1], 0, 3);
+                    foreach ($top_resultados as $snippet) {
+                        $texto_limpio = html_entity_decode(trim(strip_tags($snippet)), ENT_QUOTES, 'UTF-8');
+                        // Solo añadimos frases que tengan sentido (más de 20 caracteres)
+                        if (strlen($texto_limpio) > 20) {
+                            $contexto_web .= "- " . $texto_limpio . "\n";
+                        }
+                    }
+                }
+            }
+
+            if (!empty($contexto_web)) {
+				// Prompt directo para modelos estándar (Gemma, Llama, Mistral): Cero metadatos, cero pensamientos.
+                $sys_prompt .= "\n\n[REAL-TIME SEARCH RESULTS]\n\"\"\"\n{$contexto_web}\n\"\"\"\n\n[CRITICAL DIRECTIVE]: You are a conversational and helpful assistant. Use the search results above to answer the user's question accurately. DO NOT output any internal monologue, reasoning, or drafting. DO NOT use technical headers like 'Topic' or 'Constraints'. Just talk to the user directly, naturally, and straight to the point.";
+			}
+        }
+        // ====================================================================
+
         $messages = [["role" => "system", "content" => $sys_prompt]];
 
         if (!empty($image_data)) {
