@@ -1048,22 +1048,45 @@ function updateUIForSelector(sel) {
     const translateToggleBlock = document.getElementById('translateToggleBlock'); const translateLabel = document.querySelector('label[for="autoTranslateToggle"]');
     const autoTranslateToggle = document.getElementById('autoTranslateToggle');
     
+    const internetToggleBlock = document.getElementById('internetToggleBlock');
+
     if (gpuDirectBtn) {
         if (['[CHAT]', '[VISION]', '[LLM]'].includes(sel)) { 
             gpuDirectBtn.classList.add('d-none');
             if (sel === '[LLM]') { if (llmDirectBtn) llmDirectBtn.classList.remove('d-none'); } else { if (llmDirectBtn) llmDirectBtn.classList.add('d-none'); }
             if (translateToggleBlock) { translateToggleBlock.classList.remove('d-flex'); translateToggleBlock.classList.add('d-none'); translateToggleBlock.style.setProperty('display', 'none', 'important'); }
             if (autoTranslateToggle) autoTranslateToggle.checked = false; 
+
+            // Mostrar botón de Internet SOLO en CHAT y LLM
+            if (internetToggleBlock) {
+                if (sel === '[LLM]' || sel === '[CHAT]') {
+                    internetToggleBlock.classList.remove('d-none');
+                    internetToggleBlock.classList.add('d-flex');
+                    internetToggleBlock.style.setProperty('display', 'flex', 'important');
+                } else {
+                    internetToggleBlock.classList.remove('d-flex');
+                    internetToggleBlock.classList.add('d-none');
+                    internetToggleBlock.style.setProperty('display', 'none', 'important');
+                    const internetToggle = document.getElementById('internetToggle');
+                    if (internetToggle) internetToggle.checked = false;
+                }
+            }
         } else if (sel === '[VIDEO]') {
             gpuDirectBtn.classList.remove('d-none'); if (llmDirectBtn) llmDirectBtn.classList.add('d-none');
             if (translateToggleBlock) { translateToggleBlock.classList.remove('d-none'); translateToggleBlock.classList.add('d-flex'); translateToggleBlock.style.setProperty('display', 'flex', 'important'); }
             if (translateLabel) translateLabel.innerHTML = '<i class="bi bi-translate"></i> ' + (GartyLang.ctrl_auto_trad3 || 'Auto-traducir Vídeo');
             gpuDirectBtn.innerHTML = '<i class="bi bi-film"></i> Vídeo Directo';
+            
+            // Ocultar botón de Internet
+            if (internetToggleBlock) { internetToggleBlock.classList.remove('d-flex'); internetToggleBlock.classList.add('d-none'); internetToggleBlock.style.setProperty('display', 'none', 'important'); }
         } else {
             gpuDirectBtn.classList.remove('d-none'); if (llmDirectBtn) llmDirectBtn.classList.add('d-none');
             if (translateToggleBlock) { translateToggleBlock.classList.remove('d-none'); translateToggleBlock.classList.add('d-flex'); translateToggleBlock.style.setProperty('display', 'flex', 'important'); }
             if (translateLabel) translateLabel.innerHTML = '<i class="bi bi-translate"></i> ' + (GartyLang.ctrl_auto_trad2 || 'Auto-traducir Prompt');
             gpuDirectBtn.innerHTML = '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
+            
+            // Ocultar botón de Internet
+            if (internetToggleBlock) { internetToggleBlock.classList.remove('d-flex'); internetToggleBlock.classList.add('d-none'); internetToggleBlock.style.setProperty('display', 'none', 'important'); }
         }
     }
 
@@ -1958,6 +1981,10 @@ document.getElementById('promptForm').onsubmit = async (e) => {
                         fdPrompt.append('selector', targetCat); 
                         fdPrompt.append('descripcion', promptIdea);
                         
+                        // NUEVO: Enviar estado de Internet
+                        const internetToggle = document.getElementById('internetToggle');
+                        if (internetToggle && internetToggle.checked) fdPrompt.append('usar_internet', 'true');
+                        
                         // --- ARREGLO DEL STREAMING Y DEL ERROR JSON ---
                         const resPrompt = await fetch('procesar.php', { method: 'POST', body: fdPrompt }); 
                         const reader = resPrompt.body.getReader();
@@ -2239,8 +2266,12 @@ async function runLlmDirect() {
     const fd = new FormData(); fd.append('ejecutar_llm', 'true'); fd.append('prompt_final', finalPrompt); fd.append('descripcion_original', ideaInicial);
     const modelSel = document.getElementById('llmModelSelector'); if (modelSel && modelSel.value) fd.append('llm_model', modelSel.value);
     
+    // NUEVO: Enviar estado de Internet
+    const internetToggle = document.getElementById('internetToggle');
+    if (internetToggle && internetToggle.checked) fd.append('usar_internet', 'true');
+    
     // Bandera para avisar a PHP de que queremos la respuesta en tiempo real
-    fd.append('stream', 'true'); 
+    fd.append('stream', 'true');
     
     if (currentDocumentText) { fd.append('document_text', currentDocumentText); currentDocumentText = ""; }
     if (currentImageBase64) {
