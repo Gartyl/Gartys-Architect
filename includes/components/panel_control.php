@@ -69,11 +69,22 @@
         <textarea class="form-control" id="descripcion" rows="3" autocomplete="off" placeholder="<?= __('txt_arrast_png') ?>"></textarea>
     </div>
 
-    <div class="form-check form-switch mt-2 mb-3 d-flex justify-content-end d-none" id="translateToggleBlock">
-        <input class="form-check-input pref-track border-info" style="cursor: pointer;" type="checkbox" id="autoTranslateToggle" checked>
-        <label class="form-check-label small text-info fw-bold ms-2" for="autoTranslateToggle">
-            <i class="bi bi-translate"></i> <?= __('ctrl_auto_trad2') ?>
-        </label>
+    <div class="d-flex justify-content-end align-items-center gap-3 mt-2 mb-3">
+        <!-- Switch de Internet (NUEVO) -->
+        <div class="form-check form-switch m-0 d-none" id="internetToggleBlock">
+            <input class="form-check-input pref-track border-primary" style="cursor: pointer;" type="checkbox" id="internetToggle">
+            <label class="form-check-label small text-primary fw-bold ms-2" for="internetToggle">
+				<i class="bi bi-globe"></i> <?= __('ctrl_search_internet') ?>
+			</label>
+        </div>
+
+        <!-- Switch de Traducción (ORIGINAL) -->
+        <div class="form-check form-switch m-0 d-none" id="translateToggleBlock">
+            <input class="form-check-input pref-track border-info" style="cursor: pointer;" type="checkbox" id="autoTranslateToggle" checked>
+            <label class="form-check-label small text-info fw-bold ms-2" for="autoTranslateToggle">
+                <i class="bi bi-translate"></i> <?= __('ctrl_auto_trad2') ?>
+            </label>
+        </div>
     </div>
 
     <div class="d-flex gap-2 flex-wrap mt-3" id="mainButtonsContainer">
