@@ -24,6 +24,7 @@ return [
     'swal_upd_err_text' => "The update could not be completed.",
     'swal_upd_net_err_text' => "Critical communication failure with the server while trying to update.",
     'log_err_meta_parse' => "Metadata error:",
+	'ctrl_search_internet' => "Search the Internet",
     
     // --- BIENVENIDA Y ONBOARDING ---
     'bien_001' => "Welcome to Garty's Architect!",

@@ -24,6 +24,7 @@ return [
     'swal_upd_err_text' => "Не удалось завершить обновление.",
     'swal_upd_net_err_text' => "Критический сбой связи с сервером при попытке обновления.",
     'log_err_meta_parse' => "Ошибка метаданных:",
+	'ctrl_search_internet' => "Поиск в Интернете",
     
     // --- BIENVENIDA Y ONBOARDING ---
     'bien_001' => "Добро пожаловать в Garty's Architect!",

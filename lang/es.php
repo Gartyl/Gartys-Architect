@@ -23,6 +23,7 @@ return [
     'swal_upd_err_text' => "No se pudo completar la actualización.",
     'swal_upd_net_err_text' => "Fallo crítico de comunicación con el servidor al intentar actualizar.",
     'log_err_meta_parse' => "Error metadata:",
+	'ctrl_search_internet' => "Buscar en Internet",
     
     // --- BIENVENIDA Y ONBOARDING ---
     'bien_001' => "¡Bienvenido a Garty's Architect!",
