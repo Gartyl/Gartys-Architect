@@ -283,9 +283,7 @@
 										<option value="chat_default">🤖 <?= __('adm_pr_chat_def') ?? 'Asistente Chat (Defecto)' ?></option>
 										<option value="sys_prompt_chat">💬 <?= __('adm_pr_chat_sys') ?? 'Sistema Chat Directo' ?></option>
 										<option value="enhance_prompt">✨ <?= __('adm_pr_amp_trad') ?></option>
-										<option value="vision_analyst">👁️ <?= __('adm_pr_vis_ana') ?></option>
 										<option value="core_architect">⚙️ <?= __('adm_pr_core_arq') ?></option>
-										<option value="estilo_llm">📝 <?= __('adm_pr_sty_txt') ?></option>
 										<option value="estilo_sd15">🎨 <?= __('adm_pr_sty_sd15') ?></option>
 										<option value="estilo_sdxl">⚡ <?= __('adm_pr_sty_sdxl') ?></option>
 										
