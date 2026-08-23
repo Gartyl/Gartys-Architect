@@ -9,6 +9,8 @@ Welcome to the official repository for **Garty's Architect**, your ultimate loca
 
 Garty's Architect is distributed as a standalone, portable application powered by FrankenPHP. No complex web server installations, Docker containers, or environment configurations required. Just launch and create.
 
+*Note: Garty's Architect is a UI framework and **does not distribute, host, or bundle any AI models or checkpoints**. You must provide your own locally hosted models.*
+
 ---
 
 ## ⚡ Core Features
@@ -39,16 +41,16 @@ Since Garty's Architect communicates directly with your local AI instances, perf
 ## 🧠 Prerequisites: The Logic Core (Ollama)
 Garty's Architect relies on local LLMs to act as the "brains" behind the scenes (prompt generation, image analysis, and UI intelligence). Ensure you have **[Ollama](https://ollama.com/)** running locally. 
 
-For the app to work at its full potential, you must download these specific models (or register your own equivalents in the Admin Panel):
+Because Garty's Architect is model-agnostic, you are completely free to use any model you prefer by registering it in the Admin Panel. However, for the app to work at its full potential right out of the box, **we highly recommend** pulling these specific baseline models:
 
-1.  **SYS_LLM (The Prompt Engineer):** `llama3.1:8b`
+1.  **SYS_LLM (The Prompt Engineer):** `llama3.1:8b` (or your preferred fast LLM)
     * *Required internally to generate, structure, and amplify prompts.*
-2.  **SYS_VISION (The Shadow Analyst):** `granite3.2-vision`
+2.  **SYS_VISION (The Shadow Analyst):** `granite3.2-vision` (or any fast vision model)
     * *A lightweight vision model used internally to extract quick structural tags and faces for tools like ReActor and IP-Adapter.*
 3.  **Multimodal Chat Model:** `qwen2.5-vl` (or Qwen 3.5 Vision)
     * *Highly recommended to be kept active in your Chat category for deep, conversational analysis of your uploaded images.*
 
-> **Quick Install:** Open your terminal and run: 
+> **Quick Install (Baseline Recommendation):** Open your terminal and run: 
 > `ollama run llama3.1:8b` | `ollama run granite3.2-vision` | `ollama run qwen2.5-vl`
 
 ---
