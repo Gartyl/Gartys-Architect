@@ -12,7 +12,7 @@ Garty's Architect is distributed as a standalone, portable application powered b
 ---
 
 ## ⚡ Core Features
-* **Unified Dashboard:** Control ComfyUI and Ollama from a clean, responsive dark-mode interface. Say goodbye to spaghetti nodes and terminal windows.
+* **Unified Super-Chat Dashboard:** Control ComfyUI and Ollama from a single, responsive dark-mode interface. Generate prompts, analyze images, and send render commands (`/img`, `/gpu`) directly from a unified conversational hub. Say goodbye to spaghetti nodes and terminal windows.
 * **Styles & Presets:** Save your perfect combinations of prompts, negative prompts, LoRAs, and engine settings to recreate your signature look instantly.
 * **Zero-Configuration Portable Executable:** Runs locally out of a single folder using an embedded FrankenPHP binary.
 * **Deterministic Asynchronous Generation:** Fire off your prompts and close the tab. The system processes everything in the background and safely stores the images with zero duplicates.
@@ -40,15 +40,16 @@ Since Garty's Architect communicates directly with your local AI instances, perf
 Garty's Architect relies on local LLMs to act as the "brains" behind the scenes (prompt generation, image analysis, and UI intelligence). Ensure you have **[Ollama](https://ollama.com/)** running locally. 
 
 For the app to work at its full potential, you must download these specific models (or register your own equivalents in the Admin Panel):
+
 1.  **SYS_LLM (The Prompt Engineer):** `llama3.1:8b`
-    * *Required to generate and amplify prompts.*
-2.  **SYS_VISION (The Shadow Analyst):** `granite3.2`
-    * *A lightweight vision model used internally to extract quick tags and faces for tools like ReActor and IP-Adapter.*
-3.  **VISION (The Main Describer):** `qwen2.5-vl` (or Qwen 3.5 Vision)
-    * *Used for deep, literary analysis of images.*
+    * *Required internally to generate, structure, and amplify prompts.*
+2.  **SYS_VISION (The Shadow Analyst):** `granite3.2-vision`
+    * *A lightweight vision model used internally to extract quick structural tags and faces for tools like ReActor and IP-Adapter.*
+3.  **Multimodal Chat Model:** `qwen2.5-vl` (or Qwen 3.5 Vision)
+    * *Highly recommended to be kept active in your Chat category for deep, conversational analysis of your uploaded images.*
 
 > **Quick Install:** Open your terminal and run: 
-> `ollama run llama3.1:8b` | `ollama run granite3.2` | `ollama run qwen2.5-vl`
+> `ollama run llama3.1:8b` | `ollama run granite3.2-vision` | `ollama run qwen2.5-vl`
 
 ---
 
@@ -70,6 +71,7 @@ Ensure you have **[ComfyUI](https://github.com/comfyanonymous/ComfyUI)** running
 * **Voice Generation (F5-TTS):** `ComfyUI-F5-TTS`
 * **Voice Generation (IndexTTS-2):** `ComfyUI-IndexTTS`
 * ...
+
 ---
 
 ## 🛠️ Quick Start & Installation
@@ -97,8 +99,9 @@ Perfect for getting started. Includes the core unified dashboard, asynchronous g
 **2. PRO License**
 For power users. Unlocks the true potential of the integrated studio:
 * **Advanced Workflows:** Access to heavy architectures like Flux, SD3.5, Krea-2, Chroma, Z-Image, Qwen-Image, Qwen-Edit, Hunyuan Image, Hidream, LTX-Video, and Wan generation.
-* **The Graphic Studio:** Unlocks Native ReActor, IP-Adapter, Rembg, High-Res Fix, and Inpainting/Outpainting.
+* **The Graphic Studio:** Unlocks Native ReActor, IP-Adapter, Rembg, High-Res Fix, IC-Light, and Inpainting/Outpainting.
 👉 *[Unlock the PRO License here](https://garty.lemonsqueezy.com/checkout/buy/70636e1a-0dde-49c5-bf97-d4d852dceee8)*
+
 ---
 
 ## 🔮 The Roadmap
