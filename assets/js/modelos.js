@@ -584,6 +584,16 @@ async function cargarTablaModelos() {
         } else {
             tbody.innerHTML = `<tr><td colspan="10" class="text-warning fw-bold py-4"><i class="bi bi-exclamation-triangle"></i> ${GartyLang.msg_db_models_empty || 'No hay modelos en la Base de Datos.'}</td></tr>`;
         }
+		
+		// 👇 NUEVO: Reaplicar el filtro de modelos tras recargar la tabla 👇
+        setTimeout(() => {
+            const filtroModelos = document.querySelector('select[onchange*="tablaModelosBody"]');
+            if (filtroModelos && filtroModelos.value !== "") {
+                filtroModelos.dispatchEvent(new Event('change'));
+            }
+        }, 50);
+        // 👆 HASTA AQUÍ 👆
+		
     } catch(e) {
         tbody.innerHTML = `<tr><td colspan="10" class="text-danger py-4">${GartyLang.msg_err_conn_proc || 'Error al conectar con el servidor.'}</td></tr>`;
     }

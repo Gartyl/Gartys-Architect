@@ -150,6 +150,16 @@ async function cargarTablaPrompts() {
         } else {
             tbody.innerHTML = `<tr><td colspan="7" class="text-warning fw-bold py-4">${GartyLang.adm_msg_empty_prompts}</td></tr>`;
         }
+		
+		// 👇 NUEVO: Reaplicar el filtro tras reconstruir la tabla 👇
+        setTimeout(() => {
+            const filtroPrompts = document.querySelector('select[onchange*="tablaPromptsBody"]');
+            if (filtroPrompts && filtroPrompts.value !== "") {
+                filtroPrompts.dispatchEvent(new Event('change'));
+            }
+        }, 50);
+        // 👆 HASTA AQUÍ 👆
+		
     } catch(e) {
         tbody.innerHTML = `<tr><td colspan="7" class="text-danger py-4">${GartyLang.err_conexion}</td></tr>`;
     }
