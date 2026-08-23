@@ -91,6 +91,13 @@ Getting started takes less than a minute:
 
 ---
 
+## 📖 Official Documentation & Wiki
+Ditch the PDFs! All instructions, from basic setup to advanced PRO tools configuration (like IP-Adapter, ReActor, and F5-TTS), are now fully documented and constantly updated in our Wiki.
+
+👉 **[Read the Full Documentation / Lee el Manual Completo en la Wiki](https://github.com/Gartyl/Gartys-Architect/wiki)**
+
+---
+
 ## 🚀 Editions: How to Get It
 
 **1. The Core Experience (Free)**
