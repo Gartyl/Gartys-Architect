@@ -2,13 +2,11 @@
     <div class="col-xl-3 col-lg-3 col-md-6 mb-2 mb-lg-0">
         <label class="small text-secondary fw-bold"><?= __('tit_cat_dest') ?></label>
         <select class="form-select pref-track" id="selector">
-            <option value="[LLM]"><?= __('sel_llm') ?></option>
+            <option value="[CHAT]"><?= __('sel_chat_super') ?></option>
             <option value="[SD15]"><?= __('sel_sd15') ?></option>
             <option value="[SDXL]"><?= __('sel_sdxl') ?></option>
             <option value="[NATURAL_IMAGE]" <?= !$is_pro ? 'disabled' : '' ?>><?= __('sel_flux') ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?></option>
             <option value="[VIDEO]" <?= !$is_pro ? 'disabled' : '' ?>><?= __('sel_video') ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?></option>
-            <option value="[VISION]"><?= __('sel_anal') ?></option>
-            <option value="[CHAT]"><?= __('sel_chat') ?></option>
         </select>
     </div>
     

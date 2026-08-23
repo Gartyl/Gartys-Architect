@@ -90,7 +90,6 @@
     <div class="d-flex gap-2 flex-wrap mt-3" id="mainButtonsContainer">
         <button type="submit" class="btn btn-success flex-grow-1 btn-generate shadow" id="submitBtn"><i class="bi bi-chat-right-dots"></i> <?= __('btn_arquitecto') ?></button>
         <button type="button" class="btn btn-gpu flex-grow-1 text-white fw-bold shadow d-none" id="gpuDirectBtn" onclick="runGpu('directo')"><i class="bi bi-lightning-fill"></i> <?= __('btn_renderizar') ?></button>
-        <button type="button" class="btn btn-primary flex-grow-1 text-white fw-bold shadow d-none" id="llmDirectBtn" onclick="runLlmDirect()"><i class="bi bi-robot"></i> <?= __('btn_textdirecto') ?></button>
         
         <!-- NUEVO BOTÓN: AUTO-ARQUITECTO (Con control PRO y variables de idioma) -->
         <?php if (isset($is_pro) && $is_pro): ?>
