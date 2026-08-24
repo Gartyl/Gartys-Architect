@@ -2368,7 +2368,7 @@ async function runGpu(mode = 'directo') {
         
         if (autoTranslate) {
             const originalTextBtn = buttonUsed.innerHTML;
-            buttonUsed.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> ${GartyLang.gpu_msg_translating}`;
+            buttonUsed.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> ${GartyLang.gpu_msg_translating || 'Traduciendo...'}`;
             try {
                 const fdTrad = new FormData(); fdTrad.append('action', 'traducir_rapido'); fdTrad.append('texto', ideaInicial);
                 const llmSel = document.getElementById('llmModelSelector'); if (llmSel && llmSel.value) fdTrad.append('llm_model', llmSel.value);
