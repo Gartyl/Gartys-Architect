@@ -116,7 +116,7 @@ function getFilteredItems(itemsList, category) {
     } else if (category === '[VIDEO]') {
         filtered = itemsList.filter(m => {
             const low = m.toLowerCase();
-            return low.includes('video') || low.includes('wan') || low.includes('ltx') || low.includes('qwen');
+            return low.includes('video') || low.includes('wan') || low.includes('ltx') || low.includes('qwen') || low.includes('minimax');
         });
     } else if (category === '[VISION]' || category === '[CHAT]') {
         filtered = itemsList;
@@ -277,7 +277,7 @@ function updateLoraFilter(category) {
         if (category === '[VISION]' || category === '[CHAT]') {
              if (modeloSeleccionado.includes('sd15') || modeloSeleccionado.includes('v15')) targetArch = '[SD15]';
              else if (modeloSeleccionado.includes('sdxl') || modeloSeleccionado.includes('xl')) targetArch = '[SDXL]';
-             else if (modeloSeleccionado.includes('video') || modeloSeleccionado.includes('wan') || modeloSeleccionado.includes('ltx')) targetArch = '[VIDEO]';
+             else if (modeloSeleccionado.includes('video') || modeloSeleccionado.includes('wan') || modeloSeleccionado.includes('ltx') || modeloSeleccionado.includes('minimax')) targetArch = '[VIDEO]';
              else targetArch = '[NATURAL_IMAGE]'; // Fallback a los gordos (Flux/Chroma/etc)
         }
 
@@ -359,14 +359,20 @@ function updateLoraFilter(category) {
         // --- CORRECCIÓN: FILTRO ESPECÍFICO PARA MODELOS DE VIDEO ---
         // =========================================================================
         } else if (targetArch === '[VIDEO]') {
-            // Evaluamos si el modelo seleccionado es Wan o LTX específicamente
+            // Evaluamos si el modelo seleccionado es Wan, LTX o Minimax específicamente
             if (modeloSeleccionado.includes('wan')) {
                 tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('wan'));
             } else if (modeloSeleccionado.includes('ltx')) {
                 tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('ltx'));
+            } else if (modeloSeleccionado.includes('minimax')) {
+                tempLoras = loadedLoras.filter(m => {
+                    let low = m.toLowerCase();
+                    // Filtramos para que SOLO muestre los archivos dentro de la carpeta minimax_h3
+                    return low.includes('minimax_h3\\') || low.includes('minimax_h3/');
+                });
             } else {
-                // Fallback por si acaso: muestra ambos si no detecta la sub-arquitectura
-                tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('wan') || m.toLowerCase().includes('ltx'));
+                // Fallback por si acaso
+                tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('wan') || m.toLowerCase().includes('ltx') || m.toLowerCase().includes('minimax'));
             }
         // =========================================================================
         } else {

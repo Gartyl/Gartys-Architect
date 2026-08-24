@@ -1768,8 +1768,42 @@ async function executeProcess(fd, selValue, retries = 2, loadingId = null, silen
                 }
                 return executeProcess(fd, selValue, retries - 1, loadingId, silentMainBtn);
             }
-            // Cambiado a html: data.error
-            SwalDark.fire({ toast: false, position: 'center', timer: undefined, showConfirmButton: true, icon: 'warning', title: GartyLang.swal_sys_warn, html: data.error, confirmButtonColor: '#17a2b8', confirmButtonText: '<i class="bi bi-check-lg"></i> ' + (GartyLang.btn_understood_check || 'Entendido') });
+            
+            // 🛑 FIX: Matamos el spinner y actualizamos la burbuja
+            if (loadingId) {
+                document.getElementById(loadingId).innerHTML = `<span class="text-danger"><i class="bi bi-x-circle"></i> ${data.error}</span><span class="bubble-meta">${GartyLang.txt_system || 'Sistema'}</span>`;
+                const thread = document.getElementById('chatThreadContainer');
+                if (thread) thread.scrollTop = thread.scrollHeight;
+            } 
+            
+            // 💡 EXTRA: Detección inteligente de falta de visión
+            let extraHint = "";
+            if (data.error.includes("vacía") || data.error.includes("empty") || data.error.includes("parser")) {
+                
+                const lblNota = (typeof GartyLang !== 'undefined' && GartyLang.lbl_note) ? GartyLang.lbl_note : "Nota";
+                const hintVerify = (typeof GartyLang !== 'undefined' && GartyLang.err_vision_verify) ? GartyLang.err_vision_verify : "Verifica que el modelo soporta imágenes.";
+                const hintFallback = (typeof GartyLang !== 'undefined' && GartyLang.err_vision_fallback) ? GartyLang.err_vision_fallback : "Si enviaste una foto, es muy probable que este modelo no tenga módulo de Visión.";
+                
+                const hintMsg = (typeof GartyLang !== 'undefined' && GartyLang.err_vision_fail) 
+                    ? GartyLang.err_vision_fail + " " + hintVerify 
+                    : hintFallback;
+                    
+                extraHint = `<br><br><div class='p-2 bg-dark border border-warning rounded text-warning small text-start shadow-sm'><i class='bi bi-lightbulb-fill'></i> <b>${lblNota}:</b> ${hintMsg}</div>`;
+            }
+            
+            // 💥 Eliminamos el "else" para que el SwalDark salte SIEMPRE
+            SwalDark.fire({ 
+                toast: false, 
+                position: 'center', 
+                timer: undefined, 
+                showConfirmButton: true, 
+                icon: 'warning', 
+                title: GartyLang.swal_sys_warn || 'Aviso del Sistema', 
+                html: data.error + extraHint, 
+                confirmButtonColor: '#17a2b8', 
+                confirmButtonText: '<i class="bi bi-check-lg"></i> ' + (GartyLang.btn_understood_check || 'Entendido') 
+            });
+            
             if (typeof stopProgressBar === 'function') stopProgressBar();
             return; 
         }
@@ -1781,7 +1815,9 @@ async function executeProcess(fd, selValue, retries = 2, loadingId = null, silen
         if (selValue === '[CHAT]') { 
             if (loadingId) {
                 const b = document.getElementById(loadingId); const ts = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                let contentHtml = p;
+                // 🌟 FIX: Aplicamos el parser de Markdown al texto inyectado en vivo
+                let contentHtml = window.formatearMarkdownChat ? window.formatearMarkdownChat(p) : p;
+                
                 if (isAvanzado && p.length > 5 && !p.includes(GartyLang.txt_ai_greeting)) {
                     const safeText = encodeURIComponent(p);
                     contentHtml += `<div class="mt-3 text-end border-top border-secondary pt-2" style="border-color: rgba(255,255,255,0.1) !important;"><button class="btn btn-sm btn-outline-info border-0" onclick="generateImageFromChatBtn(this, '${safeText}')" title="${GartyLang.btn_paint_title}"><i class="bi bi-gpu-card"></i> ${GartyLang.btn_paint_this}</button></div>`;
@@ -3066,10 +3102,42 @@ window.generateImageFromChatBtn = async function(btnElement, encodedText) {
     thread.scrollTop = thread.scrollHeight;
 }
 
+// --- NUEVO: PARSER DE MARKDOWN A HTML PARA EL CHAT ---
+window.formatearMarkdownChat = function(texto) {
+    if (!texto) return '';
+    
+    // 1. Proteger el texto de inyecciones HTML accidentales
+    let html = texto.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    
+    // 2. Convertir Negritas (**texto**)
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // 3. Convertir Cursivas (*texto* o _texto_)
+    html = html.replace(/(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+    html = html.replace(/_(.*?)_/g, '<em>$1</em>');
+
+    // 4. Convertir Listas (Líneas que empiezan por * o -)
+    html = html.replace(/^[ \t]*[\*\-][ \t]+(.*)$/gm, '• $1');
+
+    // 5. Convertir Títulos (### Título)
+    html = html.replace(/^### (.*)$/gm, '<h6 class="text-info fw-bold mt-3 mb-1">$1</h6>');
+    html = html.replace(/^## (.*)$/gm, '<h5 class="text-info fw-bold mt-3 mb-1">$1</h5>');
+
+    // 6. Convertir los saltos de línea (\n a <br>)
+    html = html.replace(/\n\n/g, '<br><br>');
+    html = html.replace(/\n/g, '<br>');
+    
+    return html;
+};
+
 function addMessageToUI(role, text, imgSrc = null, isDoc = false) {
     const b = document.createElement('div'); b.className = `chat-bubble ${role === 'user' ? 'bubble-user' : 'bubble-ai'}`;
     const ts = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    let contentHtml = text;
+    
+    // Aplicamos el formato Markdown si es la IA, o texto seguro si es el usuario
+    let contentHtml = (role === 'ai' && window.formatearMarkdownChat) 
+        ? window.formatearMarkdownChat(text) 
+        : text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
     if (imgSrc) contentHtml += `<br><img src="${imgSrc}" class="img-fluid rounded mt-2 shadow-sm" style="max-height: 180px;">`;
     else if (isDoc) contentHtml += `<br><div class="badge bg-light text-dark p-2 mt-2"><i class="bi bi-file-earmark-text"></i> ${GartyLang.chat_msg_doc_processed}</div>`;
