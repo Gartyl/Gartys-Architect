@@ -118,6 +118,7 @@ return [
     'tit_ups_model' => "Modelo de Escalado",
     'tit_upscale' => "UPSCALE POR BLOQUES (Ultimate SD Upscale)",
     'title_multicarga' => "Activar bandeja para múltiples imágenes de referencia",
+	'tit_rembg' => "ELIMINAR FONDO (Rembg - PNG Transparente)",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
@@ -262,6 +263,7 @@ return [
     'btn_render_video' => "RENDERIZAR VÍDEO CON ESTE PROMPT",
     'btn_renderizar' => "Renderizar Directo a GPU",
     'btn_rendprompt' => "Renderizar este Prompt en GPU",
+	'gpu_sending_spinner' => "ENVIANDO A GPU...",
     'btn_reutilizar' => "Reutilizar",
     'btn_rmv_style' => "Quitar Estilo",
     'btn_run_llm_now' => "EJECUTAR ESTE PROMPT AHORA",
@@ -871,6 +873,16 @@ return [
     'audio_ready' => "Pista de Audio lista",
     'audio_remove_title' => "Quitar Audio",
     'audio_uploading' => "Subiendo a ComfyUI...",
+	'ph_tts_speech' => "Escribe aquí exactamente lo que quieres que diga la voz...",
+	'btn_subir_audio_ref'   => "Cargar Audio de Referencia",
+	'ph_audio_ref_text'     => "Escribe exactamente lo que dice el audio de referencia...",
+	'lbl_sync_wav2lip' => "Sincronizar Labios (Wav2Lip)",
+	'lbl_sync_video_vhs'    => "Acoplar al vídeo generado (VHS Combine)",
+	'lbl_audio_ref_text'    => "Transcripción de la muestra (opcional, mejora fidelidad)",
+	'lbl_audio_ref_file'    => "Muestra de voz (WAV/MP3 de 3 a 10 seg.)",
+	'lbl_tts_engine' 		=> "Motor de Voz",
+	'lbl_tts_emotion' 		=> "Emoción (IndexTTS)",
+	'lbl_tts_language' 	=> "Idioma de voz",
 
     // --- IP Adapter (ipa_) ---
     'ipa_mod_flux' => "Flux / Next-Gen (Estilo + Composición)",
@@ -1125,6 +1137,9 @@ return [
     'err_vision_vram_loading' => "El modelo de visión se está cargando en la VRAM. ¡Dale unos segundos y vuelve a intentarlo!",
     'err_vram_gpu_fail' => "Fallo de procesamiento gráfico. Puede deberse a falta de VRAM o a una incompatibilidad de arquitecturas (ej: usar un ControlNet con un modelo base incompatible).",
     'err_write_lang_file' => "No se pudo escribir. Revisa los permisos de la carpeta /lang/.",
+	'lbl_note' => "Nota",
+    'err_vision_verify' => "Verifica que el modelo soporta imágenes.",
+    'err_vision_fallback' => "Si enviaste una foto, es muy probable que este modelo no tenga módulo de Visión.",
 
     // ==============================================================================
     // 13. LOGS DE CONSOLA (log_)
