@@ -1229,6 +1229,108 @@ if ($action === 'generar_imagen') {
             $current_image_node = "290";
             goto EJECUTAR_COMFYUI;
         } // 🚨 ¡AQUÍ ESTABA EL ERROR MORTAL! Faltaba esta llave de cierre de LTX.
+		
+		// ====================================================================
+        // --- 1.5. BLOQUE MINIMAX H3 VIDEO ---
+        // ====================================================================
+        if (strpos(strtolower($modelo_seguro), 'minimax') !== false) {
+
+            // Minimax razona en segundos, no en frames absolutos. 
+            // Calculamos los segundos a partir de los frames que manda la web (Asumiendo 24fps)
+            $segundos = max(1.0, round($video_frames / 24, 1));
+
+            $ruta_json = __DIR__ . '/../workflows/minimax_h3.json';
+
+            $reemplazos = [
+                '__SEED__' => $seed,
+                '__WIDTH__' => $width,
+                '__HEIGHT__' => $height,
+                '__TIEMPO_SEGUNDOS__' => $segundos,
+                '__STEPS__' => $steps,
+                '__SAMPLER__' => $sampler,
+                '__SCHEDULER__' => $scheduler,
+                '__MODELO__' => $modelo_seguro,
+                '__PROMPT_POSITIVO__' => $posPrompt
+            ];
+
+            $workflow = cargarWorkflowJSON($ruta_json, $reemplazos);
+
+            // --- GESTIÓN DEL LORA Y PUENTEO INTELIGENTE ---
+            $lora_active = false;
+            if (empty($lora_metadata_list) && is_array($lora_names)) {
+                foreach ($lora_names as $index => $lname) {
+                    if (!empty(trim($lname)) && strtolower($lname) !== 'ninguno') {
+                        $lstr = floatval($lora_strengths_high[$index] ?? 1.0);
+                        $lora_metadata_list[] = basename($lname, '.safetensors') . " ($lstr)";
+
+                        // Minimax base solo soporta 1 LoRA encadenado en este nodo
+                        if ($index === 0) { 
+                            $ruta_lora = $lname;
+                            
+                            // Solo añadimos la carpeta si el texto viene sin rutas previas
+                            if (strpos($ruta_lora, '\\') === false && strpos($ruta_lora, '/') === false) {
+                                $ruta_lora = "minimax_h3/" . $ruta_lora;
+                            }
+                            
+                            // Aseguramos extensión
+                            if (!str_ends_with(strtolower($ruta_lora), '.safetensors')) {
+                                $ruta_lora .= '.safetensors';
+                            }
+
+                            $workflow["137"]["inputs"]["lora_name"] = $ruta_lora;
+                            $workflow["137"]["inputs"]["strength_model"] = $lstr;
+                            $lora_active = true;
+                        }
+                    }
+                }
+            }
+
+            if (!$lora_active) {
+                // PUENTEO: Si no hay LoRA, conectamos SigmaShift(149) directo a SageAttention(146)
+                $workflow["149"]["inputs"]["model"][0] = "146";
+                unset($workflow["137"]); // Destruimos el nodo LoRA para que ComfyUI no crashee
+            }
+
+            // --- INYECCIÓN DE IMAGEN (IMAGE-TO-VIDEO) ---
+            $tiene_imagen = ($comfy_image_filename !== "none" && !empty($comfy_image_filename));
+            if ($tiene_imagen) {
+                // 1. Cargamos la imagen base subida por el usuario
+                $workflow["269"] = ["inputs" => ["image" => $comfy_image_filename, "upload" => "image"], "class_type" => "LoadImage"];
+                
+                // 2. ESCUDO: Forzamos la foto a la resolución exacta del vídeo para evitar el Crash de Tensores
+                $workflow["270"] = [
+                    "inputs" => ["upscale_method" => "bicubic", "width" => $width, "height" => $height, "crop" => "center", "image" => ["269", 0]],
+                    "class_type" => "ImageScale"
+                ];
+                
+                // 3. Conectamos la imagen. Para Minimax, el creador de la extensión lo llamó "first_frame"
+                $workflow["131"]["inputs"]["first_frame"] = ["270", 0]; 
+            }
+
+            // --- HISTORIAL Y METADATOS (Base de datos) ---
+            $meta_json_array = [
+                'Model' => basename($model_path),
+                'Resolution' => $width . 'x' . $height,
+                'Seed' => $seed,
+                'Steps' => $steps,
+                'Sampler' => ucfirst($sampler) . ' (' . ucfirst($scheduler) . ')',
+                'Duration' => $segundos . 's',
+                'LoRAs' => empty($lora_metadata_list) ? __('lbl_none') : implode(', ', $lora_metadata_list)
+            ];
+            $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
+
+            if ($historial_id > 0) {
+                $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ?, metadata = ? WHERE id = ?");
+                $stmt_upd->execute([$posPrompt, $neg_prompt, $meta_json, $historial_id]);
+            } else {
+                $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt_ins->execute([$user_id, $selector, $posPrompt, $posPrompt, $neg_prompt, $meta_json]);
+                $historial_id = $pdo->lastInsertId();
+            }
+
+            $current_image_node = "142"; // El nodo VHS_VideoCombine de Minimax
+            goto EJECUTAR_COMFYUI;
+        }
 
         // ====================================================================
         // --- 2. BLOQUE WAN VIDEO ---
