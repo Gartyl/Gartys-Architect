@@ -437,6 +437,7 @@ return [
     'notif_gpu_free_text' => "Your image has finished rendering.",
     'notif_gpu_free_title' => "GPU Freed!",
     'notif_task_done' => "Task finished!",
+	'msg_frame_extracted' => "Extracted frame:",
 
     // ==============================================================================
     // 07. ALERTAS EMERGENTES (SweetAlerts)
