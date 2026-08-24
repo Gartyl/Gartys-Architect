@@ -263,8 +263,7 @@ return [
     'btn_render_video' => "RENDERITZAR VÍDEO AMB AQUEST PROMPT",
     'btn_renderizar' => "Renderitzar Directe a GPU",
     'btn_rendprompt' => "Renderitzar aquest Prompt a GPU",
-	'gpu_sending_spinner' => "ENVIANT A GPU...",
-    'btn_reutilizar' => "Reutilitzar",
+	'btn_reutilizar' => "Reutilitzar",
     'btn_rmv_style' => "Treure Estil",
     'btn_run_llm_now' => "EXECUTAR AQUEST PROMPT ARA",
     'btn_save_face_model' => "Generar .safetensors",
@@ -1224,6 +1223,14 @@ return [
     'tpl_translation' => "Traducció",
     'vis_zoom_hint' => "Roda per a Zoom | Clic i Arrossegar | Doble clic = 100%",
     'warn_anomalous_response' => "Resposta anòmala detectada. Executant Auto-Retry...",
+	'gpu_msg_translating' => "Traduint...",
+    'gpu_sending_spinner' => "ENVIANT A GPU...",
+    'msg_gpu_direct' => "Enviant a GPU...",
+    'log_chat_radar_cut' => "Radar tallat",
+    'err_no_gpu_ticket' => "El servidor no ha emès el tiquet de treball.",
+    'btn_fav_img' => "Afegir a Preferits",
+    'swal_sys_err_title' => "Error del Sistema",
+    'btn_apply_iclight' => "💡 Il·luminar Directe",
     
     // ==============================================================================
     // 15. FILTROS DE TABLAS (flt_)

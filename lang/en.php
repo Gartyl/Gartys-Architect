@@ -263,8 +263,7 @@ return [
     'btn_render_video' => "RENDER VIDEO WITH THIS PROMPT",
     'btn_renderizar' => "Render Direct to GPU",
     'btn_rendprompt' => "Render this Prompt on GPU",
-	'gpu_sending_spinner' => "SENDING TO GPU...",
-    'btn_reutilizar' => "Reuse",
+	'btn_reutilizar' => "Reuse",
     'btn_rmv_style' => "Remove Style",
     'btn_run_llm_now' => "EXECUTE THIS PROMPT NOW",
     'btn_save_face_model' => "Generate .safetensors",
@@ -1224,6 +1223,14 @@ return [
     'tpl_translation' => "Translation",
     'vis_zoom_hint' => "Scroll to Zoom | Click and Drag | Double click = 100%",
     'warn_anomalous_response' => "Anomalous response detected. Executing Auto-Retry...",
+	'gpu_msg_translating' => "Translating...",
+    'gpu_sending_spinner' => "SENDING TO GPU...",
+    'msg_gpu_direct' => "Sending to GPU...",
+    'log_chat_radar_cut' => "Radar disconnected",
+    'err_no_gpu_ticket' => "The server did not issue a job ticket.",
+    'btn_fav_img' => "Add to Favorites",
+    'swal_sys_err_title' => "System Error",
+    'btn_apply_iclight' => "💡 Direct Relight",
     
     // ==============================================================================
     // 15. FILTROS DE TABLAS (flt_)
