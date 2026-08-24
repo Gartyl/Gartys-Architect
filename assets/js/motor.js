@@ -44,10 +44,34 @@ window.eliminarImagenDeBandeja = function(index) {
 };
 
 window.insertarTagEnPrompt = function(tag) {
-    const input = document.getElementById('descripcion');
-    if (input) {
-        input.value = input.value + (input.value.endsWith(' ') ? '' : ' ') + tag + ' ';
-        input.focus();
+    const modoDirectoToggle = document.getElementById('modoDirectoToggle');
+    const isDirectMode = modoDirectoToggle && modoDirectoToggle.checked;
+
+    if (isDirectMode) {
+        // En Modo Directo, lo inyectamos en la caja del Prompt Positivo (contentEditable)
+        const posContent = document.getElementById('posContent');
+        if (posContent) {
+            let currentText = posContent.innerText.trim();
+            posContent.innerText = currentText ? (currentText + ' ' + tag + ' ') : (tag + ' ');
+            posContent.focus();
+            
+            // Truco para mover el cursor justo al final del texto inyectado
+            if (typeof window.getSelection !== "undefined" && typeof document.createRange !== "undefined") {
+                let range = document.createRange();
+                range.selectNodeContents(posContent);
+                range.collapse(false);
+                let sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+        }
+    } else {
+        // En Modo Normal, lo seguimos inyectando en la Idea Inicial
+        const input = document.getElementById('descripcion');
+        if (input) {
+            input.value = input.value + (input.value.endsWith(' ') ? '' : ' ') + tag + ' ';
+            input.focus();
+        }
     }
 };
 
@@ -864,25 +888,61 @@ function toggleDDColorPuro(activo) {
     }, 100);
 }
 
+// --- CONTROL DEL INPUT PRINCIPAL (IMÁGENES, VIDEOS Y MULTICARGA) ---
 const mainImageInput = document.getElementById('imageInput');
+const multiInputToggle = document.getElementById('multiInputToggle');
+
+// 1. Añadimos o quitamos la capacidad "multiple" al input físico de Windows según el interruptor
+if (multiInputToggle && mainImageInput) {
+    multiInputToggle.addEventListener('change', (e) => {
+        if (e.target.checked) mainImageInput.setAttribute('multiple', 'multiple');
+        else mainImageInput.removeAttribute('multiple');
+    });
+}
+
 if (mainImageInput) {
-    mainImageInput.onchange = () => {
-        const file = mainImageInput.files[0]; if (!file) return;
+    mainImageInput.onchange = async () => {
+        const files = Array.from(mainImageInput.files); 
+        if (files.length === 0) return;
         
-        // --- NUEVO: OBEDECER SOLO AL INTERRUPTOR DE LA INTERFAZ ---
-        const multiInputToggle = document.getElementById('multiInputToggle');
         const isMultiInputActive = multiInputToggle && multiInputToggle.checked;
-        // ----------------------------------------------------------
+
+        // 2. MODO MULTI: Procesamos todas las imágenes seleccionadas de golpe
+        if (isMultiInputActive) {
+            let disponibles = 3 - window.bandejaArchivos.length;
+            let archivosAProcesar = files.filter(f => f.type.startsWith('image/')).slice(0, disponibles);
+            
+            if (files.length > disponibles) {
+                SwalDark.fire({ icon: 'info', title: GartyLang.swal_limit_tray_title || 'Límite alcanzado', text: GartyLang.swal_limit_tray_text || 'Puedes subir un máximo de 3 imágenes de referencia a la bandeja.' });
+            }
+
+            // Las procesamos de forma asíncrona para que entren en orden a la bandeja
+            for (let file of archivosAProcesar) {
+                await new Promise(resolve => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => { 
+                        window.agregarImagenABandeja(e.target.result); 
+                        resolve(); 
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+            
+            mainImageInput.value = ""; // Vaciamos para no bloquear subidas posteriores
+            return; // 🛑 Cortamos aquí, no seguimos a la lógica de imagen principal o de inpaint
+        }
+
+        // 3. MODO NORMAL (Imagen Única, Video o Documentos)
+        const file = files[0];
+        
+        // Preparamos variables de idioma recurrentes
+        const txtQuitar = (typeof GartyLang !== 'undefined' && GartyLang.btn_quitar) ? GartyLang.btn_quitar : 'Quitar';
+        const txtErrorLectura = (typeof GartyLang !== 'undefined' && GartyLang.swal_err_read_file) ? GartyLang.swal_err_read_file : 'Fallo al leer el archivo.';
 
         if (file.type.startsWith('image/')) {
             const reader = new FileReader();
             reader.onload = (e) => { 
-                if (isMultiInputActive) { // <--- AHORA MIRA EL INTERRUPTOR
-                    window.agregarImagenABandeja(e.target.result);
-                    mainImageInput.value = ""; // Vaciamos el input
-                } else {
-                    setBaseImageFromDataUrl(e.target.result); 
-                }
+                setBaseImageFromDataUrl(e.target.result); 
             };
             reader.readAsDataURL(file);
         } else if (file.type.startsWith('video/')) {
@@ -894,10 +954,13 @@ if (mainImageInput) {
                 canvas.getContext('2d').drawImage(videoElement, 0, 0, canvas.width, canvas.height);
                 currentImageBase64 = canvas.toDataURL('image/png'); currentDocumentText = ""; 
                 const imgPreviewContainer = document.getElementById('imgPreviewContainer');
+                
+                const txtFrameExt = (typeof GartyLang !== 'undefined' && GartyLang.msg_frame_extracted) ? GartyLang.msg_frame_extracted : 'Frame extraído:';
+                
                 imgPreviewContainer.innerHTML = `
                 <div class="badge bg-warning text-dark p-3 mt-2 mb-2 fs-6 w-100 text-start shadow-sm">
-                    <i class="bi bi-film fs-4 me-2"></i> ${typeof GartyLang !== 'undefined' && GartyLang.msg_frame_extracted ? GartyLang.msg_frame_extracted : 'Frame extraído:'} ${file.name} 
-                    <i class="bi bi-x-circle ms-auto float-end" style="cursor:pointer;" onclick="if(typeof clearVideoUpload === 'function') clearVideoUpload()" title="Quitar"></i>
+                    <i class="bi bi-film fs-4 me-2"></i> ${txtFrameExt} ${file.name} 
+                    <i class="bi bi-x-circle ms-auto float-end" style="cursor:pointer;" onclick="if(typeof clearVideoUpload === 'function') clearVideoUpload()" title="${txtQuitar}"></i>
                 </div>
                 <img src="${currentImageBase64}" class="img-fluid rounded shadow-sm mt-2" style="max-height: 200px; border: 2px solid #ffc107;">`;
                 imgPreviewContainer.style.display = 'block'; URL.revokeObjectURL(videoURL);
@@ -915,11 +978,13 @@ if (mainImageInput) {
                 const oldImg = document.getElementById('chatImgBadge'); if (oldImg) oldImg.remove();
                 const oldDoc = document.getElementById('chatDocBadge'); if (oldDoc) oldDoc.remove();
                 
+                const txtDocAdjunto = (typeof GartyLang !== 'undefined' && GartyLang.lbl_attached_doc) ? GartyLang.lbl_attached_doc : 'Documento adjunto';
+                
                 imgPreviewContainer.insertAdjacentHTML('afterbegin', `
                 <div id="chatDocBadge" class="badge bg-secondary p-3 mt-2 mb-2 fs-6 w-100 text-start shadow-sm d-flex align-items-center">
                     <i class="bi bi-file-earmark-text fs-4 me-3"></i> 
-                    <span class="text-truncate">Documento adjunto: ${file.name}</span>
-                    <i class="bi bi-x-circle ms-auto fs-5 text-light" style="cursor:pointer; z-index: 10;" onclick="clearUploadData()" title="Quitar"></i>
+                    <span class="text-truncate">${txtDocAdjunto}: ${file.name}</span>
+                    <i class="bi bi-x-circle ms-auto fs-5 text-light" style="cursor:pointer; z-index: 10;" onclick="clearUploadData()" title="${txtQuitar}"></i>
                 </div>`);
                 
                 imgPreviewContainer.style.display = 'block'; 
@@ -940,13 +1005,13 @@ if (mainImageInput) {
                             text += content.items.map(item => item.str).join(' ') + '\n';
                         }
                         currentDocumentText = text;
-                    } catch (err) { showError("Error leyendo PDF: " + err.message); }
+                    } catch (err) { showError(`${txtErrorLectura} (PDF) - ${err.message}`); }
                 };
                 reader.readAsArrayBuffer(file);
             } else if (file.name.endsWith('.docx')) {
                 const reader = new FileReader();
                 reader.onload = function(event) {
-                    mammoth.extractRawText({arrayBuffer: event.target.result}).then(function(result) { currentDocumentText = result.value; }).catch(function(err) { showError("Error leyendo DOCX."); });
+                    mammoth.extractRawText({arrayBuffer: event.target.result}).then(function(result) { currentDocumentText = result.value; }).catch(function(err) { showError(`${txtErrorLectura} (DOCX)`); });
                 };
                 reader.readAsArrayBuffer(file);
             } else {
