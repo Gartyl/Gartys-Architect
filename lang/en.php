@@ -252,6 +252,7 @@ return [
     'btn_paint_this' => "Paint this",
     'btn_paint_title' => "Render this response as an image on the GPU",
     'btn_pincel' => "Brush",
+	'btn_goma' => "Eraser",
     'btn_pixeles' => "Pixels",
     'btn_procesando' => "Processing... (Free interface)",
     'btn_procesllm' => "Processing LLM...",

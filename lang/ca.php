@@ -252,6 +252,7 @@ return [
     'btn_paint_this' => "Pintar això",
     'btn_paint_title' => "Renderitzar aquesta resposta com a imatge a la GPU",
     'btn_pincel' => "Pinzell",
+	'btn_goma' => "Goma",
     'btn_pixeles' => "Píxels",
     'btn_procesando' => "Processant... (Interfície lliure)",
     'btn_procesllm' => "Processant LLM...",
