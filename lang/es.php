@@ -197,6 +197,7 @@ return [
     'txt_xat_benv' => "Hola, ¿en qué puedo ayudarte hoy?<br><br><small class=\"text-info\"><i class=\"bi bi-lightbulb\"></i> <b>NUEVO:</b> Puedes adjuntar imágenes o documentos (PDF, Word, TXT).<br>Escribe <code>/img [idea]</code> para generar un prompt y renderizarlo en la GPU.<br>Escribe <code>/gpu [idea]</code> para renderizar directamente en la GPU.",
     'txt_xat_mensaje' => "Escribe un mensaje...",
     'txt_xat_sist' => "Sistema",
+	'lbl_video_ajuste' => "Auto-Ajustar Imagen (Letterbox)",
     
     // ==============================================================================
     // 04. BOTONES, CONTROLES E INTERRUPTORES
