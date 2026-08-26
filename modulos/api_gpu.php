@@ -393,7 +393,7 @@ if ($action === 'generar_imagen') {
 
     // A. Subir imágenes de la Bandeja Multicarga al servidor de ComfyUI
     if (isset($_POST['has_tray_images']) && $_POST['has_tray_images'] === 'true') {
-        for ($i = 1; $i <= 3; $i++) {
+        for ($i = 1; $i <= 9; $i++) {
             if (!empty($_POST["tray_image_$i"])) {
                 $tmp_tray = sys_get_temp_dir() . '/tray_img_' . $i . '_' . uniqid() . '.png';
                 file_put_contents($tmp_tray, base64_decode($_POST["tray_image_$i"]));
@@ -1291,20 +1291,60 @@ if ($action === 'generar_imagen') {
                 unset($workflow["137"]); // Destruimos el nodo LoRA para que ComfyUI no crashee
             }
 
-            // --- INYECCIÓN DE IMAGEN (IMAGE-TO-VIDEO) ---
-            $tiene_imagen = ($comfy_image_filename !== "none" && !empty($comfy_image_filename));
-            if ($tiene_imagen) {
-                // 1. Cargamos la imagen base subida por el usuario
-                $workflow["269"] = ["inputs" => ["image" => $comfy_image_filename, "upload" => "image"], "class_type" => "LoadImage"];
+            // --- INYECCIÓN MULTIMODAL MINIMAX H3 (ReferenceToVideo) ---
+            $tiene_multimodal = false;
+
+            // 1. ¿Hay imagen principal que NO provenga de la bandeja? (Image-to-Video clásico)
+            $foto_principal = null;
+            if (!empty($comfy_image_filename) && $comfy_image_filename !== "none" && $init_image_base64 !== "TRAY_IMAGE_USED") {
+                $foto_principal = $comfy_image_filename;
+                $tiene_multimodal = true;
+            }
+
+            // 2. ¿Hay imágenes en la bandeja multicarga? (Referenciación Múltiple)
+            $fotos_bandeja = [];
+            if (!empty($tray_comfy_filenames)) {
+                $fotos_bandeja = $tray_comfy_filenames;
+                $tiene_multimodal = true;
+            }
+
+            if ($tiene_multimodal) {
+                // Modificamos el Nodo Base a la nueva arquitectura ReferenceToVideo
+                $workflow["131"]["class_type"] = "MiniMaxH3ReferenceToVideo";
                 
-                // 2. ESCUDO: Forzamos la foto a la resolución exacta del vídeo para evitar el Crash de Tensores
-                $workflow["270"] = [
-                    "inputs" => ["upscale_method" => "bicubic", "width" => $width, "height" => $height, "crop" => "center", "image" => ["269", 0]],
-                    "class_type" => "ImageScale"
-                ];
-                
-                // 3. Conectamos la imagen. Para Minimax, el creador de la extensión lo llamó "first_frame"
-                $workflow["131"]["inputs"]["first_frame"] = ["270", 0]; 
+                // Limpiamos la basura de la arquitectura antigua
+                unset($workflow["131"]["inputs"]["image"]);
+                unset($workflow["131"]["inputs"]["images"]);
+                unset($workflow["131"]["inputs"]["first_frame"]);
+
+                // 🌟 FIX: PARÁMETROS OBLIGATORIOS DEL NUEVO NODO 🌟
+                // El VAE de audio ya está en el nodo 120 de tu plantilla original
+                $workflow["131"]["inputs"]["audio_vae"] = ["120", 0];
+                $workflow["131"]["inputs"]["ref_image_size"] = "max"; 
+
+                $indice_conector = 0; // El enrutador empieza a contar desde el 0
+
+                // A) Conectamos la foto principal DIRECTAMENTE al nodo de vídeo
+                if ($foto_principal) {
+                    $node_img_prin = "131_prin_load";
+                    $workflow[$node_img_prin] = ["inputs" => ["image" => $foto_principal, "upload" => "image"], "class_type" => "LoadImage"];
+                    
+                    // ¡Enchufe quirúrgico!
+                    $workflow["131"]["inputs"]["ref_images.ref_image_" . $indice_conector] = [$node_img_prin, 0];
+                    $indice_conector++;
+                }
+
+                // B) Conectamos el resto de fotos de la bandeja DIRECTAMENTE
+                foreach ($fotos_bandeja as $tray_filename) {
+                    if ($indice_conector > 8) break; // Máximo 9 imágenes según Kijai
+
+                    $node_img_tray = "131_tray_load_" . $indice_conector;
+                    $workflow[$node_img_tray] = ["inputs" => ["image" => $tray_filename, "upload" => "image"], "class_type" => "LoadImage"];
+                    
+                    // ¡Enchufe quirúrgico!
+                    $workflow["131"]["inputs"]["ref_images.ref_image_" . $indice_conector] = [$node_img_tray, 0];
+                    $indice_conector++;
+                }
             }
 
             // --- HISTORIAL Y METADATOS (Base de datos) ---

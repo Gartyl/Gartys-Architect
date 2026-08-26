@@ -160,6 +160,26 @@ if ($action === 'get_lora_trigger') {
         exit();
     }
 
+    // ==============================================================================
+    // 🌟 NUEVO: ESCUDO DE ARCHIVOS DE TEXTO GEMELOS (.txt) 🌟
+    // ==============================================================================
+    // Sustituimos la extensión del modelo por .txt
+    $txt_filepath = preg_replace('/\.(safetensors|pt|ckpt)$/i', '.txt', $filepath);
+    
+    if (file_exists($txt_filepath)) {
+        // Leemos el texto, quitamos espacios en blanco extra y lo enviamos directo a la interfaz
+        $trigger_words = trim(file_get_contents($txt_filepath));
+        
+        echo json_encode([
+            'triggers' => $trigger_words,
+            'debug_exito' => 'Lectura manual (Archivo .txt gemelo)',
+            'debug_meta_keys' => ['manual_txt_override']
+        ]);
+        exit();
+    }
+    // ==============================================================================
+
+    // Si NO hay .txt, procedemos con el escáner binario ultrarrápido habitual
     $f = fopen($filepath, 'rb');
     if (!$f) { 
         echo json_encode(['triggers' => '', 'debug_error' => __('err_lora_read_lock')]); 
