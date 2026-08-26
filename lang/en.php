@@ -527,7 +527,7 @@ return [
     'swal_kill_title' => "Task Purged",
     'swal_lang_saved' => "Language saved successfully",
     'swal_limit_ipa_text' => "You can use a maximum of 4 simultaneous references in the IP-Adapter.",
-    'swal_limit_tray_text' => "You can upload a maximum of 3 reference images to the tray.",
+    'swal_limit_tray_text' => "You can upload a maximum of 9 reference images to the tray.",
     'swal_limit_tray_title' => "Limit reached",
     'swal_lipsync_text' => "Videos with audio require processing in a single block to synchronize lips naturally. The security engine (chunking) has been temporarily disabled for this generation. Keep an eye on your Graphics memory!",
     'swal_lipsync_title' => "🎬 LipSync Mode Activated",

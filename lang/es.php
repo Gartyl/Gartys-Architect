@@ -527,7 +527,7 @@ return [
     'swal_kill_title' => "Tarea Purgada",
     'swal_lang_saved' => "Idioma guardado correctamente",
     'swal_limit_ipa_text' => "Puedes usar un máximo de 4 referencias simultáneas en el IP-Adapter.",
-    'swal_limit_tray_text' => "Puedes subir un máximo de 3 imágenes de referencia a la bandeja.",
+    'swal_limit_tray_text' => "Puedes subir un máximo de 9 imágenes de referencia a la bandeja.",
     'swal_limit_tray_title' => "Límite alcanzado",
     'swal_lipsync_text' => "Los vídeos con audio requieren procesarse en un solo bloque para sincronizar los labios de forma natural. El motor de seguridad (troceado) se ha desactivado temporalmente para esta generación. ¡Atento a la memoria de tu Gráfica!",
     'swal_lipsync_title' => "🎬 Modo LipSync Activado",

@@ -527,7 +527,7 @@ return [
     'swal_kill_title' => "Tasca Purgada",
     'swal_lang_saved' => "Idioma desat correctament",
     'swal_limit_ipa_text' => "Pots utilitzar un màxim de 4 referències simultànies a l'IP-Adapter.",
-    'swal_limit_tray_text' => "Pots pujar un màxim de 3 imatges de referència a la safata.",
+    'swal_limit_tray_text' => "Pots pujar un màxim de 9 imatges de referència a la safata.",
     'swal_limit_tray_title' => "Límit assolit",
     'swal_lipsync_text' => "Els vídeos amb àudio requereixen processar-se en un sol bloc per sincronitzar els llavis de forma natural. El motor de seguretat (trossejat) s'ha desactivat temporalment per a aquesta generació. Atent a la memòria de la teva Gràfica!",
     'swal_lipsync_title' => "🎬 Mode LipSync Activat",
