@@ -26,11 +26,12 @@ window.isErasing = false;
 window.bandejaArchivos = [];
 
 window.agregarImagenABandeja = function(base64Data) {
-    if (window.bandejaArchivos.length >= 3) {
+    // 1. Ampliamos el límite físico de la bandeja a 9
+    if (window.bandejaArchivos.length >= 9) {
         SwalDark.fire({ 
             icon: 'info', 
             title: typeof GartyLang !== 'undefined' && GartyLang.swal_limit_tray_title ? GartyLang.swal_limit_tray_title : 'Límite alcanzado', 
-            text: typeof GartyLang !== 'undefined' && GartyLang.swal_limit_tray_text ? GartyLang.swal_limit_tray_text : 'Puedes subir un máximo de 3 imágenes de referencia a la bandeja.' 
+            text: typeof GartyLang !== 'undefined' && GartyLang.swal_limit_tray_text ? GartyLang.swal_limit_tray_text : 'Puedes subir un máximo de 9 imágenes de referencia a la bandeja.' 
         });
         return;
     }
@@ -909,11 +910,11 @@ if (mainImageInput) {
 
         // 2. MODO MULTI: Procesamos todas las imágenes seleccionadas de golpe
         if (isMultiInputActive) {
-            let disponibles = 3 - window.bandejaArchivos.length;
+            let disponibles = 9 - window.bandejaArchivos.length;
             let archivosAProcesar = files.filter(f => f.type.startsWith('image/')).slice(0, disponibles);
             
             if (files.length > disponibles) {
-                SwalDark.fire({ icon: 'info', title: GartyLang.swal_limit_tray_title || 'Límite alcanzado', text: GartyLang.swal_limit_tray_text || 'Puedes subir un máximo de 3 imágenes de referencia a la bandeja.' });
+                SwalDark.fire({ icon: 'info', title: GartyLang.swal_limit_tray_title || 'Límite alcanzado', text: GartyLang.swal_limit_tray_text || 'Puedes subir un máximo de 9 imágenes de referencia a la bandeja.' });
             }
 
             // Las procesamos de forma asíncrona para que entren en orden a la bandeja
