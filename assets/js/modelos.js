@@ -8,6 +8,7 @@ let allCheckpoints = [];
 let allUnets = [];
 let allControlNets = [];
 let allUpscalers = [];
+let allAdetailers = [];
 let loadedLoras = []; 
 let filteredLoras = []; 
 
@@ -146,6 +147,7 @@ async function loadModelsAndLoras() {
                 allUnets = dataModels.unets || [];
                 allControlNets = dataModels.controlnets || [];
                 allUpscalers = dataModels.upscalers || [];
+                allAdetailers = dataModels.adetailers || []; // <-- NUEVO
             } catch(err) { }
             
             updateModelFilter(document.getElementById('selector').value);
@@ -165,6 +167,26 @@ async function loadModelsAndLoras() {
                     });
                 }
             }
+			
+			// --- NUEVO: RELLENAR DESPLEGABLE DE ADETAILER ---
+            const adSel = document.getElementById('adetailer_model');
+            if (adSel) {
+                adSel.innerHTML = '';
+                if (allAdetailers.length > 0) {
+                    allAdetailers.forEach(m => {
+                        const opt = document.createElement('option'); 
+                        opt.value = m; 
+                        // Limpiamos la ruta para que en el menú se vea bonito solo el nombre (ej. "hand_yolov8s.pt")
+                        opt.textContent = m.split(/[\\/]/).pop(); 
+                        adSel.appendChild(opt);
+                    });
+                } else {
+                    // Fallback de seguridad si no detecta la carpeta o está vacía
+                    adSel.innerHTML = '<option value="bbox/face_yolov8m.pt">face_yolov8m.pt</option>';
+                }
+            }
+            // ------------------------------------------------
+			
         } catch(e) {}
 
         try {

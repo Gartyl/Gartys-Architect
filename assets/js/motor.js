@@ -1666,6 +1666,11 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
         fd.append('adetailer', 'on');
         const adDenoise = document.getElementById('adetailerDenoise'); if (adDenoise) fd.append('adetailer_denoise', adDenoise.value);
         
+        // --- NUEVO: CAPTURAR EL MODELO DE ADETAILER ---
+        const adModel = document.getElementById('adetailer_model');
+        if (adModel && adModel.value) fd.append('adetailer_model', adModel.value);
+        // ----------------------------------------------
+        
         const pureAdToggle = document.getElementById('pureAdetailerToggle'); 
         if (pureAdToggle && pureAdToggle.checked) fd.append('pure_adetailer', 'true');
     }
