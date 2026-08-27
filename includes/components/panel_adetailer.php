@@ -1,4 +1,4 @@
-	<div class="param-group shadow-sm border-info mb-3" id="adetailerBlock" style="border-color: rgba(13, 202, 240, 0.4) !important; background: rgba(13, 202, 240, 0.05);">
+<div class="param-group shadow-sm border-info mb-3" id="adetailerBlock" style="border-color: rgba(13, 202, 240, 0.4) !important; background: rgba(13, 202, 240, 0.05);">
         <div class="d-flex justify-content-between align-items-center">
             <label class="small text-info fw-bold mb-0">
                 <i class="bi bi-magic me-1"></i> <?= __('tit_adetailer') ?? 'Reparador de Rostros' ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?>
@@ -21,6 +21,16 @@
                     </div>
                     <div class="text-muted ms-5" style="font-size: 0.75rem; margin-top: 2px;">
                         <?= __('txt_ad_pure_hint') ?? 'Restaura rostros en la foto cargada sin modificar nada más.' ?>
+                    </div>
+                </div>
+
+                <div class="col-12 mb-2">
+                    <label class="text-secondary small fw-bold mb-1"><i class="bi bi-crosshair me-1"></i> <?= __('lbl_ad_model') ?? 'Modelo de detección' ?></label>
+                    <select class="form-select form-select-sm bg-dark text-light border-secondary pref-track" id="adetailer_model" name="adetailer_model">
+                        <option value="bbox/face_yolov8m.pt">bbox/face_yolov8m.pt</option>
+                    </select>
+                    <div class="text-muted" style="font-size: 0.7rem; margin-top: 4px;">
+                        <?= __('txt_ad_model_hint') ?? 'Selecciona el modelo especializado (rostros, manos, cuerpos...).' ?>
                     </div>
                 </div>
 
