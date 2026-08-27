@@ -537,6 +537,8 @@ if ($action === 'generar_imagen') {
     // --- ADETAILER ---
     $use_adetailer = isset($_POST['adetailer']) && $_POST['adetailer'] === 'on';
     $adetailer_denoise = isset($_POST['adetailer_denoise']) ? floatval($_POST['adetailer_denoise']) : 0.4;
+    // Capturamos el modelo o usamos el de caras por defecto si falla
+    $adetailer_model = $_POST['adetailer_model'] ?? 'bbox/face_yolov8m.pt';
 
     // --- EXTRAS (UPSCALE Y REMBG) ---
     $hires_fix = filter_var($_POST['hires_fix'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
@@ -2163,14 +2165,14 @@ if ($action === 'generar_imagen') {
         if (isset($res_up['name'])) {
             // 2. Cargamos la imagen y el detector YOLO
             $workflow["10"] = ["inputs" => ["image" => $res_up['name'], "upload" => "image"], "class_type" => "LoadImage"];
-            $workflow["900"] = ["inputs" => ["model_name" => "bbox/face_yolov8m.pt"], "class_type" => "UltralyticsDetectorProvider"];
+            $workflow["900"] = ["inputs" => ["model_name" => $adetailer_model], "class_type" => "UltralyticsDetectorProvider"];
 
             // 3. Selección Inteligente del Modelo de Restauración
             $modelo_restauracion = $model_path;
             
             // Si el modelo activo es un DiT avanzado o carece de CLIP integrado (como Krea-2),
             // delegamos la restauración facial a un modelo rápido y robusto (SD1.5 / SDXL)
-            if ($is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || !modeloTieneClipIntegrado($model_path)) {
+            if ($is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima || !modeloTieneClipIntegrado($model_path)) {
                 $stmt_ref = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE categoria = 'sys_refiner' LIMIT 1");
                 $row_ref = $stmt_ref->fetch();
                 
@@ -2194,8 +2196,19 @@ if ($action === 'generar_imagen') {
                 "class_type" => "CheckpointLoaderSimple"
             ];
             
-            // 4. Prompts específicos para enfocar y restaurar la cara
-            $ad_pos_prompt = !empty(trim($posPrompt)) ? $posPrompt : "high quality, highly detailed face, sharp focus, detailed eyes, 8k";
+            // 4. Prompts específicos y dinámicos según el modelo de detección elegido
+            if (!empty(trim($posPrompt))) {
+                $ad_pos_prompt = $posPrompt;
+            } else {
+                $ad_model_low = strtolower($adetailer_model);
+                if (strpos($ad_model_low, 'hand') !== false) {
+                    $ad_pos_prompt = "high quality, detailed hand, realistic proportions, flawless, 8k";
+                } elseif (strpos($ad_model_low, 'person') !== false || strpos($ad_model_low, 'body') !== false) {
+                    $ad_pos_prompt = "high quality, highly detailed person, realistic human body, masterpiece, 8k";
+                } else {
+                    $ad_pos_prompt = "high quality, highly detailed face, sharp focus, detailed eyes, 8k";
+                }
+            }
             $workflow["6"] = ["inputs" => ["text" => $ad_pos_prompt, "clip" => ["4", 1]], "class_type" => "CLIPTextEncode"];
             $workflow["7"] = ["inputs" => ["text" => $neg_prompt, "clip" => ["4", 1]], "class_type" => "CLIPTextEncode"];
 
@@ -3538,10 +3551,7 @@ if ($action === 'generar_imagen') {
                 $es_previo_a_reactor = true;
             }
 
-            $workflow["900"] = [
-                "inputs" => ["model_name" => "bbox/face_yolov8m.pt"],
-                "class_type" => "UltralyticsDetectorProvider"
-            ];
+            $workflow["900"] = ["inputs" => ["model_name" => $adetailer_model], "class_type" => "UltralyticsDetectorProvider"];
 
             // Enrutamiento por defecto (Si la imagen base ya es SD1.5 o SDXL)
             $face_model_source = [$current_model_node, 0];
@@ -3552,8 +3562,8 @@ if ($action === 'generar_imagen') {
             $adetailer_cfg     = $cfg;
             $adetailer_steps   = $steps;
 
-            // 🛡️ ESTRATEGIA ANTI-COLLISION PARA DiT (Flux / Chroma / Krea-2 / Qwen)
-            if ($is_flux || $is_chroma || $is_krea2 || $is_qwen) {
+            // 🛡️ ESTRATEGIA ANTI-COLLISION PARA DiT (Flux / Chroma / Krea-2 / Qwen / Anima / etc)
+            if ($is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima) {
                 $modelo_rostros = "";
 
                 $stmt_ref = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE categoria = 'sys_refiner' LIMIT 1");

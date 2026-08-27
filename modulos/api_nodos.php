@@ -20,6 +20,7 @@ if ($action === 'get_checkpoints') {
     $unets = [];
     $controlnets = [];
     $upscalers = [];
+	$adetailers = [];
     
     if ($res_json) {
         $res = json_decode($res_json, true);
@@ -61,6 +62,9 @@ if ($action === 'get_checkpoints') {
         if (isset($res['UpscaleModelLoader']['input']['required']['model_name'][0]) && is_array($res['UpscaleModelLoader']['input']['required']['model_name'][0])) {
             $upscalers = array_merge($upscalers, $res['UpscaleModelLoader']['input']['required']['model_name'][0]);
         }
+		if (isset($res['UltralyticsDetectorProvider']['input']['required']['model_name'][0]) && is_array($res['UltralyticsDetectorProvider']['input']['required']['model_name'][0])) {
+            $adetailers = array_merge($adetailers, $res['UltralyticsDetectorProvider']['input']['required']['model_name'][0]);
+        }
         
         // Fix robusto para Upscalers (Bypass SwarmUI)
         foreach ($res as $node_name => $node_data) {
@@ -101,12 +105,15 @@ if ($action === 'get_checkpoints') {
     sort($todos_los_modelos, SORT_NATURAL | SORT_FLAG_CASE);
     sort($controlnets, SORT_NATURAL | SORT_FLAG_CASE);
     sort($upscalers, SORT_NATURAL | SORT_FLAG_CASE);
+    // Ordenamos también los nuevos modelos de ADetailer si lo deseas
+    if (is_array($adetailers)) { sort($adetailers, SORT_NATURAL | SORT_FLAG_CASE); }
     
     echo json_encode([
         'checkpoints' => $todos_los_modelos, 
         'unets' => [],
         'controlnets' => $controlnets,
-        'upscalers' => $upscalers
+        'upscalers' => $upscalers,
+        'adetailers' => is_array($adetailers) ? array_values(array_unique($adetailers)) : []
     ]);
     exit();
 }
