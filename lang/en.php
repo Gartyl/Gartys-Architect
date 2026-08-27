@@ -16,7 +16,7 @@ return [
     // 02. TÍTULOS DE PANELES, PANTALLAS Y SECCIONES
     // ==============================================================================
     'aurasr_title' => "AuraSR Engine (GigaGAN)",
-    'tit_adetailer' => "FACE RESTORER (ADetailer)",
+    'tit_adetailer' => "RESTORER (ADetailer)",
     'tit_ajus_motor' => "ENGINE SETTINGS",
     'tit_alto' => "Height",
     'tit_analisis_vis' => "Visual Analysis",
@@ -176,7 +176,7 @@ return [
     'ref_label' => "REFERENCE",
     'tt_tipo_prompt' => "Select how you want the AI to process your idea.",
     'txt_ad_hint' => "* Use 0.25 or 0.30 to maintain LoRA resemblance.",
-    'txt_ad_pure_hint' => "Restores faces in the uploaded photo without modifying anything else.",
+    'txt_ad_pure_hint' => "Restores the selected element in the photo without altering the rest of the background.",
     'txt_ai_greeting' => "Hello, how can I",
     'txt_architect' => "Architect",
     'txt_arrast_meta' => "Drag a PNG here to extract metadata",
@@ -208,7 +208,7 @@ return [
     'btn_anadirestilo' => "+ Add Style",
     'btn_anadirlora' => "+ Add LoRA",
     'btn_aplicar' => "Apply",
-    'btn_apply_adetailer' => "Direct Face Restore",
+    'btn_apply_adetailer' => "Direct Restore",
     'btn_apply_faceswap' => "Direct FaceSwap Apply",
     'btn_arquipensan' => "Architect Thinking...",
     'btn_arquitecto' => "Architect Mode (Design)",
@@ -309,7 +309,7 @@ return [
     'btn_wildcards' => "Wildcards",
     'btn_yes_delete' => "Yes, delete",
     'btn_yes_hide' => "Yes, hide",
-    'ctrl_ad_pure_mode' => "Pure Mode (Faces Only)",
+    'ctrl_ad_pure_mode' => "Pure Mode",
     'ctrl_auto_trad1' => "Auto-translate idea to English",
     'ctrl_auto_trad2' => "Auto-translate \"Direct Render\" to English",
     'ctrl_auto_trad3' => "Auto-translate \"Direct Video\" to English",
@@ -322,6 +322,8 @@ return [
     'ctrl_rembg_puro' => "Pure Mode (Cutout without altering image)",
     'ctrl_search_internet' => "Search the Internet",
     'ctrl_vis_restaur' => "Restoration Visibility",
+	'lbl_ad_model' => "Detection Model",
+    'txt_ad_model_hint' => "Select the specialized model (faces, hands, bodies...).",
     
     // ==============================================================================
     // 05. SELECTORES Y DESPLEGABLES (Opciones)

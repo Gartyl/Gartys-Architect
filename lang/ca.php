@@ -16,7 +16,7 @@ return [
     // 02. TÍTULOS DE PANELES, PANTALLAS Y SECCIONES
     // ==============================================================================
     'aurasr_title' => "Motor AuraSR (GigaGAN)",
-    'tit_adetailer' => "REPARADOR DE ROSTRES (ADetailer)",
+    'tit_adetailer' => "REPARADOR (ADetailer)",
     'tit_ajus_motor' => "AJUSTOS DE MOTOR",
     'tit_alto' => "Alt",
     'tit_analisis_vis' => "Anàlisi Visual",
@@ -176,7 +176,7 @@ return [
     'ref_label' => "REFERÈNCIA",
     'tt_tipo_prompt' => "Selecciona com vols que la IA processi la teva idea.",
     'txt_ad_hint' => "* Utilitza 0.25 o 0.30 per mantenir la semblança dels LoRAs.",
-    'txt_ad_pure_hint' => "Restaura rostres a la foto carregada sense modificar res més.",
+    'txt_ad_pure_hint' => "Restaura l'element seleccionat a la foto sense alterar la resta del fons.",
     'txt_ai_greeting' => "Hola, en què puc",
     'txt_architect' => "Arquitecte",
     'txt_arrast_meta' => "Arrossega un PNG aquí per extreure metadades",
@@ -208,7 +208,7 @@ return [
     'btn_anadirestilo' => "+ Afegir Estil",
     'btn_anadirlora' => "+ Afegir LoRA",
     'btn_aplicar' => "Aplicar",
-    'btn_apply_adetailer' => "Restaurar Rostres Directe",
+    'btn_apply_adetailer' => "Restaurar Directe",
     'btn_apply_faceswap' => "Aplicar FaceSwap Directo",
     'btn_arquipensan' => "Arquitecte Pensant...",
     'btn_arquitecto' => "Mode Arquitecte (Dissenyar)",
@@ -309,7 +309,7 @@ return [
     'btn_wildcards' => "Wildcards",
     'btn_yes_delete' => "Sí, eliminar",
     'btn_yes_hide' => "Sí, ocultar",
-    'ctrl_ad_pure_mode' => "Mode Pur (Només Rostres)",
+    'ctrl_ad_pure_mode' => "Mode Pur",
     'ctrl_auto_trad1' => "Auto-traduir la idea a l'Anglès",
     'ctrl_auto_trad2' => "Auto-traduir a l'Anglès el \"Renderitzat Directe\"",
     'ctrl_auto_trad3' => "Auto-traduir a l'Anglès el \"Vídeo Directe\"",
@@ -322,6 +322,8 @@ return [
     'ctrl_rembg_puro' => "Mode Pur (Retallar sense alterar la imatge)",
     'ctrl_search_internet' => "Cercar a Internet",
     'ctrl_vis_restaur' => "Visibilitat Restauració",
+	'lbl_ad_model' => "Model de detecció",
+    'txt_ad_model_hint' => "Selecciona el model especialitzat (rostres, mans, cossos...).",
     
     // ==============================================================================
     // 05. SELECTORES Y DESPLEGABLES (Opciones)

@@ -16,7 +16,7 @@ return [
     // 02. TÍTULOS DE PANELES, PANTALLAS Y SECCIONES
     // ==============================================================================
     'aurasr_title' => "Motor AuraSR (GigaGAN)",
-    'tit_adetailer' => "REPARADOR DE ROSTROS (ADetailer)",
+    'tit_adetailer' => "REPARADOR (ADetailer)",
     'tit_ajus_motor' => "AJUSTES DE MOTOR",
     'tit_alto' => "Alto",
     'tit_analisis_vis' => "Análisis Visual",
@@ -176,7 +176,7 @@ return [
     'ref_label' => "REFERENCIA",
     'tt_tipo_prompt' => "Selecciona cómo quieres que la IA procese tu idea.",
     'txt_ad_hint' => "* Usa 0.25 o 0.30 para mantener el parecido de los LoRAs.",
-    'txt_ad_pure_hint' => "Restaura rostros en la foto cargada sin modificar nada más.",
+    'txt_ad_pure_hint' => "Restaura el elemento seleccionado en la foto sin alterar el resto del fondo.",
     'txt_ai_greeting' => "Hola, ¿en qué puedo",
     'txt_architect' => "Arquitecto",
     'txt_arrast_meta' => "Arrastra un PNG aquí para extraer metadatos",
@@ -208,7 +208,7 @@ return [
     'btn_anadirestilo' => "+ Añadir Estilo",
     'btn_anadirlora' => "+ Añadir LoRA",
     'btn_aplicar' => "Aplicar",
-    'btn_apply_adetailer' => "Restaurar Rostros Directo",
+    'btn_apply_adetailer' => "Restaurar Directo",
     'btn_apply_faceswap' => "Aplicar FaceSwap Directo",
     'btn_arquipensan' => "Arquitecto Pensando...",
     'btn_arquitecto' => "Modo Arquitecto (Diseñar)",
@@ -309,7 +309,7 @@ return [
     'btn_wildcards' => "Wildcards",
     'btn_yes_delete' => "Sí, eliminar",
     'btn_yes_hide' => "Sí, ocultar",
-    'ctrl_ad_pure_mode' => "Modo Puro (Solo Rostros)",
+    'ctrl_ad_pure_mode' => "Modo Puro",
     'ctrl_auto_trad1' => "Auto-traducir la idea al Inglés",
     'ctrl_auto_trad2' => "Auto-traducir al Inglés el \"Renderizado Directo\"",
     'ctrl_auto_trad3' => "Auto-traducir al Inglés el \"Vídeo Directo\"",
@@ -322,6 +322,8 @@ return [
     'ctrl_rembg_puro' => "Modo Puro (Recortar sin alterar la imagen)",
     'ctrl_search_internet' => "Buscar en Internet",
     'ctrl_vis_restaur' => "Visibilidad Restauración",
+	'lbl_ad_model' => "Modelo de detección",
+    'txt_ad_model_hint' => "Selecciona el modelo especializado (rostros, manos, cuerpos...).",
     
     // ==============================================================================
     // 05. SELECTORES Y DESPLEGABLES (Opciones)
