@@ -911,6 +911,10 @@ return [
     'cn_prep_lineart' => "LineArt (Bordes artísticos limpios)",
     'cn_prep_none' => "Ninguno (Mapa ya preparado)",
     'cn_prep_pose' => "DW Pose (Esqueleto + Manos + Cara)",
+	'lbl_dwpose_opts' => "Opciones DW Pose",
+    'lbl_dwpose_body' => "Cuerpo",
+    'lbl_dwpose_face' => "Cara",
+    'lbl_dwpose_hands' => "Manos",
 
     // --- LoRAs (lora_) ---
     'lora_btn_rmv' => "Quitar LoRA",

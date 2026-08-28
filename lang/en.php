@@ -924,6 +924,10 @@ return [
     'lbl_dwpose_face' => "Face",
     'lbl_dwpose_hands' => "Hands",
     'lbl_dwpose_opts' => "DW Pose Options",
+	'lbl_dwpose_opts' => "DW Pose Options",
+    'lbl_dwpose_body' => "Body",
+    'lbl_dwpose_face' => "Face",
+    'lbl_dwpose_hands' => "Hands",
 
     // --- LoRAs (lora_) ---
     'lora_btn_rmv' => "Remove LoRA",
