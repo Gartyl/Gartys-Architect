@@ -345,6 +345,8 @@ if ($action === 'generar_imagen') {
     $user_sampler = $_POST['sampler'] ?? "";
     $user_scheduler = $_POST['scheduler'] ?? "";
     $user_seed = isset($_POST['seed']) ? intval($_POST['seed']) : -1;
+	// Capturamos el Flow Shift (si el usuario lo ha dejado vacío, valdrá null)
+    $user_shift = (isset($_POST['flow_shift']) && $_POST['flow_shift'] !== '') ? floatval($_POST['flow_shift']) : null;
     $dynamic_thresholding = filter_var($_POST['dynamic_thresholding'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
     
     // Image2Image & Outpainting
@@ -1494,10 +1496,12 @@ if ($action === 'generar_imagen') {
         }
 
         // 3. Text Encoders y Muestreo
+        $wan_shift = ($user_shift !== null) ? $user_shift : 5.0; // Si el usuario lo cambió, lo usamos
+        
         $workflow["93"] = ["inputs" => ["text" => $posPrompt, "clip" => $current_clip], "class_type" => "CLIPTextEncode"];
         $workflow["89"] = ["inputs" => ["text" => $neg_prompt, "clip" => $current_clip], "class_type" => "CLIPTextEncode"];
-        $workflow["104"] = ["inputs" => ["shift" => 5.0, "model" => $current_hn], "class_type" => "ModelSamplingSD3"];
-        $workflow["103"] = ["inputs" => ["shift" => 5.0, "model" => $current_ln], "class_type" => "ModelSamplingSD3"];
+        $workflow["104"] = ["inputs" => ["shift" => $wan_shift, "model" => $current_hn], "class_type" => "ModelSamplingSD3"];
+        $workflow["103"] = ["inputs" => ["shift" => $wan_shift, "model" => $current_ln], "class_type" => "ModelSamplingSD3"];
 
         // 4. Preparación del Latente Blindada (Truco de la imagen negra)
         $split_step = max(1, round($steps / 2));
@@ -3124,12 +3128,14 @@ if ($action === 'generar_imagen') {
     // --- NUEVO: SHIFT DE HIDREAM (ModelSamplingSD3 con Shift 3.0) ---
     // =========================================================================
     if ($is_hidream) {
+        $hidream_shift = ($user_shift !== null) ? $user_shift : 3.0; // Si el usuario lo cambió, lo usamos
+        
         $workflow["850_hidream_shift"] = [
             "inputs" => [
-                "shift" => 3.0, //
-                "model" => [$current_model_node, 0] // Toma el UNET limpio o con LoRAs aplicados[cite: 1]
+                "shift" => $hidream_shift,
+                "model" => [$current_model_node, 0]
             ],
-            "class_type" => "ModelSamplingSD3" //[cite: 1]
+            "class_type" => "ModelSamplingSD3" 
         ];
         // Actualizamos el puntero para que el KSampler reciba este nodo automáticamente
         $current_model_node = "850_hidream_shift"; 

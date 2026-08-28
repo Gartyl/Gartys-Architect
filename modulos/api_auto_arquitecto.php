@@ -13,7 +13,7 @@ if (empty($idea)) {
 }
 
 // 1. Ruta del archivo JSON (se creará en la raíz del proyecto)
-$archivo_reglas = __DIR__ . '/../plantillas_arquitecto.json';
+$archivo_reglas = __DIR__ . '/../architect_templates.json';
 
 // Si no existe, creamos la plantilla maestra con tus categorías
 if (!file_exists($archivo_reglas)) {
