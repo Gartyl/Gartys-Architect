@@ -119,6 +119,7 @@ return [
     'tit_upscale' => "UPSCALE PER BLOCS (Ultimate SD Upscale)",
     'title_multicarga' => "Activar safata per a múltiples imatges de referència",
     'tit_rembg' => "ELIMINAR FONS (Rembg - PNG Transparent)",
+	'tit_shift_info' => 'Corba de soroll. Valors alts donen més estabilitat però menys detall.',
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS

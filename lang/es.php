@@ -119,6 +119,7 @@ return [
     'tit_upscale' => "UPSCALE POR BLOQUES (Ultimate SD Upscale)",
     'title_multicarga' => "Activar bandeja para múltiples imágenes de referencia",
 	'tit_rembg' => "ELIMINAR FONDO (Rembg - PNG Transparente)",
+	'tit_shift_info' => 'Curva de ruido. Valores altos dan más estabilidad pero menos detalle.',
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS

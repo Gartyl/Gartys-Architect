@@ -119,6 +119,7 @@ return [
     'tit_upscale' => "BLOCK UPSCALE (Ultimate SD Upscale)",
     'title_multicarga' => "Enable tray for multiple reference images",
     'tit_rembg' => "REMOVE BACKGROUND (Rembg - Transparent PNG)",
+	'tit_shift_info' => 'Noise curve. Higher values provide more stability but less detail.',
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
