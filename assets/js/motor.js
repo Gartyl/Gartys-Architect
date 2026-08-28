@@ -1435,6 +1435,7 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
     if (document.getElementById('advancedSettingsBlock') && document.getElementById('advancedSettingsBlock').style.display !== 'none') {
         if(document.getElementById('stepsInput')) fd.append('steps', document.getElementById('stepsInput').value);
         if(document.getElementById('cfgInput')) fd.append('cfg', document.getElementById('cfgInput').value);
+        if(document.getElementById('shiftInput')) fd.append('flow_shift', document.getElementById('shiftInput').value); // <-- NUEVO
         if(document.getElementById('samplerInput')) fd.append('sampler', document.getElementById('samplerInput').value);
         if(document.getElementById('schedulerInput')) fd.append('scheduler', document.getElementById('schedulerInput').value);
         if(document.getElementById('seedInput')) fd.append('seed', document.getElementById('seedInput').value);

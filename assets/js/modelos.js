@@ -999,7 +999,8 @@ function sugerirAjustesMotor() {
     const samplerInput = document.getElementById('samplerInput');
     const schedulerInput = document.getElementById('schedulerInput');
 
-    let newSteps, newCfg, newSampler, newScheduler;
+    let newSteps, newCfg, newSampler, newScheduler, newShift;
+    newShift = ''; // Por defecto vacío para que decida el PHP
 
     // 1. PRIORIDAD: Si el modelo tiene valores configurados en la BBDD, respetamos esos
     if (modeloBD && modeloBD.default_steps && modeloBD.default_steps > 0) {
@@ -1014,6 +1015,19 @@ function sugerirAjustesMotor() {
         newSampler = 'euler_ancestral';
         newScheduler = 'beta';
 
+        // --- NUEVAS REGLAS DE SHIFT ---
+        if (opcion.includes('wan')) {
+            newShift = 5.0;
+        } else if (opcion.includes('hidream')) {
+            newShift = 3.0;
+            newSteps = 30;
+            newCfg = 5.0;
+            newSampler = 'ipndm';
+            newScheduler = 'beta';
+        } else if (opcion.includes('ltx') || opcion.includes('minimax')) {
+            newShift = ''; 
+        } else 
+        // ------------------------------
         if (opcion.includes('turbo') || opcion.includes('schnell')) {
             newSteps = 6;
             newCfg = 1.5;
@@ -1043,13 +1057,15 @@ function sugerirAjustesMotor() {
     }
 
     // Aplicamos los valores a las cajas de la interfaz
+    const shiftInput = document.getElementById('shiftInput');
     if (stepsInput) stepsInput.value = newSteps;
     if (cfgInput) cfgInput.value = newCfg;
     if (samplerInput) samplerInput.value = newSampler;
     if (schedulerInput) schedulerInput.value = newScheduler;
+    if (shiftInput) shiftInput.value = newShift;
 
     // Efecto visual de parpadeo azul para indicar que se han cargado los ajustes
-    const inputs = [stepsInput, cfgInput, samplerInput, schedulerInput];
+    const inputs = [stepsInput, cfgInput, samplerInput, schedulerInput, shiftInput];
     inputs.forEach(input => {
         if (input) {
             input.classList.add('border-info', 'text-info');
