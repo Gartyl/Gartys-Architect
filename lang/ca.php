@@ -446,6 +446,7 @@ return [
     'notif_gpu_free_title' => "GPU Alliberada!",
     'notif_task_done' => "Tasca acabada!",
 	'msg_frame_extracted' => "Frame extret:",
+	'err_pro_audio' => "La generació d'Àudio avançat i la Clonació de Veu és exclusiva per a usuaris PRO.",
 
     // ==============================================================================
     // 07. ALERTAS EMERGENTES (SweetAlerts)

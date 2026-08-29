@@ -446,6 +446,7 @@ return [
     'notif_gpu_free_title' => "GPU Freed!",
     'notif_task_done' => "Task finished!",
 	'msg_frame_extracted' => "Extracted frame:",
+	'err_pro_audio' => "Advanced Audio generation and Voice Cloning are exclusive to PRO users.",
 
     // ==============================================================================
     // 07. ALERTAS EMERGENTES (SweetAlerts)
