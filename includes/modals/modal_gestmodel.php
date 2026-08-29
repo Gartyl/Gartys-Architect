@@ -93,10 +93,18 @@
 										</select>
 									</div>
 									<div class="col-md-1">
-										<button type="button" id="btnSubmitModelo" class="btn btn-success w-100 fw-bold shadow px-0" onclick="guardarModeloBD()" title="<?= __('adm_btn_save_title') ?>"><i class="bi bi-save"></i></button>
-									</div>
-									
-									<!-- CHECKBOX DE MODELO DESMEMBRADO (UNBUNDLED) -->
+                                        <button type="button" id="btnSubmitModelo" class="btn btn-success w-100 fw-bold shadow px-0" onclick="guardarModeloBD()" title="<?= __('adm_btn_save_title') ?>"><i class="bi bi-save"></i></button>
+                                    </div>
+                                    
+                                    <!-- NUEVO: TAGS DE ENRUTAMIENTO SEMÁNTICO -->
+                                    <div class="col-12 mt-3 text-start">
+                                        <label class="small text-info fw-bold mb-1"><i class="bi bi-tags-fill"></i> <?= __('tit_pan_tags') ?? 'Tags Semánticos (Auto-Arquitecto)' ?></label>
+                                        <input type="text" class="form-control bg-dark text-warning border-info" id="modTags" placeholder="<?= __('adm_ph_tags') ?? 'Ej: fotorealismo, anime, tipografia, logos...' ?>">
+                                        <small class="text-muted d-block mt-1" style="font-size: 0.7rem;"><?= __('adm_hlp_tags') ?? 'Palabras clave separadas por comas. El LLM leerá esto para saber cuándo debe auto-seleccionar este modelo.' ?></small>
+                                    </div>
+                                    <!-- --------------------------------------- -->
+                                    
+                                    <!-- CHECKBOX DE MODELO DESMEMBRADO (UNBUNDLED) -->
                                     <div class="col-12 mt-2 text-start">
                                         <div class="form-check form-switch d-inline-block">
                                             <input class="form-check-input border-success" type="checkbox" id="modUnbundled" value="1">
