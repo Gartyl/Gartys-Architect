@@ -639,6 +639,7 @@ function editarModelo(mDataSeguro) {
     // Rellenamos datos básicos
     document.getElementById('modNombre').value = m.nombre_visual;
     document.getElementById('modArchivo').value = m.nombre_archivo;
+	if(document.getElementById('modTags')) document.getElementById('modTags').value = m.tags_uso || '';
     document.getElementById('modMotor').value = m.motor;
     document.getElementById('modCat').value = m.categoria;
     if(document.getElementById('modNivel')) document.getElementById('modNivel').value = m.nivel_acceso;
@@ -668,6 +669,7 @@ async function guardarModeloBD() {
     const cat = document.getElementById('modCat').value;
     const nivel = document.getElementById('modNivel') ? document.getElementById('modNivel').value : 'usuario';
     const es_unbundled = document.getElementById('modUnbundled') && document.getElementById('modUnbundled').checked ? 1 : 0;
+	const tags_uso = document.getElementById('modTags') ? document.getElementById('modTags').value.trim() : '';
 
     const defSteps = document.getElementById('modSteps') ? document.getElementById('modSteps').value : '';
     const defCfg = document.getElementById('modCfg') ? document.getElementById('modCfg').value : '';
@@ -688,6 +690,7 @@ async function guardarModeloBD() {
     fd.append('nombre_archivo', archivo);
     fd.append('motor', motor);
     fd.append('categoria', cat);
+	fd.append('tags_uso', tags_uso);
     fd.append('nivel_acceso', nivel); 
     fd.append('es_unbundled', es_unbundled);
     fd.append('default_steps', defSteps);
@@ -714,6 +717,7 @@ async function guardarModeloBD() {
 function cancelarEdicionModelo() {
     document.getElementById('formNuevoModelo').reset();
     if(document.getElementById('modId')) document.getElementById('modId').value = '';
+    if(document.getElementById('modTags')) document.getElementById('modTags').value = ''; // <-- NUEVO: Limpia los tags
     
     // Devolvemos el botón a su estado original (verde de guardar)
     const btn = document.getElementById('btnSubmitModelo');

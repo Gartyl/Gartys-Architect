@@ -1901,8 +1901,20 @@ async function executeProcess(fd, selValue, retries = 2, loadingId = null, silen
             lastGeneratedPrompt.pos = p; lastGeneratedPrompt.neg = n;
             const applied = getPromptsWithPresets(p, n);
             showGeneratedPromptsInUI(applied.pos, applied.neg, selValue);
+            
+            // --- NUEVO: AUTO-RENDERIZADO PARA EL AUTO-ARQUITECTO ---
+            if (window.autoRenderAfterPrompt) {
+                window.autoRenderAfterPrompt = false; // Apagamos la bandera
+                setTimeout(() => {
+                    // Simulamos el clic en el botón morado de la GPU
+                    const gpuBtn = document.getElementById('gpuArquitectoBtn');
+                    if (gpuBtn && !gpuBtn.disabled) gpuBtn.click();
+                }, 800); // 800ms de pausa para que el usuario vea que el prompt se ha generado
+            }
+            // --------------------------------------------------------
         }
     } catch (error) { 
+        window.autoRenderAfterPrompt = false; // Por seguridad, apagamos si hay error 
         console.error(GartyLang.log_err_conn || "Fallo en la comunicación:", error);
         if (loadingId) {
             document.getElementById(loadingId).innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle"></i> ${GartyLang.txt_error}${error.message}</span><span class="bubble-meta">${GartyLang.txt_system}</span>`;
@@ -3520,16 +3532,18 @@ window.ejecutarAutoArquitecto = async function() {
 
             // 2. Timeout un pelín más largo para asegurar que la lista de modelos se ha repintado
             setTimeout(() => {
-                // A. Seleccionar Modelo Exacto
+                // A. Seleccionar Modelo Exacto por ID
                 const modelSelector = document.getElementById('modelSelector');
-                if (modelSelector && data.reglas.modelo_exacto) {
-                    // 👇 CORRECCIÓN 2: Búsqueda súper flexible (ignoramos las barras de carpeta)
-                    let exactMatch = Array.from(modelSelector.options).find(opt => 
-                        opt.value.replace(/\\/g, '/').endsWith(data.reglas.modelo_exacto.replace(/\\/g, '/'))
-                    );
+                if (modelSelector && data.reglas.modelo_id) {
+                    // Buscamos la opción cuyo value (que en tu BD es el ID) coincida exactamente
+                    let exactMatch = Array.from(modelSelector.options).find(opt => opt.value == data.reglas.modelo_id);
                     
                     if (exactMatch) {
                         modelSelector.value = exactMatch.value;
+                        // Disparamos el evento para que las opciones del motor se ajusten a este modelo
+                        modelSelector.dispatchEvent(new Event('change'));
+                    } else {
+                        console.warn("Auto-Arquitecto: El modelo ID " + data.reglas.modelo_id + " no está disponible en el menú actual.");
                     }
                 }
 
@@ -3554,7 +3568,10 @@ window.ejecutarAutoArquitecto = async function() {
                     cajaTexto.value = idea;
                 }
 
-                // 3. ¡Magia! Simulamos el clic en el botón principal para que empiece a renderizar
+                // Activamos la bandera de Piloto Automático
+                window.autoRenderAfterPrompt = true;
+
+                // 3. ¡Magia! Simulamos el clic en el botón principal para generar el prompt
                 const submitBtn = document.getElementById('submitBtn');
                 if (submitBtn) submitBtn.click();
                 
