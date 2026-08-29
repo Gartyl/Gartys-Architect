@@ -12,9 +12,16 @@ if (empty($idea)) {
     exit;
 }
 
-// 1. OBTENER MODELOS Y SUS IDs DE LA BASE DE DATOS
+// 1. OBTENER MODELOS ACTIVOS Y SUS ETIQUETAS DE LA BASE DE DATOS (FILTRADO POR ROL)
 try {
-    $stmt = $pdo->query("SELECT id, nombre_archivo, categoria, tags_uso FROM modelos_ia WHERE activo = 1 AND categoria IN ('sd15', 'sdxl', 'flux', 'video')");
+    global $is_pro; // Traemos la variable de seguridad
+    
+    if (isset($is_pro) && $is_pro) {
+        $stmt = $pdo->query("SELECT id, nombre_archivo, categoria, tags_uso FROM modelos_ia WHERE activo = 1 AND categoria IN ('sd15', 'sdxl', 'flux', 'video')");
+    } else {
+        // Modo Free: Solo cargamos modelos nivel 'usuario'
+        $stmt = $pdo->query("SELECT id, nombre_archivo, categoria, tags_uso FROM modelos_ia WHERE activo = 1 AND nivel_acceso = 'usuario' AND categoria IN ('sd15', 'sdxl', 'flux', 'video')");
+    }
     $modelos_db = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
     echo json_encode(['error' => __('err_db_query') ?? 'Error leyendo la base de datos.']);

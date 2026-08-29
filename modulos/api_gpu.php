@@ -115,6 +115,12 @@ if ($action === 'generar_imagen') {
             echo json_encode(['success' => false, 'error' => __('err_pro_rembg') ?? 'La herramienta para eliminar el fondo es exclusiva para usuarios PRO.']);
             exit;
         }
+		
+		// 10. Bloqueo de Audio Pro y Standalone - AUDITORÍA
+        if (!empty($_POST['audio_params']) || (isset($_POST['standalone']) && $_POST['standalone'] === '1')) {
+            echo json_encode(['success' => false, 'error' => __('err_pro_audio') ?? 'La generación de Audio avanzado y Clonación de Voz es exclusiva para usuarios PRO.']);
+            exit;
+        }
     }
     // ====================================================================
     
