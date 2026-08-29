@@ -893,7 +893,10 @@ if ($action === 'generar_imagen') {
                     'Batch Size' => 1, 
                     'LoRAs' => empty($lora_metadata_list) ? __('lbl_none') : implode(', ', $lora_metadata_list)
                 ];
-                $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
+                if (isset($user_shift) && $user_shift !== null) {
+					$meta_json_array['Flow Shift'] = $user_shift;
+				}
+				$meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
 
                 if ($historial_id > 0) {
                     $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ?, metadata = ? WHERE id = ?");
@@ -972,7 +975,10 @@ if ($action === 'generar_imagen') {
                 'Batch Size' => $batch_size, 
                 'LoRAs' => empty($lora_metadata_list) ? __('lbl_none') : implode(', ', $lora_metadata_list)
             ];
-            $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
+            if (isset($user_shift) && $user_shift !== null) {
+				$meta_json_array['Flow Shift'] = $user_shift;
+			}
+			$meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
 
             if ($historial_id > 0) {
                 $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ?, metadata = ? WHERE id = ?");
@@ -1361,7 +1367,10 @@ if ($action === 'generar_imagen') {
                 'Duration' => $segundos . 's',
                 'LoRAs' => empty($lora_metadata_list) ? __('lbl_none') : implode(', ', $lora_metadata_list)
             ];
-            $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
+            if (isset($user_shift) && $user_shift !== null) {
+				$meta_json_array['Flow Shift'] = $user_shift;
+			}
+			$meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
 
             if ($historial_id > 0) {
                 $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ?, metadata = ? WHERE id = ?");
@@ -3800,6 +3809,9 @@ if ($action === 'generar_imagen') {
     if ($ddcolor_enabled) $meta_json_array['Coloreado Neural'] = __('lbl_activated') . ' (DDColor: ' . basename($ddcolor_model) . ')';
     if ($iclight_enabled) $meta_json_array['IC-Light (Relighting)'] = __('lbl_activated') . ' (' . $iclight_direction . ')';
 
+    if (isset($user_shift) && $user_shift !== null) {
+        $meta_json_array['Flow Shift'] = $user_shift;
+		}
     $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
 
     $desc_original = $_POST['descripcion_original'] ?? __('lbl_direct_gen_edit');
@@ -4057,6 +4069,9 @@ if ($action === 'generar_imagen') {
             $meta_json_array['IC-Light (Relighting)'] = __('lbl_activated') . ' (' . $iclight_direction . ')';
         }
 
+        if (isset($user_shift) && $user_shift !== null) {
+            $meta_json_array['Flow Shift'] = $user_shift;
+        }
         $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
 
         if ($historial_id > 0) {
