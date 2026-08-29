@@ -120,6 +120,10 @@ return [
     'title_multicarga' => "Activar bandeja para múltiples imágenes de referencia",
 	'tit_rembg' => "ELIMINAR FONDO (Rembg - PNG Transparente)",
 	'tit_shift_info' => 'Curva de ruido. Valores altos dan más estabilidad pero menos detalle.',
+	'tit_pan_tags' => "Tags Semánticos (Auto-Arquitecto)",
+    'adm_ph_tags' => "Ej: fotorealismo, anime, tipografia, logos...",
+    'adm_hlp_tags' => "Palabras clave separadas por comas. El LLM leerá esto para saber cuándo debe auto-seleccionar este modelo.",
+	'err_no_graphic_models' => "No hay modelos gráficos activos en la base de datos.",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS

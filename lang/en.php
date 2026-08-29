@@ -120,6 +120,10 @@ return [
     'title_multicarga' => "Enable tray for multiple reference images",
     'tit_rembg' => "REMOVE BACKGROUND (Rembg - Transparent PNG)",
 	'tit_shift_info' => 'Noise curve. Higher values provide more stability but less detail.',
+	'tit_pan_tags' => "Semantic Tags (Auto-Architect)",
+    'adm_ph_tags' => "Ex: photorealism, anime, typography, logos...",
+    'adm_hlp_tags' => "Comma-separated keywords. The LLM will read this to know when to auto-select this model.",
+	'err_no_graphic_models' => "There are no active graphic models in the database.",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS

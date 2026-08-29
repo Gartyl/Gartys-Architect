@@ -120,6 +120,10 @@ return [
     'title_multicarga' => "Activar safata per a múltiples imatges de referència",
     'tit_rembg' => "ELIMINAR FONS (Rembg - PNG Transparent)",
 	'tit_shift_info' => 'Corba de soroll. Valors alts donen més estabilitat però menys detall.',
+	'tit_pan_tags' => "Tags Semàntics (Auto-Arquitecte)",
+    'adm_ph_tags' => "Ex: fotorealisme, anime, tipografia, logos...",
+    'adm_hlp_tags' => "Paraules clau separades per comes. El LLM llegirà això per saber quan ha d'auto-seleccionar aquest model.",
+	'err_no_graphic_models' => 'No hi ha models gràfics actius a la base de dades.',
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
