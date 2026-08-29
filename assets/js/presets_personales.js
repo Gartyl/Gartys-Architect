@@ -45,7 +45,7 @@ async function savePersonalPreset() {
         }
     });
 
-    if (!presetName) return; // Si cancela el modal
+    if (!presetName) return;
 
     // Recopilar LoRAs
     const loras = [];
@@ -57,15 +57,36 @@ async function savePersonalPreset() {
         }
     });
 
-    // Crear la "Fotografía" de parámetros
+    const posContentEl = document.getElementById('posContent');
+    const negContentEl = document.getElementById('negContent');
+    const posPrompt = posContentEl ? posContentEl.innerText.trim() : '';
+    const negPrompt = negContentEl ? negContentEl.innerText.trim() : '';
+
+    let width = 1024, height = 1024;
+    const aspectEl = document.getElementById('aspectRatio');
+    if (aspectEl && aspectEl.value) {
+        const parts = aspectEl.value.split('x');
+        if(parts.length === 2) {
+            width = parseInt(parts[0]);
+            height = parseInt(parts[1]);
+        }
+    }
+
+    // --- AÑADIMOS LA CATEGORÍA A LA FOTOGRAFÍA ---
     const config = {
-        categoria: document.getElementById('categoriaSelector') ? document.getElementById('categoriaSelector').value : '',
+        categoria: document.getElementById('selector') ? document.getElementById('selector').value : '',
+        prompt: posPrompt,
+        prompt_negativo: negPrompt,
         modelo: document.getElementById('modelSelector') ? document.getElementById('modelSelector').value : '',
-        proporcion: document.getElementById('aspectRatio') ? document.getElementById('aspectRatio').value : '1024x1024',
+        width: width,
+        height: height,
+        formato: document.getElementById('formatSelector') ? document.getElementById('formatSelector').value : 'PNG',
         steps: document.getElementById('stepsInput') ? document.getElementById('stepsInput').value : 30,
         cfg: document.getElementById('cfgInput') ? document.getElementById('cfgInput').value : 5.0,
-        sampler: document.getElementById('samplerInput') ? document.getElementById('samplerInput').value : 'euler_ancestral',
-        scheduler: document.getElementById('schedulerInput') ? document.getElementById('schedulerInput').value : 'karras',
+        sampler: document.getElementById('samplerInput') ? document.getElementById('samplerInput').value : 'euler',
+        scheduler: document.getElementById('schedulerInput') ? document.getElementById('schedulerInput').value : 'beta',
+        seed: document.getElementById('seedInput') ? document.getElementById('seedInput').value : -1,
+        flow_shift: document.getElementById('flowShiftInput') ? document.getElementById('flowShiftInput').value : 'Auto',
         loras: loras
     };
 
@@ -76,9 +97,9 @@ async function savePersonalPreset() {
             body: JSON.stringify({ action: 'save', name: presetName.trim(), config: config })
         });
         const result = await response.json();
+        
         if (result.status === 'ok') {
             loadPersonalPresetsList(); 
-            // Toast (Burbuja) de éxito
             SwalDark.fire({
                 title: GartyLang.swal_saved,
                 text: `${GartyLang.swal_preset_ready1} '${presetName}' ${GartyLang.swal_preset_ready2}`,
@@ -86,8 +107,11 @@ async function savePersonalPreset() {
                 timer: 2000,
                 showConfirmButton: false
             });
+        } else {
+            throw new Error(result.message || 'Error guardando en BD');
         }
     } catch (error) {
+        console.error(error);
         SwalDark.fire({ icon: 'error', title: GartyLang.swal_err_title, text: GartyLang.swal_err_save_preset });
     }
 }
@@ -109,23 +133,69 @@ function loadPersonalPreset() {
 
     const config = personalPresetsData[presetName];
 
-    // Aplicar categoría 
-    const catSel = document.getElementById('categoriaSelector');
-    if (catSel && config.categoria) {
-        catSel.value = config.categoria;
-        catSel.dispatchEvent(new Event('change')); 
+    // --- NUEVO SISTEMA DE CAMBIO DE CATEGORÍA ---
+    const currentCategory = document.getElementById('selector') ? document.getElementById('selector').value : '';
+    const targetCategory = config.categoria || currentCategory;
+
+    // Si el preset pertenece a una categoría distinta a la que estamos viendo:
+    if (targetCategory && targetCategory !== currentCategory) {
+        const mainSelector = document.getElementById('selector');
+        if (mainSelector) {
+            mainSelector.value = targetCategory;
+            mainSelector.dispatchEvent(new Event('change')); // Disparamos el "borrón" oficial de la UI
+        }
     }
 
-    // Retraso para que pinte modelos y actualice la UI
+    // Esperamos 300ms a que el borrón haya limpiado y renderizado los HTML correctos, y luego rellenamos:
     setTimeout(() => {
-        const modSel = document.getElementById('modelSelector');
-        if (modSel && config.modelo) modSel.value = config.modelo;
+        const posContentEl = document.getElementById('posContent');
+        const negContentEl = document.getElementById('negContent');
+        
+        if (posContentEl && config.prompt) {
+            posContentEl.innerText = config.prompt;
+            document.getElementById('promptArea').classList.remove('d-none');
+            document.getElementById('results').classList.remove('d-none');
+            
+            const arqActArea = document.getElementById('arquitectoActionArea');
+            if (arqActArea) arqActArea.classList.remove('d-none');
+        }
+        
+        if (negContentEl && config.prompt_negativo) {
+            negContentEl.innerText = config.prompt_negativo;
+            document.getElementById('negativeArea').classList.remove('d-none');
+            
+            const negToggle = document.getElementById('manualNegativeToggle');
+            if(negToggle) {
+                negToggle.checked = true;
+                document.getElementById('manualNegativeToggleContainer').classList.remove('d-none');
+            }
+        }
 
-        if (config.proporcion) document.getElementById('aspectRatio').value = config.proporcion;
+        const modSel = document.getElementById('modelSelector');
+        if (modSel && config.modelo) {
+             let modelExists = Array.from(modSel.options).some(opt => opt.value === config.modelo);
+             if(modelExists) modSel.value = config.modelo;
+        }
+
+        if (config.width && config.height) {
+            const aspectStr = `${config.width}x${config.height}`;
+            const aspectEl = document.getElementById('aspectRatio');
+            if (aspectEl) {
+                let aspectExists = Array.from(aspectEl.options).some(opt => opt.value === aspectStr);
+                if (aspectExists) aspectEl.value = aspectStr; 
+            }
+        }
+
         if (config.steps) document.getElementById('stepsInput').value = config.steps;
         if (config.cfg) document.getElementById('cfgInput').value = config.cfg;
         if (config.sampler) document.getElementById('samplerInput').value = config.sampler;
         if (config.scheduler) document.getElementById('schedulerInput').value = config.scheduler;
+        if (config.seed !== undefined) document.getElementById('seedInput').value = config.seed;
+        if (config.flow_shift) document.getElementById('flowShiftInput').value = config.flow_shift;
+        if (config.formato) {
+             const formatSel = document.getElementById('formatSelector');
+             if(formatSel) formatSel.value = config.formato;
+        }
 
         const lorasWrapper = document.getElementById('lorasWrapper');
         if (lorasWrapper) {
@@ -139,10 +209,11 @@ function loadPersonalPreset() {
                         const sel = lastRow.querySelector('.lora-select') || lastRow.querySelector('.lora-selector');
                         const weight = lastRow.querySelector('.lora-weight') || lastRow.querySelector('.lora-strength-high');
                         const weightL = lastRow.querySelector('.lora-strength-low');
+                        
                         if (sel && lora.name) sel.value = lora.name;
                         if (weight && lora.weight) {
                             weight.value = lora.weight;
-                            if (weightL) weightL.value = lora.weight; // Sincroniza la L con la H si existe
+                            if (weightL) weightL.value = lora.weight; 
                         }
                     }
                 });
@@ -155,17 +226,18 @@ function loadPersonalPreset() {
         
         const loraUI = document.getElementById('loraUI');
         const loraToggle = document.getElementById('loraToggle');
-        if(loraUI && loraToggle && config.loras.length > 0) { loraToggle.checked = true; loraUI.classList.remove('d-none'); }
+        if(loraUI && loraToggle && config.loras && config.loras.length > 0) { 
+             loraToggle.checked = true; loraUI.classList.remove('d-none'); 
+        }
 
         if (typeof savePreferences === 'function') savePreferences();
         
-        // Notificación sutil de carga
         const Toast = Swal.mixin({
             toast: true, position: 'top-end', showConfirmButton: false, timer: 1500, timerProgressBar: true
         });
         Toast.fire({ icon: 'success', title: GartyLang.swal_preset_applied });
 
-    }, 500);
+    }, 300);
 }
 
 // 4. Borrar preset
@@ -193,6 +265,7 @@ async function deletePersonalPreset() {
                 body: JSON.stringify({ action: 'delete', name: presetName })
             });
             const res = await response.json();
+            
             if (res.status === 'ok') {
                 loadPersonalPresetsList();
                 SwalDark.fire({
