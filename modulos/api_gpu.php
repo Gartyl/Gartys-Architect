@@ -1390,6 +1390,99 @@ if ($action === 'generar_imagen') {
             $current_image_node = "142"; // El nodo VHS_VideoCombine de Minimax
             goto EJECUTAR_COMFYUI;
         }
+		
+		// ====================================================================
+        // --- 1.6. BLOQUE HUNYUAN VIDEO ---
+        // ====================================================================
+        if (strpos(strtolower($modelo_seguro), 'hunyuan') !== false && strpos(strtolower($modelo_seguro), 'video') !== false) {
+
+            $tiene_imagen = (!empty($init_image_base64) && $comfy_image_filename !== "none" && $init_image_base64 !== "TRAY_IMAGE_USED");
+
+            if ($tiene_imagen) {
+                $ruta_json = __DIR__ . '/../workflows/Hunyuan_I2V.json';
+            } else {
+                $ruta_json = __DIR__ . '/../workflows/Hunyuan_T2V.json';
+            }
+
+            $reemplazos = [
+                '__SEED__' => $seed,
+                '__WIDTH__' => $width,
+                '__HEIGHT__' => $height,
+                '__VIDEO_FRAMES__' => $video_frames,
+                '__STEPS__' => $steps,
+                '__CFG__' => $cfg,
+                '__SAMPLER__' => $sampler,
+                '__SCHEDULER__' => $scheduler,
+                '__MODELO__' => $modelo_seguro,
+                '__PROMPT_POSITIVO__' => $posPrompt,
+                '__PROMPT_NEGATIVO__' => $neg_prompt,
+                '__INIT_IMAGE__' => $comfy_image_filename
+            ];
+
+            $workflow = cargarWorkflowJSON($ruta_json, $reemplazos);
+
+            // --- GESTIÓN DINÁMICA DEL LORA ---
+            $lora_active = false;
+            $current_model_node = "12"; // Nodo original UNETLoader
+
+            // Detectamos las IDs de los nodos de Sampling de acuerdo a si es I2V o T2V
+            $target_sampler_node = $tiene_imagen ? "130" : "132"; // ModelSamplingSD3
+            $target_scheduler_node = $tiene_imagen ? "126" : "128"; // BasicScheduler
+
+            if (empty($lora_metadata_list) && is_array($lora_names)) {
+                foreach ($lora_names as $index => $lname) {
+                    if (!empty(trim($lname)) && strtolower($lname) !== 'ninguno') {
+                        $lstr = floatval($lora_strengths_high[$index] ?? 1.0);
+                        $lora_metadata_list[] = basename($lname, '.safetensors') . " ($lstr)";
+
+                        // Hunyuan soporta 1 LoRA encadenado mediante esta ruta
+                        if ($index === 0) {
+                            $ruta_lora = $lname;
+                            if (strpos($ruta_lora, '\\') === false && strpos($ruta_lora, '/') === false) {
+                                $ruta_lora = "Hunyuan\\" . $ruta_lora;
+                            }
+                            if (!str_ends_with(strtolower($ruta_lora), '.safetensors')) $ruta_lora .= '.safetensors';
+
+                            $workflow["142_lora"] = [
+                                "inputs" => ["lora_name" => $ruta_lora, "strength_model" => $lstr, "model" => [$current_model_node, 0]],
+                                "class_type" => "LoraLoaderModelOnly"
+                            ];
+                            $current_model_node = "142_lora";
+                            $lora_active = true;
+                        }
+                    }
+                }
+            }
+
+            // Conectamos quirúrgicamente el modelo (con o sin LoRA) a los nodos que lo necesitan
+            $workflow[$target_sampler_node]["inputs"]["model"] = [$current_model_node, 0];
+            $workflow[$target_scheduler_node]["inputs"]["model"] = [$current_model_node, 0];
+
+            // --- HISTORIAL Y METADATOS ---
+            $meta_json_array = [
+                'Model' => basename($model_path),
+                'Resolution' => $width . 'x' . $height,
+                'Seed' => $seed,
+                'Steps' => $steps,
+                'CFG Scale' => $cfg,
+                'Sampler' => ucfirst($sampler) . ' (' . ucfirst($scheduler) . ')',
+                'Duration' => $video_frames . ' frames',
+                'LoRAs' => empty($lora_metadata_list) ? __('lbl_none') : implode(', ', $lora_metadata_list)
+            ];
+            $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
+
+            if ($historial_id > 0) {
+                $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ?, metadata = ? WHERE id = ?");
+                $stmt_upd->execute([$posPrompt, $neg_prompt, $meta_json, $historial_id]);
+            } else {
+                $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt_ins->execute([$user_id, $selector, $posPrompt, $posPrompt, $neg_prompt, $meta_json]);
+                $historial_id = $pdo->lastInsertId();
+            }
+
+            $current_image_node = "102"; // Nodo SaveVideo
+            goto EJECUTAR_COMFYUI;
+        }
 
         // ====================================================================
         // --- 2. BLOQUE WAN VIDEO ---
