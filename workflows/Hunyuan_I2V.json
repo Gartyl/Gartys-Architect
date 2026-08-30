@@ -1,0 +1,20 @@
+{
+  "8": { "inputs": { "samples": [ "125", 0 ], "vae": [ "10", 0 ] }, "class_type": "VAEDecode" },
+  "10": { "inputs": { "vae_name": "hunyuanvideo15_vae_fp16.safetensors" }, "class_type": "VAELoader" },
+  "11": { "inputs": { "clip_name1": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "clip_name2": "byt5_small_glyphxl_fp16.safetensors", "type": "hunyuan_video_15", "device": "default" }, "class_type": "DualCLIPLoader" },
+  "12": { "inputs": { "unet_name": "__MODELO__", "weight_dtype": "default" }, "class_type": "UNETLoader" },
+  "44": { "inputs": { "text": "__PROMPT_POSITIVO__", "clip": [ "11", 0 ] }, "class_type": "CLIPTextEncode" },
+  "78": { "inputs": { "width": __WIDTH__, "height": __HEIGHT__, "length": __VIDEO_FRAMES__, "batch_size": 1, "positive": [ "44", 0 ], "negative": [ "93", 0 ], "vae": [ "10", 0 ], "start_image": [ "80", 0 ], "clip_vision_output": [ "79", 0 ] }, "class_type": "HunyuanVideo15ImageToVideo" },
+  "79": { "inputs": { "crop": "center", "clip_vision": [ "81", 0 ], "image": [ "80", 0 ] }, "class_type": "CLIPVisionEncode" },
+  "80": { "inputs": { "image": "__INIT_IMAGE__" }, "class_type": "LoadImage" },
+  "81": { "inputs": { "clip_name": "sigclip_vision_patch14_384.safetensors" }, "class_type": "CLIPVisionLoader" },
+  "93": { "inputs": { "text": "__PROMPT_NEGATIVO__", "clip": [ "11", 0 ] }, "class_type": "CLIPTextEncode" },
+  "101": { "inputs": { "fps": 24, "bit_depth": "auto", "color_space": "sRGB", "images": [ "8", 0 ] }, "class_type": "CreateVideo" },
+  "102": { "inputs": { "filename_prefix": "video/hunyuan_video_1.5", "format": "auto", "format.codec": "h264", "format.codec.encoding": "auto", "codec": "auto", "video-preview": "", "video": [ "101", 0 ] }, "class_type": "SaveVideo" },
+  "125": { "inputs": { "noise": [ "127", 0 ], "guider": [ "129", 0 ], "sampler": [ "128", 0 ], "sigmas": [ "126", 0 ], "latent_image": [ "78", 2 ] }, "class_type": "SamplerCustomAdvanced" },
+  "126": { "inputs": { "scheduler": "__SCHEDULER__", "steps": __STEPS__, "denoise": 1, "model": [ "12", 0 ] }, "class_type": "BasicScheduler" },
+  "127": { "inputs": { "noise_seed": __SEED__ }, "class_type": "RandomNoise" },
+  "128": { "inputs": { "sampler_name": "__SAMPLER__" }, "class_type": "KSamplerSelect" },
+  "129": { "inputs": { "cfg": __CFG__, "model": [ "130", 0 ], "positive": [ "78", 0 ], "negative": [ "78", 1 ] }, "class_type": "CFGGuider" },
+  "130": { "inputs": { "shift": 7, "model": [ "12", 0 ] }, "class_type": "ModelSamplingSD3" }
+}
