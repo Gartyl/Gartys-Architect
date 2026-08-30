@@ -290,16 +290,13 @@ function updateLoraFilter(category) {
         let tempLoras = [];
         
         // --- LA MAGIA REAL: DETERMINAR LA ARQUITECTURA ---
-        // Ya no nos fiamos a ciegas de la "categoría" del menú principal (Chat/Visión).
-        // Nos fijamos en qué modelo físico está seleccionado en el desplegable "Modelo Gráfico".
-        
         let targetArch = category; 
         
         // Si estamos en Chat o Visión, miramos qué modelo gráfico está puesto para inferir la arquitectura
         if (category === '[VISION]' || category === '[CHAT]') {
              if (modeloSeleccionado.includes('sd15') || modeloSeleccionado.includes('v15')) targetArch = '[SD15]';
              else if (modeloSeleccionado.includes('sdxl') || modeloSeleccionado.includes('xl')) targetArch = '[SDXL]';
-             else if (modeloSeleccionado.includes('video') || modeloSeleccionado.includes('wan') || modeloSeleccionado.includes('ltx') || modeloSeleccionado.includes('minimax')) targetArch = '[VIDEO]';
+             else if (modeloSeleccionado.includes('video') || modeloSeleccionado.includes('wan') || modeloSeleccionado.includes('ltx') || modeloSeleccionado.includes('minimax') || (modeloSeleccionado.includes('hunyuan') && modeloSeleccionado.includes('video'))) targetArch = '[VIDEO]';
              else targetArch = '[NATURAL_IMAGE]'; // Fallback a los gordos (Flux/Chroma/etc)
         }
 
@@ -312,17 +309,11 @@ function updateLoraFilter(category) {
             // === FILTRO AISLADO POR ARQUITECTURAS ===
             if (modeloSeleccionado.includes('chroma') && !modeloSeleccionado.includes('zavy')) {
                 tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('chroma\\') || m.toLowerCase().includes('chroma/'));
-            // =========================================================================
-            // --- NUEVO: FILTRO AISLADO PARA IDEOGRAM 4 ---
-            // =========================================================================
             } else if (modeloSeleccionado.includes('ideogram')) {
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
                     return low.includes('ideogram4');
                 });
-            // =========================================================================
-            // --- NUEVO: SEPARACIÓN ESTRICTA FLUX 1 vs FLUX 2 ---
-            // =========================================================================
             } else if (modeloSeleccionado.includes('flux2') || modeloSeleccionado.includes('klein') || modeloSeleccionado.includes('kontext')) {
                 // FLUX 2: Exclusivo para la subcarpeta flux2 (o archivos que empiecen por f2_)
                 tempLoras = loadedLoras.filter(m => {
@@ -335,7 +326,6 @@ function updateLoraFilter(category) {
                     let low = m.toLowerCase();
                     return (low.includes('flux\\') || low.includes('flux/') || low.startsWith('f1_')) && !low.includes('flux2');
                 });
-            // =========================================================================
             } else if (modeloSeleccionado.includes('z-image') || modeloSeleccionado.includes('zimage') || modeloSeleccionado.includes('z_image')) {
                 tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('zimage'));
             } else if (modeloSeleccionado.includes('qwen')) {
@@ -353,27 +343,24 @@ function updateLoraFilter(category) {
             } else if (modeloSeleccionado.includes('hunyuan') && !modeloSeleccionado.includes('video')) {
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
-                    return low.includes('hunyuan');
+                    // Mostramos los que estén en la carpeta Hunyuan pero que no sean de vídeo
+                    return low.includes('hunyuan') && !low.includes('video');
                 });
             } else if (modeloSeleccionado.includes('hidream')) {
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
                     return low.includes('hidream');
                 });
-            // =========================================================================
-            // --- NUEVO: FILTRO AISLADO PARA ANIMA ---
-            // =========================================================================
             } else if (modeloSeleccionado.includes('anima')) {
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
                     // Filtramos para que solo muestre archivos dentro de la carpeta Anima
                     return low.includes('anima\\') || low.includes('anima/');
                 });
-            // =========================================================================
             } else {
                 tempLoras = loadedLoras.filter(m => {
                     const low = m.toLowerCase();
-                    // AÑADIDO: anima al fallback general
+                    // Fallback general para Natural Image
                     return low.includes('flux') || low.includes('sd35') || low.includes('sd3.5') || low.includes('sd3_5') || low.includes('zimage') || low.includes('z_image') || low.includes('z-image') || low.includes('qwen') || low.includes('krea2') || low.includes('krea-2') || low.includes('hunyuan') || low.includes('hidream') || low.includes('ideogram4') || low.includes('anima');      
                 });
             }
@@ -381,7 +368,7 @@ function updateLoraFilter(category) {
         // --- CORRECCIÓN: FILTRO ESPECÍFICO PARA MODELOS DE VIDEO ---
         // =========================================================================
         } else if (targetArch === '[VIDEO]') {
-            // Evaluamos si el modelo seleccionado es Wan, LTX o Minimax específicamente
+            // Evaluamos si el modelo seleccionado es Wan, LTX, Minimax o Hunyuan específicamente
             if (modeloSeleccionado.includes('wan')) {
                 tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('wan'));
             } else if (modeloSeleccionado.includes('ltx')) {
@@ -389,12 +376,17 @@ function updateLoraFilter(category) {
             } else if (modeloSeleccionado.includes('minimax')) {
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
-                    // Filtramos para que SOLO muestre los archivos dentro de la carpeta minimax_h3
                     return low.includes('minimax_h3\\') || low.includes('minimax_h3/');
+                });
+            } else if (modeloSeleccionado.includes('hunyuan')) {
+                tempLoras = loadedLoras.filter(m => {
+                    let low = m.toLowerCase();
+                    // Solo mostramos LoRAs de Hunyuan que tengan la palabra 'video', 't2v', 'i2v' o estén en su carpeta
+                    return (low.includes('hunyuan') && (low.includes('video') || low.includes('t2v') || low.includes('i2v'))) || low.includes('hunyuan\\') || low.includes('hunyuan/');
                 });
             } else {
                 // Fallback por si acaso
-                tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('wan') || m.toLowerCase().includes('ltx') || m.toLowerCase().includes('minimax'));
+                tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('wan') || m.toLowerCase().includes('ltx') || m.toLowerCase().includes('minimax') || m.toLowerCase().includes('hunyuan'));
             }
         // =========================================================================
         } else {
