@@ -1,0 +1,36 @@
+{
+  "1": {
+    "inputs": {
+      "video": "__VIDEO_INPUT__",
+      "file": "__VIDEO_INPUT__"
+    },
+    "class_type": "LoadVideo"
+  },
+  "2": {
+    "inputs": {
+      "video": [ "1", 0 ],
+      "text_prompt": "__PROMPT__",
+      "guidance_scale": 4.5,
+      "num_inference_steps": __STEPS__,
+      "sample_nums": 1,
+      "seed": __SEED__,
+      "fps": 24,
+      "negative_prompt": "",
+      "output_format": "both",
+      "output_folder": "",
+      "filename_prefix": "byGarty_Foley",
+      "memory_efficient": false,
+      "cpu_offload": false,
+      "enabled": true,
+      "silent_audio": true
+    },
+    "class_type": "HunyuanVideoFoley"
+  },
+  "99": {
+    "inputs": {
+      "filename_prefix": "byGarty_Foley_Final",
+      "images": [ "2", 0 ]
+    },
+    "class_type": "SaveAnimatedWEBP"
+  }
+}
