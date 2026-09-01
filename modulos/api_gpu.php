@@ -266,10 +266,62 @@ if ($action === 'generar_imagen') {
                     ], 'class_type' => 'UnifiedVoiceDesignerNode'
                 ];
                 
-                $output_node = '1017';
+            $output_node = '1017';
                 $output_port = 1;
             }
-        } else {
+        } elseif ($engine_pro === 'foley') {
+            // =======================================================
+            // --- ESTRUCTURA HUNYUAN FOLEY (VIDEO TO AUDIO) ---
+            // =======================================================
+            $video_filename = "none";
+            $media_base64 = $_POST['image_data'] ?? null;
+
+            // Subimos el vídeo que hay en el visor a ComfyUI asegurando metadatos limpios
+			if (!empty($media_base64)) {
+				$vidData = strpos($media_base64, 'base64,') !== false ? explode('base64,', $media_base64)[1] : $media_base64;
+				$raw_tmp = sys_get_temp_dir() . '/foley_raw_' . uniqid() . '.mp4';
+				$tmp_vid = sys_get_temp_dir() . '/foley_api_' . uniqid() . '.mp4';
+				file_put_contents($raw_tmp, base64_decode($vidData));
+
+				// Forzamos a FFmpeg a reindexar los metadatos para que Decord los lea sin errores
+				if (file_exists($raw_tmp)) {
+					shell_exec("ffmpeg -y -i " . escapeshellarg($raw_tmp) . " -c:v libx264 -pix_fmt yuv420p -an " . escapeshellarg($tmp_vid));
+					@unlink($raw_tmp);
+					if (!file_exists($tmp_vid)) {
+						// Si FFmpeg no está disponible en el entorno, usamos el crudo como fallback
+						rename($raw_tmp, $tmp_vid);
+					}
+				}
+
+				$cfile_vid = function_exists('curl_file_create') ? curl_file_create($tmp_vid, 'video/mp4', 'foley_ref.mp4') : '@' . realpath($tmp_vid);
+				$ch_vid = curl_init(COMFY_URL . '/upload/image');
+				curl_setopt($ch_vid, CURLOPT_POST, true);
+				curl_setopt($ch_vid, CURLOPT_POSTFIELDS, ['image' => $cfile_vid]);
+				curl_setopt($ch_vid, CURLOPT_RETURNTRANSFER, true);
+				$res_vid = json_decode(curl_exec($ch_vid), true);
+				@unlink($tmp_vid);
+
+				if (isset($res_vid['name'])) $video_filename = $res_vid['name'];
+			}
+
+            if ($video_filename === "none") {
+				echo json_encode(['error' => (__('err_foley_no_video') ?? 'Hunyuan Foley necesita que cargues un vídeo en el visor principal para sincronizar el sonido.')]);
+				exit();
+			}
+
+            $ruta_json = __DIR__ . '/../workflows/Hunyuan_Foley.json';
+            $reemplazos = [
+                '__PROMPT__' => $prompt_audio,
+                '__VIDEO_INPUT__' => $video_filename,
+                '__STEPS__' => $steps_pro,
+                '__SEED__' => mt_rand(1, 2147483647)
+            ];
+
+            $workflow = cargarWorkflowJSON($ruta_json, $reemplazos);
+			$output_node = '2'; // El nodo principal HunyuanVideoFoley
+			$output_port = 2;   // El puerto que devuelve la pista de audio
+
+        } elseif ($engine_pro === 'sfx') {
             // ESTRUCTURA STABLE AUDIO OPEN (SFX)
             $workflow['2020'] = ['inputs' => ['ckpt_name' => 'stable-audio-open-1.0.safetensors'], 'class_type' => 'CheckpointLoaderSimple'];
             $workflow['2021'] = ['inputs' => ['clip_name' => 't5-base.safetensors', 'type' => 'stable_audio'], 'class_type' => 'CLIPLoader'];

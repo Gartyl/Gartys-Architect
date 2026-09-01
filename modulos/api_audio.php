@@ -69,10 +69,10 @@ switch ($action) {
         break;
 
     // --------------------------------------------------------------------------
-    // 2. PREPARAR O GENERAR WORKFLOW DE AUDIO (MULTI-MOTOR / STABLE AUDIO)
+    // 2. PREPARAR O GENERAR WORKFLOW DE AUDIO (MULTI-MOTOR / STABLE AUDIO / FOLEY)
     // --------------------------------------------------------------------------
     case 'generar_audio':
-        $engine = $_POST['engine'] ?? 'tts'; // 'tts' o 'sfx'
+        $engine = $_POST['engine'] ?? 'tts'; // 'tts', 'sfx' o 'foley'
         $prompt_text = trim($_POST['prompt_text'] ?? '');
         
         // --- NUEVO: CAPTURA DE IDIOMA Y FILTRO BPE ---
@@ -82,13 +82,14 @@ switch ($action) {
         $prompt_text = str_replace($acentos_mayus, $acentos_minus, $prompt_text);
         // ---------------------------------------------
 
-        if (empty($prompt_text)) {
+        // Permitimos prompt vacío SOLAMENTE si es Foley (puede inferir el sonido solo con el vídeo)
+        if (empty($prompt_text) && $engine !== 'foley') {
             echo json_encode(['error' => __('err_empty_prompt') ?? 'El prompt o texto está vacío.']);
             exit();
         }
 
         $workflow = [];
-        $output_port = 0; // 🛠️ CORRECCIÓN 1: Lo sacamos aquí arriba para que SFX lo tenga
+        $output_port = 0; 
 
         if ($engine === 'tts') {
             $tts_engine = $_POST['tts_engine'] ?? 'f5';
@@ -109,7 +110,7 @@ switch ($action) {
                 $workflow['10'] = ['inputs' => ['audio' => $ref_file], 'class_type' => 'LoadAudio'];
                 $workflow['11'] = [
                     'inputs' => [
-                        'sample_audio' => ['10', 0], 'sample_text' => $ref_text, 'speech' => $prompt_text,
+                        'sample_audio' => ['10', 0], 'sample_text' => $_POST['ref_text'] ?? '', 'speech' => $prompt_text,
                         'speed' => $speed_real, 'seed' => mt_rand(1, 2147483647), 'model' => 'F5v1',
                         'vocoder' => 'auto', 'model_type' => 'F5TTS_v1_Base', 'remove_silence' => $silence
                     ], 'class_type' => 'F5TTSAudioInputs'
@@ -124,16 +125,16 @@ switch ($action) {
                         'Happy' => ($emocion === 'happy') ? 0.85 : 0.1, 'Angry' => ($emocion === 'angry') ? 0.85 : 0.1,
                         'Sad' => ($emocion === 'sad') ? 0.85 : 0.1, 'Calm' => ($emocion === 'calm') ? 0.85 : 0.1,
                         'Surprised' => 0.1, 'Afraid' => 0.1, 'Disgusted' => 0.1, 'Melancholic' => 0.1, 'emotion_radar_canvas' => ""
-                    ], 'class_type' => 'IndexTTSEmotionOptionsNode' // 🛠️ CORRECCIÓN 2: Le quitamos la doble 'E'
+                    ], 'class_type' => 'IndexTTSEmotionOptionsNode' 
                 ];
                 $workflow['65'] = ['inputs' => ['value' => $prompt_text], 'class_type' => 'PrimitiveStringMultiline'];
                 
                 $workflow['134'] = ['inputs' => ['audio' => $ref_file], 'class_type' => 'LoadAudio'];
-                $workflow['130'] = ['inputs' => ['voice_name' => 'none', 'reference_text' => $ref_text, 'trim_start' => 0, 'trim_end' => 0, 'customized' => true, 'opt_audio_input' => ['134', 0]], 'class_type' => 'CharacterVoicesNode'];
+                $workflow['130'] = ['inputs' => ['voice_name' => 'none', 'reference_text' => $_POST['ref_text'] ?? '', 'trim_start' => 0, 'trim_end' => 0, 'customized' => true, 'opt_audio_input' => ['134', 0]], 'class_type' => 'CharacterVoicesNode'];
                 
                 $workflow['123'] = [
                     'inputs' => [
-                        'language' => $idioma_tts, // Mantenemos la inyección por si acaso
+                        'language' => $idioma_tts, 
                         'model_path' => 'IndexTTS-2', 'device' => 'auto', 'emotion_alpha' => 0.7, 'use_random' => false,
                         'max_text_tokens_per_segment' => 120, 'interval_silence' => 200, 'temperature' => 0.8, 'top_p' => 0.8,
                         'top_k' => 30, 'do_sample' => true, 'length_penalty' => 0, 'num_beams' => 3, 'repetition_penalty' => 9.5,
@@ -154,11 +155,9 @@ switch ($action) {
             } else {
                 // --- MOTOR 3: OMNIVOICE (Diseño Zero-Shot) ---
                 $emocion = $_POST['tts_emotion'] ?? 'normal';
-                
                 $genero = $_POST['tts_gender'] ?? 'male';
                 $edad = $_POST['tts_age'] ?? 'None';
 
-                // 🛠️ CORRECCIÓN 3: Traducción estricta para el nodo de Python
                 $omni_style = ($emocion === 'whisper') ? 'whisper' : 'None';
                 $omni_lang  = ($idioma_tts === 'Chinese') ? 'Chinese' : 'English';
 
@@ -189,15 +188,86 @@ switch ($action) {
                 ];
                 
                 $output_node = '17';
-                $output_port = 1; // ⚠️ OmniVoice usa el puerto 1
+                $output_port = 1; 
             }
+
+        } elseif ($engine === 'foley') {
+            // =======================================================
+            // --- NUEVO: ESTRUCTURA HUNYUAN FOLEY (VIDEO TO AUDIO) ---
+            // =======================================================
+            $video_filename = "none";
+            $media_base64 = $_POST['image_data'] ?? null;
+
+            // Subimos el vídeo que hay en el visor a ComfyUI asegurando metadatos limpios
+			if (!empty($media_base64)) {
+				$vidData = strpos($media_base64, 'base64,') !== false ? explode('base64,', $media_base64)[1] : $media_base64;
+				$raw_tmp = sys_get_temp_dir() . '/foley_raw_' . uniqid() . '.mp4';
+				$tmp_vid = sys_get_temp_dir() . '/foley_api_' . uniqid() . '.mp4';
+				file_put_contents($raw_tmp, base64_decode($vidData));
+
+				// Forzamos a FFmpeg a reindexar los metadatos para que Decord los lea sin errores
+				if (file_exists($raw_tmp)) {
+					shell_exec("ffmpeg -y -i " . escapeshellarg($raw_tmp) . " -c:v libx264 -pix_fmt yuv420p -an " . escapeshellarg($tmp_vid));
+					@unlink($raw_tmp);
+					if (!file_exists($tmp_vid)) {
+						// Si FFmpeg no está disponible en el entorno, usamos el crudo como fallback
+						rename($raw_tmp, $tmp_vid);
+					}
+				}
+
+				$cfile_vid = function_exists('curl_file_create') ? curl_file_create($tmp_vid, 'video/mp4', 'foley_ref.mp4') : '@' . realpath($tmp_vid);
+				$ch_vid = curl_init(COMFY_URL . '/upload/image');
+				curl_setopt($ch_vid, CURLOPT_POST, true);
+				curl_setopt($ch_vid, CURLOPT_POSTFIELDS, ['image' => $cfile_vid]);
+				curl_setopt($ch_vid, CURLOPT_RETURNTRANSFER, true);
+				$res_vid = json_decode(curl_exec($ch_vid), true);
+				@unlink($tmp_vid);
+
+				if (isset($res_vid['name'])) $video_filename = $res_vid['name'];
+			}
+
+            if ($video_filename === "none") {
+				echo json_encode(['error' => (__('err_foley_no_video') ?? 'Hunyuan Foley necesita que cargues un vídeo en el visor principal para sincronizar el sonido.')]);
+				exit();
+			}
+
+            // Usamos la misma plantilla JSON que configuramos antes
+            $ruta_json = __DIR__ . '/../workflows/Hunyuan_Foley.json';
+            
+            // Función auxiliar inline si api_audio no tiene acceso a cargarWorkflowJSON
+            if (!function_exists('cargarWorkflowJSON')) {
+                function cargarWorkflowJSON($ruta, $reemplazos) {
+                    if (!file_exists($ruta)) return [];
+                    $contenido = file_get_contents($ruta);
+                    foreach ($reemplazos as $key => $value) {
+                        if (is_string($value)) {
+                            // Escapamos las comillas dobles para no romper el JSON
+                            $value_escaped = str_replace('"', '\"', $value);
+                            $contenido = str_replace($key, $value_escaped, $contenido);
+                        } else {
+                            $contenido = str_replace('"' . $key . '"', $value, $contenido); // Para números (steps, cfg, seed)
+                        }
+                    }
+                    return json_decode($contenido, true) ?: [];
+                }
+            }
+
+            $steps = intval($_POST['sfx_steps'] ?? 50); // Foley funciona mejor con 50-100 pasos
+            $reemplazos = [
+                '__PROMPT__' => $prompt_text,
+                '__VIDEO_INPUT__' => $video_filename,
+                '__STEPS__' => $steps,
+                '__SEED__' => mt_rand(1, 2147483647)
+            ];
+
+            $workflow = cargarWorkflowJSON($ruta_json, $reemplazos);
+			$output_node = '2'; // El nodo principal HunyuanVideoFoley
+			$output_port = 2;   // El puerto que devuelve la pista de audio
+
         } else {
             // ESTRUCTURA REAL PARA STABLE AUDIO OPEN 1.0 (SFX / MÚSICA)
             $seconds = floatval($_POST['seconds'] ?? 5.0);
-           // Atrapamos el valor de tu deslizador (con 100 de seguridad por si falla)
             $steps = intval($_POST['sfx_steps'] ?? 100); 
-            
-            // Dejamos el CFG fijo en el punto dulce recomendado por el modelo
             $cfg   = 7.0;
 
             $workflow['20'] = ['inputs' => ['ckpt_name' => 'stable-audio-open-1.0.safetensors'], 'class_type' => 'CheckpointLoaderSimple'];
@@ -218,14 +288,36 @@ switch ($action) {
 
         // Si es una generación de audio autónoma (sin vídeo), añadimos el nodo de guardado
         if (($_POST['standalone'] ?? '0') === '1') {
-            $workflow['99'] = [
-                'inputs' => [
-                    'filename_prefix' => 'Garty_Audio_' . strtoupper($engine),
-                    'audio' => [$output_node, $output_port] // <--- AQUÍ
-                ],
-                'class_type' => 'SaveAudio',
-                '_meta' => ['title' => 'Save Output Audio']
-            ];
+            if ($engine === 'foley') {
+                // Foley genera: [0] STRING (ruta), [1] IMAGE (fotogramas), [2] AUDIO (sonido)
+                $workflow['99'] = [
+                    'inputs' => [
+                        'frame_rate' => 24,
+                        'loop_count' => 0,
+                        'filename_prefix' => 'byGarty_Foley',
+                        'format' => 'video/h264-mp4',
+                        'pix_fmt' => 'yuv420p',
+                        'crf' => 19,
+                        'save_metadata' => true,
+                        'pingpong' => false,
+                        'save_output' => true,
+                        'images' => [$output_node, 1], // <-- CORREGIDO: Puerto 1 son las Imágenes
+                        'audio' => [$output_node, 2]   // <-- CORREGIDO: Puerto 2 es el Audio
+                    ],
+                    'class_type' => 'VHS_VideoCombine',
+                    '_meta' => ['title' => 'Guardar Foley MP4']
+                ];
+            } else {
+                // Motores de voz TTS y efectos SFX mantienen su guardado estándar
+                $workflow['99'] = [
+                    'inputs' => [
+                        'filename_prefix' => 'Garty_Audio_' . strtoupper($engine),
+                        'audio' => [$output_node, $output_port]
+                    ],
+                    'class_type' => 'SaveAudio',
+                    '_meta' => ['title' => 'Save Output Audio']
+                ];
+            }
 
             // Enviar a ComfyUI /prompt via cURL
             $payload = json_encode(['prompt' => $workflow, 'client_id' => session_id()]);
