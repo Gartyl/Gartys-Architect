@@ -3080,10 +3080,49 @@ function construirTarjetaImagen(imgData, dbId = 0, isChat = false, isVision = fa
 async function enviarImagenA(mediaSrc, destino) {
     if (!mediaSrc) return;
     
-    // 1. Limpieza absoluta de la memoria anterior
-    window.currentVideoBase64 = null; 
-    if (typeof clearVideoUpload === 'function') clearVideoUpload();
-    
+    // 🌟 LA AUTOPISTA UNIFICADA PARA EL PANEL PRINCIPAL 🌟
+    // Si el destino es 'principal', simulamos una subida física en el input.
+    // Esto hace que pase por la puerta grande: limpia insignias, crea franjas, detecta vídeos y respeta la multicarga.
+    if (destino === 'principal') {
+        try {
+            if (typeof SwalDark !== 'undefined') SwalDark.fire({ title: typeof GartyLang !== 'undefined' && GartyLang.swal_prep_img ? GartyLang.swal_prep_img : 'Preparando...', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+            
+            const response = await fetch(mediaSrc);
+            const blob = await response.blob();
+            
+            let mimeType = blob.type;
+            const lowerSrc = mediaSrc.toLowerCase();
+            if (!mimeType || mimeType === 'application/octet-stream') {
+                if (lowerSrc.endsWith('.mp4')) mimeType = 'video/mp4';
+                else if (lowerSrc.endsWith('.webm')) mimeType = 'video/webm';
+                else if (lowerSrc.endsWith('.png')) mimeType = 'image/png';
+                else if (lowerSrc.endsWith('.jpg') || lowerSrc.endsWith('.jpeg')) mimeType = 'image/jpeg';
+                else if (lowerSrc.endsWith('.webp')) mimeType = 'image/webp';
+            }
+
+            let filename = 'media_generado';
+            if (mediaSrc.includes('/')) filename = mediaSrc.split('/').pop();
+            if (!filename.includes('.')) filename += (mimeType.includes('video') ? '.mp4' : '.png');
+
+            const dataTransfer = new DataTransfer();
+            const fileObj = new File([blob], filename, { type: mimeType });
+            dataTransfer.items.add(fileObj);
+            
+            const mainInput = document.getElementById('imageInput');
+            if (mainInput) {
+                mainInput.files = dataTransfer.files;
+                mainInput.dispatchEvent(new Event('change')); 
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return; 
+        } catch(e) {
+            console.error("Error enviando al panel principal:", e);
+            return;
+        }
+    }
+
+    // --- RUTAS PARA SUB-HERRAMIENTAS (Reactor, IP-Adapter, ControlNet) ---
+    // Estas herramientas SÍ necesitan fotogramas estáticos en base64, mantenemos la lógica clásica para ellas
     let base64Data = mediaSrc;
 
     if (mediaSrc.includes('/') && !mediaSrc.startsWith('data:')) {
@@ -3096,15 +3135,6 @@ async function enviarImagenA(mediaSrc, destino) {
             const isVid = blob.type.startsWith('video/') || mediaSrc.toLowerCase().endsWith('.mp4') || mediaSrc.toLowerCase().endsWith('.webm');
             
             if (isVid) {
-                // 2. Bloqueo estricto: Esperar a que el vídeo esté en RAM
-                window.currentVideoBase64 = await new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result);
-                    reader.onerror = () => resolve(null);
-                    reader.readAsDataURL(blob);
-                });
-
-                // 3. Extracción del fotograma con paracaídas
                 const videoURL = URL.createObjectURL(blob);
                 const videoElement = document.createElement('video'); 
                 videoElement.src = videoURL; 
@@ -3119,8 +3149,8 @@ async function enviarImagenA(mediaSrc, destino) {
                         resolve(canvas.toDataURL('image/png'));
                         URL.revokeObjectURL(videoURL);
                     };
-                    // Si el salto de frame falla, usar el propio vídeo como imagen salvavidas
-                    setTimeout(() => resolve(window.currentVideoBase64), 2500);
+                    // Paracaídas de emergencia
+                    setTimeout(() => resolve(mediaSrc), 3500);
                 });
             } else {
                 base64Data = await new Promise((resolve) => {
@@ -3130,15 +3160,13 @@ async function enviarImagenA(mediaSrc, destino) {
                 });
             }
         } catch(e) {
-            console.error("Error cargando galería:", e);
-            SwalDark.fire({ icon: 'error', title: 'Error', text: 'Fallo al procesar el archivo de la galería.' });
+            console.error("Error procesando para sub-herramienta:", e);
             return;
         }
     }
 
-    if (destino === 'principal') {
-        if (typeof setBaseImageFromDataUrl === 'function') setBaseImageFromDataUrl(base64Data);
-    } else if (destino === 'reactor') {
+    // Enrutado final a herramientas avanzadas
+    if (destino === 'reactor') {
         const preview = document.getElementById('facePreview'); 
         const container = document.getElementById('facePreviewContainer'); 
         const toggle = document.getElementById('reactorToggle');
