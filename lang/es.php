@@ -893,6 +893,12 @@ return [
 	'lbl_tts_engine' 		=> "Motor de Voz",
 	'lbl_tts_emotion' 		=> "Emoción (IndexTTS)",
 	'lbl_tts_language' 	=> "Idioma de voz",
+	'lbl_foley_prompt' => "Ambient Prompt (Optional)",
+    'ph_foley_prompt' => "Ex: Footsteps crunching on dry leaves, gentle wind...",
+    'lbl_foley_steps' => "Steps",
+	'msg_foley_info' => "Foley generará el sonido basándose en el vídeo que hayas cargado en el visor principal.",
+	'lbl_tts_speed' => "Velocidad",
+	'lbl_remove_silence' => "Quitar silencios",
 
     // --- IP Adapter (ipa_) ---
     'ipa_mod_flux' => "Flux / Next-Gen (Estilo + Composición)",
@@ -1154,6 +1160,7 @@ return [
 	'lbl_note' => "Nota",
     'err_vision_verify' => "Verifica que el modelo soporta imágenes.",
     'err_vision_fallback' => "Si enviaste una foto, es muy probable que este modelo no tenga módulo de Visión.",
+	'err_foley_no_video' => "Hunyuan Foley necesita que cargues un vídeo en el visor principal para sincronizar el sonido.",
 
     // ==============================================================================
     // 13. LOGS DE CONSOLA (log_)

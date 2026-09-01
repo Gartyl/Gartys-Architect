@@ -902,6 +902,12 @@ return [
     'lbl_tts_gender' => "Gender (OmniVoice)",
     'lbl_tts_language' => "Voice Language",
     'lbl_tts_speed' => "Speech speed",
+	'lbl_foley_prompt' => "Prompt Ambiental (Opcional)",
+	'ph_foley_prompt' => "Ej: Pasos crujiendo sobre hojas secas, viento suave...",
+	'lbl_foley_steps' => "Pasos (Steps)",
+	'msg_foley_info' => "Foley will generate the sound based on the video you have loaded in the main viewer.",
+	'lbl_tts_speed' => "Speed",
+	'lbl_remove_silence' => "Remove silence",
 
     // --- IP Adapter (ipa_) ---
     'ipa_mod_flux' => "Flux / Next-Gen (Style + Composition)",
@@ -1169,6 +1175,7 @@ return [
 	'lbl_note' => "Note",
     'err_vision_verify' => "Verify that the model supports images.",
     'err_vision_fallback' => "If you sent a photo, it is highly likely that this model does not have a Vision module.",
+	'err_foley_no_video' => "Hunyuan Foley needs you to load a video in the main viewer to synchronize the sound.",
 
     // ==============================================================================
     // 13. LOGS DE CONSOLA (log_)
