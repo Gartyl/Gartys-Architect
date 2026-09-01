@@ -1,6 +1,6 @@
 <?php
 // ==============================================================================
-// --- PANEL AUDIO: GENERACIÓN Y CLONACIÓN PRO (F5-TTS / INDEX-TTS / STABLE AUDIO) ---
+// --- PANEL AUDIO: GENERACIÓN Y CLONACIÓN PRO (F5-TTS / INDEX-TTS / STABLE AUDIO / FOLEY) ---
 // ==============================================================================
 ?>
 <div class="param-group shadow-sm border-info mb-3" id="audioBlock" style="border-color: rgba(13, 202, 240, 0.4) !important; background: rgba(13, 202, 240, 0.05);">
@@ -26,24 +26,27 @@
                     <i class="bi bi-music-note-beamed me-1"></i> <?= __('tab_stable_audio') ?>
                 </button>
             </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link py-1 bg-dark text-light border border-secondary" id="foley-tab" data-bs-toggle="tab" data-bs-target="#foley-panel" type="button" role="tab">
+                    <i class="bi bi-film me-1"></i> Foley (Hunyuan)
+                </button>
+            </li>
         </ul>
 
         <div class="tab-content" id="audioTabsContent">
             <!-- PESTAÑA 1: ESTUDIO DE VOZ (Multi-Motor) -->
             <div class="tab-pane fade show active" id="tts-panel" role="tabpanel">
                 
-                <!-- NUEVO: CAJÓN PARA EL GUION DE LOCUCIÓN -->
                 <div class="mb-3 mt-1">
-					<label class="small text-info fw-bold mb-1"><i class="bi bi-mic-fill"></i><?= __('opt_txt_locutar') ?? 'Texto a Locutar (Guión)' ?> </label>
-					<textarea id="ttsSpeechText" class="form-control form-control-sm bg-dark text-light border-info pref-track" rows="3" placeholder="<?= __('ph_tts_speech') ?? 'Escribe aquí exactamente lo que quieres que diga la voz...' ?>"></textarea>
-				</div>
+                    <label class="small text-info fw-bold mb-1"><i class="bi bi-mic-fill"></i><?= __('opt_txt_locutar') ?? 'Texto a Locutar (Guión)' ?> </label>
+                    <textarea id="ttsSpeechText" class="form-control form-control-sm bg-dark text-light border-info pref-track" rows="3" placeholder="<?= __('ph_tts_speech') ?? 'Escribe aquí exactamente lo que quieres que diga la voz...' ?>"></textarea>
+                </div>
 
-                <!-- Selectores de Arquitectura, Idioma y Emoción -->
                 <div class="row g-2 mb-2">
                     <div class="col-md-4">
                         <label class="small text-secondary fw-bold"><?= __('lbl_tts_engine') ?? 'Motor' ?></label>
                         <select id="ttsEngine" name="tts_engine" class="form-select form-select-sm bg-dark text-light border-info pref-track" onchange="toggleTTSOptions()">
-                            <option value="indextts" selected><?= __('opt_indextts') ?? 'IndexTTS-2 (Clonaci贸n)' ?></option>
+                            <option value="indextts" selected><?= __('opt_indextts') ?? 'IndexTTS-2 (Clonación)' ?></option>
                             <option value="omnivoice">OmniVoice (Zero-Shot)</option>
                             <option value="f5"><?= __('opt_f5_tts') ?? 'F5-TTS (Legacy)' ?></option>
                         </select>
@@ -70,7 +73,6 @@
                     </div>
                 </div>
 
-                <!-- NUEVO BLOQUE OMNIVOICE: Género y Edad (Oculto por defecto) -->
                 <div class="row g-2 mb-2 d-none" id="omnivoiceOptionsBlock">
                     <div class="col-md-6">
                         <label class="small text-secondary fw-bold"><?= __('lbl_tts_gender') ?? 'Género (OmniVoice)' ?></label>
@@ -92,7 +94,6 @@
                     </div>
                 </div>
 
-                <!-- BLOQUE DE CLONACIÓN: Archivo de referencia y transcripción (Para Index y F5) -->
                 <div id="cloneOptionsBlock">
                     <div class="mb-2">
                         <label class="small text-secondary fw-bold"><?= __('lbl_audio_ref_file') ?? 'Muestra de Voz' ?></label>
@@ -108,7 +109,6 @@
                     </div>
                 </div>
                 
-                <!-- Opciones específicas de velocidad/silencios (Solo F5) -->
                 <div class="row g-2 d-none" id="f5OptionsBlock">
                     <div class="col-md-6">
                         <label class="text-secondary small fw-bold"><?= __('lbl_tts_speed') ?? 'Velocidad' ?>: <span id="ttsSpeedLabel" class="text-light">1.0</span></label>
@@ -138,13 +138,11 @@
                             if(omniBlock) omniBlock.classList.add('d-none');
                             if(f5Block) f5Block.classList.remove('d-none');
                         } else {
-                            // IndexTTS (Por defecto)
                             if(cloneBlock) cloneBlock.classList.remove('d-none');
                             if(omniBlock) omniBlock.classList.add('d-none');
                             if(f5Block) f5Block.classList.add('d-none');
                         }
                     }
-                    // Ejecutar al cargar la página por si se guardó el estado en la sesión
                     document.addEventListener('DOMContentLoaded', toggleTTSOptions);
                 </script>
             </div>
@@ -161,35 +159,51 @@
                         <input type="range" class="form-range pref-track" id="sfxSeconds" min="1.0" max="30.0" step="0.5" value="5.0" oninput="document.getElementById('sfxSecondsLabel').innerText = this.value;">
                     </div>
                     <div class="col-md-6">
-						<label class="text-secondary small fw-bold"><?= __('lbl_sfx_steps') ?>: <span id="sfxStepsLabel" class="text-light">100</span></label>
-						<input type="range" class="form-range pref-track" id="sfxSteps" name="sfx_steps" min="50" max="200" step="1" value="100" oninput="document.getElementById('sfxStepsLabel').innerText = this.value;">
-					</div>
+                        <label class="text-secondary small fw-bold"><?= __('lbl_sfx_steps') ?>: <span id="sfxStepsLabel" class="text-light">100</span></label>
+                        <input type="range" class="form-range pref-track" id="sfxSteps" name="sfx_steps" min="50" max="200" step="1" value="100" oninput="document.getElementById('sfxStepsLabel').innerText = this.value;">
+                    </div>
                 </div>
             </div>
+
+            <!-- PESTAÑA 3: HUNYUAN FOLEY (Vídeo a Audio) -->
+            <div class="tab-pane fade" id="foley-panel" role="tabpanel">
+				<div class="mb-2 mt-1">
+					<label class="small text-info fw-bold mb-1"><?= __('lbl_foley_prompt') ?? 'Prompt Ambiental (Opcional)' ?></label>
+					<textarea class="form-control form-control-sm bg-dark text-light border-info pref-track" id="foleyPrompt" rows="2" placeholder="<?= __('ph_foley_prompt') ?? 'Ej: Pasos crujiendo sobre hojas secas, viento suave...' ?>"></textarea>
+				</div>
+				<div class="row g-2 mb-2">
+					<div class="col-md-12">
+						<label class="text-secondary small fw-bold"><?= __('lbl_foley_steps') ?? 'Pasos (Steps)' ?>: <span id="foleyStepsLabel" class="text-light">50</span></label>
+						<input type="range" class="form-range pref-track" id="foleySteps" min="10" max="100" step="1" value="50" oninput="document.getElementById('foleyStepsLabel').innerText = this.value;">
+					</div>
+				</div>
+				
+				<div class="p-2 mb-3 bg-dark text-info border border-info rounded shadow-sm d-flex align-items-center" style="--bs-bg-opacity: .5; font-size: 0.9em;">
+					<i class="bi bi-info-circle-fill me-1"></i> <?= __('msg_foley_info') ?? 'Foley generará el sonido basándose en el vídeo que hayas cargado en el visor principal.' ?>
+				</div>
+			</div>
         </div>
 
         <!-- Opciones transversales: Sincronización y Efectos de Vídeo -->
         <div class="mt-3 pt-2 border-top border-info d-flex justify-content-between align-items-center">
             <div>
-                <!-- Mezcla de Audio Normal -->
                 <div class="form-check form-switch m-0 mb-2">
                     <input class="form-check-input pref-track" type="checkbox" id="syncAudioVideo" checked>
                     <label class="form-check-label small text-info fw-bold" for="syncAudioVideo">
                         <i class="bi bi-film me-1"></i> <?= __('lbl_sync_video_vhs') ?? 'Sincronizar Audio/Vídeo' ?>
                     </label>
                 </div>
-                <!-- Efecto de Sincronización Labial -->
                 <div class="form-check form-switch m-0">
                     <input class="form-check-input pref-track" type="checkbox" id="wav2lipToggle">
                     <label class="form-check-label small text-warning fw-bold" for="wav2lipToggle">
-						<i class="bi bi-person-video me-1"></i> <?= __('lbl_sync_wav2lip') ?? 'Sincronizar Labios (Wav2Lip)' ?>
-					</label>
+                        <i class="bi bi-person-video me-1"></i> <?= __('lbl_sync_wav2lip') ?? 'Sincronizar Labios (Wav2Lip)' ?>
+                    </label>
                 </div>
             </div>
             <button type="button" class="btn btn-sm btn-outline-danger d-none" id="btnClearAudio" onclick="clearAudioModule()"><i class="bi bi-trash"></i></button>
         </div>
 
-        <!-- Reproductor oculto para previsualizar muestras o resultados -->
+        <!-- Reproductor oculto -->
         <div id="audioPreviewContainer" class="d-none mt-2 text-center">
             <audio id="audioPlayer" controls class="w-100 mt-1" style="height: 35px;"></audio>
         </div>
