@@ -9,6 +9,7 @@ let lastGeneratedPrompt = { pos: "", neg: "" };
 let currentPromptId = 0;
 let currentDocumentText = "";
 let currentImageBase64 = null;
+window.currentVideoBase64 = null;
 let currentAudioBase64 = null;
 let currentFaceBase64 = null;
 let currentIpAdapterBase64 = null;
@@ -176,23 +177,28 @@ function extractMaskBase64() {
 }
 
 // --- NUEVO: FUNCIÓN PARA LIMPIAR SUBIDAS DE CHAT/LLM/VISIÓN ---
-window.clearUploadData = function() {
+window.clearUploadData = function(keepTray = false) {
     currentImageBase64 = null;
+    window.currentVideoBase64 = null; 
     currentDocumentText = "";
     window.rawUploadedDataUrl = null;
     
-    // Vaciamos también la bandeja
-    window.bandejaArchivos = [];
-    window.renderizarBandeja();
+    // Vaciamos la bandeja SOLO si no nos piden conservarla
+    if (!keepTray) {
+        window.bandejaArchivos = [];
+        window.renderizarBandeja();
+    }
     
     const mainInput = document.getElementById('imageInput');
     if (mainInput) mainInput.value = "";
     
-    const imgBadge = document.getElementById('chatImgBadge');
-    if (imgBadge) imgBadge.remove();
-    
-    const docBadge = document.getElementById('chatDocBadge');
-    if (docBadge) docBadge.remove();
+    // Limpiamos TODAS las insignias principales
+    const imgBadge = document.getElementById('chatImgBadge'); if (imgBadge) imgBadge.remove();
+    const docBadge = document.getElementById('chatDocBadge'); if (docBadge) docBadge.remove();
+    const vidBadge = document.getElementById('videoBadge'); if (vidBadge) vidBadge.remove();
+    const mainImgBadge = document.getElementById('mainImgBadge'); if (mainImgBadge) mainImgBadge.remove();
+    const audBadge = document.getElementById('audioBadge'); if (audBadge) audBadge.remove();
+    const vidFrame = document.getElementById('videoFramePreview'); if (vidFrame) vidFrame.remove(); // LIMPIEZA DEL FRAME
     
     const visor = document.getElementById('visorEdicionContainer');
     if (visor) visor.style.display = 'none';
@@ -202,14 +208,14 @@ window.clearUploadData = function() {
     
     const previewContainer = document.getElementById('imgPreviewContainer');
     if (previewContainer) {
-        // Solo escondemos el contenedor padre si ya no queda ningún badge (ej. de audio)
-        if (previewContainer.querySelectorAll('.badge').length === 0) {
+        // Solo escondemos el contenedor padre si ya no queda ningún badge
+        if (previewContainer.querySelectorAll('.badge').length === 0 && !document.getElementById('videoFramePreview')) {
             previewContainer.style.display = 'none';
         }
     }
 };
 
-function setBaseImageFromDataUrl(dataUrl) {
+function setBaseImageFromDataUrl(dataUrl, fileName = '') {
     // =========================================================================
     // --- NUEVO: ESCUDO INTERCEPTOR CONTROLADO POR INTERRUPTOR ---
     // =========================================================================
@@ -269,31 +275,46 @@ function setBaseImageFromDataUrl(dataUrl) {
         const visorContainer = document.getElementById('visorEdicionContainer');
         const imgPreview = document.getElementById('imgPreview');
         
+        // LIMPIEZA DE BADGES FANTASMAS
+        const oldVid = document.getElementById('videoBadge'); if(oldVid) oldVid.remove();
+        const oldMainImg = document.getElementById('mainImgBadge'); if(oldMainImg) oldMainImg.remove();
+        const oldVidFrame = document.getElementById('videoFramePreview'); if(oldVidFrame) oldVidFrame.remove();
+        
+        // Asignar el nombre del archivo o texto por defecto
+        const defaultImgText = (typeof GartyLang !== 'undefined' && GartyLang.msg_img_loaded) ? GartyLang.msg_img_loaded : 'Imagen cargada';
+        const displayImgName = fileName ? fileName : defaultImgText;
+
         // --- NUEVO: GESTIÓN DE BADGES PARA CHAT, LLM Y VISIÓN ---
         if (sel === '[CHAT]') {
-            if (visorContainer) visorContainer.style.display = 'none'; // Ocultamos el lienzo de inpaint
+            if (visorContainer) visorContainer.style.display = 'none'; 
             if (imgPreviewContainer) {
-                // Limpiamos badges previos
                 const oldImg = document.getElementById('chatImgBadge'); if (oldImg) oldImg.remove();
                 const oldDoc = document.getElementById('chatDocBadge'); if (oldDoc) oldDoc.remove();
                 
-                imgPreviewContainer.innerHTML += `
+                imgPreviewContainer.insertAdjacentHTML('afterbegin', `
                 <div id="chatImgBadge" class="badge bg-info text-dark p-3 mt-2 mb-2 fs-6 w-100 text-start shadow-sm d-flex align-items-center">
                     <img src="${currentImageBase64}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 15px; border: 1px solid rgba(0,0,0,0.2);">
-                    <span class="text-truncate"><i class="bi bi-image fs-5 me-2"></i> ${GartyLang.msg_img_loaded || 'Imagen adjunta lista'}</span>
-                    <i class="bi bi-x-circle ms-auto fs-5 text-dark" style="cursor:pointer;" onclick="clearUploadData()" title="${GartyLang.btn_quitar || 'Quitar'}"></i>
-                </div>`;
+                    <span class="text-truncate"><i class="bi bi-image fs-5 me-2"></i> ${displayImgName}</span>
+                    <i class="bi bi-x-circle ms-auto fs-5 text-dark" style="cursor:pointer;" onclick="clearUploadData(true)" title="${GartyLang.btn_quitar || 'Quitar'}"></i>
+                </div>`);
                 imgPreviewContainer.style.display = 'block';
             }
         } else {
-            // Comportamiento normal para generar imágenes (Lienzo Inpaint)
             if (imgPreview) imgPreview.src = currentImageBase64;
             if (visorContainer) visorContainer.style.display = 'block';
-            if (imgPreviewContainer) imgPreviewContainer.style.display = 'block';
+            
+            if (imgPreviewContainer) {
+                const txtQuitar = (typeof GartyLang !== 'undefined' && GartyLang.btn_quitar) ? GartyLang.btn_quitar : 'Quitar';
+                imgPreviewContainer.insertAdjacentHTML('afterbegin', `
+                <div id="mainImgBadge" class="badge bg-primary text-white p-3 mt-2 mb-2 fs-6 w-100 text-start shadow-sm d-flex align-items-center">
+                    <span class="text-truncate"><i class="bi bi-image fs-4 me-2"></i> ${displayImgName}</span>
+                    <i class="bi bi-x-circle ms-auto fs-5 text-white" style="cursor:pointer;" onclick="clearUploadData(true)" title="${txtQuitar}"></i>
+                </div>`);
+                imgPreviewContainer.style.display = 'block';
+            }
             const zoomControls = document.getElementById('lienzoZoomControls');
             if (zoomControls) zoomControls.style.display = displayToolbar;
         }
-        // ---------------------------------------------------------
         
         currentDocumentText = ""; 
         
@@ -692,11 +713,14 @@ if (audioInpElem) {
             reader.onload = (e) => {
                 currentAudioBase64 = e.target.result;
                 const imgPreviewContainer = document.getElementById('imgPreviewContainer');
-                imgPreviewContainer.innerHTML += `
+                const oldBadge = document.getElementById('audioBadge'); if(oldBadge) oldBadge.remove();
+                
+                // 🌟 FIX: Inserción segura
+                imgPreviewContainer.insertAdjacentHTML('afterbegin', `
                     <div class="badge bg-success p-3 mt-2 mb-2 fs-6 w-100 text-start shadow-sm" id="audioBadge">
                         <i class="bi bi-music-note-beamed fs-4 me-2"></i> ${GartyLang.audio_ready}: ${file.name} 
                         <i class="bi bi-x-circle ms-auto float-end text-light" style="cursor:pointer;" onclick="clearAudio()" title="${GartyLang.audio_remove_title}"></i>
-                    </div>`;
+                    </div>`);
                 imgPreviewContainer.style.display = 'block';
             };
             reader.readAsDataURL(file);
@@ -905,6 +929,7 @@ if (mainImageInput) {
     mainImageInput.onchange = async () => {
         const files = Array.from(mainImageInput.files); 
         if (files.length === 0) return;
+		window.currentVideoBase64 = null; // <-- LIMPIEZA OBLIGATORIA DE CACHÉ
         
         const isMultiInputActive = multiInputToggle && multiInputToggle.checked;
 
@@ -943,29 +968,73 @@ if (mainImageInput) {
         if (file.type.startsWith('image/')) {
             const reader = new FileReader();
             reader.onload = (e) => { 
-                setBaseImageFromDataUrl(e.target.result); 
+                setBaseImageFromDataUrl(e.target.result, file.name); 
             };
             reader.readAsDataURL(file);
         } else if (file.type.startsWith('video/')) {
+            // 1. Limpieza absoluta y espera asíncrona para guardar el vídeo completo
+            window.currentVideoBase64 = null;
+            window.currentVideoBase64 = await new Promise((resolve) => {
+                const fullReader = new FileReader();
+                fullReader.onload = (eVideo) => resolve(eVideo.target.result);
+                fullReader.onerror = () => resolve(null);
+                fullReader.readAsDataURL(file);
+            });
+
+            // 2. Extracción de fotograma
             const videoURL = URL.createObjectURL(file);
             const videoElement = document.createElement('video'); videoElement.src = videoURL; videoElement.muted = true;
-            videoElement.onloadedmetadata = () => { videoElement.currentTime = Math.max(0, videoElement.duration - 0.1); };
-            videoElement.onseeked = () => {
+            
+            const renderBadge = () => {
                 const canvas = document.createElement('canvas'); canvas.width = videoElement.videoWidth; canvas.height = videoElement.videoHeight;
                 canvas.getContext('2d').drawImage(videoElement, 0, 0, canvas.width, canvas.height);
                 currentImageBase64 = canvas.toDataURL('image/png'); currentDocumentText = ""; 
+                
                 const imgPreviewContainer = document.getElementById('imgPreviewContainer');
-                
                 const txtFrameExt = (typeof GartyLang !== 'undefined' && GartyLang.msg_frame_extracted) ? GartyLang.msg_frame_extracted : 'Frame extraído:';
+                const txtQuitar = (typeof GartyLang !== 'undefined' && GartyLang.btn_quitar) ? GartyLang.btn_quitar : 'Quitar';
                 
-                imgPreviewContainer.innerHTML = `
-                <div class="badge bg-warning text-dark p-3 mt-2 mb-2 fs-6 w-100 text-start shadow-sm">
-                    <i class="bi bi-film fs-4 me-2"></i> ${txtFrameExt} ${file.name} 
-                    <i class="bi bi-x-circle ms-auto float-end" style="cursor:pointer;" onclick="if(typeof clearVideoUpload === 'function') clearVideoUpload()" title="${txtQuitar}"></i>
-                </div>
-                <img src="${currentImageBase64}" class="img-fluid rounded shadow-sm mt-2" style="max-height: 200px; border: 2px solid #ffc107;">`;
-                imgPreviewContainer.style.display = 'block'; URL.revokeObjectURL(videoURL);
+                const oldVidBadge = document.getElementById('videoBadge'); if (oldVidBadge) oldVidBadge.remove();
+                const oldMainImgBadge = document.getElementById('mainImgBadge'); if (oldMainImgBadge) oldMainImgBadge.remove();
+                const oldVidFrame = document.getElementById('videoFramePreview'); if (oldVidFrame) oldVidFrame.remove();
+
+                // Ocultamos el visor de inpaint porque esto es un vídeo, no pintamos sobre él
+                const visor = document.getElementById('visorEdicionContainer');
+                if (visor) visor.style.display = 'none';
+
+                if (imgPreviewContainer) {
+                    imgPreviewContainer.insertAdjacentHTML('afterbegin', `
+                    <div id="videoBadge" class="badge bg-warning text-dark p-3 mt-2 mb-2 fs-6 w-100 text-start shadow-sm d-flex align-items-center">
+                        <span class="text-truncate"><i class="bi bi-film fs-4 me-2"></i> ${txtFrameExt} ${file.name}</span>
+                        <i class="bi bi-x-circle ms-auto fs-5 text-dark" style="cursor:pointer;" onclick="clearUploadData(true)" title="${txtQuitar}"></i>
+                    </div>
+                    <img id="videoFramePreview" src="${currentImageBase64}" class="img-fluid rounded shadow-sm mt-2 mb-2" style="max-height: 200px; border: 2px solid #ffc107;">`);
+                    imgPreviewContainer.style.display = 'block';
+                }
+                URL.revokeObjectURL(videoURL);
             };
+
+            videoElement.onloadeddata = () => {
+                if (videoElement.duration === Infinity) {
+                    videoElement.currentTime = 1e6;
+                    videoElement.onseeked = () => {
+                        videoElement.currentTime = Math.max(0, videoElement.duration - 0.5);
+                        videoElement.onseeked = renderBadge;
+                    };
+                } else {
+                    const dur = videoElement.duration;
+                    videoElement.currentTime = (Number.isFinite(dur) && dur > 0) ? dur - 0.5 : 0.5;
+                    videoElement.onseeked = renderBadge;
+                }
+            };
+            
+            // Paracaídas de emergencia por si el navegador rechaza procesar el salto
+            setTimeout(() => {
+                if (!currentImageBase64 && window.currentVideoBase64) {
+                    currentImageBase64 = window.currentVideoBase64;
+                    renderBadge();
+                }
+            }, 3000);
         } else {
             // 1. Primero limpiamos variables y dejamos que la interfaz se actualice
             currentImageBase64 = null; 
@@ -978,14 +1047,17 @@ if (mainImageInput) {
                 // Limpiamos badges previos por si acaso
                 const oldImg = document.getElementById('chatImgBadge'); if (oldImg) oldImg.remove();
                 const oldDoc = document.getElementById('chatDocBadge'); if (oldDoc) oldDoc.remove();
+                const oldVidBadge2 = document.getElementById('videoBadge'); if (oldVidBadge2) oldVidBadge2.remove();
+                const oldMainImgBadge2 = document.getElementById('mainImgBadge'); if (oldMainImgBadge2) oldMainImgBadge2.remove();
                 
                 const txtDocAdjunto = (typeof GartyLang !== 'undefined' && GartyLang.lbl_attached_doc) ? GartyLang.lbl_attached_doc : 'Documento adjunto';
+                const txtQuitar = (typeof GartyLang !== 'undefined' && GartyLang.btn_quitar) ? GartyLang.btn_quitar : 'Quitar';
                 
                 imgPreviewContainer.insertAdjacentHTML('afterbegin', `
                 <div id="chatDocBadge" class="badge bg-secondary p-3 mt-2 mb-2 fs-6 w-100 text-start shadow-sm d-flex align-items-center">
                     <i class="bi bi-file-earmark-text fs-4 me-3"></i> 
                     <span class="text-truncate">${txtDocAdjunto}: ${file.name}</span>
-                    <i class="bi bi-x-circle ms-auto fs-5 text-light" style="cursor:pointer; z-index: 10;" onclick="clearUploadData()" title="${txtQuitar}"></i>
+                    <i class="bi bi-x-circle ms-auto fs-5 text-light" style="cursor:pointer; z-index: 10;" onclick="clearUploadData(true)" title="${txtQuitar}"></i>
                 </div>`);
                 
                 imgPreviewContainer.style.display = 'block'; 
@@ -2299,6 +2371,17 @@ async function ejecutarAudioAutonomo(config, targetDiv, btnElement, originalCate
         fd.append('sfx_steps', config.sfx_steps || config.steps || '100');
     }
     
+	// Inyección para Foley: Pasar el vídeo del visor
+    if (config.engine === 'foley') {
+        const foleyMedia = config.media_base64 || 
+                           (typeof window !== 'undefined' && window.currentVideoBase64 ? window.currentVideoBase64 : null) || 
+                           (typeof currentImageBase64 !== 'undefined' && currentImageBase64 ? currentImageBase64 : null);
+
+        if (foleyMedia) {
+            fd.append('image_data', foleyMedia);
+        }
+    }
+	
     try {
         const res = await fetch('procesar.php', { method: 'POST', body: fd });
         const data = await res.json();
@@ -2996,39 +3079,50 @@ function construirTarjetaImagen(imgData, dbId = 0, isChat = false, isVision = fa
 
 async function enviarImagenA(mediaSrc, destino) {
     if (!mediaSrc) return;
-    let base64Data = mediaSrc;
     
-    // Si la imagen viene del servidor (no es un data URL ya codificado)
+    // 1. Limpieza absoluta de la memoria anterior
+    window.currentVideoBase64 = null; 
+    if (typeof clearVideoUpload === 'function') clearVideoUpload();
+    
+    let base64Data = mediaSrc;
+
     if (mediaSrc.includes('/') && !mediaSrc.startsWith('data:')) {
         try {
-            SwalDark.fire({ title: GartyLang.swal_prep_img, toast: true, position: 'top-end', showConfirmButton: false, timer: 1000 });
-            const response = await fetch(mediaSrc); 
-            const blob = await response.blob();
+            SwalDark.fire({ title: typeof GartyLang !== 'undefined' ? GartyLang.swal_prep_img || 'Preparando...' : 'Preparando...', toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
             
-            // --- NUEVO: INTELIGENCIA PARA EXTRAER FRAME DE VÍDEO ---
-            if (blob.type.startsWith('video/')) {
+            const response = await fetch(mediaSrc);
+            const blob = await response.blob();
+
+            const isVid = blob.type.startsWith('video/') || mediaSrc.toLowerCase().endsWith('.mp4') || mediaSrc.toLowerCase().endsWith('.webm');
+            
+            if (isVid) {
+                // 2. Bloqueo estricto: Esperar a que el vídeo esté en RAM
+                window.currentVideoBase64 = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = () => resolve(null);
+                    reader.readAsDataURL(blob);
+                });
+
+                // 3. Extracción del fotograma con paracaídas
                 const videoURL = URL.createObjectURL(blob);
                 const videoElement = document.createElement('video'); 
                 videoElement.src = videoURL; 
                 videoElement.muted = true;
                 
                 base64Data = await new Promise((resolve) => {
-                    // Esperamos a que carguen los metadatos y saltamos al final del vídeo
-                    videoElement.onloadedmetadata = () => { 
-                        videoElement.currentTime = Math.max(0, videoElement.duration - 0.1); 
-                    };
-                    // Cuando haya saltado al frame, lo pintamos en un canvas y lo exportamos
+                    videoElement.onloadeddata = () => { videoElement.currentTime = 0.5; };
                     videoElement.onseeked = () => {
                         const canvas = document.createElement('canvas'); 
-                        canvas.width = videoElement.videoWidth; 
-                        canvas.height = videoElement.videoHeight;
+                        canvas.width = videoElement.videoWidth; canvas.height = videoElement.videoHeight;
                         canvas.getContext('2d').drawImage(videoElement, 0, 0, canvas.width, canvas.height);
                         resolve(canvas.toDataURL('image/png'));
                         URL.revokeObjectURL(videoURL);
                     };
+                    // Si el salto de frame falla, usar el propio vídeo como imagen salvavidas
+                    setTimeout(() => resolve(window.currentVideoBase64), 2500);
                 });
             } else {
-                // Flujo normal para imágenes estáticas (PNG, JPG, WEBP)
                 base64Data = await new Promise((resolve) => {
                     const reader = new FileReader(); 
                     reader.onloadend = () => resolve(reader.result); 
@@ -3036,13 +3130,12 @@ async function enviarImagenA(mediaSrc, destino) {
                 });
             }
         } catch(e) {
-            console.error(GartyLang.log_err_convert_img, e); 
-            SwalDark.fire({ icon: 'error', title: GartyLang.swal_err_title, text: GartyLang.swal_err_read_gal }); 
+            console.error("Error cargando galería:", e);
+            SwalDark.fire({ icon: 'error', title: 'Error', text: 'Fallo al procesar el archivo de la galería.' });
             return;
         }
     }
-    
-    // Enrutamiento según el botón que se haya pulsado
+
     if (destino === 'principal') {
         if (typeof setBaseImageFromDataUrl === 'function') setBaseImageFromDataUrl(base64Data);
     } else if (destino === 'reactor') {
@@ -3059,7 +3152,7 @@ async function enviarImagenA(mediaSrc, destino) {
     } else if (destino === 'ipadapter') {
         window.currentIpAdapterImages = window.currentIpAdapterImages || [];
         if (window.currentIpAdapterImages.length >= 4) {
-            SwalDark.fire({ icon: 'info', title: GartyLang.swal_limit_tray_title || 'Límite alcanzado', text: GartyLang.swal_limit_ipa_text || 'Puedes usar un máximo de 4 referencias simultáneas en el IP-Adapter.' });
+            SwalDark.fire({ icon: 'info', title: typeof GartyLang !== 'undefined' ? (GartyLang.swal_limit_tray_title || 'Límite alcanzado') : 'Límite alcanzado', text: typeof GartyLang !== 'undefined' ? (GartyLang.swal_limit_ipa_text || 'Puedes usar un máximo de 4 referencias simultáneas en el IP-Adapter.') : 'Puedes usar un máximo de 4 referencias simultáneas en el IP-Adapter.' });
             return;
         }
         window.currentIpAdapterImages.push(base64Data);

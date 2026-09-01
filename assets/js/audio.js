@@ -159,25 +159,22 @@ function getActiveAudioConfig() {
     const toggle = document.getElementById('audioToggle');
     if (!toggle || !toggle.checked) return null;
 
-    // --- NUEVO: INTERCEPTOR INTELIGENTE PARA AUDIO CLÁSICO ---
-    // Si el usuario subió un MP3 al panel principal (currentAudioBase64 existe)
-    // pero NO ha escrito texto para generar un TTS nuevo, anulamos la validación
-    // del panel Pro y dejamos que motor.js procese el MP3 clásico sin lanzar alertas.
+    // --- INTERCEPTOR INTELIGENTE PARA AUDIO CLÁSICO ---
     const ttsSpeechEl = document.getElementById('ttsSpeechText');
     const ttsSpeech = ttsSpeechEl ? ttsSpeechEl.value.trim() : '';
 
     if (typeof currentAudioBase64 !== 'undefined' && currentAudioBase64 !== null && ttsSpeech === '') {
         return null;
     }
-    // ---------------------------------------------------------
 
-    const isTTS = document.getElementById('tts-tab').classList.contains('active');
+    // Detectamos qué pestaña (motor) está activa
+    const isTTS = document.getElementById('tts-tab') && document.getElementById('tts-tab').classList.contains('active');
+    const isFoley = document.getElementById('foley-tab') && document.getElementById('foley-tab').classList.contains('active'); 
+    // Si no es TTS ni Foley, asumimos que es SFX
+
     let syncVideo = document.getElementById('syncAudioVideo') ? document.getElementById('syncAudioVideo').checked : false;
 
-    // ... (el resto de la función sigue exactamente igual) ...
-
-    // 🛡️ ESCUDO ANTI-IMÁGENES: Si no estamos explícitamente en la pestaña de Vídeo,
-    // forzamos que el audio se genere de forma aislada para no chocar con los modelos de imagen.
+    // ESCUDO ANTI-IMÁGENES
     const selectorEl = document.getElementById('selector');
     if (selectorEl && selectorEl.value !== '[VIDEO]') {
         syncVideo = false; 
@@ -187,7 +184,7 @@ function getActiveAudioConfig() {
         const ttsEngineEl = document.getElementById('tts_engine') || document.querySelector('[name="tts_engine"]') || document.getElementById('ttsEngine');
         const currentEngine = ttsEngineEl ? ttsEngineEl.value : 'indextts';
 
-        // 🛡️ ESCUDO: Solo pedimos audio de referencia si NO es OmniVoice
+        // ESCUDO: Solo pedimos audio de referencia si NO es OmniVoice
         if (currentEngine !== 'omnivoice' && !uploadedAudioRefName) {
             SwalDark.fire({ 
                 icon: 'warning', 
@@ -197,10 +194,6 @@ function getActiveAudioConfig() {
             return false;
         }
         
-        // --- NUEVO: CAPTURA DEL GUION DE LOCUCIÓN ---
-        const ttsSpeechEl = document.getElementById('ttsSpeechText');
-        const ttsSpeech = ttsSpeechEl ? ttsSpeechEl.value.trim() : '';
-
         if (!ttsSpeech) {
             SwalDark.fire({ 
                 icon: 'warning', 
@@ -209,9 +202,7 @@ function getActiveAudioConfig() {
             });
             return false;
         }
-        // ---------------------------------------------
 
-        // Capturamos todos los parámetros
         const ttsEmotionEl = document.getElementById('tts_emotion') || document.querySelector('[name="tts_emotion"]') || document.getElementById('ttsEmotion');
         const ttsLanguageEl = document.getElementById('ttsLanguage') || document.querySelector('[name="tts_language"]');
         const ttsGenderEl = document.getElementById('ttsGender');
@@ -219,20 +210,61 @@ function getActiveAudioConfig() {
 
         return {
             engine: 'tts',
-            prompt_text: ttsSpeech, // <--- INYECTAMOS EL GUION AQUÍ
+            prompt_text: ttsSpeech,
             tts_engine: currentEngine,
             tts_emotion: ttsEmotionEl ? ttsEmotionEl.value : 'calm',
             tts_language: ttsLanguageEl ? ttsLanguageEl.value : 'Spanish',
             tts_gender: ttsGenderEl ? ttsGenderEl.value : 'male',
             tts_age: ttsAgeEl ? ttsAgeEl.value : 'None',
             ref_file: uploadedAudioRefName || '',
-            ref_text: document.getElementById('audioRefText').value.trim(),
+            ref_text: document.getElementById('audioRefText') ? document.getElementById('audioRefText').value.trim() : '',
             speed: document.getElementById('ttsSpeed') ? document.getElementById('ttsSpeed').value : 1.0,
             remove_silence: document.getElementById('ttsRemoveSilence') && document.getElementById('ttsRemoveSilence').checked ? '1' : '0',
             sync_with_video: syncVideo
         };
+        
+    } else if (isFoley) {
+        // --- NUEVA RUTA PARA HUNYUAN FOLEY ---
+        let foleyPrompt = document.getElementById('foleyPrompt') ? document.getElementById('foleyPrompt').value.trim() : '';
+        
+        // Si el usuario no escribe prompt, cogemos el principal (como en SFX)
+        if (!foleyPrompt) {
+            const mainPromptEl = document.getElementById('descripcion');
+            if (mainPromptEl && mainPromptEl.value.trim() !== '') {
+                foleyPrompt = mainPromptEl.value.trim();
+            }
+        }
+
+        // Buscamos el medio disponible (priorizando el VÍDEO sobre la imagen)
+        let foleyMedia = null;
+        if (typeof window !== 'undefined' && window.currentVideoBase64) {
+            foleyMedia = window.currentVideoBase64;
+        } else if (typeof currentImageBase64 !== 'undefined' && currentImageBase64) {
+            foleyMedia = currentImageBase64;
+        }
+
+        // VALIDACIÓN ESTRICTA: Foley NECESITA una base en el visor para sincronizar
+        if (!foleyMedia) {
+            SwalDark.fire({ 
+                icon: 'warning', 
+                title: GartyLang.audio_attn_title || 'Atención', 
+                text: 'Hunyuan Foley necesita que cargues un vídeo en el visor principal para generar el sonido sincronizado.' 
+            });
+            return false;
+        }
+
+        return {
+            engine: 'foley',
+            prompt_text: foleyPrompt,
+            sfx_steps: document.getElementById('foleySteps') ? document.getElementById('foleySteps').value : 50, 
+            sync_with_video: false,
+            // Enviamos el medio correcto al backend
+            media_base64: foleyMedia 
+        };
+
     } else {
-        let sfxPrompt = document.getElementById('sfxPrompt').value.trim();
+        // --- RUTA CLÁSICA PARA STABLE AUDIO (SFX) ---
+        let sfxPrompt = document.getElementById('sfxPrompt') ? document.getElementById('sfxPrompt').value.trim() : '';
         
         if (!sfxPrompt) {
             const mainPromptEl = document.getElementById('descripcion');
@@ -254,7 +286,7 @@ function getActiveAudioConfig() {
             engine: 'sfx',
             prompt_text: sfxPrompt,
             seconds: document.getElementById('sfxSeconds') ? document.getElementById('sfxSeconds').value : 5.0,
-            sfx_steps: document.getElementById('sfxSteps') ? document.getElementById('sfxSteps').value : 100, // Nombre actualizado y fallback a 100
+            sfx_steps: document.getElementById('sfxSteps') ? document.getElementById('sfxSteps').value : 100, 
             sync_with_video: syncVideo
         };
     }

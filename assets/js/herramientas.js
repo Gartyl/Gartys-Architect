@@ -240,54 +240,28 @@ async function abrirModalGaleria(page = 1) {
 async function usarImagenDeGaleria(url) {
     try {
         const lowerUrl = url.toLowerCase();
-        const isVideo = lowerUrl.endsWith('.mp4') || lowerUrl.endsWith('.webm');
+        // Separamos el audio. Las imágenes y vídeos irán juntos por la ruta principal.
         const isAudio = lowerUrl.endsWith('.wav') || lowerUrl.endsWith('.mp3') || lowerUrl.endsWith('.flac') || lowerUrl.endsWith('.ogg');
         
-        if (isVideo) {
-            const videoElement = document.createElement('video');
-            videoElement.src = url; videoElement.muted = true;
-            videoElement.onloadedmetadata = () => { videoElement.currentTime = Math.max(0, videoElement.duration - 0.1); };
-            videoElement.onseeked = () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = videoElement.videoWidth; canvas.height = videoElement.videoHeight;
-                const ctx = canvas.getContext('2d'); ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-                window.currentImageBase64 = canvas.toDataURL('image/png'); window.currentDocumentText = ""; 
-                
-                const filename = url.split('/').pop();
-                const imgPreviewContainer = document.getElementById('imgPreviewContainer');
-                if(imgPreviewContainer) {
-                    imgPreviewContainer.innerHTML = `
-                    <div class="badge bg-warning text-dark p-3 mt-2 mb-2 fs-6 w-100 text-start shadow-sm">
-                        <i class="bi bi-film fs-4 me-2"></i> ${typeof GartyLang !== 'undefined' ? GartyLang.gal_frame_extracted : 'Fotograma:'} ${filename} 
-                        <i class="bi bi-x-circle ms-auto float-end" style="cursor:pointer;" onclick="if(typeof clearVideoUpload === 'function') clearVideoUpload()"></i>
-                    </div>
-                    <img src="${window.currentImageBase64}" class="img-fluid rounded shadow-sm mt-2" style="max-height: 200px; border: 2px solid #ffc107;">`;
-                    imgPreviewContainer.style.display = 'block';
-                }
-                const inst = bootstrap.Modal.getInstance(document.getElementById('modalGaleriaReciente'));
-                if (inst) inst.hide();
-            };
-        } else if (isAudio) {
-            // NUEVO: Comportamiento para Audios
+        if (isAudio) {
             const response = await fetch(url);
             const blob = await response.blob();
             const reader = new FileReader();
             reader.onloadend = function() {
-                // Cargamos el audio en la variable de motor.js
                 window.currentAudioBase64 = reader.result;
                 const filename = url.split('/').pop();
                 
-                // Limpiamos el badge anterior si lo hubiera
                 const oldBadge = document.getElementById('audioBadge');
                 if(oldBadge) oldBadge.remove();
                 
                 const imgPreviewContainer = document.getElementById('imgPreviewContainer');
                 if(imgPreviewContainer) {
-                    imgPreviewContainer.innerHTML += `
+                    // 🌟 FIX: Inserción segura para audio desde galería
+                    imgPreviewContainer.insertAdjacentHTML('afterbegin', `
                     <div class="badge bg-success p-3 mt-2 mb-2 fs-6 w-100 text-start shadow-sm" id="audioBadge">
                         <i class="bi bi-music-note-beamed fs-4 me-2"></i> ${typeof GartyLang !== 'undefined' ? GartyLang.audio_ready || 'Audio Listo' : 'Audio Listo'}: ${filename} 
                         <i class="bi bi-x-circle ms-auto float-end text-light" style="cursor:pointer;" onclick="if(typeof clearAudio === 'function') clearAudio()" title="Quitar"></i>
-                    </div>`;
+                    </div>`);
                     imgPreviewContainer.style.display = 'block';
                 }
                 const inst = bootstrap.Modal.getInstance(document.getElementById('modalGaleriaReciente'));
@@ -295,29 +269,59 @@ async function usarImagenDeGaleria(url) {
             };
             reader.readAsDataURL(blob);
         } else {
+            // 🌟 LA RUTA UNIFICADA PARA VÍDEOS E IMÁGENES 🌟
+            if (typeof SwalDark !== 'undefined') {
+                SwalDark.fire({ title: typeof GartyLang !== 'undefined' && GartyLang.swal_prep_img ? GartyLang.swal_prep_img : 'Preparando...', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+            }
+            
             const response = await fetch(url);
             const blob = await response.blob();
-            const reader = new FileReader();
-            reader.onloadend = function() {
+            
+            // Escudo MIME: Corrige el fallo de los servidores locales que envían octet-stream
+            let mimeType = blob.type;
+            if (!mimeType || mimeType === 'application/octet-stream') {
+                if (lowerUrl.endsWith('.mp4')) mimeType = 'video/mp4';
+                else if (lowerUrl.endsWith('.webm')) mimeType = 'video/webm';
+                else if (lowerUrl.endsWith('.png')) mimeType = 'image/png';
+                else if (lowerUrl.endsWith('.jpg') || lowerUrl.endsWith('.jpeg')) mimeType = 'image/jpeg';
+                else if (lowerUrl.endsWith('.webp')) mimeType = 'image/webp';
+            }
+
+            const filename = url.split('/').pop() || 'media_galeria';
+            const destino = window.destinoGaleriaModal || 'principal';
+
+            if (destino === 'principal') {
+                // Inyectamos el blob en el input físico. Esto dispara el evento nativo 'change'
+                // garantizando que no se rompa la estructura del HTML.
+                const dataTransfer = new DataTransfer();
+                const fileObj = new File([blob], filename, { type: mimeType });
+                dataTransfer.items.add(fileObj);
                 
-                // NUEVO: Enrutamiento inteligente con fallback al panel principal
-                const destino = window.destinoGaleriaModal || 'principal';
-                
-                if (typeof enviarImagenA === 'function') {
-                    enviarImagenA(reader.result, destino);
-                } else if (destino === 'principal' && typeof setBaseImageFromDataUrl === 'function') {
-                    setBaseImageFromDataUrl(reader.result);
+                const mainInput = document.getElementById('imageInput');
+                if (mainInput) {
+                    mainInput.files = dataTransfer.files;
+                    mainInput.dispatchEvent(new Event('change')); 
                 }
-                
-                // Reseteamos el destino para la próxima vez
-                window.destinoGaleriaModal = 'principal';
-                
-                const inst = bootstrap.Modal.getInstance(document.getElementById('modalGaleriaReciente'));
-                if (inst) inst.hide();
-            };
-            reader.readAsDataURL(blob);
+            } else {
+                // Ruta para sub-herramientas (IP-Adapter, Reactor, ControlNet)
+                const reader = new FileReader();
+                reader.onloadend = function() {
+                    if (typeof enviarImagenA === 'function') {
+                        enviarImagenA(reader.result, destino);
+                    }
+                };
+                reader.readAsDataURL(blob);
+            }
+
+            // Restaurar estado del modal
+            window.destinoGaleriaModal = 'principal';
+            const inst = bootstrap.Modal.getInstance(document.getElementById('modalGaleriaReciente'));
+            if (inst) inst.hide();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
-    } catch (e) { console.error(GartyLang.log_err_load_gallery, e); }
+    } catch (e) { 
+        console.error(typeof GartyLang !== 'undefined' ? GartyLang.log_err_load_gallery : 'Error', e); 
+    }
 }
 
 async function cargarDatosImagen(imgId) {
