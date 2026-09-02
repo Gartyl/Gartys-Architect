@@ -3324,6 +3324,81 @@ if ($action === 'generar_imagen') {
     }
 	
 	// ==============================================================================
+    // 🌟 INYECCIÓN KREA-2 BODYSWAP (DOBLE IMAGEN: CUERPO + CARA)
+    // ==============================================================================
+    if ($is_krea2 && $comfy_image_filename !== "none" && !empty($tray_comfy_filenames[1])) {
+        
+        // 1. Preparamos el prompt: Si escribes algo, manda TU texto exacto. Solo usa el salvavidas si la caja está vacía.
+        $prompt_texto = !empty(trim($posPrompt)) ? trim($posPrompt) : "body_swap: replace the person with the reference person.";
+
+        // 2. Extraemos el LoRA de la UI y su FUERZA, o usamos los valores por defecto
+        $lora_krea = !empty($lora_names[0]) ? $lora_names[0] : "Krea2\\bfs_body_swap_v1_krea2.safetensors";
+        $lora_fuerza = isset($lora_strengths_high[0]) ? floatval($lora_strengths_high[0]) : 1.0;
+        
+        if (strpos($lora_krea, '\\') === false && strpos($lora_krea, '/') === false) {
+            $lora_krea = "Krea2\\" . $lora_krea;
+        }
+
+        // 3. Montaje del Workflow Nativo en PHP
+        $workflow = [
+            "57" => [ "class_type" => "VAELoader", "inputs" => [ "vae_name" => "qwen_image_vae.safetensors" ] ],
+            "56" => [ "class_type" => "CLIPLoader", "inputs" => [ "clip_name" => "qwen3vl_4b_fp8_scaled.safetensors", "type" => "krea2", "device" => "default" ] ],
+            "55" => [ "class_type" => "UNETLoader", "inputs" => [ "unet_name" => $model_path, "weight_dtype" => "default" ] ],
+            "127" => [ "class_type" => "LoraLoaderModelOnly", "inputs" => [ "lora_name" => $lora_krea, "strength_model" => $lora_fuerza, "model" => ["55", 0] ] ],
+            
+            // Inyectamos las imágenes (Cuerpo = Principal | Cara = Bandeja 1)
+            "72" => [ "class_type" => "LoadImage", "inputs" => [ "image" => $comfy_image_filename ] ],
+            "139" => [ "class_type" => "LoadImage", "inputs" => [ "image" => $tray_comfy_filenames[1] ] ],
+            
+            // Redimensionado
+            "123" => [ "class_type" => "ImageResizeKJv2", "inputs" => [ "width" => 1024, "height" => 1024, "upscale_method" => "lanczos", "keep_proportion" => "resize", "pad_color" => "0, 0, 0", "crop_position" => "center", "divisible_by" => 2, "device" => "cpu", "image" => ["72", 0] ] ],
+            "140" => [ "class_type" => "ImageResizeKJv2", "inputs" => [ "width" => 1024, "height" => 1024, "upscale_method" => "lanczos", "keep_proportion" => "resize", "pad_color" => "0, 0, 0", "crop_position" => "center", "divisible_by" => 2, "device" => "cpu", "image" => ["139", 0] ] ],
+            
+            // Encoders VAE
+            "73" => [ "class_type" => "VAEEncode", "inputs" => [ "pixels" => ["123", 0], "vae" => ["57", 0] ] ],
+            "117" => [ "class_type" => "VAEEncode", "inputs" => [ "pixels" => ["140", 0], "vae" => ["57", 0] ] ],
+            "121" => [ "class_type" => "GetImageSize", "inputs" => [ "image" => ["123", 0] ] ],
+            "135" => [ "class_type" => "EmptySD3LatentImage", "inputs" => [ "width" => ["121", 0], "height" => ["121", 1], "batch_size" => 1 ] ],
+            
+            // Nodos curados de edición Krea-2
+            "119" => [ "class_type" => "Krea2EditGroundedEncode", "inputs" => [ "prompt" => $prompt_texto, "grounding_px" => 0, "system_prompt" => "", "clip" => ["56", 0], "image" => ["123", 0], "image_b" => ["140", 0] ] ],
+            "85"  => [ "class_type" => "Krea2EditGroundedEncode", "inputs" => [ "prompt" => $neg_prompt, "grounding_px" => 0, "system_prompt" => "", "clip" => ["56", 0], "image" => ["123", 0], "image_b" => ["140", 0] ] ],
+            "120" => [ "class_type" => "Krea2EditModelPatch", "inputs" => [ "ref_boost" => 1, "ref_boost_a" => 1, "fit_mode" => "fit", "model" => ["127", 0], "source_latent" => ["73", 0], "source_latent_b" => ["117", 0], "ref_boost_mask" => ["123", 3], "vae" => ["57", 0], "source_image" => ["123", 0], "source_image_b" => ["140", 0] ] ],
+            
+            // Generación y Guardado
+            "53" => [ "class_type" => "KSampler", "inputs" => [ "seed" => $seed, "steps" => $steps, "cfg" => $cfg, "sampler_name" => $sampler, "scheduler" => $scheduler, "denoise" => 1, "model" => ["120", 0], "positive" => ["119", 0], "negative" => ["85", 0], "latent_image" => ["135", 0] ] ],
+            "54" => [ "class_type" => "VAEDecode", "inputs" => [ "samples" => ["53", 0], "vae" => ["57", 0] ] ],
+            "9" => [ "class_type" => "PreviewImage", "inputs" => [ "images" => ["54", 0] ] ]
+        ];
+
+        // 4. Metadatos y Base de Datos
+        $meta_json_array = [
+            'Model' => basename($model_path), 
+            'Resolution' => $width . 'x' . $height, 
+            'Seed' => $seed, 
+            'Steps' => $steps, 
+            'CFG Scale' => $cfg, 
+            'Sampler' => ucfirst($sampler) . ' (' . ucfirst($scheduler) . ')', 
+            'LoRAs' => basename($lora_krea),
+            'Modo' => 'Krea-2 Bodyswap'
+        ];
+        $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
+
+        if ($historial_id > 0) {
+            $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ?, metadata = ? WHERE id = ?");
+            $stmt_upd->execute([$posPrompt, $neg_prompt, $meta_json, $historial_id]);
+        } else {
+            $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt_ins->execute([$user_id, $selector, $posPrompt, $posPrompt, $neg_prompt, $meta_json]);
+            $historial_id = $pdo->lastInsertId();
+        }
+
+        $current_image_node = "9";
+        goto EJECUTAR_COMFYUI;
+    }
+	
+	
+	// ==============================================================================
     // 🌟 INYECCIÓN IDEOGRAM 4 (Vía JSON Plantilla Estricta)
     // ==============================================================================
     $is_ideogram = (strpos($model_lower, 'ideogram') !== false);
