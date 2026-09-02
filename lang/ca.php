@@ -621,6 +621,10 @@ return [
     'swal_vid_added' => "Vídeo afegit a la cua",
     'swal_warn_vid_req' => "Necessites almenys 2 vídeos per poder fusionar-los.",
     'swal_warn_vid_title' => "Falten vídeos",
+	'err_ipa_vlm' => "IP-Adapter no és compatible amb models VLM (Qwen/Krea-2). Utilitza la safata de multicàrrega normal.",
+	'err_ipa_flux2' => "Flux 2 (Klein) utilitza KontextConditioner natiu. Apaga IP-Adapter i puja les fotos a la safata de multicàrrega normal.",
+	'err_ipa_incompatible_dit' => "L'eina IP-Adapter / Referència d'Estil no és compatible amb l'arquitectura d'aquest model. Si us plau, desactiva-la al tauler per poder renderitzar.",
+	'err_ipadapter_upload' => "Error pujant imatges a l'IP-Adapter.",
 
     // ==============================================================================
     // 08. CHAT, RADAR Y MOTOR DE TEXTO (LLM)

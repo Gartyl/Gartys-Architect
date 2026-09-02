@@ -621,6 +621,10 @@ return [
     'swal_vid_added' => "Video added to queue",
     'swal_warn_vid_req' => "You need at least 2 videos to merge them.",
     'swal_warn_vid_title' => "Missing videos",
+	'err_ipa_vlm' => "IP-Adapter is not compatible with VLM models (Qwen/Krea-2). Use the normal multi-upload tray.",
+	'err_ipa_flux2' => "Flux 2 (Klein) uses native KontextConditioner. Turn off IP-Adapter and upload the photos to the normal multi-upload tray.",
+	'err_ipa_incompatible_dit' => "The IP-Adapter / Style Reference tool is not compatible with this model's architecture. Please disable it in the panel to render.",
+	'err_ipadapter_upload' => "Error uploading images to IP-Adapter.",
 
     // ==============================================================================
     // 08. CHAT, RADAR Y MOTOR DE TEXTO (LLM)
