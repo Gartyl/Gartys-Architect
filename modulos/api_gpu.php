@@ -2799,16 +2799,28 @@ if ($action === 'generar_imagen') {
     
     if ($ipadapter_enabled === 'true' && !empty($ipadapter_images)) {
         
+        // 0. ADELANTAMOS LA DETECCIÓN DE FLUX 2 PARA QUE EL ESCUDO NO ESTÉ CIEGO
+        $temp_mod_lower = strtolower($model_path);
+        $es_flux2_local = (strpos($temp_mod_lower, 'flux2') !== false || strpos($temp_mod_lower, 'klein') !== false || strpos($temp_mod_lower, 'kontext') !== false);
+
         // 1. ESCUDO 1: Qwen y Krea-2 (Son VLMs Nativos)
-        if ($is_qwen || $is_krea2) {
-            echo json_encode(['error' => __('err_ipa_vlm')]);
+        if (isset($is_qwen) && $is_qwen || isset($is_krea2) && $is_krea2) {
+            echo json_encode(['error' => __('err_ipa_vlm') ?? 'IP-Adapter no es compatible con modelos VLM (Qwen/Krea-2). Usa la bandeja de multicarga normal.']);
             exit();
         }
 
         // 2. ESCUDO 2: Flux 2 (Klein/Kontext)
         // Redux es exclusivo de Flux 1 y choca con las matrices del KontextConditioner
-        if (isset($is_flux2) && $is_flux2) {
-            echo json_encode(['error' => __('err_ipa_flux2')]);
+        if ($es_flux2_local) {
+            echo json_encode(['error' => __('err_ipa_flux2') ?? 'Flux 2 (Klein) utiliza KontextConditioner nativo. Apaga IP-Adapter y sube las fotos a la bandeja multicarga normal.']);
+            exit();
+        }
+
+        // 3. ESCUDO 3: Z-Image y otros DiTs Next-Gen Incompatibles
+        // No soportan las matrices del IP-Adapter clásico ni los pesos visuales de Flux Redux
+        $is_ideogram = (strpos($temp_mod_lower, 'ideogram') !== false);
+        if ((isset($is_zimage) && $is_zimage) || (isset($is_sd35) && $is_sd35) || (isset($is_hunyuan) && $is_hunyuan) || (isset($is_hidream) && $is_hidream) || (isset($is_anima) && $is_anima) || $is_ideogram) {
+            echo json_encode(['error' => __('err_ipa_incompatible_dit') ?? 'La herramienta IP-Adapter / Referencia de Estilo no es compatible con la arquitectura de este modelo. Por favor, desactívala en el panel para poder renderizar.']);
             exit();
         }
 
@@ -2835,7 +2847,7 @@ if ($action === 'generar_imagen') {
 
         if (!empty($ipa_uploaded_names)) {
             
-            // Empaquetador Universal (ImageBatch) para todos los modelos
+            // Empaquetador Universal (ImageBatch) para todos los modelos compatibles
             $last_image_node = null;
             foreach ($ipa_uploaded_names as $idx => $name) {
                 $node_id = "200_" . $idx;
@@ -2859,7 +2871,8 @@ if ($action === 'generar_imagen') {
                 }
             }
 
-            if ($is_flux || $is_chroma || $is_zimage) {
+            // 👇 CORRECCIÓN: ZImage eliminado de esta ruta 👇
+            if ((isset($is_flux) && $is_flux) || (isset($is_chroma) && $is_chroma)) {
                 // 🌟 RUTA NEXT-GEN: FLUX REDUX 🌟
                 $workflow["201"] = [
                     "inputs" => ["clip_name" => "sigclip_vision_patch14_384.safetensors"],
@@ -2913,8 +2926,8 @@ if ($action === 'generar_imagen') {
                 ];
                 $current_model_node = "203";
             }
-        } else {
-            echo json_encode(['error' => __('err_ipadapter_upload')]);
+       } else {
+            echo json_encode(['error' => __('err_ipadapter_upload') ?? 'Error subiendo imágenes al IP-Adapter.']);
             exit();
         }
     }
