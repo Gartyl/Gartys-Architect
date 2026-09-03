@@ -619,8 +619,17 @@ if ($action === 'generar_imagen') {
     $iclight_direction = $_POST['iclight_direction'] ?? 'Left Light';
     $iclight_prompt_panel = trim($_POST['iclight_prompt'] ?? '');
     
-    // Bloqueo de seguridad contextual: si no es categoría fotográfica, anulamos IC-Light
-    if (in_array($selector, ['[VIDEO]', '[LLM]', '[CHANT]', '[VISION]', '[NATURAL_IMAGE]'])) {
+    // Captura del modelo y la imagen de fondo
+    $iclight_model_type = $_POST['iclight_model'] ?? 'fc';
+    $iclight_bg_base64 = $_POST['iclight_background'] ?? null;
+    
+    // Fallback de seguridad: Si pide fusión de fondo (FBC) pero olvidó subir la foto, lo bajamos a FC para evitar cuelgues
+    if ($iclight_model_type === 'fbc' && empty($iclight_bg_base64)) {
+        $iclight_model_type = 'fc';
+    }
+    
+    // Bloqueo de seguridad contextual: si no es categoría fotográfica (SD1.5), anulamos IC-Light
+    if (in_array($selector, ['[VIDEO]', '[LLM]', '[CHANT]', '[CHAT]', '[VISION]', '[NATURAL_IMAGE]', '[SDXL]'])) {
         $iclight_enabled = false;
     }
 	
@@ -2203,7 +2212,7 @@ if ($action === 'generar_imagen') {
         if ($dir_limpia === 'detail / ambient') $dir_limpia = 'ambient';
         $prompt_iluminacion = "light from " . $dir_limpia . ", " . $prompt_iluminacion;
 
-        // 2. Subimos la imagen base a la API de ComfyUI
+        // 2. Subimos la imagen base (Foreground) a la API de ComfyUI
         $tmp_ic = sys_get_temp_dir() . '/init_ic_' . uniqid() . '.png';
         file_put_contents($tmp_ic, base64_decode($init_image_base64));
         $cfile_ic = function_exists('curl_file_create') ? curl_file_create($tmp_ic, 'image/png', 'init_ic.png') : '@' . realpath($tmp_ic);
@@ -2215,20 +2224,38 @@ if ($action === 'generar_imagen') {
         $res_up = json_decode(curl_exec($ch_up), true); 
         @unlink($tmp_ic);
 
+        // 2.5. Subimos la imagen de Fondo (Background) si el usuario seleccionó FBC
+        $res_bg_name = null;
+        if ($iclight_model_type === 'fbc' && !empty($iclight_bg_base64)) {
+            $tmp_bg = sys_get_temp_dir() . '/bg_ic_' . uniqid() . '.png';
+            file_put_contents($tmp_bg, base64_decode($iclight_bg_base64));
+            $cfile_bg = function_exists('curl_file_create') ? curl_file_create($tmp_bg, 'image/png', 'bg_ic.png') : '@' . realpath($tmp_bg);
+            
+            $ch_bg = curl_init(COMFY_URL . '/upload/image');
+            curl_setopt($ch_bg, CURLOPT_POST, true); 
+            curl_setopt($ch_bg, CURLOPT_POSTFIELDS, ['image' => $cfile_bg]); 
+            curl_setopt($ch_bg, CURLOPT_RETURNTRANSFER, true);
+            $res_bg = json_decode(curl_exec($ch_bg), true); 
+            @unlink($tmp_bg);
+            if (isset($res_bg['name'])) {
+                $res_bg_name = $res_bg['name'];
+            }
+        }
+
         if (isset($res_up['name'])) {
-            // 3. Cargamos la imagen subida en el nodo 10 (Formato IMAGE)
+            // 3. Cargamos la imagen subida en el nodo 10 (Foreground)
             $workflow["10"] = [
                 "inputs" => ["image" => $res_up['name'], "upload" => "image"], 
                 "class_type" => "LoadImage"
             ];
 
-            // 4. Cargamos tu modelo base SD1.5/SDXL seleccionado en la web (Nodo 4)
+            // 4. Cargamos tu modelo base SD1.5 seleccionado en la web (Nodo 4)
             $workflow["4"] = [
                 "inputs" => ["ckpt_name" => $model_path], 
                 "class_type" => "CheckpointLoaderSimple"
             ];
 
-            // 4.5. ¡NUEVO! Convertimos la imagen a LATENTE usando el VAE del modelo base
+            // 4.5. Convertimos la imagen a LATENTE usando el VAE del modelo base
             $workflow["10_latent"] = [
                 "inputs" => [
                     "pixels" => ["10", 0],
@@ -2237,17 +2264,20 @@ if ($action === 'generar_imagen') {
                 "class_type" => "VAEEncode"
             ];
 
-            // 5. Cargador de UNET de Kijai (Corregido: usa "model_path" en vez de "model_name")
-            $ic_model_name = (strpos(strtolower($selector), 'sdxl') !== false) ? "iclight_sdxl_fc.safetensors" : "iclight_sd15_fc.safetensors"; 
+            // 5. Cargador de UNET de Kijai Dinámico
+            $ic_model_name = "iclight_sd15_fc.safetensors";
+            if ($iclight_model_type === 'fcon') $ic_model_name = "iclight_sd15_fcon.safetensors";
+            elseif ($iclight_model_type === 'fbc') $ic_model_name = "iclight_sd15_fbc.safetensors";
+
             $workflow["11"] = [
                 "inputs" => [
                     "model" => ["4", 0], // UNET base del Checkpoint
-                    "model_path" => $ic_model_name // <-- CORREGIDO AQUÍ
+                    "model_path" => $ic_model_name 
                 ], 
                 "class_type" => "LoadAndApplyICLightUnet"
             ];
 
-           // 6. Text Encoders (Usando el CLIP del modelo base: Nodo 4, salida 1)
+            // 6. Text Encoders (Usando el CLIP del modelo base: Nodo 4, salida 1)
             $workflow["12"] = ["inputs" => ["text" => $prompt_iluminacion, "clip" => ["4", 1]], "class_type" => "CLIPTextEncode"];
             $workflow["16"] = ["inputs" => ["text" => $neg_prompt, "clip" => ["4", 1]], "class_type" => "CLIPTextEncode"];
 
@@ -2255,14 +2285,50 @@ if ($action === 'generar_imagen') {
             $iclight_mult = isset($_POST['iclight_multiplier']) ? floatval($_POST['iclight_multiplier']) : 0.18;
 
             // 7. El Nodo Mágico de Kijai: IC-Light Conditioning
+            $cond_inputs = [
+                "positive" => ["12", 0],
+                "negative" => ["16", 0],
+                "vae" => ["4", 2],
+                "foreground" => ["10_latent", 0], // Imagen latente
+                "multiplier" => $iclight_mult 
+            ];
+
+            // Si es FBC y tenemos fondo, lo procesamos para que coincida en tamaño y lo inyectamos
+            if ($iclight_model_type === 'fbc' && $res_bg_name) {
+                // Cargamos el fondo
+                $workflow["10_bg"] = [
+                    "inputs" => ["image" => $res_bg_name, "upload" => "image"],
+                    "class_type" => "LoadImage"
+                ];
+                // Obtenemos el tamaño de la imagen principal
+                $workflow["10_size"] = [
+                    "inputs" => ["image" => ["10", 0]],
+                    "class_type" => "GetImageSize"
+                ];
+                // Escalamos el fondo al tamaño exacto de la imagen principal para evitar error de tensores
+                $workflow["10_bg_scale"] = [
+                    "inputs" => [
+                        "upscale_method" => "bicubic", 
+                        "width" => ["10_size", 0], 
+                        "height" => ["10_size", 1], 
+                        "crop" => "center", 
+                        "image" => ["10_bg", 0]
+                    ],
+                    "class_type" => "ImageScale"
+                ];
+                // Convertimos el fondo escalado a latente
+                $workflow["10_bg_latent"] = [
+                    "inputs" => [
+                        "pixels" => ["10_bg_scale", 0],
+                        "vae" => ["4", 2]
+                    ],
+                    "class_type" => "VAEEncode"
+                ];
+                $cond_inputs["opt_background"] = ["10_bg_latent", 0];
+            }
+
             $workflow["17"] = [
-                "inputs" => [
-                    "positive" => ["12", 0],
-                    "negative" => ["16", 0],
-                    "vae" => ["4", 2],
-                    "foreground" => ["10_latent", 0], // Imagen latente
-                    "multiplier" => $iclight_mult // <-- NUEVO: Ahora recibe el valor de tu barra
-                ],
+                "inputs" => $cond_inputs,
                 "class_type" => "ICLightConditioning"
             ];
 
@@ -2275,7 +2341,7 @@ if ($action === 'generar_imagen') {
                     "sampler_name" => "euler",
                     "scheduler" => "sgm_uniform",
                     "denoise" => 1.0,
-                    "model" => ["11", 0],       
+                    "model" => ["11", 0],        
                     "positive" => ["17", 0],    
                     "negative" => ["17", 1],    
                     "latent_image" => ["17", 2] 
@@ -4046,7 +4112,10 @@ if ($action === 'generar_imagen') {
     if ($controlnet_enabled === 'true' && !empty($controlnet_model)) $meta_json_array['ControlNet'] = basename($controlnet_model);
     if ($remove_background) $meta_json_array['Fondo Transparente'] = __('lbl_activated') . ' (Rembg)';
     if ($ddcolor_enabled) $meta_json_array['Coloreado Neural'] = __('lbl_activated') . ' (DDColor: ' . basename($ddcolor_model) . ')';
-    if ($iclight_enabled) $meta_json_array['IC-Light (Relighting)'] = __('lbl_activated') . ' (' . $iclight_direction . ')';
+    if ($iclight_enabled) {
+        $modo_ic = strtoupper($iclight_model_type);
+        $meta_json_array['IC-Light (Relighting)'] = __('lbl_activated') . " ($modo_ic | " . $iclight_direction . ')';
+    }
 
     if (isset($user_shift) && $user_shift !== null) {
         $meta_json_array['Flow Shift'] = $user_shift;
@@ -4305,8 +4374,9 @@ if ($action === 'generar_imagen') {
             $meta_json_array['Coloreado Neural'] = __('lbl_activated') . ' (DDColor: ' . basename($ddcolor_model) . ')';
         }
         if ($iclight_enabled) {
-            $meta_json_array['IC-Light (Relighting)'] = __('lbl_activated') . ' (' . $iclight_direction . ')';
-        }
+        $modo_ic = strtoupper($iclight_model_type);
+        $meta_json_array['IC-Light (Relighting)'] = __('lbl_activated') . " ($modo_ic | " . $iclight_direction . ')';
+		}
 
         if (isset($user_shift) && $user_shift !== null) {
             $meta_json_array['Flow Shift'] = $user_shift;
