@@ -2809,10 +2809,10 @@ if ($action === 'generar_imagen') {
             exit();
         }
 
-        // 2. ESCUDO 2: Flux 2 (Klein/Kontext)
-        // Redux es exclusivo de Flux 1 y choca con las matrices del KontextConditioner
-        if ($es_flux2_local) {
-            echo json_encode(['error' => __('err_ipa_flux2') ?? 'Flux 2 (Klein) utiliza KontextConditioner nativo. Apaga IP-Adapter y sube las fotos a la bandeja multicarga normal.']);
+        // 2. ESCUDO 2: Flux Kontext (Klein)
+        $temp_mod_lower = strtolower($model_path);
+        if (strpos($temp_mod_lower, 'klein') !== false || strpos($temp_mod_lower, 'kontext') !== false) {
+            echo json_encode(['error' => __('err_ipa_flux_kontext') ?? 'Flux Kontext utiliza su propio Conditioner nativo. Apaga IP-Adapter y sube las fotos a la bandeja multicarga.']);
             exit();
         }
 
