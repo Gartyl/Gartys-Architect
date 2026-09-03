@@ -976,6 +976,11 @@ return [
     'iclight_prompt_ph' => "Ej: sunset golden hour, neon blue light, warm studio...",
     'iclight_strength_lbl' => "Light Strength",
     'iclight_title' => "ILUMINACIÓN NEURAL (IC-Light)",
+	'iclight_model_lbl' => "Modo de Iluminación",
+	'iclight_mod_fc' => "Premedio / Anterior (Básico)",
+	'iclight_mod_fcon' => "Primer Plano con Ruido (Mejor detalle)",
+	'iclight_mod_fbc' => "Primer Plano y Fondo (Fusión)",
+	'iclight_bg_lbl' => "Imagen de Fondo",
 
     // --- Misc Herramientas (mic_, ups_) ---
     'mic_001' => "Escuchando... Habla ahora.",

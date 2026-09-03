@@ -989,6 +989,11 @@ return [
     'iclight_prompt_ph' => "Ex: sunset golden hour, neon blue light, warm studio...",
     'iclight_strength_lbl' => "Light Strength",
     'iclight_title' => "IL·LUMINACIÓ NEURAL (IC-Light)",
+	'iclight_model_lbl' => "Mode d'Il·luminació",
+	'iclight_mod_fc' => "Pre-mitjà / Anterior (Bàsic)",
+	'iclight_mod_fcon' => "Primer Pla amb Soroll (Millor detall)",
+	'iclight_mod_fbc' => "Primer Pla i Fons (Fusió)",
+	'iclight_bg_lbl' => "Imatge de Fons",
 
     // --- Misc Herramientas (mic_, ups_) ---
     'mic_001' => "Escoltant... Parla ara.",
