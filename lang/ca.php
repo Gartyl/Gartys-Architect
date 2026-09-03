@@ -1002,6 +1002,14 @@ return [
     'mic_004' => "Fallada al micròfon",
     'ups_fac_15' => "1.5x (Recomanat)",
     'ups_fac_20' => "2.0x (Alta Resolució)",
+	
+	// --- RemBG ---
+	'rembg_model_lbl' => "Model de Retall",
+	'rembg_mod_isnet' => "ISNet General (Alta Precisió)",
+	'rembg_mod_isnet_anime' => "ISNet Anime (Il·lustracions)",
+	'rembg_mod_u2net_human' => "U2Net (Només Humans)",
+	'rembg_mod_u2net' => "U2Net (Clàssic / Ràpid)",
+	'rembg_mod_silueta' => "Silueta (Ultra Ràpid)",
 
     // ==============================================================================
     // 11. BIENVENIDA Y ONBOARDING (bien_)

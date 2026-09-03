@@ -1002,6 +1002,14 @@ return [
     'mic_004' => "Microphone failure",
     'ups_fac_15' => "1.5x (Recommended)",
     'ups_fac_20' => "2.0x (High Resolution)",
+	
+	// --- RemBG ---
+	'rembg_model_lbl' => "Cutout Model",
+	'rembg_mod_isnet' => "ISNet General (High Precision)",
+	'rembg_mod_isnet_anime' => "ISNet Anime (Illustrations)",
+	'rembg_mod_u2net_human' => "U2Net (Humans Only)",
+	'rembg_mod_u2net' => "U2Net (Classic / Fast)",
+	'rembg_mod_silueta' => "Silueta (Ultra Fast)",
 
     // ==============================================================================
     // 11. BIENVENIDA Y ONBOARDING (bien_)
