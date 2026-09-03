@@ -607,7 +607,8 @@ if ($action === 'generar_imagen') {
     $aurasr_enabled = filter_var($_POST['aurasr_enabled'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
 
     $remove_background = filter_var($_POST['remove_background'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
-    $pure_rembg = filter_var($_POST['pure_rembg'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+	$pure_rembg = filter_var($_POST['pure_rembg'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+	$rembg_model = $_POST['rembg_model'] ?? 'bria-rmbg-2.0'; // <-- NUEVO
     
     // --- NUEVO: COLOREADO NEURAL (DDColor) ---
     $ddcolor_enabled = isset($_POST['ddcolor_enabled']) && ($_POST['ddcolor_enabled'] === '1' || $_POST['ddcolor_enabled'] === 'true' || $_POST['ddcolor_enabled'] === 'on');
@@ -2050,7 +2051,7 @@ if ($action === 'generar_imagen') {
                 "inputs" => [
                     "images" => ["11", 0],
                     "transparency" => true,
-                    "model" => "u2net",
+                    "model" => $rembg_model, 
                     "post_processing" => false,
                     "only_mask" => false,
                     "alpha_matting" => false,
@@ -3719,7 +3720,7 @@ if ($action === 'generar_imagen') {
             "inputs" => [
                 "images" => [$current_image_node, 0],
                 "transparency" => true,
-                "model" => "u2net",
+                "model" => $rembg_model, 
                 "post_processing" => false,
                 "only_mask" => false,
                 "alpha_matting" => false,
@@ -4110,8 +4111,8 @@ if ($action === 'generar_imagen') {
     if ($reactor_enabled === 'true' && !empty($reactor_image_base64)) $meta_json_array['Face Swap (ReActor)'] = __('lbl_activated'); 
     if ($ipadapter_enabled === 'true' && !empty($ipadapter_image_base64)) $meta_json_array['IP-Adapter'] = __('lbl_activated'); 
     if ($controlnet_enabled === 'true' && !empty($controlnet_model)) $meta_json_array['ControlNet'] = basename($controlnet_model);
-    if ($remove_background) $meta_json_array['Fondo Transparente'] = __('lbl_activated') . ' (Rembg)';
-    if ($ddcolor_enabled) $meta_json_array['Coloreado Neural'] = __('lbl_activated') . ' (DDColor: ' . basename($ddcolor_model) . ')';
+    if ($remove_background) $meta_json_array['Fondo Transparente'] = __('lbl_activated') . ' (' . $rembg_model . ')';
+	if ($ddcolor_enabled) $meta_json_array['Coloreado Neural'] = __('lbl_activated') . ' (DDColor: ' . basename($ddcolor_model) . ')';
     if ($iclight_enabled) {
         $modo_ic = strtoupper($iclight_model_type);
         $meta_json_array['IC-Light (Relighting)'] = __('lbl_activated') . " ($modo_ic | " . $iclight_direction . ')';
