@@ -625,6 +625,7 @@ return [
 	'err_ipa_flux2' => "Flux 2 (Klein) utiliza KontextConditioner nativo. Apaga IP-Adapter y sube las fotos a la bandeja multicarga normal.",
 	'err_ipa_incompatible_dit' => "La herramienta IP-Adapter / Referencia de Estilo no es compatible con la arquitectura de este modelo. Por favor, desactívala en el panel para poder renderizar.",
 	'err_ipadapter_upload' => "Error subiendo imágenes al IP-Adapter.",
+	'err_ipa_flux_kontext' => "Flux Kontext utiliza su propio Conditioner nativo. Apaga IP-Adapter y sube las fotos a la bandeja multicarga normal.",
 
     // ==============================================================================
     // 08. CHAT, RADAR Y MOTOR DE TEXTO (LLM)
