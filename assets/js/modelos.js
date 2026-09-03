@@ -110,7 +110,7 @@ function getFilteredItems(itemsList, category) {
         filtered = itemsList.filter(m => {
             const low = m.toLowerCase();
             // AÑADIDO: krea2 y krea-2 a la lista de arquitecturas naturales permitidas
-            const isNatural = low.includes('flux') || low.includes('sd35') || low.includes('sd3.5') || low.includes('sd3_5') || low.includes('z-image') || low.includes('zimage') || low.includes('z_image') || low.includes('qwen') || low.includes('krea2') || low.includes('krea-2') || low.includes('hunyuan') || low.includes('hidream');
+            const isNatural = low.includes('flux') || low.includes('klein') || low.includes('kontext') || low.includes('sd35') || low.includes('sd3.5') || low.includes('sd3_5') || low.includes('z-image') || low.includes('zimage') || low.includes('z_image') || low.includes('qwen') || low.includes('krea2') || low.includes('krea-2') || low.includes('hunyuan') || low.includes('hidream');
             const isNotSdxl = !low.includes('sdxl') && !low.includes('sdxl_c');
             return isNatural && isNotSdxl;
         });
@@ -314,14 +314,14 @@ function updateLoraFilter(category) {
                     let low = m.toLowerCase();
                     return low.includes('ideogram4');
                 });
-            } else if (modeloSeleccionado.includes('flux2') || modeloSeleccionado.includes('klein') || modeloSeleccionado.includes('kontext')) {
-                // FLUX 2: Exclusivo para la subcarpeta flux2 (o archivos que empiecen por f2_)
+            } else if (modeloSeleccionado.includes('flux2') || modeloSeleccionado.includes('klein')) {
+                // FLUX 2 y KLEIN: Exclusivo para la subcarpeta flux2 (o archivos que empiecen por f2_)
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
                     return low.includes('flux2\\') || low.includes('flux2/') || low.startsWith('f2_');
                 });
-            } else if (modeloSeleccionado.includes('flux')) {
-                // FLUX 1: Exclusivo para la subcarpeta flux original, excluyendo explícitamente a flux2
+            } else if (modeloSeleccionado.includes('flux') || modeloSeleccionado.includes('kontext')) {
+                // FLUX 1 y KONTEXT: Exclusivo para subcarpeta flux original, excluyendo explícitamente a flux2
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
                     return (low.includes('flux\\') || low.includes('flux/') || low.startsWith('f1_')) && !low.includes('flux2');
@@ -1044,7 +1044,7 @@ function sugerirAjustesMotor() {
             newCfg = 1.0;
             newSampler = 'euler';
             newScheduler = 'simple';
-        } else if (opcion.includes('flux') || opcion.includes('sd35') || opcion.includes('sd3.5') || opcion.includes('z-image') || opcion.includes('zimage') || opcion.includes('z_image')) {
+        } else if (opcion.includes('flux') || opcion.includes('klein') || opcion.includes('kontext') || opcion.includes('sd35') || opcion.includes('sd3.5') || opcion.includes('z-image') || opcion.includes('zimage') || opcion.includes('z_image')) {
             newSteps = 25;
             newCfg = 4.0;
             newSampler = 'euler';
