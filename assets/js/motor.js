@@ -1361,7 +1361,7 @@ function updateUIForSelector(sel) {
 
     const icLightBlock = document.getElementById('icLightBlock');
     if (icLightBlock) {
-        if (['[SD15]', '[SDXL]'].includes(sel) && isAvanzado) icLightBlock.style.display = 'block';
+        if (['[SD15]'].includes(sel) && isAvanzado) icLightBlock.style.display = 'block';
         else { 
             icLightBlock.style.display = 'none'; 
             const toggleIcLight = document.getElementById('iclight_enabled'); 
@@ -1603,10 +1603,17 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
         const dirSelect = document.getElementById('iclight_direction');
         const prInput = document.getElementById('iclight_prompt');
         const multSlider = document.getElementById('iclight_multiplier');
+        const modSelect = document.getElementById('iclight_model');
         
         if (dirSelect) fd.append('iclight_direction', dirSelect.value);
         if (prInput && prInput.value.trim() !== '') fd.append('iclight_prompt', prInput.value.trim());
         if (multSlider) fd.append('iclight_multiplier', multSlider.value);
+        if (modSelect) fd.append('iclight_model', modSelect.value);
+
+        // Pasamos el fondo si el modelo es FBC
+        if (window.currentIcLightBgBase64) {
+            fd.append('iclight_background', window.currentIcLightBgBase64.split(',')[1]);
+        }
     }
 	// -------------------------------------------
     
@@ -3737,4 +3744,58 @@ window.addEventListener('resize', checkToolbarScroll);
 // Comprobamos tras arrancar la aplicación
 document.addEventListener('DOMContentLoaded', () => { 
     setTimeout(checkToolbarScroll, 300); 
+});
+
+// ==============================================================================
+// --- LÓGICA DE FONDO PARA IC-LIGHT FBC ---
+// ==============================================================================
+window.currentIcLightBgBase64 = null;
+
+window.toggleIcLightBg = function() {
+    const modSelect = document.getElementById('iclight_model');
+    const bgContainer = document.getElementById('iclight_bg_container');
+    if (modSelect && bgContainer) {
+        if (modSelect.value === 'fbc') {
+            bgContainer.classList.remove('d-none');
+        } else {
+            bgContainer.classList.add('d-none');
+            window.clearIcLightBg();
+        }
+    }
+};
+
+window.clearIcLightBg = function() {
+    window.currentIcLightBgBase64 = null;
+    const input = document.getElementById('iclight_bg_input');
+    if (input) input.value = '';
+    const previewBox = document.getElementById('iclight_bg_preview_box');
+    if (previewBox) previewBox.classList.add('d-none');
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const icBgInput = document.getElementById('iclight_bg_input');
+    if (icBgInput) {
+        icBgInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width; let height = img.height;
+                    // Limitamos a 1024 para evitar desbordar RAM
+                    if (width > height && width > 1024) { height = Math.round(height * (1024 / width)); width = 1024; }
+                    else if (height >= width && height > 1024) { width = Math.round(width * (1024 / height)); height = 1024; }
+                    canvas.width = width; canvas.height = height;
+                    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                    window.currentIcLightBgBase64 = canvas.toDataURL('image/jpeg', 0.85);
+                    document.getElementById('iclight_bg_preview').src = window.currentIcLightBgBase64;
+                    document.getElementById('iclight_bg_preview_box').classList.remove('d-none');
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
 });
