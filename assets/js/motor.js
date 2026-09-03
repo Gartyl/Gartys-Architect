@@ -763,10 +763,8 @@ function toggleFaceSwapPuro(activo) {
                 if (inputPrompt.dataset.oldValue !== undefined) { inputPrompt.value = inputPrompt.dataset.oldValue; delete inputPrompt.dataset.oldValue; }
             }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
-            //if (btnAmplify) btnAmplify.style.setProperty('display', 'inline-block', 'important');
-			if (btnAmplify) btnAmplify.style.removeProperty('display');
-            //if (btnSurprise) btnSurprise.style.setProperty('display', 'inline-block', 'important');
-			if (btnSurprise) btnSurprise.style.removeProperty('display');
+            if (btnAmplify) btnAmplify.style.removeProperty('display');
+            if (btnSurprise) btnSurprise.style.removeProperty('display');
             if (btnDirecto) {
 				btnDirecto.style.removeProperty('display'); //AÑADIR ESTO
                 btnDirecto.innerHTML = btnDirecto.dataset.oldText || '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
@@ -789,10 +787,8 @@ function toggleRembgPuro(activo) {
         if (activo) {
             if (inputPrompt) { inputPrompt.dataset.oldValue = inputPrompt.value; inputPrompt.value = ''; inputPrompt.style.setProperty('display', 'none', 'important'); }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'none', 'important');
-            //if (btnAmplify) btnAmplify.style.setProperty('display', 'none', 'important');
-			if (btnAmplify) btnAmplify.style.removeProperty('display');
-            //if (btnSurprise) btnSurprise.style.setProperty('display', 'none', 'important');
-			if (btnSurprise) btnSurprise.style.removeProperty('display');
+            if (btnAmplify) btnAmplify.style.removeProperty('display');
+            if (btnSurprise) btnSurprise.style.removeProperty('display');
             if (translateToggle) translateToggle.classList.add('d-none'); if (resultsArea) resultsArea.classList.add('d-none');
             if (btnDirecto) {
                 btnDirecto.classList.remove('d-none'); btnDirecto.style.setProperty('display', 'inline-block', 'important');
@@ -807,10 +803,8 @@ function toggleRembgPuro(activo) {
                 if (inputPrompt.dataset.oldValue !== undefined) { inputPrompt.value = inputPrompt.dataset.oldValue; delete inputPrompt.dataset.oldValue; }
             }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
-            //if (btnAmplify) btnAmplify.style.setProperty('display', 'inline-block', 'important');
-			if (btnAmplify) btnAmplify.style.removeProperty('display');
-            //if (btnSurprise) btnSurprise.style.setProperty('display', 'inline-block', 'important');
-			if (btnSurprise) btnSurprise.style.removeProperty('display');
+            if (btnAmplify) btnAmplify.style.removeProperty('display');
+            if (btnSurprise) btnSurprise.style.removeProperty('display');
             if (btnDirecto) {
 				btnDirecto.style.removeProperty('display'); //AÑADIR ESTO
                 btnDirecto.innerHTML = btnDirecto.dataset.oldText || '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
@@ -833,10 +827,8 @@ function toggleAdetailerPuro(activo) {
         if (activo) {
             if (inputPrompt) { inputPrompt.dataset.oldValue = inputPrompt.value; inputPrompt.value = ''; inputPrompt.style.setProperty('display', 'none', 'important'); }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'none', 'important');
-            //if (btnAmplify) btnAmplify.style.setProperty('display', 'none', 'important');
-			if (btnAmplify) btnAmplify.style.removeProperty('display');
-            //if (btnSurprise) btnSurprise.style.setProperty('display', 'none', 'important');
-			if (btnSurprise) btnSurprise.style.removeProperty('display');
+            if (btnAmplify) btnAmplify.style.removeProperty('display');
+            if (btnSurprise) btnSurprise.style.removeProperty('display');
             if (translateToggle) translateToggle.classList.add('d-none'); if (resultsArea) resultsArea.classList.add('d-none');
             if (btnDirecto) {
                 btnDirecto.classList.remove('d-none'); btnDirecto.style.setProperty('display', 'inline-block', 'important');
@@ -851,10 +843,8 @@ function toggleAdetailerPuro(activo) {
                 if (inputPrompt.dataset.oldValue !== undefined) { inputPrompt.value = inputPrompt.dataset.oldValue; delete inputPrompt.dataset.oldValue; }
             }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
-            //if (btnAmplify) btnAmplify.style.setProperty('display', 'inline-block', 'important');
-			if (btnAmplify) btnAmplify.style.removeProperty('display');
-            //if (btnSurprise) btnSurprise.style.setProperty('display', 'inline-block', 'important');
-			if (btnSurprise) btnSurprise.style.removeProperty('display');
+            if (btnAmplify) btnAmplify.style.removeProperty('display');
+            if (btnSurprise) btnSurprise.style.removeProperty('display');
             if (btnDirecto) {
 				btnDirecto.style.removeProperty('display'); //AÑADIR ESTO
                 btnDirecto.innerHTML = btnDirecto.dataset.oldText || '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
@@ -1579,7 +1569,12 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
     const rembgToggle = document.getElementById('rembgToggle');
     if (rembgToggle && document.getElementById('rembgBlock').style.display !== 'none') {
         fd.append('remove_background', rembgToggle.checked);
-        const pureRembgToggle = document.getElementById('pureRembgToggle'); if (pureRembgToggle && pureRembgToggle.checked) fd.append('pure_rembg', 'true');
+        const pureRembgToggle = document.getElementById('pureRembgToggle'); 
+        if (pureRembgToggle && pureRembgToggle.checked) fd.append('pure_rembg', 'true');
+        
+        // 👇 NUEVAS LÍNEAS PARA EL MODELO 👇
+        const rModel = document.getElementById('rembg_model');
+        if (rModel) fd.append('rembg_model', rModel.value);
     }
     
     // DDColor (Coloreado Neural)
