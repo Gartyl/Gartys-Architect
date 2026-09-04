@@ -1,4 +1,4 @@
-     <div class="param-group shadow-sm border-info mb-3" id="advancedSettingsBlock" style="display: none; border-color: rgba(13, 202, 240, 0.4) !important; background: rgba(13, 202, 240, 0.05);">
+<div class="param-group shadow-sm border-info mb-3" id="advancedSettingsBlock" style="display: none; border-color: rgba(13, 202, 240, 0.4) !important; background: rgba(13, 202, 240, 0.05);">
          <div class="d-flex justify-content-between align-items-center">
              <label class="small text-info fw-bold mb-0"><i class="bi bi-sliders me-1"></i> <?= __('tit_ajus_motor') ?></label>
              <div class="d-flex align-items-center gap-3">
@@ -30,15 +30,21 @@
                      </div>
                  </div>
 
-                 <!-- NUEVO: SELECTOR DE FORMATO (AHORA EN LA PRIMERA FILA) -->
-                 <div class="col-md-2 mb-2" id="formatoImagenBlock"> <!-- Le añadimos este ID -->
-					<label class="small text-secondary fw-bold mb-1"><?= __('tit_formato') ?></label>
-					<select class="form-select form-select-sm bg-dark text-light border-secondary pref-track" id="imageFormatInput">
-						<option value="png" selected>PNG</option>
-						<option value="webp">WEBP</option>
-						<option value="jpg">JPG</option>
-					</select>
-				</div>
+                 <!-- SELECTOR DE FORMATO -->
+                 <div class="col-md-2 mb-2" id="formatoImagenBlock">
+                    <label class="small text-secondary fw-bold mb-1"><?= __('tit_formato') ?></label>
+                    <select class="form-select form-select-sm bg-dark text-light border-secondary pref-track" id="imageFormatInput">
+                        <option value="png" selected>PNG</option>
+                        <option value="webp">WEBP</option>
+                        <option value="jpg">JPG</option>
+                    </select>
+                </div>
+
+                 <!-- NUEVO: SELECTOR DE CLIP SKIP -->
+                 <div class="col-md-3 mb-2">
+                    <label class="small text-secondary fw-bold mb-1"><?= __('tit_clip_skip') ?? 'CLIP SKIP' ?></label>
+                    <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary pref-track" id="clipSkipInput" name="clip_skip" min="1" max="4" value="1" title="<?= __('msg_clip_skip_info') ?? '1 = Por defecto (SDXL/Flux). 2 = Recomendado para SD1.5 Anime.' ?>">
+                </div>
                  
                 <div class="w-100 d-none d-md-block m-0"></div>
 
@@ -164,68 +170,68 @@
                 </div>
                 <!-- FIN FILA INFERIOR -->
 
-				<div class="col-md-12 mt-2" id="videoFramesBlock" style="display:none;">
-					<div class="row g-2">
-						<div class="col-md-6">
-							<div class="d-flex align-items-center gap-2">
-								<div class="input-group input-group-sm shadow-sm flex-grow-1">
-									<span class="input-group-text bg-dark border-info text-info fw-bold" title="<?= __('vid_format_label') ?>"><i class="bi bi-aspect-ratio"></i></span>
-									<select name="video_aspect_ratio" id="video_aspect_ratio" class="form-select bg-dark text-light border-info pref-track" onchange="if(typeof sincResVid==='function') sincResVid()">
-										<option value="832x480" selected><?= __('vid_fmt_landscape') ?></option>
-										<option value="480x832"><?= __('vid_fmt_portrait') ?></option>
-										<option value="640x640"><?= __('vid_fmt_square') ?></option>
-									</select>
-								</div>
-								<div class="input-group input-group-sm shadow-sm" style="width: 140px; flex-shrink: 0;">
-									<input type="number" class="form-control bg-dark text-light border-info text-center px-1" id="vidWidth" value="832" step="16" title="<?= __('tit_ancho') ?? 'Ancho' ?>" oninput="if(typeof desmarcarPropVid==='function') desmarcarPropVid()">
-									<span class="input-group-text bg-dark border-info text-info px-1">x</span>
-									<input type="number" class="form-control bg-dark text-light border-info text-center px-1" id="vidHeight" value="480" step="16" title="<?= __('tit_alto') ?? 'Alto' ?>" oninput="if(typeof desmarcarPropVid==='function') desmarcarPropVid()">
-								</div>
-							</div>
-						</div>
+                <div class="col-md-12 mt-2" id="videoFramesBlock" style="display:none;">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="input-group input-group-sm shadow-sm flex-grow-1">
+                                    <span class="input-group-text bg-dark border-info text-info fw-bold" title="<?= __('vid_format_label') ?>"><i class="bi bi-aspect-ratio"></i></span>
+                                    <select name="video_aspect_ratio" id="video_aspect_ratio" class="form-select bg-dark text-light border-info pref-track" onchange="if(typeof sincResVid==='function') sincResVid()">
+                                        <option value="832x480" selected><?= __('vid_fmt_landscape') ?></option>
+                                        <option value="480x832"><?= __('vid_fmt_portrait') ?></option>
+                                        <option value="640x640"><?= __('vid_fmt_square') ?></option>
+                                    </select>
+                                </div>
+                                <div class="input-group input-group-sm shadow-sm" style="width: 140px; flex-shrink: 0;">
+                                    <input type="number" class="form-control bg-dark text-light border-info text-center px-1" id="vidWidth" value="832" step="16" title="<?= __('tit_ancho') ?? 'Ancho' ?>" oninput="if(typeof desmarcarPropVid==='function') desmarcarPropVid()">
+                                    <span class="input-group-text bg-dark border-info text-info px-1">x</span>
+                                    <input type="number" class="form-control bg-dark text-light border-info text-center px-1" id="vidHeight" value="480" step="16" title="<?= __('tit_alto') ?? 'Alto' ?>" oninput="if(typeof desmarcarPropVid==='function') desmarcarPropVid()">
+                                </div>
+                            </div>
+                        </div>
 
-						<div class="col-md-3">
-							<div class="input-group input-group-sm shadow-sm" title="Fotogramas por Segundo">
-								<span class="input-group-text bg-dark border-info text-info fw-bold"><i class="bi bi-film"></i> FPS</span>
-								<select id="videoFpsSelector" class="form-select bg-dark text-light border-info pref-track" onchange="recalcularTiempoVideo()">
-									<option value="8">8 (<?= __('vid_fps_8') ?? 'Stop-Motion' ?>)</option>
-									<option value="16" selected>16 (<?= __('vid_fps_16') ?? 'Fluido' ?>)</option>
-									<option value="24">24 (<?= __('vid_fps_24') ?? 'Cine' ?>)</option>
-									<option value="30">30 (<?= __('vid_fps_30') ?? 'TV' ?>)</option>
-									<option value="60">60 (<?= __('vid_fps_60') ?? 'Slow-Mo / Real' ?>)</option>
-								</select>
-							</div>
-						</div>
+                        <div class="col-md-3">
+                            <div class="input-group input-group-sm shadow-sm" title="Fotogramas por Segundo">
+                                <span class="input-group-text bg-dark border-info text-info fw-bold"><i class="bi bi-film"></i> FPS</span>
+                                <select id="videoFpsSelector" class="form-select bg-dark text-light border-info pref-track" onchange="recalcularTiempoVideo()">
+                                    <option value="8">8 (<?= __('vid_fps_8') ?? 'Stop-Motion' ?>)</option>
+                                    <option value="16" selected>16 (<?= __('vid_fps_16') ?? 'Fluido' ?>)</option>
+                                    <option value="24">24 (<?= __('vid_fps_24') ?? 'Cine' ?>)</option>
+                                    <option value="30">30 (<?= __('vid_fps_30') ?? 'TV' ?>)</option>
+                                    <option value="60">60 (<?= __('vid_fps_60') ?? 'Slow-Mo / Real' ?>)</option>
+                                </select>
+                            </div>
+                        </div>
 
-						<div class="col-md-3">
-							<div class="input-group input-group-sm shadow-sm">
-								<span class="input-group-text bg-dark border-info text-info fw-bold" title="<?= __('vid_duration_label') ?>">
-									<i class="bi bi-stopwatch"></i> <span id="videoTimeLabel" class="text-warning ms-1" style="font-size: 0.85rem;">(~2.1s)</span>
-								</span>
-								<input type="number" class="form-control bg-dark text-light border-info pref-track" id="videoFramesInput" value="33" min="16" max="960" step="1" oninput="recalcularTiempoVideo()">
-							</div>
-						</div>
-						
-						<div class="col-md-4 mt-2">
-							<div class="input-group input-group-sm shadow-sm">
-								<span class="input-group-text bg-dark border-secondary text-secondary"><i class="bi bi-file-earmark-play-fill"></i></span>
-								<select id="videoFormat" class="form-select form-select-sm bg-dark text-light border-secondary">
-									<option value="image/webp"><?= __('vid_out_webp') ?></option>
-									<option value="video/h264-mp4" selected><?= __('vid_out_mp4') ?></option>
-								</select>
-							</div>
-						</div>
+                        <div class="col-md-3">
+                            <div class="input-group input-group-sm shadow-sm">
+                                <span class="input-group-text bg-dark border-info text-info fw-bold" title="<?= __('vid_duration_label') ?>">
+                                    <i class="bi bi-stopwatch"></i> <span id="videoTimeLabel" class="text-warning ms-1" style="font-size: 0.85rem;">(~2.1s)</span>
+                                </span>
+                                <input type="number" class="form-control bg-dark text-light border-info pref-track" id="videoFramesInput" value="33" min="16" max="960" step="1" oninput="recalcularTiempoVideo()">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mt-2">
+                            <div class="input-group input-group-sm shadow-sm">
+                                <span class="input-group-text bg-dark border-secondary text-secondary"><i class="bi bi-file-earmark-play-fill"></i></span>
+                                <select id="videoFormat" class="form-select form-select-sm bg-dark text-light border-secondary">
+                                    <option value="image/webp"><?= __('vid_out_webp') ?></option>
+                                    <option value="video/h264-mp4" selected><?= __('vid_out_mp4') ?></option>
+                                </select>
+                            </div>
+                        </div>
 
-						<div class="col-md-8 mt-2 d-flex align-items-center" id="videoOptimizeBlock" style="display: none;">
-							<div class="form-check form-switch m-0">
-								<input class="form-check-input border-info" type="checkbox" id="videoOptimizeToggle" onchange="recalcularImagenVideo()">
-								<label class="form-check-label text-info fw-bold small mt-1 ms-1" for="videoOptimizeToggle">
-									<i class="bi bi-aspect-ratio"></i> <?= __('lbl_video_ajuste') ?? 'Auto-Ajustar (Letterbox)' ?>
-								</label>
-							</div>
-						</div>
-					</div>
-				</div>
+                        <div class="col-md-8 mt-2 d-flex align-items-center" id="videoOptimizeBlock" style="display: none;">
+                            <div class="form-check form-switch m-0">
+                                <input class="form-check-input border-info" type="checkbox" id="videoOptimizeToggle" onchange="recalcularImagenVideo()">
+                                <label class="form-check-label text-info fw-bold small mt-1 ms-1" for="videoOptimizeToggle">
+                                    <i class="bi bi-aspect-ratio"></i> <?= __('lbl_video_ajuste') ?? 'Auto-Ajustar (Letterbox)' ?>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
              </div>
          </div>
      </div>
