@@ -400,6 +400,7 @@ if ($action === 'generar_imagen') {
     // --- NUEVOS PARÁMETROS AVANZADOS ---
     $user_steps = isset($_POST['steps']) ? intval($_POST['steps']) : 0;
     $user_cfg = isset($_POST['cfg']) ? floatval($_POST['cfg']) : 0.0;
+	$clip_skip = isset($_POST['clip_skip']) ? intval($_POST['clip_skip']) : 1;
     $user_sampler = $_POST['sampler'] ?? "";
     $user_scheduler = $_POST['scheduler'] ?? "";
     $user_seed = isset($_POST['seed']) ? intval($_POST['seed']) : -1;
@@ -2737,7 +2738,28 @@ if ($action === 'generar_imagen') {
         $workflow["6"]["inputs"]["clip"] = [$base_clip_node, $base_clip_index];
         $workflow["7"]["inputs"]["clip"] = [$base_clip_node, $base_clip_index];
     }
+	
+	// ==============================================================================
+    // ✂️ CLIP SKIP (Aplicado de forma segura solo a arquitecturas clásicas SD1.5/SDXL)
+    // ==============================================================================
+    $is_classic_architecture = !$is_flux && !$is_chroma && !$is_sd35 && !$is_qwen && !$is_krea2 && !$is_hunyuan && !$is_hidream && !$is_anima && !$is_video_mode && !$is_zimage;
 
+    if ($clip_skip > 1 && $is_classic_architecture) {
+        $workflow["200_clip_skip"] = [
+            "inputs" => [
+                "stop_at_clip_layer" => -$clip_skip, 
+                "clip" => [$base_clip_node, $base_clip_index]
+            ],
+            "class_type" => "CLIPSetLastLayer"
+        ];
+        
+        $base_clip_node = "200_clip_skip";
+        $base_clip_index = 0;
+        
+        if (isset($workflow["6"]["inputs"]["clip"])) $workflow["6"]["inputs"]["clip"] = [$base_clip_node, $base_clip_index];
+        if (isset($workflow["7"]["inputs"]["clip"])) $workflow["7"]["inputs"]["clip"] = [$base_clip_node, $base_clip_index];
+    }
+	
     // --- FIX GUIDANCE FLUX ---
     $flux_guidance = null;
     if ($is_flux && !$is_chroma) { // CHROMA NO USA FLUX GUIDANCE, USA CFG PURO
@@ -4087,6 +4109,8 @@ if ($action === 'generar_imagen') {
     ];
 
     if ($flux_guidance !== null) $meta_json_array['Guidance (Flux)'] = $flux_guidance;
+	
+	if (isset($clip_skip) && $clip_skip > 1 && isset($is_classic_architecture) && $is_classic_architecture) $meta_json_array['CLIP Skip'] = $clip_skip;
 
     if ($sampler_denoise < 1.0 && !$is_outpainting) {
         if (!empty($mask_data_base64)) { 
@@ -4342,6 +4366,8 @@ if ($action === 'generar_imagen') {
         ];
 
         if ($flux_guidance !== null) $meta_json_array['Guidance (Flux)'] = $flux_guidance;
+		
+		if (isset($clip_skip) && $clip_skip > 1 && isset($is_classic_architecture) && $is_classic_architecture) $meta_json_array['CLIP Skip'] = $clip_skip;
 
         if ($sampler_denoise < 1.0 && !$is_outpainting) {
             if (!empty($mask_data_base64)) { 

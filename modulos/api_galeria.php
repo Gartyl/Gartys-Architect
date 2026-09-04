@@ -76,7 +76,7 @@ if ($action === 'eliminar_prompt') {
 if ($action === 'get_single_image_data') {
     $img_id = intval($_POST['img_id']);
     // Permitimos cargar el prompt si es del usuario O si está puesto como público en la Galería
-    $stmt = $pdo->prepare("SELECT modelo, metadata, descripcion_original, prompt_positivo, prompt_negativo FROM historial_prompts WHERE id = ? AND (user_id = ? OR is_public = 1)");
+    $stmt = $pdo->prepare("SELECT modelo, metadata, descripcion_original, prompt_positivo, prompt_negativo, imagen_path FROM historial_prompts WHERE id = ? AND (user_id = ? OR is_public = 1)");
     $stmt->execute([$img_id, $user_id]);
     echo json_encode($stmt->fetch(PDO::FETCH_ASSOC));
     exit();
