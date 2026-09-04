@@ -124,6 +124,8 @@ return [
     'adm_ph_tags' => "Ej: fotorealismo, anime, tipografia, logos...",
     'adm_hlp_tags' => "Palabras clave separadas por comas. El LLM leerá esto para saber cuándo debe auto-seleccionar este modelo.",
 	'err_no_graphic_models' => "No hay modelos gráficos activos en la base de datos.",
+	'tit_clip_skip' => "CLIP Skip",
+	'msg_clip_skip_info' => "1 = Por defecto (SDXL/Flux). 2 = Recomendado para SD1.5 Anime/Ilustración.",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
@@ -203,6 +205,17 @@ return [
     'txt_xat_mensaje' => "Escribe un mensaje...",
     'txt_xat_sist' => "Sistema",
 	'lbl_video_ajuste' => "Auto-Ajustar Imagen (Letterbox)",
+	'btn_batch_folder' => "Carpeta Batch",
+	'swal_batch_tit' => "Procesamiento por Lotes",
+	'swal_batch_msg' => "Vas a aplicar este estilo/modificación a <b>REPLACE_N</b> imágenes.<br><br>Esta operación en bucle puede demorarse bastante dependiendo de tu GPU. ¿Deseas continuar?",
+	'swal_batch_btn_si' => "🚀 Iniciar Lote",
+	'swal_batch_prog' => "Procesando imagen REPLACE_I de REPLACE_N...",
+	'swal_batch_done' => "Lote Completado",
+	'btn_stop_batch' => "DETENER BATCH",
+	'swal_batch_stop_tit' => "Lote Detenido",
+	'swal_batch_stop_msg' => "El procesamiento de la carpeta se detendrá tras la imagen actual.",
+	'notif_batch_done_tit' => "Lote Completado",
+	'notif_batch_done_msg' => "Todas las imágenes han sido procesadas.",
     
     // ==============================================================================
     // 04. BOTONES, CONTROLES E INTERRUPTORES

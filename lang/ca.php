@@ -124,6 +124,8 @@ return [
     'adm_ph_tags' => "Ex: fotorealisme, anime, tipografia, logos...",
     'adm_hlp_tags' => "Paraules clau separades per comes. El LLM llegirà això per saber quan ha d'auto-seleccionar aquest model.",
 	'err_no_graphic_models' => 'No hi ha models gràfics actius a la base de dades.',
+	'tit_clip_skip' => "CLIP Skip",
+	'msg_clip_skip_info' => "1 = Per defecte (SDXL/Flux). 2 = Recomanat per a SD1.5 Anime/Il·lustració.",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
@@ -203,6 +205,17 @@ return [
     'txt_xat_mensaje' => "Escriu un missatge...",
     'txt_xat_sist' => "Sistema",
 	'lbl_video_ajuste' => "Auto-Ajustar Imatge (Letterbox)",
+	'btn_batch_folder' => "Carpeta Batch",
+	'swal_batch_tit' => "Processament per Lots",
+	'swal_batch_msg' => "Aplicaràs aquest estil/modificació a <b>REPLACE_N</b> imatges.<br><br>Aquesta operació en bucle pot trigar força depenent de la teva GPU. Vols continuar?",
+	'swal_batch_btn_si' => "🚀 Iniciar Lot",
+	'swal_batch_prog' => "Processant imatge REPLACE_I de REPLACE_N...",
+	'swal_batch_done' => "Lot Completat",
+	'btn_stop_batch' => "ATURAR LOT",
+	'swal_batch_stop_tit' => "Lot Aturat",
+	'swal_batch_stop_msg' => "El processament de la carpeta s'aturarà després de la imatge actual.",
+	'notif_batch_done_tit' => "Lot Completat",
+	'notif_batch_done_msg' => "Totes les imatges han estat processades.",
     
     // ==============================================================================
     // 04. BOTONES, CONTROLES E INTERRUPTORES

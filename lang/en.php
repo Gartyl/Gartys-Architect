@@ -124,6 +124,8 @@ return [
     'adm_ph_tags' => "Ex: photorealism, anime, typography, logos...",
     'adm_hlp_tags' => "Comma-separated keywords. The LLM will read this to know when to auto-select this model.",
 	'err_no_graphic_models' => "There are no active graphic models in the database.",
+	'tit_clip_skip' => "CLIP Skip",
+	'msg_clip_skip_info' => "1 = Default (SDXL/Flux). 2 = Recommended for SD1.5 Anime/Illustration.",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
@@ -203,6 +205,17 @@ return [
     'txt_xat_mensaje' => "Write a message...",
     'txt_xat_sist' => "System",
 	'lbl_video_ajuste' => "Auto-Fit Image (Letterbox)",
+	'btn_batch_folder' => "Batch Folder",
+	'swal_batch_tit' => "Batch Processing",
+	'swal_batch_msg' => "You are about to apply this style/modification to <b>REPLACE_N</b> images.<br><br>This loop operation may take a long time depending on your GPU. Do you want to continue?",
+	'swal_batch_btn_si' => "🚀 Start Batch",
+	'swal_batch_prog' => "Processing image REPLACE_I of REPLACE_N...",
+	'swal_batch_done' => "Batch Completed",
+	'btn_stop_batch' => "STOP BATCH",
+	'swal_batch_stop_tit' => "Batch Stopped",
+	'swal_batch_stop_msg' => "Folder processing will stop after the current image.",
+	'notif_batch_done_tit' => "Batch Completed",
+	'notif_batch_done_msg' => "All images have been processed.",
     
     // ==============================================================================
     // 04. BOTONES, CONTROLES E INTERRUPTORES
