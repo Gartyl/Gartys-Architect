@@ -1403,6 +1403,22 @@ function updateUIForSelector(sel) {
         if (faceSwap && faceSwap.checked && typeof toggleFaceSwapPuro === 'function') toggleFaceSwapPuro(true);
         const aDetailer = document.getElementById('pureAdetailerToggle');
         if (aDetailer && aDetailer.checked && typeof toggleAdetailerPuro === 'function') toggleAdetailerPuro(true);
+        
+        // --- ESCUDO ANTI-SOBREESCRITURA PARA BOTONES DE PARADA ---
+        setTimeout(() => {
+            if (window.loteBatchActivo || window.bucleInfinitoActivo) {
+                const btnD = document.getElementById('gpuDirectBtn');
+                const btnA = document.getElementById('gpuArquitectoBtn');
+                const activeBtn = (btnD && !btnD.classList.contains('d-none')) ? btnD : btnA;
+                if (activeBtn) {
+                    const txt = window.loteBatchActivo 
+                        ? (typeof GartyLang !== 'undefined' && GartyLang.btn_stop_batch ? GartyLang.btn_stop_batch : 'DETENER BATCH') 
+                        : (typeof GartyLang !== 'undefined' && GartyLang.btn_stop_inf ? GartyLang.btn_stop_inf : 'DETENER BUCLE ∞');
+                    activeBtn.innerHTML = '<i class="bi bi-stop-circle-fill"></i> ' + txt;
+                    activeBtn.className = 'btn flex-grow-1 text-light fw-bold shadow btn-danger';
+                }
+            }
+        }, 50);
     }, 150);
     
     setTimeout(checkToolbarScroll, 150);
@@ -1497,6 +1513,7 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
     if (document.getElementById('advancedSettingsBlock') && document.getElementById('advancedSettingsBlock').style.display !== 'none') {
         if(document.getElementById('stepsInput')) fd.append('steps', document.getElementById('stepsInput').value);
         if(document.getElementById('cfgInput')) fd.append('cfg', document.getElementById('cfgInput').value);
+		if(document.getElementById('clipSkipInput')) fd.append('clip_skip', document.getElementById('clipSkipInput').value);
         if(document.getElementById('shiftInput')) fd.append('flow_shift', document.getElementById('shiftInput').value); // <-- NUEVO
         if(document.getElementById('samplerInput')) fd.append('sampler', document.getElementById('samplerInput').value);
         if(document.getElementById('schedulerInput')) fd.append('scheduler', document.getElementById('schedulerInput').value);
@@ -2056,8 +2073,16 @@ document.getElementById('promptForm').onsubmit = async (e) => {
         return;
     }
     // ------------------------------------------------
+    const currentModelCheck = document.getElementById('modelSelector') ? document.getElementById('modelSelector').value : "";
+    let limpiarPanel = false;
+    
+    // Limpiamos si es la 1ª foto de un Batch, o si el usuario ha cambiado de modelo (checkpoint)
+    if (window.loteBatchActivo && window.loteIndiceActual === 1) limpiarPanel = true;
+    else if (!window.loteBatchActivo && window.ultimoModeloGenerado !== currentModelCheck) limpiarPanel = true;
 
-    if (selValue !== '[CHAT]') clearResultsUI(); 
+    if (selValue !== '[CHAT]' && limpiarPanel) {
+        clearResultsUI(); 
+    }
     document.getElementById('submitBtn').disabled = true;
 
     const fd = new FormData(); fd.append('selector', selValue); fd.append('descripcion', idea);
@@ -2466,13 +2491,18 @@ async function runGpu(mode = 'directo') {
         // 2. Si la caja de imagen está vacía, no es modo puro, y TAMPOCO hay audio -> Error
         if (!ideaInicial && !isPureMode && !panelAudioActivo) { 
             showError(GartyLang.avis_gengpu1); 
+            if (window.loteBatchActivo && typeof window.detenerLoteBatch === 'function') window.detenerLoteBatch();
             return; 
         }
-        buttonUsed.disabled = true;
+        
+        // CORRECCIÓN: No deshabilitamos el botón si estamos en Batch o Bucle (para poder pararlo)
+        if (!window.bucleInfinitoActivo && !window.loteBatchActivo) {
+            buttonUsed.disabled = true;
+        }
         
         if (autoTranslate) {
             const originalTextBtn = buttonUsed.innerHTML;
-            buttonUsed.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> ${GartyLang.gpu_msg_translating || 'Traduciendo...'}`;
+            if (!window.bucleInfinitoActivo && !window.loteBatchActivo) buttonUsed.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> ${GartyLang.gpu_msg_translating || 'Traduciendo...'}`;
             try {
                 const fdTrad = new FormData(); fdTrad.append('action', 'traducir_rapido'); fdTrad.append('texto', ideaInicial);
                 const llmSel = document.getElementById('llmModelSelector'); if (llmSel && llmSel.value) fdTrad.append('llm_model', llmSel.value);
@@ -2483,7 +2513,7 @@ async function runGpu(mode = 'directo') {
                     if (dataTrad.traduccion && dataTrad.traduccion.trim() !== '') finalPrompt = dataTrad.traduccion; else finalPrompt = ideaInicial;
                 } catch(eJson) { console.error(GartyLang.log_err_trans_invalid, textTrad); finalPrompt = ideaInicial; }
             } catch (e) { console.error(GartyLang.log_err_trans_net, e); finalPrompt = ideaInicial; }
-            buttonUsed.innerHTML = originalTextBtn;
+            if (!window.bucleInfinitoActivo && !window.loteBatchActivo) buttonUsed.innerHTML = originalTextBtn;
         } else { 
             finalPrompt = ideaInicial; 
         }
@@ -2496,7 +2526,11 @@ async function runGpu(mode = 'directo') {
         // Ejecución de "Arquitecto" o "Modo Directo Manual" (Leemos de las cajas)
         finalPrompt = document.getElementById('posContent').innerText.trim();
         finalNegPrompt = document.getElementById('negContent') ? document.getElementById('negContent').innerText.trim() : "";
-        if (!finalPrompt && !isPureMode) { showError(GartyLang.avis_no_prompt_arq || "Por favor, introduce un prompt."); return; }
+        if (!finalPrompt && !isPureMode) { 
+            showError(GartyLang.avis_no_prompt_arq || "Por favor, introduce un prompt."); 
+            if (window.loteBatchActivo && typeof window.detenerLoteBatch === 'function') window.detenerLoteBatch();
+            return; 
+        }
         
         // --- SOLUCIÓN: Si estamos en Modo Directo manual, aplicamos los presets a lo introducido en las cajas ---
         if (isModoDirecto) {
@@ -2505,19 +2539,43 @@ async function runGpu(mode = 'directo') {
             finalNegPrompt = applied.neg;
         }
 
-        buttonUsed.disabled = true;
+        // CORRECCIÓN: No deshabilitar en lote/bucle
+        if (!window.bucleInfinitoActivo && !window.loteBatchActivo) {
+            buttonUsed.disabled = true;
+        }
     }
     
     const isReactorOn = document.getElementById('reactorToggle') && document.getElementById('reactorToggle').checked;
     const reacSavedSel = document.getElementById('reactorSavedFaces');
-    if (isReactorOn && (!reacSavedSel || reacSavedSel.value === "") && (!currentFaceBase64 || currentFaceBase64.indexOf(',') === -1)) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_reactor_title, text: GartyLang.swal_reactor_text}); buttonUsed.disabled = false; return; }
-    	
-	const isIpAdapterOn = document.getElementById('ipAdapterToggle') && document.getElementById('ipAdapterToggle').checked;
-    if (isIpAdapterOn && (!window.currentIpAdapterImages || window.currentIpAdapterImages.length === 0)) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_ip_title, text: GartyLang.swal_ip_text}); buttonUsed.disabled = false; return; }
+    if (isReactorOn && (!reacSavedSel || reacSavedSel.value === "") && (!currentFaceBase64 || currentFaceBase64.indexOf(',') === -1)) { 
+        SwalDark.fire({icon: 'warning', title: GartyLang.swal_reactor_title, text: GartyLang.swal_reactor_text}); 
+        if (!window.bucleInfinitoActivo && !window.loteBatchActivo) buttonUsed.disabled = false; 
+        if (window.loteBatchActivo) window.detenerLoteBatch();
+        return; 
+    }
+        
+    const isIpAdapterOn = document.getElementById('ipAdapterToggle') && document.getElementById('ipAdapterToggle').checked;
+    if (isIpAdapterOn && (!window.currentIpAdapterImages || window.currentIpAdapterImages.length === 0)) { 
+        SwalDark.fire({icon: 'warning', title: GartyLang.swal_ip_title, text: GartyLang.swal_ip_text}); 
+        if (!window.bucleInfinitoActivo && !window.loteBatchActivo) buttonUsed.disabled = false; 
+        if (window.loteBatchActivo) window.detenerLoteBatch();
+        return; 
+    }
     
     const isControlNetOn = document.getElementById('controlNetToggle') && document.getElementById('controlNetToggle').checked;
-    if (isControlNetOn && (!currentCnBase64 || currentCnBase64.indexOf(',') === -1)) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_cn_title, text: GartyLang.swal_cn_text}); buttonUsed.disabled = false; return; }
-    if (isPureMode && !currentImageBase64) { SwalDark.fire({icon: 'warning', title: GartyLang.swal_pure_title, text: GartyLang.swal_pure_text}); buttonUsed.disabled = false; return; }
+    if (isControlNetOn && (!currentCnBase64 || currentCnBase64.indexOf(',') === -1)) { 
+        SwalDark.fire({icon: 'warning', title: GartyLang.swal_cn_title, text: GartyLang.swal_cn_text}); 
+        if (!window.bucleInfinitoActivo && !window.loteBatchActivo) buttonUsed.disabled = false; 
+        if (window.loteBatchActivo) window.detenerLoteBatch();
+        return; 
+    }
+    
+    // Si es Modo Lote, saltamos esta validación porque la imagen base64 tarda unos milisegundos en asentarse
+    if (isPureMode && !currentImageBase64 && !window.loteBatchActivo) { 
+        SwalDark.fire({icon: 'warning', title: GartyLang.swal_pure_title, text: GartyLang.swal_pure_text}); 
+        if (!window.bucleInfinitoActivo && !window.loteBatchActivo) buttonUsed.disabled = false; 
+        return; 
+    }
 
     // --- NUEVO: INTERCEPCIÓN DEL MÓDULO DE AUDIO PRO ---
     // Llamamos a la función de audio.js (si existe) para obtener la configuración
@@ -2534,14 +2592,34 @@ async function runGpu(mode = 'directo') {
     // ---------------------------------------------------- 
 
     const originalBtnText = buttonUsed.innerHTML;
-    buttonUsed.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> ${GartyLang.gpu_sending_spinner || 'Enviando...'}`;
-
-    resDiv.innerHTML = '';
-
-    // ARREGLO: Solo ocultamos el bloque si NO estamos en el nuevo Modo Directo
-    if (mode === 'directo' && resultsArea && !isModoDirecto) { 
-        resultsArea.classList.add('d-none'); 
+    if (!window.bucleInfinitoActivo && !window.loteBatchActivo) {
+        buttonUsed.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> ${GartyLang.gpu_sending_spinner || 'Enviando...'}`;
+    } else {
+        // Blindaje absoluto: Si estamos en bucle o batch, forzamos su identidad aquí y ahora.
+        const txtParada = window.loteBatchActivo 
+            ? (typeof GartyLang !== 'undefined' && GartyLang.btn_stop_batch ? GartyLang.btn_stop_batch : 'DETENER BATCH') 
+            : (typeof GartyLang !== 'undefined' && GartyLang.btn_stop_inf ? GartyLang.btn_stop_inf : 'DETENER BUCLE ∞');
+        buttonUsed.innerHTML = '<i class="bi bi-stop-circle-fill"></i> ' + txtParada;
+        buttonUsed.className = 'btn flex-grow-1 text-light fw-bold shadow btn-danger';
+        buttonUsed.disabled = false;
     }
+
+    const currentModelCheck = document.getElementById('modelSelector') ? document.getElementById('modelSelector').value : "";
+    let limpiarPanel = false;
+    
+    // Limpiamos si es la 1ª foto de un Batch, o si el usuario ha cambiado de modelo (checkpoint)
+    if (window.loteBatchActivo && window.loteIndiceActual === 1) limpiarPanel = true;
+    else if (!window.loteBatchActivo && window.ultimoModeloGenerado !== currentModelCheck) limpiarPanel = true;
+
+    if (limpiarPanel) {
+        resDiv.innerHTML = '';
+        if (mode === 'directo' && resultsArea && !isModoDirecto) { 
+            resultsArea.classList.add('d-none'); 
+        }
+    }
+    
+    // Guardamos el modelo actual en la memoria para la siguiente generación
+    window.ultimoModeloGenerado = currentModelCheck;
     
     if (typeof startProgressBar === 'function') startProgressBar(20); 
     
@@ -2670,7 +2748,12 @@ async function runGpu(mode = 'directo') {
         
         if (data.status === 'ticket_issued' && data.prompt_id) {
             currentPromptId = data.historial_id || currentPromptId; 
-            buttonUsed.innerText = GartyLang.btn_procesando;
+            
+            // --- ESCUDO: No reescribir el botón si estamos en Batch o Bucle ---
+            if (!window.bucleInfinitoActivo && !window.loteBatchActivo) {
+                buttonUsed.innerText = typeof GartyLang !== 'undefined' && GartyLang.btn_procesando ? GartyLang.btn_procesando : 'Procesando...';
+            }
+            
             localStorage.setItem('garty_tarea_pendiente', JSON.stringify({ prompt_id: data.prompt_id, db_id: currentPromptId, categoria: originalCategory }));
             iniciarRadarGpu(data.prompt_id, resDiv, buttonUsed, currentPromptId, originalCategory); 
         } else {
@@ -2693,24 +2776,25 @@ window.configBucleInfinito = null;
 window.restaurarBotonesGpu = function() {
     window.bucleInfinitoActivo = false;
     window.configBucleInfinito = null;
+    window.loteBatchActivo = false;
 
     const btnDirecto = document.getElementById('gpuDirectBtn');
     if (btnDirecto) {
-		btnDirecto.style.removeProperty('display'); // <--- AÑADIR ESTO
-        btnDirecto.innerHTML = '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
-        btnDirecto.classList.remove('btn-danger', 'btn-warning'); // Limpiamos rojo (LaMa) y naranja (IC-Light)
+        btnDirecto.style.removeProperty('display');
+        btnDirecto.innerHTML = '<i class="bi bi-lightning-fill"></i> ' + (typeof GartyLang !== 'undefined' && GartyLang.btn_renderizar ? GartyLang.btn_renderizar : 'Renderizar');
+        btnDirecto.classList.remove('btn-danger', 'btn-warning'); 
         btnDirecto.classList.add('btn-gpu');
         btnDirecto.disabled = false;
-        btnDirecto.onclick = () => runGpu('directo');
+        btnDirecto.onclick = () => { if (typeof runGpu === 'function') runGpu('directo'); };
     }
 
     const btnArq = document.getElementById('gpuArquitectoBtn');
     if (btnArq) {
-        btnArq.innerHTML = '<i class="bi bi-gpu-card"></i> ' + GartyLang.btn_rendprompt;
+        btnArq.innerHTML = '<i class="bi bi-gpu-card"></i> ' + (typeof GartyLang !== 'undefined' && GartyLang.btn_rendprompt ? GartyLang.btn_rendprompt : 'Arquitecto');
         btnArq.classList.remove('btn-danger', 'btn-warning');
         btnArq.classList.add('btn-gpu');
         btnArq.disabled = false;
-        btnArq.onclick = () => runGpu('arquitecto');
+        btnArq.onclick = () => { if (typeof runGpu === 'function') runGpu('arquitecto'); };
     }
 
     const selectorEl = document.getElementById('selector');
@@ -2718,18 +2802,17 @@ window.restaurarBotonesGpu = function() {
         updateUIForSelector(selectorEl.value);
     }
 
-    // --- NUEVO: SI LAMA ESTÁ ACTIVADO, RESTAURAMOS SU BOTÓN ROJO ---
-    const isLama = document.getElementById('toggleLamaMode') && document.getElementById('toggleLamaMode').checked;
-    if (isLama && typeof toggleLamaUI === 'function') {
+    // SI LAMA ESTÁ ACTIVADO, RESTAURAMOS SU BOTÓN ROJO
+    const toggleLama = document.getElementById('toggleLamaMode');
+    if (toggleLama && toggleLama.checked && typeof toggleLamaUI === 'function') {
         toggleLamaUI(true);
     }
 
-    // --- NUEVO: SI IC-LIGHT ESTÁ ACTIVADO, RESTAURAMOS SU BOTÓN NARANJA ---
-    const isIcLight = document.getElementById('iclight_enabled') && document.getElementById('iclight_enabled').checked;
-    if (isIcLight && typeof toggleIcLightUI === 'function') {
+    // SI IC-LIGHT ESTÁ ACTIVADO, RESTAURAMOS SU BOTÓN NARANJA
+    const toggleIcLight = document.getElementById('iclight_enabled');
+    if (toggleIcLight && toggleIcLight.checked && typeof toggleIcLightUI === 'function') {
         toggleIcLightUI();
     }
-    // ---------------------------------------------------------------
 };
 
 // --- DETENER BUCLE INFINITO (Suave - Deja terminar lo que está en la VRAM) ---
@@ -2808,7 +2891,7 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
     const pText = document.getElementById('progressText');
     if(pText) pText.innerHTML = `<span style="color: #0dcaf0 !important; font-weight: bold;">${GartyLang.radar_msg_rendering} (${promptId})</span>`;
 
-    let intentosRadar = 0; const maxIntentos = 1500; // 1500 intentos * 3seg = 75 minutos 
+    let intentosRadar = 0; const maxIntentos = 1500; 
     
     window.activeRadars = window.activeRadars || {};
     if (window.activeRadars[promptId]) clearInterval(window.activeRadars[promptId]);
@@ -2821,7 +2904,7 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
             if (Object.keys(window.activeRadars).length === 0) {
                 if (typeof stopProgressBar === 'function') stopProgressBar();
                 localStorage.removeItem('garty_tarea_pendiente');
-                if (btnElement && !window.bucleInfinitoActivo) {
+                if (btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
                     btnElement.innerHTML = `<i class="bi bi-clock-history"></i> ${GartyLang.radar_btn_timeout}`; btnElement.classList.replace('btn-primary', 'btn-danger');
                     setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.classList.replace('btn-danger', 'btn-primary'); btnElement.disabled = false; }, 4000);
                 }
@@ -2831,8 +2914,8 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
         }
 
         let fd = new FormData(); fd.append('action', 'check_ticket'); fd.append('prompt_id', promptId); fd.append('historial_id', dbId || 0);
-		const formatInput = document.getElementById('imageFormatInput');
-		if (formatInput) fd.append('image_format', formatInput.value);
+        const formatInput = document.getElementById('imageFormatInput');
+        if (formatInput) fd.append('image_format', formatInput.value);
 
         try {
             let res = await fetch('procesar.php', { method: 'POST', body: fd }); let data = await res.json();
@@ -2841,7 +2924,7 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
                 if (Object.keys(window.activeRadars).length === 0) {
                     if (typeof stopProgressBar === 'function') stopProgressBar();
                     localStorage.removeItem('garty_tarea_pendiente');
-                    if (btnElement && !window.bucleInfinitoActivo) {
+                    if (btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
                         btnElement.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${GartyLang.radar_btn_gpu_fail}`; btnElement.classList.replace('btn-primary', 'btn-danger');
                         setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.classList.replace('btn-danger', 'btn-primary'); btnElement.disabled = false; }, 4000);
                     }
@@ -2853,33 +2936,33 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
             if (data.status === 'completed') {
                 if (window.activeRadars[promptId]) { clearInterval(window.activeRadars[promptId]); delete window.activeRadars[promptId]; }
                 
+                // DISPARADORES DE CADENA
                 if (window.bucleInfinitoActivo && typeof window.dispararTareaInfinita === 'function') {
                     window.dispararTareaInfinita();
+                } else if (window.loteBatchActivo && typeof window.siguienteTareaBatch === 'function') {
+                    // Solo disparamos si queda lote por delante
+                    setTimeout(window.siguienteTareaBatch, 1500); 
                 }
 
-                // Detector universal de salidas: soporta imágenes, audios o archivos genéricos
                 const salidas = data.images || data.audios || data.files || [];
                 if (salidas.length > 0) {
                     const currentCategory = document.getElementById('selector').value; let htmlElements = '';
                     salidas.forEach(img => {
                         const isChatMode = (originalCategory === '[CHAT]');
-						htmlElements += construirTarjetaImagen(img, dbId, isChatMode, false);
+                        htmlElements += construirTarjetaImagen(img, dbId, isChatMode, false);
                     });
 
-                    // Permitir renderizado en la categoría actual o en [AUDIO]
-						if (currentCategory === originalCategory || originalCategory === '[AUDIO]') {
-							if (targetDiv) {
-								// Buscamos si ya existe la cuadrícula; si no, la creamos vacía
-								let rowContainer = targetDiv.querySelector('.row.g-3');
-								if (!rowContainer) {
-									targetDiv.innerHTML = '<div class="row g-3"></div>';
-									rowContainer = targetDiv.querySelector('.row.g-3');
-								}
-								// Añadimos las nuevas imágenes al final sin borrar las anteriores
-								rowContainer.insertAdjacentHTML('beforeend', htmlElements);
-							}
-							const gpuArea = document.getElementById('gpuActionArea'); if (gpuArea) gpuArea.classList.remove('d-none');
-						} else {
+                    if (currentCategory === originalCategory || originalCategory === '[AUDIO]') {
+                        if (targetDiv) {
+                            let rowContainer = targetDiv.querySelector('.row.g-3');
+                            if (!rowContainer) {
+                                targetDiv.innerHTML = '<div class="row g-3"></div>';
+                                rowContainer = targetDiv.querySelector('.row.g-3');
+                            }
+                            rowContainer.insertAdjacentHTML('beforeend', htmlElements);
+                        }
+                        const gpuArea = document.getElementById('gpuActionArea'); if (gpuArea) gpuArea.classList.remove('d-none');
+                    } else {
                         let asyncGallery = document.getElementById('asyncGallery');
                         if (!asyncGallery) {
                             asyncGallery = document.createElement('div'); asyncGallery.id = 'asyncGallery';
@@ -2896,10 +2979,9 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
                         asyncGallery.innerHTML = galleryHtml + asyncGallery.innerHTML;
                     }
                     
-                    // CORRECCIÓN 1: Usar salidas[0] en lugar del hardcodeado data.images[0]
                     if (document.hidden) {
-                        if (typeof tocarCampana === 'function') tocarCampana();
-                        if (typeof avisarAlSistema === 'function') avisarAlSistema(GartyLang.notif_gpu_free_title || "¡GPU Liberada!", GartyLang.notif_gpu_free_text || "Tu tarea ha terminado.", salidas[0]);
+                        if (!window.loteBatchActivo && typeof tocarCampana === 'function') tocarCampana();
+                        if (!window.loteBatchActivo && typeof avisarAlSistema === 'function') avisarAlSistema(GartyLang.notif_gpu_free_title || "¡GPU Liberada!", GartyLang.notif_gpu_free_text || "Tu tarea ha terminado.", salidas[0]);
                     }
 
                     let toastContainer = document.getElementById('gpuToastContainer');
@@ -2909,7 +2991,6 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
                         document.body.appendChild(toastContainer);
                     }
 
-                    // CORRECCIÓN 2: Blindaje contra objetos y audios en la notificación Toast
                     let imgDataToast = salidas[0]; let toastMediaHtml = '';
                     if (typeof imgDataToast === 'object' && imgDataToast !== null) {
                         imgDataToast = imgDataToast.imagen_path || imgDataToast.filename || JSON.stringify(imgDataToast);
@@ -2950,17 +3031,17 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
                     if (pendientes === 0) {
                         if (typeof stopProgressBar === 'function') stopProgressBar();
                         localStorage.removeItem('garty_tarea_pendiente');
-                        if (btnElement && !window.bucleInfinitoActivo) {
+                        if (btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
                             btnElement.innerText = GartyLang.radar_btn_completed;
                             setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.disabled = false; }, 3000);
                         }
                     } else {
-                        if (btnElement && !window.bucleInfinitoActivo) {
+                        if (btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
                             btnElement.innerText = `${GartyLang.btn_procesando} (quedan ${pendientes})...`;
                         }
                     }
                 } else {
-                    if (btnElement && data.status !== 'processing' && !window.bucleInfinitoActivo) {
+                    if (btnElement && data.status !== 'processing' && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
                         btnElement.innerHTML = '<i class="bi bi-exclamation-triangle"></i> ' + GartyLang.btn_gpu_free_no_images;
                         btnElement.classList.replace('btn-primary', 'btn-danger');
                         setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.classList.replace('btn-danger', 'btn-primary'); btnElement.disabled = false; }, 4000);
@@ -2973,7 +3054,7 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
             if (Object.keys(window.activeRadars).length === 0) {
                 if (typeof stopProgressBar === 'function') stopProgressBar();
                 localStorage.removeItem('garty_tarea_pendiente');
-                if (btnElement && !window.bucleInfinitoActivo) {
+                if (btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
                     btnElement.innerHTML = `<i class="bi bi-wifi-off"></i> ${GartyLang.radar_btn_conn_err}`; btnElement.classList.replace('btn-primary', 'btn-danger');
                     setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.classList.replace('btn-danger', 'btn-primary'); btnElement.disabled = false; }, 4000);
                 }
@@ -3794,3 +3875,146 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// ==============================================================================
+// --- LÓGICA DE CARPETA BATCH (PROCESAMIENTO SECUENCIAL IMG2IMG) ---
+// ==============================================================================
+window.loteBatchActivo = false;
+window.loteArchivos = [];
+window.loteIndiceActual = 0;
+
+document.addEventListener('DOMContentLoaded', () => {
+    const batchInput = document.getElementById('batchFolderInput');
+    if (batchInput) {
+        batchInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+            if (files.length === 0) return;
+
+            // --- 1. VALIDACIÓN PREVIA (Escudo anti-atascos) ---
+            const ideaInicial = document.getElementById('descripcion') ? document.getElementById('descripcion').value.trim() : '';
+            const finalPrompt = document.getElementById('posContent') ? document.getElementById('posContent').innerText.trim() : '';
+            const isModoDirecto = document.getElementById('modoDirectoToggle') && document.getElementById('modoDirectoToggle').checked;
+            
+            const isPureMode = (document.getElementById('pureFaceSwapToggle') && document.getElementById('pureFaceSwapToggle').checked) || 
+                               (document.getElementById('pureRembgToggle') && document.getElementById('pureRembgToggle').checked) ||
+                               (document.getElementById('pureAdetailerToggle') && document.getElementById('pureAdetailerToggle').checked) ||
+                               (document.getElementById('pureDDColorToggle') && document.getElementById('pureDDColorToggle').checked) ||
+                               (document.getElementById('toggleLamaMode') && document.getElementById('toggleLamaMode').checked) ||
+                               (document.getElementById('iclight_enabled') && document.getElementById('iclight_enabled').checked) ||
+                               (document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked && ideaInicial === '');
+            
+            const panelAudioActivo = document.getElementById('audioToggle') && document.getElementById('audioToggle').checked;
+
+            if (!isPureMode && !panelAudioActivo) {
+                if (!isModoDirecto && !ideaInicial) {
+                    if (typeof showError === 'function') showError(typeof GartyLang !== 'undefined' ? GartyLang.avis_gengpu1 : 'Indica una idea primero.');
+                    batchInput.value = "";
+                    return;
+                } else if (isModoDirecto && !finalPrompt) {
+                    if (typeof showError === 'function') showError(typeof GartyLang !== 'undefined' ? GartyLang.avis_no_prompt_arq : 'Por favor, introduce un prompt.');
+                    batchInput.value = "";
+                    return;
+                }
+            }
+            // ----------------------------------------------------
+
+            let msg = (typeof GartyLang !== 'undefined' && GartyLang.swal_batch_msg) 
+                ? GartyLang.swal_batch_msg 
+                : "Vas a aplicar este estilo/modificación a <b>REPLACE_N</b> imágenes.<br><br>Esta operación en bucle puede demorarse bastante. ¿Deseas continuar?";
+            msg = msg.replace('REPLACE_N', files.length);
+
+            const result = await SwalDark.fire({
+                title: (typeof GartyLang !== 'undefined' && GartyLang.swal_batch_tit) ? GartyLang.swal_batch_tit : "Procesamiento por Lotes",
+                html: msg,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#2ea043',
+                confirmButtonText: (typeof GartyLang !== 'undefined' && GartyLang.swal_batch_btn_si) ? GartyLang.swal_batch_btn_si : "🚀 Iniciar Lote",
+                cancelButtonText: (typeof GartyLang !== 'undefined' && GartyLang.btn_cancelar) ? GartyLang.btn_cancelar : "Cancelar"
+            });
+
+            if (result.isConfirmed) {
+                window.loteBatchActivo = true;
+                window.loteArchivos = files;
+                window.loteIndiceActual = 0;
+                
+                // Mimetizamos el botón en línea del Bucle Infinito
+                const btnDirecto = document.getElementById('gpuDirectBtn');
+                const btnArq = document.getElementById('gpuArquitectoBtn');
+                const activeBtn = (btnDirecto && !btnDirecto.classList.contains('d-none')) ? btnDirecto : btnArq;
+                
+                if (activeBtn) {
+                    activeBtn.innerHTML = '<i class="bi bi-stop-circle-fill"></i> ' + (typeof GartyLang !== 'undefined' && GartyLang.btn_stop_batch ? GartyLang.btn_stop_batch : 'DETENER BATCH');
+                    activeBtn.classList.replace('btn-gpu', 'btn-danger');
+                    activeBtn.classList.replace('btn-primary', 'btn-danger');
+                    activeBtn.classList.replace('btn-success', 'btn-danger');
+                    activeBtn.classList.replace('btn-warning', 'btn-danger');
+                    activeBtn.disabled = false;
+                    activeBtn.onclick = window.detenerLoteBatch;
+                }
+
+                window.siguienteTareaBatch();
+            }
+            batchInput.value = "";
+        });
+    }
+});
+
+window.detenerLoteBatch = function() {
+    window.loteBatchActivo = false;
+    window.restaurarBotonesGpu();
+    const tit = typeof GartyLang !== 'undefined' && GartyLang.swal_batch_stop_tit ? GartyLang.swal_batch_stop_tit : 'Lote Detenido';
+    const msg = typeof GartyLang !== 'undefined' && GartyLang.swal_batch_stop_msg ? GartyLang.swal_batch_stop_msg : 'El procesamiento de la carpeta se detendrá tras la imagen actual.';
+    SwalDark.fire({ icon: 'info', title: tit, text: msg });
+};
+
+window.siguienteTareaBatch = function() {
+    if (!window.loteBatchActivo) return;
+
+    if (window.loteIndiceActual >= window.loteArchivos.length) {
+        window.loteBatchActivo = false;
+        window.restaurarBotonesGpu();
+        
+        // ¡Campana y aviso final única y exclusivamente aquí!
+        if (typeof tocarCampana === 'function') tocarCampana();
+        if (document.hidden && typeof avisarAlSistema === 'function') {
+            const titDone = typeof GartyLang !== 'undefined' && GartyLang.notif_batch_done_tit ? GartyLang.notif_batch_done_tit : "Lote Completado";
+            const msgDone = typeof GartyLang !== 'undefined' && GartyLang.notif_batch_done_msg ? GartyLang.notif_batch_done_msg : "Todas las imágenes han sido procesadas.";
+            avisarAlSistema(titDone, msgDone);
+        }
+        
+        SwalDark.fire({ 
+            icon: 'success', 
+            title: (typeof GartyLang !== 'undefined' && GartyLang.swal_batch_done) ? GartyLang.swal_batch_done : "Lote Completado", 
+            timer: 4000 
+        });
+        return;
+    }
+
+    const file = window.loteArchivos[window.loteIndiceActual];
+    
+    let progMsg = (typeof GartyLang !== 'undefined' && GartyLang.swal_batch_prog) ? GartyLang.swal_batch_prog : "Procesando imagen REPLACE_I de REPLACE_N...";
+    progMsg = progMsg.replace('REPLACE_I', window.loteIndiceActual + 1).replace('REPLACE_N', window.loteArchivos.length);
+    
+    SwalDark.fire({ title: progMsg, toast: true, position: 'top-end', showConfirmButton: false, timer: 2500, icon: 'info' });
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        setBaseImageFromDataUrl(e.target.result, file.name);
+        await new Promise(r => setTimeout(r, 2500));
+        if (!window.loteBatchActivo) return;
+        
+        window.loteIndiceActual++;
+
+        // En lugar de hacer clic en el botón (que ahora es el de Parada), enviamos la orden directa
+        const gpuBtn = document.getElementById('gpuDirectBtn');
+        const arqBtn = document.getElementById('gpuArquitectoBtn');
+        
+        if (gpuBtn && !gpuBtn.classList.contains('d-none')) {
+            if (typeof runGpu === 'function') runGpu('directo');
+        } else if (arqBtn && !arqBtn.classList.contains('d-none')) {
+            if (typeof runGpu === 'function') runGpu('arquitecto');
+        }
+    };
+    reader.readAsDataURL(file);
+};
