@@ -1207,6 +1207,7 @@ return [
     'err_vision_verify' => "Verify that the model supports images.",
     'err_vision_fallback' => "If you sent a photo, it is highly likely that this model does not have a Vision module.",
 	'err_foley_no_video' => "Hunyuan Foley needs you to load a video in the main viewer to synchronize the sound.",
+	'err_pure_mode_refiner' => "To use Pure Mode with Krea-2 or Flux, assign an SD1.5 or SDXL model in the 'sys_refiner' category.",
 
     // ==============================================================================
     // 13. LOGS DE CONSOLA (log_)
