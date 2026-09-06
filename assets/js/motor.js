@@ -1310,11 +1310,14 @@ function updateUIForSelector(sel) {
     
     const advBlock = document.getElementById('advancedSettingsBlock');
     if (advBlock) {
-        const framesBlock = document.getElementById('videoFramesBlock'); if (framesBlock) framesBlock.style.display = (sel === '[VIDEO]') ? 'block' : 'none';
+        const framesBlock = document.getElementById('videoFramesBlock'); 
+        if (framesBlock) framesBlock.style.display = (sel === '[VIDEO]') ? 'block' : 'none';
+        
         if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]'].includes(sel) && isAvanzado) {
-            advBlock.style.display = 'block'; const cfgLabel = document.getElementById('cfgLabel');
-            if (cfgLabel) cfgLabel.innerText = (sel === '[NATURAL_IMAGE]') ? "GUIDANCE / CFG" : "CFG SCALE";
-        } else advBlock.style.display = 'none';
+            advBlock.style.display = 'block'; 
+        } else {
+            advBlock.style.display = 'none';
+        }
     }
 
     const imgPreviewContainer = document.getElementById('imgPreviewContainer');
@@ -1514,15 +1517,19 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
     if (document.getElementById('advancedSettingsBlock') && document.getElementById('advancedSettingsBlock').style.display !== 'none') {
         if(document.getElementById('stepsInput')) fd.append('steps', document.getElementById('stepsInput').value);
         if(document.getElementById('cfgInput')) fd.append('cfg', document.getElementById('cfgInput').value);
-		if(document.getElementById('clipSkipInput')) fd.append('clip_skip', document.getElementById('clipSkipInput').value);
-        if(document.getElementById('shiftInput')) fd.append('flow_shift', document.getElementById('shiftInput').value); // <-- NUEVO
+        
+        // 👇 NUEVO: Capturar el Guidance exclusivo de Flux
+        if(document.getElementById('fluxGuidanceInput')) fd.append('flux_guidance', document.getElementById('fluxGuidanceInput').value);
+        // ---------------------------------------------------------------
+
+        if(document.getElementById('clipSkipInput')) fd.append('clip_skip', document.getElementById('clipSkipInput').value);
+        if(document.getElementById('shiftInput')) fd.append('flow_shift', document.getElementById('shiftInput').value);
         if(document.getElementById('samplerInput')) fd.append('sampler', document.getElementById('samplerInput').value);
         if(document.getElementById('schedulerInput')) fd.append('scheduler', document.getElementById('schedulerInput').value);
         if(document.getElementById('seedInput')) fd.append('seed', document.getElementById('seedInput').value);
         
-        // 👇 NUEVO: Capturar el formato de imagen elegido (PNG, WEBP, JPG)
+        // Capturar el formato de imagen elegido (PNG, WEBP, JPG)
         if(document.getElementById('imageFormatInput')) fd.append('image_format', document.getElementById('imageFormatInput').value);
-        // ---------------------------------------------------------------
 
         if(document.getElementById('dynThreshToggle')) fd.append('dynamic_thresholding', document.getElementById('dynThreshToggle').checked);
         if(document.getElementById('videoFramesInput')) fd.append('video_frames', document.getElementById('videoFramesInput').value);        
