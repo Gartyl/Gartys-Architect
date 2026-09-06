@@ -16,9 +16,18 @@
                      <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary pref-track" id="stepsInput" value="30" min="1" max="150">
                  </div>
                 
-                 <div class="col-md-2 mb-2">
-                     <label class="small text-secondary fw-bold mb-1" id="cfgLabel">CFG SCALE</label>
-                     <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary pref-track" id="cfgInput" value="5.0" min="0.1" max="99.9" step="0.1">
+                 <!-- BLOQUE DIVIDIDO: CFG y GUIDANCE -->
+                 <div class="col-md-3 mb-2">
+                     <div class="row g-1">
+                         <div class="col-6">
+                             <label class="small text-secondary fw-bold mb-1" id="cfgLabel">CFG</label>
+                             <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary pref-track" id="cfgInput" value="5.0" min="0.1" max="99.9" step="0.1" title="CFG Scale (SD/SDXL/Cascada)">
+                         </div>
+                         <div class="col-6">
+                             <label class="small text-info fw-bold mb-1" title="Flux Guidance">GUIDANCE</label>
+                             <input type="number" class="form-control form-control-sm bg-dark text-info border-info pref-track" id="fluxGuidanceInput" value="3.5" min="0.1" max="50.0" step="0.1">
+                         </div>
+                     </div>
                  </div>
                  
                  <div class="col-md-3 mb-2" id="manualResBoxesBlock">
@@ -39,7 +48,8 @@
                     </select>
                 </div>
 
-                 <div class="col-md-3 mb-2">
+                 <!-- CLIP SKIP REDUCIDO (col-md-2) para que todo cuadre en 12 columnas -->
+                 <div class="col-md-2 mb-2">
                     <label class="small text-secondary fw-bold mb-1"><?= __('tit_clip_skip') ?? 'CLIP SKIP' ?></label>
                     <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary pref-track" id="clipSkipInput" name="clip_skip" min="1" max="4" value="1" title="<?= __('msg_clip_skip_info') ?? '1 = Por defecto (SDXL/Flux). 2 = Recomendado para SD1.5 Anime.' ?>">
                 </div>
