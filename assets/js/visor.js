@@ -7,6 +7,10 @@ let visorScale = 1, visorPannedX = 0, visorPannedY = 0;
 let isPanning = false, startPanX = 0, startPanY = 0;
 let compareImageA = null, compareBtnA = null;
 
+// NUEVAS: Variables para el Pan/Zoom del Comparador A/B
+let compScale = 1, compPanX = 0, compPanY = 0;
+let isCompPanning = false, startCompX = 0, startCompY = 0;
+
 // 1. LÓGICA DEL VISOR PRINCIPAL
 window.abrirVisor = function(src) {
     const imgVisor = document.getElementById('imagenVisor');
@@ -137,6 +141,11 @@ window.prepararComparacion = function(imgSrc, btnElement) {
         if(imgA) imgA.src = compareImageA;
         if(imgB) imgB.src = imgSrc;
         
+        // Reset de Pan & Zoom del comparador
+        compScale = 1; compPanX = 0; compPanY = 0;
+        if(imgA) imgA.style.transform = `translate(0px, 0px) scale(1)`;
+        if(imgB) imgB.style.transform = `translate(0px, 0px) scale(1)`;
+        
         const slider = document.getElementById('compareSlider');
         if(slider) slider.value = 50;
         window.updateSliderPos(50);
@@ -167,9 +176,61 @@ window.updateSliderPos = function(percent) {
     if (line) line.style.left = `${percent}%`;
 };
 
-// Limpieza automática del comparador al cerrar el modal
+// Eventos de limpieza y PAN/ZOOM para el modal comparador
 document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('modalComparador')?.addEventListener('hidden.bs.modal', window.cancelarComparacion);
+    const modalComp = document.getElementById('modalComparador');
+    if (modalComp) {
+        modalComp.addEventListener('hidden.bs.modal', window.cancelarComparacion);
+
+        // Rueda del ratón para Zoom simultáneo
+        modalComp.addEventListener('wheel', (e) => {
+            const imgA = document.getElementById('compareImgA');
+            const imgB = document.getElementById('compareImgB');
+            if (!imgA || !imgB) return;
+            e.preventDefault();
+            compScale += e.deltaY * -0.002;
+            compScale = Math.min(Math.max(0.5, compScale), 6); // Limita el zoom entre 50% y 600%
+            imgA.style.transform = `translate(${compPanX}px, ${compPanY}px) scale(${compScale})`;
+            imgB.style.transform = `translate(${compPanX}px, ${compPanY}px) scale(${compScale})`;
+        }, {passive: false});
+
+        // Clic y Arrastrar para Desplazamiento (Pan)
+        modalComp.addEventListener('mousedown', (e) => {
+            if (e.target.id === 'compareSlider') return; // Evita conflicto al mover la barra separadora
+            
+            e.preventDefault(); // <-- LA CLAVE: Bloquea el "arrastre de archivo" del navegador
+            
+            isCompPanning = true;
+            startCompX = e.clientX - compPanX;
+            startCompY = e.clientY - compPanY;
+            modalComp.style.cursor = 'grabbing';
+        });
+
+        window.addEventListener('mouseup', () => {
+            isCompPanning = false;
+            if(modalComp) modalComp.style.cursor = 'default';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isCompPanning) return;
+            const imgA = document.getElementById('compareImgA');
+            const imgB = document.getElementById('compareImgB');
+            if (!imgA || !imgB) return;
+            compPanX = e.clientX - startCompX;
+            compPanY = e.clientY - startCompY;
+            imgA.style.transform = `translate(${compPanX}px, ${compPanY}px) scale(${compScale})`;
+            imgB.style.transform = `translate(${compPanX}px, ${compPanY}px) scale(${compScale})`;
+        });
+
+        // Doble clic para resetear la vista rápidamente
+        modalComp.addEventListener('dblclick', () => {
+            compScale = 1; compPanX = 0; compPanY = 0;
+            const imgA = document.getElementById('compareImgA');
+            const imgB = document.getElementById('compareImgB');
+            if(imgA) imgA.style.transform = `translate(0px, 0px) scale(1)`;
+            if(imgB) imgB.style.transform = `translate(0px, 0px) scale(1)`;
+        });
+    }
 });
 
 // 4. LÓGICA DE ZOOM PARA EL LIENZO DE INPAINT (PINTURA)
