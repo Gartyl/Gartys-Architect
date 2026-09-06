@@ -2417,7 +2417,7 @@ if ($action === 'generar_imagen') {
                     if ($row_auto) {
                         $modelo_restauracion = $row_auto['nombre_archivo'];
                     } else {
-                        echo json_encode(['error' => "Para usar el Modo Puro con Krea-2 o Flux, asigna un modelo SD1.5 o SDXL en la categoría 'sys_refiner'."]);
+                        echo json_encode(['error' => __('err_pure_mode_refiner')]);
                         exit();
                     }
                 }
