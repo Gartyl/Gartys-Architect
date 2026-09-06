@@ -30,7 +30,6 @@
                      </div>
                  </div>
 
-                 <!-- SELECTOR DE FORMATO -->
                  <div class="col-md-2 mb-2" id="formatoImagenBlock">
                     <label class="small text-secondary fw-bold mb-1"><?= __('tit_formato') ?></label>
                     <select class="form-select form-select-sm bg-dark text-light border-secondary pref-track" id="imageFormatInput">
@@ -40,7 +39,6 @@
                     </select>
                 </div>
 
-                 <!-- NUEVO: SELECTOR DE CLIP SKIP -->
                  <div class="col-md-3 mb-2">
                     <label class="small text-secondary fw-bold mb-1"><?= __('tit_clip_skip') ?? 'CLIP SKIP' ?></label>
                     <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary pref-track" id="clipSkipInput" name="clip_skip" min="1" max="4" value="1" title="<?= __('msg_clip_skip_info') ?? '1 = Por defecto (SDXL/Flux). 2 = Recomendado para SD1.5 Anime.' ?>">
@@ -48,7 +46,6 @@
                  
                 <div class="w-100 d-none d-md-block m-0"></div>
 
-                <!-- CAJAS PRINCIPALES: Sampler, Scheduler, Semilla, Flow Shift -->
                 <div class="col-md-3 mb-2">
                    <label class="small text-secondary fw-bold mb-1"><?= __('tit_sampler') ?></label>
                    <select class="form-select form-select-sm bg-dark text-light border-secondary pref-track" id="samplerInput">
@@ -137,17 +134,22 @@
                    </select>
                 </div>
                 
-                <div class="col-md-3 mb-2">
+                <div class="col-md-2 mb-2">
                     <label class="small text-secondary fw-bold mb-1"><?= __('tit_semilla') ?></label>
                     <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary pref-track" id="seedInput" value="-1" title="Pon -1 para aleatorio">
                 </div>
 
-                <div class="col-md-3 mb-2">
+                <div class="col-md-2 mb-2">
                     <label class="small text-secondary fw-bold mb-1" id="shiftLabel" title="<?= __('tit_shift_info') ?? 'Control de fluidez vs detalles' ?>">FLOW SHIFT</label>
                     <input type="number" class="form-control form-control-sm bg-dark text-warning border-secondary pref-track" id="shiftInput" value="" min="0.1" max="15.0" step="0.1" placeholder="Auto">
                 </div>
 
-                <!-- FILA INFERIOR DE INTERRUPTORES (Alineados izquierda y derecha) -->
+                <!-- EL NUEVO DENOISE GLOBAL (Se acomodará limpiamente en la línea de abajo sin romper CSS) -->
+                <div class="col-md-2 mb-2" id="globalDenoiseBlock">
+                    <label class="small text-secondary fw-bold mb-1" for="globalDenoiseSlider">DENOISE (I2I)</label>
+                    <input type="number" class="form-control form-control-sm bg-dark text-info border-secondary pref-track" id="globalDenoiseSlider" step="0.01" min="0.0" max="1.0" value="0.75" title="<?= __('tit_denoise') ?? 'Fuerza de alteración' ?>">
+                </div>
+
                 <div class="col-12 mt-1 pt-2 pb-1 d-flex justify-content-between align-items-center border-top border-info" style="border-color: rgba(13, 202, 240, 0.2) !important;">
                     
                     <div class="d-flex gap-4">
@@ -168,7 +170,6 @@
                         </label>
                     </div>
                 </div>
-                <!-- FIN FILA INFERIOR -->
 
                 <div class="col-md-12 mt-2" id="videoFramesBlock" style="display:none;">
                     <div class="row g-2">
