@@ -1305,7 +1305,8 @@ function updateUIForSelector(sel) {
     }
 
     const denoiseBlock = document.getElementById('denoiseBlock'); if (denoiseBlock) denoiseBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel)) ? 'block' : 'none';
-    const batchBlock = document.getElementById('batchSize') ? document.getElementById('batchBlock') : null; if (batchBlock) batchBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel)) ? 'block' : 'none';
+    const globalDenoiseBlock = document.getElementById('globalDenoiseBlock'); if (globalDenoiseBlock) globalDenoiseBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel)) ? 'block' : 'none';
+	const batchBlock = document.getElementById('batchSize') ? document.getElementById('batchBlock') : null; if (batchBlock) batchBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel)) ? 'block' : 'none';
     
     const advBlock = document.getElementById('advancedSettingsBlock');
     if (advBlock) {
@@ -1550,7 +1551,9 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
     const wInp = document.getElementById('imgWidth'); const hInp = document.getElementById('imgHeight');
     if (wInp && hInp) { fd.append('width', wInp.value); fd.append('height', hInp.value); }
         
-    const denoiseSlider = document.getElementById('denoiseSlider'); if(denoiseSlider) fd.append('denoise', denoiseSlider.value);
+    // Priorizamos el Denoise Global. Al ser gemelos, el valor siempre será el correcto.
+    const valDenoise = document.getElementById('globalDenoiseSlider') ? document.getElementById('globalDenoiseSlider').value : (document.getElementById('denoiseSlider') ? document.getElementById('denoiseSlider').value : 0.75);
+    fd.append('denoise', valDenoise);
     
 	// 👇 NUEVA LÍNEA: Envía a PHP si el panel de edición está activo (1) o no (0)
     const editToggle = document.getElementById('editToolsToggle'); if(editToggle) fd.append('edit_tools_active', editToggle.checked ? '1' : '0');
@@ -3601,7 +3604,23 @@ window.desmarcarPropVid = function() { document.getElementById('video_aspect_rat
 
 document.addEventListener('DOMContentLoaded', () => { 
     sincRes(); 
-    sincResVid(); 
+    sincResVid();
+
+// --- SINCRONIZACIÓN DE DENOISE (GEMELOS) ---
+    const dGlobal = document.getElementById('globalDenoiseSlider');
+    const dPincel = document.getElementById('denoiseSlider'); // El original del Inpaint
+    const bPincel = document.getElementById('denoiseVal'); // La etiqueta (badge) con el número
+    
+    if (dGlobal && dPincel) {
+        dGlobal.addEventListener('input', (e) => { 
+            dPincel.value = e.target.value; 
+            if (bPincel) bPincel.innerText = e.target.value; 
+        });
+        dPincel.addEventListener('input', (e) => { 
+            dGlobal.value = e.target.value; 
+            if (bPincel) bPincel.innerText = e.target.value;
+        });
+    }	
 
     // === PASO 3: EFECTO VISUAL BENCHMARK ===
     const batchSizeSelect = document.getElementById('batchSize');
