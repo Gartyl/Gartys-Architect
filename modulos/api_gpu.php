@@ -2762,17 +2762,15 @@ if ($action === 'generar_imagen') {
 	
     // --- FIX GUIDANCE FLUX ---
     $flux_guidance = null;
-    if ($is_flux && !$is_chroma) { // CHROMA NO USA FLUX GUIDANCE, USA CFG PURO
-        // Si ya has programado un deslizador independiente de Guidance en tu web, lo usamos.
+    if ($is_flux && !$is_chroma) { 
         if (isset($_POST['flux_guidance']) && floatval($_POST['flux_guidance']) > 0) {
             $flux_guidance = floatval($_POST['flux_guidance']);
         } else {
-            // LIBERTAD ABSOLUTA
-            $flux_guidance = ($cfg == 5.0) ? 3.5 : $cfg;
+            $flux_guidance = 3.5;
         }
         
-        // El KSampler requiere físicamente CFG 1.0 en familia Flux para no generar puntos de ruido.
-        $cfg = 1.0; 
+        // ¡LIBERTAD TOTAL! Hemos eliminado la línea que forzaba el $cfg = 1.0;
+        // Ahora si el usuario mete CFG 5.0 en la web, el nodo procesará 5.0.
         
         $workflow["600"] = [
             "inputs" => [
@@ -4102,21 +4100,23 @@ if ($action === 'generar_imagen') {
         'Resolution' => $final_w . 'x' . $final_h, 
         'Seed' => $seed, 
         'Steps' => $steps, 
-        'CFG Scale' => $cfg, 
+        'CFG Scale' => $cfg,
         'Sampler' => ucfirst($sampler) . ' (' . ucfirst($scheduler) . ')', 
         'Batch Size' => $batch_size, 
         'LoRAs' => empty($lora_metadata_list) ? __('lbl_none') : implode(', ', $lora_metadata_list)
     ];
 
-    if ($flux_guidance !== null) $meta_json_array['Guidance (Flux)'] = $flux_guidance;
-	
-	if (isset($clip_skip) && $clip_skip > 1 && isset($is_classic_architecture) && $is_classic_architecture) $meta_json_array['CLIP Skip'] = $clip_skip;
+    if ($flux_guidance !== null) {
+        $meta_json_array['Guidance (Flux)'] = $flux_guidance;
+    }
+
+    // SIEMPRE guardamos el Clip Skip y el Denoise (Imprescindibles para depurar)
+    if (isset($clip_skip)) $meta_json_array['CLIP Skip'] = $clip_skip;
+    if (isset($denoise_slider)) $meta_json_array['Denoise (I2I)'] = $denoise_slider;
 
     if ($sampler_denoise < 1.0 && !$is_outpainting) {
         if (!empty($mask_data_base64)) { 
             $meta_json_array['Modo Inpainting'] = __('lbl_activated') . ' (Denoise: ' . $sampler_denoise . ')'; 
-        } else { 
-            $meta_json_array['Fuerza de Edición'] = $sampler_denoise . ' (Image-to-Image)'; 
         }
     }
     
@@ -4359,21 +4359,23 @@ if ($action === 'generar_imagen') {
             'Resolution' => $final_w . 'x' . $final_h, 
             'Seed' => $seed, 
             'Steps' => $steps, 
-            'CFG Scale' => $cfg, 
+            'CFG Scale' => $cfg,
             'Sampler' => ucfirst($sampler) . ' (' . ucfirst($scheduler) . ')', 
             'Batch Index' => ($index + 1) . ' / ' . $batch_size, 
             'LoRAs' => empty($lora_metadata_list) ? __('lbl_none') : implode(', ', $lora_metadata_list)
         ];
 
-        if ($flux_guidance !== null) $meta_json_array['Guidance (Flux)'] = $flux_guidance;
-		
-		if (isset($clip_skip) && $clip_skip > 1 && isset($is_classic_architecture) && $is_classic_architecture) $meta_json_array['CLIP Skip'] = $clip_skip;
+        if ($flux_guidance !== null) {
+            $meta_json_array['Guidance (Flux)'] = $flux_guidance;
+        }
+        
+        // SIEMPRE guardamos el Clip Skip y el Denoise
+        if (isset($clip_skip)) $meta_json_array['CLIP Skip'] = $clip_skip;
+        if (isset($denoise_slider)) $meta_json_array['Denoise (I2I)'] = $denoise_slider;
 
         if ($sampler_denoise < 1.0 && !$is_outpainting) {
             if (!empty($mask_data_base64)) { 
                 $meta_json_array['Modo Inpainting'] = __('lbl_activated') . ' (Denoise: ' . $sampler_denoise . ')'; 
-            } else { 
-                $meta_json_array['Fuerza de Edición'] = $sampler_denoise . ' (Image-to-Image)'; 
             }
         }
         
