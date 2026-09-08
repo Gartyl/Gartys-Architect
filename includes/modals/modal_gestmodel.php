@@ -103,6 +103,14 @@
                                         <small class="text-muted d-block mt-1" style="font-size: 0.7rem;"><?= __('adm_hlp_tags') ?? 'Palabras clave separadas por comas. El LLM leerá esto para saber cuándo debe auto-seleccionar este modelo.' ?></small>
                                     </div>
                                     <!-- --------------------------------------- -->
+									
+									<!-- NUEVO: REGLAS DEL ARQUITECTO (LLM) -->
+                                    <div class="col-12 mt-3 text-start">
+                                        <label class="small text-success fw-bold mb-1"><i class="bi bi-robot"></i> <?= __('tit_pan_reglas_arq') ?></label>
+                                        <textarea class="form-control bg-dark text-light border-success" id="modReglasArq" rows="2" placeholder="<?= __('adm_ph_reglas_arq') ?>"></textarea>
+                                        <small class="text-muted d-block mt-1" style="font-size: 0.7rem;"><i class="bi bi-info-circle"></i> <?= __('adm_hlp_reglas_arq') ?></small>
+                                    </div>
+                                    <!-- --------------------------------------- -->
                                     
                                     <!-- CHECKBOX DE MODELO DESMEMBRADO (UNBUNDLED) -->
                                     <div class="col-12 mt-2 text-start">
