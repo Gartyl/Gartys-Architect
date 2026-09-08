@@ -292,3 +292,207 @@ function getActiveAudioConfig() {
     }
 }
 
+// ============================================================================
+// --- GESTOR DE VOCES GUARDADAS (F5-TTS ZERO SHOT) ---
+// ============================================================================
+
+window.cargarVocesGuardadas = async function() {
+    const select = document.getElementById('ttsSavedVoices');
+    if (!select) return;
+
+    try {
+        const fd = new FormData();
+        fd.append('action', 'obtener_voces');
+        const res = await fetch('procesar.php', { method: 'POST', body: fd });
+        const data = await res.json();
+
+        if (data.success && data.voces) {
+            const optTemp = typeof GartyLang !== 'undefined' && GartyLang.opt_voz_temporal ? GartyLang.opt_voz_temporal : '-- Subir audio temporal --';
+            let optionsHTML = `<option value="" data-text="">${optTemp}</option>`;
+            
+            data.voces.forEach(v => {
+                optionsHTML += `<option value="${v.id}" data-path="${v.ref_audio_path}" data-text="${v.ref_text}">${v.nombre_voz}</option>`;
+            });
+            
+            select.innerHTML = optionsHTML;
+        }
+    } catch (e) {
+        console.error("Error cargando voces:", e);
+    }
+};
+
+window.toggleSaveVoiceForm = function() {
+    const form = document.getElementById('saveVoiceFormContainer');
+    if (form) {
+        form.classList.toggle('d-none');
+    }
+};
+
+window.handleSavedVoiceSelection = async function() {
+    const select = document.getElementById('ttsSavedVoices');
+    const uploadWrapper = document.getElementById('ttsUploadWrapper');
+    const btnDelete = document.getElementById('btnDeleteSavedVoice');
+    const textInput = document.getElementById('audioRefText');
+
+    if (select && select.value !== "") {
+        // Se ha seleccionado una voz guardada
+        if (uploadWrapper) uploadWrapper.classList.add('d-none');
+        if (btnDelete) btnDelete.classList.remove('d-none');
+        
+        const selectedOpt = select.options[select.selectedIndex];
+        const text = selectedOpt.getAttribute('data-text');
+        const path = selectedOpt.getAttribute('data-path');
+        
+        if (textInput) textInput.value = text;
+
+        // Truco: Descargar la voz desde el servidor local y subirla a ComfyUI como si la hubieran subido a mano
+        try {
+            const txtLoading = typeof GartyLang !== 'undefined' && GartyLang.msg_loading_voice ? GartyLang.msg_loading_voice : 'Cargando voz...';
+            SwalDark.fire({ title: txtLoading, toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+            
+            const response = await fetch('voces/' + path);
+            const errNotFound = typeof GartyLang !== 'undefined' && GartyLang.err_audio_not_found ? GartyLang.err_audio_not_found : 'Audio no encontrado en el servidor';
+            if (!response.ok) throw new Error(errNotFound);
+            
+            const blob = await response.blob();
+            const file = new File([blob], path, { type: 'audio/wav' });
+            
+            // Usamos tu función existente para previsualizar y mandar a ComfyUI automáticamente
+            handleAudioRefUpload({ files: [file], value: path });
+            
+        } catch (e) {
+            console.error("Error al cargar el archivo de voz guardado:", e);
+            const errTitle = typeof GartyLang !== 'undefined' && GartyLang.swal_err_title ? GartyLang.swal_err_title : 'Error';
+            const errLoad = typeof GartyLang !== 'undefined' && GartyLang.err_load_physical_audio ? GartyLang.err_load_physical_audio : 'No se pudo cargar el audio físico de esta voz.';
+            SwalDark.fire({ icon: 'error', title: errTitle, text: errLoad });
+            select.value = "";
+            handleSavedVoiceSelection();
+        }
+
+    } else {
+        // Volver a modo temporal
+        if (uploadWrapper) uploadWrapper.classList.remove('d-none');
+        if (btnDelete) btnDelete.classList.add('d-none');
+        if (textInput) textInput.value = "";
+        if (typeof clearAudioModule === 'function') clearAudioModule(); 
+    }
+};
+
+window.guardarModeloVoz = async function() {
+    const btn = document.getElementById('btnSaveVoiceModel');
+    const nameInput = document.getElementById('newVoiceName');
+    const refText = document.getElementById('audioRefText') ? document.getElementById('audioRefText').value.trim() : '';
+    const voiceName = nameInput ? nameInput.value.trim() : '';
+    
+    const attnTitle = typeof GartyLang !== 'undefined' && GartyLang.audio_attn_title ? GartyLang.audio_attn_title : 'Atención';
+
+    if (!currentAudioRefFile) { 
+        const msgMissSample = typeof GartyLang !== 'undefined' && GartyLang.err_missing_audio_sample ? GartyLang.err_missing_audio_sample : 'Sube una muestra de audio primero.';
+        SwalDark.fire({ icon: 'warning', title: attnTitle, text: msgMissSample }); 
+        return; 
+    }
+    if (!refText) { 
+        const msgMissTrans = typeof GartyLang !== 'undefined' && GartyLang.err_missing_transcript ? GartyLang.err_missing_transcript : 'Escribe la transcripción exacta de la muestra.';
+        SwalDark.fire({ icon: 'warning', title: attnTitle, text: msgMissTrans }); 
+        return; 
+    }
+    if (!voiceName) { 
+        const msgMissName = typeof GartyLang !== 'undefined' && GartyLang.err_missing_voice_name ? GartyLang.err_missing_voice_name : 'Escribe un nombre para guardar la voz.';
+        SwalDark.fire({ icon: 'warning', title: attnTitle, text: msgMissName }); 
+        return; 
+    }
+
+    const originalBtnHtml = btn.innerHTML;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span>`;
+    btn.disabled = true;
+
+    try {
+        // Convertir el File temporal actual a Base64 para guardarlo en la DB de forma segura
+        const reader = new FileReader();
+        reader.readAsDataURL(currentAudioRefFile);
+        reader.onload = async function () {
+            const base64Audio = reader.result;
+            
+            const fd = new FormData(); 
+            fd.append('action', 'guardar_voz'); 
+            fd.append('nombre_voz', voiceName); 
+            fd.append('ref_text', refText);
+            fd.append('audio_data', base64Audio);
+
+            const res = await fetch('procesar.php', { method: 'POST', body: fd });
+            const data = await res.json();
+            
+            if (data.error) throw new Error(data.error);
+            
+            if (data.success) {
+                const msgSaved = typeof GartyLang !== 'undefined' && GartyLang.msg_voice_saved ? GartyLang.msg_voice_saved : 'Voz guardada';
+                SwalDark.fire({ toast: true, position: 'top-end', icon: 'success', title: msgSaved, showConfirmButton: false, timer: 2000 });
+                nameInput.value = ''; 
+                toggleSaveVoiceForm();
+                
+                // Recargar lista
+                await cargarVocesGuardadas();
+            }
+        };
+    } catch (e) { 
+        const errTitle = typeof GartyLang !== 'undefined' && GartyLang.swal_err_title ? GartyLang.swal_err_title : 'Error';
+        SwalDark.fire({ icon: 'error', title: errTitle, text: e.message }); 
+    } finally { 
+        btn.innerHTML = originalBtnHtml; 
+        btn.disabled = false; 
+    }
+};
+
+window.eliminarVozGuardada = async function() {
+    const select = document.getElementById('ttsSavedVoices');
+    if (!select || select.value === "") return;
+
+    const voiceId = select.value;
+    const voiceName = select.options[select.selectedIndex].text;
+    
+    const titDelete = typeof GartyLang !== 'undefined' && GartyLang.tit_delete_voice ? GartyLang.tit_delete_voice : '¿Eliminar voz?';
+    const msgConfirm = typeof GartyLang !== 'undefined' && GartyLang.msg_delete_voice_confirm ? GartyLang.msg_delete_voice_confirm : 'Vas a borrar permanentemente a "{name}". ¿Estás seguro?';
+    const btnYes = typeof GartyLang !== 'undefined' && GartyLang.btn_yes_delete ? GartyLang.btn_yes_delete : 'Sí, eliminar';
+    const btnCancel = typeof GartyLang !== 'undefined' && GartyLang.btn_cancelar ? GartyLang.btn_cancelar : 'Cancelar';
+
+    const confirm = await SwalDark.fire({
+        title: titDelete,
+        text: msgConfirm.replace('{name}', voiceName),
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: btnYes,
+        cancelButtonText: btnCancel
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    try {
+        let fd = new FormData();
+        fd.append('action', 'eliminar_voz');
+        fd.append('voz_id', voiceId);
+
+        const res = await fetch('procesar.php', { method: 'POST', body: fd });
+        const data = await res.json();
+
+        if (data.error) throw new Error(data.error);
+
+        const msgDeleted = typeof GartyLang !== 'undefined' && GartyLang.msg_voice_deleted ? GartyLang.msg_voice_deleted : 'Voz eliminada';
+        SwalDark.fire({ toast: true, position: 'top-end', icon: 'success', title: msgDeleted, showConfirmButton: false, timer: 2000 });
+        
+        // Volver al estado inicial
+        select.value = "";
+        handleSavedVoiceSelection();
+        cargarVocesGuardadas();
+    } catch (e) {
+        const errTitle = typeof GartyLang !== 'undefined' && GartyLang.swal_err_title ? GartyLang.swal_err_title : 'Error';
+        SwalDark.fire({ icon: 'error', title: errTitle, text: e.message });
+    }
+};
+
+// Cargar la lista en cuanto el DOM esté listo
+document.addEventListener('DOMContentLoaded', () => {
+    cargarVocesGuardadas();
+});
+
