@@ -834,6 +834,9 @@ return [
     'adm_user' => "Usuario",
     'adm_var' => "Variación",
     'adm_var_plural' => "variaciones",
+	'tit_pan_reglas_arq' => "Reglas para el Arquitecto (Opcional)",
+	'adm_ph_reglas_arq' => "Ej: Usa etiquetas separadas por comas (1girl, solo, ...). Prioriza lenguaje técnico fotográfico.",
+	'adm_hlp_reglas_arq' => "Instrucciones estrictas que el LLM acatará al generar un prompt cuando este modelo esté seleccionado.",
 
     'mod_lic_activated' => "¡Activado!",
     'mod_lic_btn_activate' => "Validar y Activar",

@@ -834,6 +834,9 @@ return [
     'adm_user' => "Usuari",
     'adm_var' => "Variació",
     'adm_var_plural' => "variacions",
+	'tit_pan_reglas_arq' => "Regles per a l'Arquitecte (Opcional)",
+	'adm_ph_reglas_arq' => "Ex: Usa etiquetes separades per comes (1girl, solo, ...). Prioritza llenguatge tècnic fotogràfic.",
+	'adm_hlp_reglas_arq' => "Instruccions estrictes que l'LLM acatarà en generar un prompt quan aquest model estigui seleccionat.",
 
     'mod_lic_activated' => "Activat!",
     'mod_lic_btn_activate' => "Validar i Activar",

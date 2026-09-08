@@ -834,6 +834,9 @@ return [
     'adm_user' => "User",
     'adm_var' => "Variation",
     'adm_var_plural' => "variations",
+	'tit_pan_reglas_arq' => "Architect Rules (Optional)",
+	'adm_ph_reglas_arq' => "Ex: Use comma-separated tags (1girl, solo, ...). Prioritize technical photography terms.",
+	'adm_hlp_reglas_arq' => "Strict instructions the LLM will follow when generating a prompt for this specific model.",
 
     'mod_lic_activated' => "Activated!",
     'mod_lic_btn_activate' => "Validate and Activate",
