@@ -3656,33 +3656,20 @@ if ($action === 'generar_imagen') {
         
     } else {
         
-        // --- BYPASS: UPSCALE CREATIVO (SALTO DEL KSAMPLER) ---
-        // Si hay imagen cargada, hires_fix activado, NO es outpainting y tiene prompt (no es puro)
-        if ($hires_fix && !empty($init_image_base64) && !$is_outpainting && !$pure_upscale) {
-            // Enganchamos la salida de la imagen al nodo 13 (ImageScale de la Fase 7) o al 11 (LoadImage original)
-            $current_image_node = isset($workflow["13"]) ? "13" : "11";
-            
-            // Limpiamos la memoria de los nodos latentes que ya no vamos a usar
-            unset($workflow["12"]); 
-            if (isset($workflow["12_noise"])) unset($workflow["12_noise"]);
-            unset($workflow["14"]);
-            
-        } else {
-            // Generación Text2Img o Img2Img normal
-            $workflow["3"] = [
-                "inputs" => [
-                    "seed" => $seed, "steps" => $steps, "cfg" => $cfg, "sampler_name" => $sampler, "scheduler" => $scheduler, "denoise" => $sampler_denoise, 
-                    "model" => [$current_model_node, 0], 
-                    "positive" => $current_positive, 
-                    "negative" => $current_negative, 
-                    "latent_image" => $current_latent
-                ], 
-                "class_type" => "KSampler" 
-            ];
+        // Generación Text2Img o Img2Img NORMAL (Garantiza que el LoRA se aplique antes de escalar)
+        $workflow["3"] = [
+            "inputs" => [
+                "seed" => $seed, "steps" => $steps, "cfg" => $cfg, "sampler_name" => $sampler, "scheduler" => $scheduler, "denoise" => $sampler_denoise, 
+                "model" => [$current_model_node, 0], 
+                "positive" => $current_positive, 
+                "negative" => $current_negative, 
+                "latent_image" => $current_latent
+            ], 
+            "class_type" => "KSampler" 
+        ];
 
-            $workflow["8"] = [ "inputs" => ["samples" => ["3", 0], "vae" => [$base_vae_node, $base_vae_index]], "class_type" => "VAEDecode" ];
-            $current_image_node = "8";
-        }
+        $workflow["8"] = [ "inputs" => ["samples" => ["3", 0], "vae" => [$base_vae_node, $base_vae_index]], "class_type" => "VAEDecode" ];
+        $current_image_node = "8";
     }
 
     // --- FASE 5: UPSCALE ---
@@ -3720,7 +3707,7 @@ if ($action === 'generar_imagen') {
                     "cfg" => $cfg,
                     "sampler_name" => $sampler,
                     "scheduler" => $scheduler,
-                    "denoise" => 0.25, 
+                    "denoise" => isset($_POST['upscale_denoise']) ? floatval($_POST['upscale_denoise']) : 0.25, 
                     "mode_type" => "Linear",
                     "tile_width" => 512,
                     "tile_height" => 512,
