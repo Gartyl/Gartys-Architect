@@ -126,6 +126,7 @@ return [
 	'err_no_graphic_models' => "No hay modelos gráficos activos en la base de datos.",
 	'tit_clip_skip' => "CLIP Skip",
 	'msg_clip_skip_info' => "1 = Por defecto (SDXL/Flux). 2 = Recomendado para SD1.5 Anime/Ilustración.",
+	'tit_ups_denoise' => "Fuerza de Redibujado",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
