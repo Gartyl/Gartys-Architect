@@ -569,7 +569,7 @@ async function cargarTablaModelos() {
                 }
 
                 // Codificamos el objeto del modelo entero de forma segura para el botón Editar
-                let mDataSeguro = encodeURIComponent(JSON.stringify(m));
+                let mDataSeguro = encodeURIComponent(JSON.stringify(m)).replace(/'/g, "%27");
 
                 return `
                 <tr>
