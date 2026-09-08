@@ -92,6 +92,9 @@ try {
         case 'generar_audio':
         case 'clonar_audio':
         case 'subir_audio_referencia':
+		case 'obtener_voces':  // <-- AÑADIDO
+        case 'guardar_voz':    // <-- AÑADIDO
+        case 'eliminar_voz':   // <-- AÑADIDO
             require_once __DIR__ . '/modulos/api_audio.php';
             break;
 
