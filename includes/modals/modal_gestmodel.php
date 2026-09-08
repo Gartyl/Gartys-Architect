@@ -34,7 +34,7 @@
 												onchange="filtrarTablaAdmin('tablaModelosBody', 4, this.value)">
 											<option value=""><?= __('adm_cat_todas') ?></option>
 											<option value="chat">💬 <?= __('adm_cat_chat') ?></option>
-											<option value="vision">👁️ <?= __('adm_cat_vision') ?></option>
+											<!--option value="vision">👁️ < ?= __('adm_cat_vision') ?></option-->
 											<option value="sd15">🎨 <?= __('adm_cat_sd15') ?></option>
 											<option value="sdxl">⚡ <?= __('adm_cat_sdxl') ?></option>
 											<option value="flux">💎 <?= __('adm_cat_flux') ?></option>
@@ -75,7 +75,7 @@
 										<label class="small text-secondary fw-bold"><?= __('tit_pan_categ') ?></label>
 										<select class="form-select bg-dark text-light border-secondary" id="modCat">
 											<option value="chat">💬 <?= __('adm_cat_chat_conv') ?></option>
-											<option value="vision">👁️ <?= __('adm_cat_vis_ana') ?></option>
+											<!--option value="vision">👁️ < ?= __('adm_cat_vis_ana') ?></option-->
 											<option value="sd15">🎨 <?= __('adm_cat_img_sd15') ?></option>
 											<option value="sdxl">⚡ <?= __('adm_cat_img_sdxl') ?></option>
 											<option value="flux" <?= !$is_pro ? 'disabled' : '' ?>>💎 <?= __('adm_cat_img_flux') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?></option>
@@ -263,7 +263,7 @@
 										
 										<option value="<?= __('flt_rule') ?? 'Reglas' ?>">⚙️ <?= __('adm_type_rules') ?></option>
 										<option value="<?= __('flt_style') ?? 'Estilo' ?>">🎨 <?= __('adm_type_styles') ?></option>
-										<option value="<?= __('flt_analyst') ?? 'Analista' ?>">👁️ <?= __('adm_type_analysts') ?></option>
+										<!--option value="< ?= __('flt_analyst') ?? 'Analista' ?>">👁️ < ?= __('adm_type_analysts') ?></option-->
 										<option value="<?= __('flt_enhancer') ?? 'Amplificador' ?>">✨ <?= __('adm_type_amps') ?></option>
 									</select>
                                 </div>
