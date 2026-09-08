@@ -235,10 +235,11 @@ if ($action === 'save_modelo_bd') {
         $d_sampler = !empty($_POST['default_sampler']) ? $_POST['default_sampler'] : 'euler_ancestral';
         $d_scheduler = !empty($_POST['default_scheduler']) ? $_POST['default_scheduler'] : 'beta';
         
-        // <-- NUEVO: Capturar los tags semánticos -->
         $tags_uso = $_POST['tags_uso'] ?? ''; 
+        // 👇 NUEVO: Capturar reglas del arquitecto
+        $reglas_arquitecto = $_POST['reglas_arquitecto'] ?? '';
 
-        $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled, default_steps, default_cfg, default_sampler, default_scheduler, tags_uso) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled, default_steps, default_cfg, default_sampler, default_scheduler, tags_uso, reglas_arquitecto) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
             ->execute([
                 $_POST['nombre_visual'], 
                 $_POST['nombre_archivo'], 
@@ -250,7 +251,8 @@ if ($action === 'save_modelo_bd') {
                 $d_cfg,
                 $d_sampler,
                 $d_scheduler,
-                $tags_uso // <-- Añadido al final
+                $tags_uso,
+                $reglas_arquitecto // <-- Añadido al final
             ]);
         echo json_encode(['success' => true]);
     } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
@@ -267,10 +269,11 @@ if ($action === 'update_modelo_bd') {
         $d_sampler = !empty($_POST['default_sampler']) ? $_POST['default_sampler'] : null;
         $d_scheduler = !empty($_POST['default_scheduler']) ? $_POST['default_scheduler'] : null;
 
-        // <-- NUEVO: Capturar los tags semánticos -->
         $tags_uso = $_POST['tags_uso'] ?? '';
+        // 👇 NUEVO: Capturar reglas del arquitecto
+        $reglas_arquitecto = $_POST['reglas_arquitecto'] ?? '';
 
-        $pdo->prepare("UPDATE modelos_ia SET nombre_visual = ?, nombre_archivo = ?, motor = ?, categoria = ?, nivel_acceso = ?, es_unbundled = ?, default_steps = ?, default_cfg = ?, default_sampler = ?, default_scheduler = ?, tags_uso = ? WHERE id = ?")
+        $pdo->prepare("UPDATE modelos_ia SET nombre_visual = ?, nombre_archivo = ?, motor = ?, categoria = ?, nivel_acceso = ?, es_unbundled = ?, default_steps = ?, default_cfg = ?, default_sampler = ?, default_scheduler = ?, tags_uso = ?, reglas_arquitecto = ? WHERE id = ?")
             ->execute([
                 $_POST['nombre_visual'], 
                 $_POST['nombre_archivo'], 
@@ -282,7 +285,8 @@ if ($action === 'update_modelo_bd') {
                 $d_cfg,
                 $d_sampler,
                 $d_scheduler,
-                $tags_uso, // <-- Añadido penúltimo
+                $tags_uso,
+                $reglas_arquitecto, // <-- Añadido penúltimo
                 $_POST['id'] // El ID que manda el frontend
             ]);
         echo json_encode(['success' => true]);

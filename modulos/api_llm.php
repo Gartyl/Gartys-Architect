@@ -40,6 +40,21 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
             $json_params = json_decode($rowSys['parametros'], true);
             if (isset($json_params['temperature'])) $temp_llm = (float)$json_params['temperature'];
         }
+		
+		// --- NUEVO: INYECCIÓN DE REGLAS ESPECÍFICAS DEL MODELO (CHAT DIRECTO) ---
+        if (!empty($modelo_recibido)) {
+            try {
+                $sql = is_numeric($modelo_recibido) ? "SELECT reglas_arquitecto FROM modelos_ia WHERE id = ? LIMIT 1" : "SELECT reglas_arquitecto FROM modelos_ia WHERE nombre_archivo = ? LIMIT 1";
+                $stmtReglas = $pdo->prepare($sql);
+                $stmtReglas->execute([$modelo_recibido]);
+                $reglas_modelo = $stmtReglas->fetchColumn();
+                
+                if (!empty($reglas_modelo)) {
+                    $sys_prompt .= "\n\n[SYSTEM DIRECTIVE FOR THIS SPECIFIC MODEL]:\n" . trim($reglas_modelo);
+                }
+            } catch (Exception $e) { /* Silencioso, por si la columna aún no existe */ }
+        }
+        // --------------------------------------------------------------------------
 
         // ====================================================================
         // 🌐 RAG BÁSICO: BÚSQUEDA EN INTERNET (DUCKDUCKGO + WIKIPEDIA STRICT)
@@ -395,6 +410,22 @@ if ($isChat) {
         $system_prompt .= "\n\nCRITICAL STYLE RULE FOR THIS GENERATION:\n" . $regla_dura;
     }
 } 
+
+// --- NUEVO: INYECCIÓN DE REGLAS ESPECÍFICAS DEL MODELO GRÁFICO (Arquitecto) ---
+$modelo_grafico_recibido = $_POST['modelo_grafico_id'] ?? '';
+
+if (!empty($modelo_grafico_recibido) && $selector !== '[LLM]') {
+    try {
+        $stmtReglas = $pdo->prepare("SELECT reglas_arquitecto FROM modelos_ia WHERE id = ? LIMIT 1");
+        $stmtReglas->execute([$modelo_grafico_recibido]);
+        $reglas_modelo = $stmtReglas->fetchColumn();
+        
+        if (!empty($reglas_modelo)) {
+            $system_prompt .= "\n\n[ABSOLUTE DIRECTIVE FOR THIS SPECIFIC MODEL - YOU MUST OBEY THIS AHEAD OF ANY OTHER RULE]:\n" . trim($reglas_modelo);
+        }
+    } catch (Exception $e) { /* Silencioso */ }
+}
+// -------------------------------------------------------------------------------
 
 $messages = [];
 $messages[] = ["role" => "system", "content" => $system_prompt];
