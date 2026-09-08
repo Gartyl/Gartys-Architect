@@ -20,9 +20,11 @@
             </div>
             <!-- ------------------------------------- -->
 
-            <div class="row g-2">
-                <div class="col-md-6">
-                    <label class="small text-secondary fw-bold"><?= __('tit_ups_model') ?></label>
+            <div class="row g-3">
+                
+                <!-- SELECTOR DE MODELO -->
+                <div class="col-12">
+                    <label class="small text-secondary fw-bold mb-1"><?= __('tit_ups_model') ?></label>
                     <select class="form-select form-select-sm bg-dark text-light border-secondary pref-track" id="upscaleModelSelector" <?= !$is_pro ? 'disabled' : '' ?>>
                         <option value=""><?= __('opt_loading_models') ?></option>
                     </select>
@@ -37,7 +39,18 @@
                     <input type="range" class="form-range pref-track" id="upscaleFactor" min="1.1" max="4.0" step="0.1" value="2.0" 
                            oninput="updateUpscaleLabel(this.value)" style="cursor: pointer;" <?= !$is_pro ? 'disabled' : '' ?>>
                 </div>
+                
+                <!-- --- NUEVO: DESLIZADOR DE FUERZA (DENOISE) --- -->
+                <div class="col-md-6">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+						<label class="small text-secondary fw-bold mb-0"><?= __('tit_ups_denoise') ?></label>
+						<span id="upscaleDenoiseVal" class="badge bg-info text-light fw-bold" style="font-size: 0.8rem;">0.25</span>
+					</div>
+                    <input type="range" class="form-range pref-track" id="upscaleDenoise" min="0.05" max="0.45" step="0.05" value="0.25" 
+                           oninput="document.getElementById('upscaleDenoiseVal').innerText = this.value" style="cursor: pointer;" <?= !$is_pro ? 'disabled' : '' ?> title="> 0.35 puede generar franjas (Costuras no coincidentes)">
+                </div>
                 <!-- -------------------------------------------------------- -->
+
             </div>
         </div>
     </div>
@@ -47,9 +60,16 @@
     function toggleAuraSR() {
         const isAura = document.getElementById('aurasrToggle').checked;
         const classicSelector = document.getElementById('upscaleModelSelector');
+        // El Denoise no aplica a AuraSR porque es GigaGAN, no Tiled KSampler. Lo apagamos también.
+        const denoiseSlider = document.getElementById('upscaleDenoise'); 
+        
         if (classicSelector) {
             classicSelector.disabled = isAura;
             classicSelector.style.opacity = isAura ? '0.4' : '1';
+        }
+        if (denoiseSlider) {
+            denoiseSlider.disabled = isAura;
+            denoiseSlider.style.opacity = isAura ? '0.4' : '1';
         }
     }
 
