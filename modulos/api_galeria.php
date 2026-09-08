@@ -54,14 +54,19 @@ if ($action === 'eliminar_prompt') {
         if (file_exists($filepath)) { 
             @unlink($filepath); 
         }
+        
+        // CAZAFANTASMAS: Borrar JSONs antiguos que se guardaron con el nombre de la imagen
+        $json_alt = __DIR__ . '/../galeria/' . pathinfo($row['imagen_path'], PATHINFO_FILENAME) . '.json';
+        if (file_exists($json_alt)) { 
+            @unlink($json_alt); 
+        }
     }
     
-    // --- NUEVO: BORRAR EL WORKFLOW JSON ASOCIADO A LA ID ---
+    // BORRAR EL WORKFLOW JSON ASOCIADO A LA ID (Estándar Nuevo)
     $json_file = __DIR__ . '/../galeria/workflow_' . $prompt_id . '.json';
     if (file_exists($json_file)) {
         @unlink($json_file);
     }
-    // -------------------------------------------------------
     
     $stmt = $pdo->prepare("DELETE FROM historial_prompts WHERE id = ? AND user_id = ?");
     $success = $stmt->execute([$prompt_id, $user_id]);

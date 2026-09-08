@@ -2502,6 +2502,13 @@ if ($action === 'generar_imagen') {
     // ==============================================================================
     $pure_upscale = filter_var($_POST['pure_upscale'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
 
+    // 🛡️ ESCUDO: Si el usuario ha seleccionado un LoRA, JAMÁS puede ser un Upscale Puro (ESRGAN).
+    // Forzamos que pase por el Upscale Creativo (KSampler) para que aplique el LoRA correctamente.
+    $lora_n = $_POST['lora_names'] ?? [];
+    if (!empty($lora_n) && isset($lora_n[0]) && strtolower(trim($lora_n[0])) !== 'ninguno' && !empty(trim($lora_n[0]))) {
+        $pure_upscale = false;
+    }
+
     if ($hires_fix && $pure_upscale && !empty($init_image_base64) && (!empty($upscale_model) || $aurasr_enabled)) {
         
         // 1. Limpiamos la cadena base64 y guardamos archivo temporal en disco
@@ -4419,14 +4426,12 @@ if ($action === 'generar_imagen') {
                 $filename = 'img_' . $historial_id . '_' . mt_rand(1000, 9999) . '_' . time() . '_' . $index . '.' . $ext;
                 if (@file_put_contents($galeria_dir . '/' . $filename, $img_binary)) {
                     
-                    // --- NUEVO: GUARDAR WORKFLOW JSON CON EL MISMO NOMBRE EXACTO ---
-                    $ruta_json = $galeria_dir . '/' . pathinfo($filename, PATHINFO_FILENAME) . '.json';
-                    @file_put_contents($ruta_json, json_encode($workflow, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-                    // ---------------------------------------------------------------
-                    
                     $stmt_check = $pdo->prepare("SELECT imagen_path, user_id, modelo, descripcion_original, prompt_negativo FROM historial_prompts WHERE id = ?");
                     $stmt_check->execute([$historial_id]);
                     $row = $stmt_check->fetch();
+                    
+                    $current_row_id = $historial_id; // Por defecto
+
                     if ($row) {
                         $safe_desc = preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', (string)$row['descripcion_original']);
                         $safe_pos = preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', (string)$posPrompt);
@@ -4435,11 +4440,18 @@ if ($action === 'generar_imagen') {
                         if ($is_first_image && empty($row['imagen_path'])) {
                             $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET imagen_path = ?, prompt_positivo = ?, metadata = ? WHERE id = ?");
                             $stmt_upd->execute([$filename, $safe_pos, $meta_json, $historial_id]);
+                            $current_row_id = $historial_id;
                         } else {
                             $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, imagen_path, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)");
                             $stmt_ins->execute([$row['user_id'], $row['modelo'], $safe_desc, $safe_pos, $safe_neg, $filename, $meta_json]);
+                            $current_row_id = $pdo->lastInsertId();
                         }
                     }
+                    
+                    // --- GUARDAR WORKFLOW JSON VINCULADO EXACTAMENTE A SU ID EN BD ---
+                    $ruta_json = $galeria_dir . '/workflow_' . $current_row_id . '.json';
+                    @file_put_contents($ruta_json, json_encode($workflow, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+                    // -----------------------------------------------------------------
                     $is_first_image = false;
                 }
             }
