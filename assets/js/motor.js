@@ -2108,6 +2108,13 @@ document.getElementById('promptForm').onsubmit = async (e) => {
     const llmSel = document.getElementById('llmModelSelector');
     if (llmSel && llmSel.value && selValue === '[CHAT]') fd.append('model_path', llmSel.value);
     
+    // 👇 NUEVO: Inyectar el ID del modelo gráfico seleccionado para leer sus reglas
+    const selectedGraphicModel = document.getElementById('modelSelector') ? document.getElementById('modelSelector').value : '';
+    if (selectedGraphicModel) {
+        fd.append('modelo_grafico_id', selectedGraphicModel);
+    }
+    // --------------------------------------------------------------------------
+    
     if (selValue === '[CHAT]') {
         const roleSel = document.getElementById('chatRoleSelector');
         let chosenRole = roleSel ? roleSel.value : '';
