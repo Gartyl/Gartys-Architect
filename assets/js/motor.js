@@ -1574,6 +1574,11 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
         if (hiresToggle.checked) {
             fd.append('upscale_model', document.getElementById('upscaleModelSelector').value); 
             fd.append('upscale_factor', document.getElementById('upscaleFactor').value);
+			
+			// 👇 EL ESLABÓN PERDIDO: Capturar la fuerza del redibujado 👇
+            const upDenoise = document.getElementById('upscaleDenoise');
+            if (upDenoise) fd.append('upscale_denoise', upDenoise.value);
+            // 👆 ------------------------------------------------------ 👆
             
 			// --- NUEVO: Capturar AuraSR ---
             const auraToggle = document.getElementById('aurasrToggle');
@@ -1584,7 +1589,10 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
             const hayImagen = (typeof currentImageBase64 !== 'undefined' && currentImageBase64 !== null) || 
                               (typeof compareImageA !== 'undefined' && compareImageA !== null);
             
-            if (hayImagen) {
+            // 🛡️ ESCUDO: Si hay un LoRA seleccionado, NO es un upscale puro, necesita pasar por la IA.
+            const lorasActivos = Array.from(document.querySelectorAll('.lora-selector')).some(sel => sel.value && sel.value.toLowerCase() !== 'ninguno');
+
+            if (hayImagen && !lorasActivos) {
                 fd.append('pure_upscale', 'true');
             } else {
                 fd.append('pure_upscale', 'false');
@@ -2071,9 +2079,10 @@ document.getElementById('promptForm').onsubmit = async (e) => {
 
     // --- NUEVO AVISO SALVAVIDAS PARA UPSCALE PURO ---
     const isUpscaleOn = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked;
+    const lorasParaSalvavidas = Array.from(document.querySelectorAll('.lora-selector')).some(sel => sel.value && sel.value.toLowerCase() !== 'ninguno');
     
-    // Si hay imagen subida y el Upscale está activo, bloqueamos el Arquitecto sin importar qué haya escrito:
-    if (hasFile && isUpscaleOn && selValue !== '[CHAT]') {
+    // Si hay imagen subida y el Upscale está activo (y NO hay LoRAs), bloqueamos el Arquitecto:
+    if (hasFile && isUpscaleOn && !lorasParaSalvavidas && selValue !== '[CHAT]') {
         SwalDark.fire({
             icon: 'info',
             title: GartyLang.swal_pure_upscale_title || 'Modo Upscale Puro',
