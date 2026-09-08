@@ -94,18 +94,45 @@
                     </div>
                 </div>
 
-                <div id="cloneOptionsBlock">
-                    <div class="mb-2">
-                        <label class="small text-secondary fw-bold"><?= __('lbl_audio_ref_file') ?? 'Muestra de Voz' ?></label>
-                        <button type="button" class="btn btn-sm btn-outline-info w-100 mb-1" onclick="document.getElementById('audioRefInput').click()">
-                            <i class="bi bi-file-earmark-music"></i> <?= __('btn_subir_audio_ref') ?? 'Subir Audio' ?>
+                <div id="cloneOptionsBlock" class="mb-3 p-2 border border-secondary rounded shadow-sm" style="background: rgba(0,0,0,0.2);">
+                    <label class="small text-info fw-bold mb-2"><i class="bi bi-person-lines-fill"></i> <?= __('lbl_voces_guardadas') ?></label>
+                    <div class="d-flex mb-2">
+                        <select class="form-select form-select-sm bg-dark text-light border-info me-1" id="ttsSavedVoices" onchange="if(typeof handleSavedVoiceSelection === 'function') handleSavedVoiceSelection()">
+                            <option value=""><?= __('opt_voz_temporal') ?></option>
+                        </select>
+                        <button type="button" class="btn btn-sm btn-outline-info" onclick="if(typeof toggleSaveVoiceForm === 'function') toggleSaveVoiceForm()" title="<?= __('btn_save_voice_title') ?>">
+                            <i class="bi bi-floppy"></i>
                         </button>
-                        <input type="file" id="audioRefInput" accept="audio/*" class="d-none" onchange="handleAudioRefUpload(this)">
-                        <small id="audioRefName" class="text-info d-block text-truncate" style="max-width: 100%;"></small>
+                        <button type="button" class="btn btn-sm btn-outline-danger d-none ms-1" id="btnDeleteSavedVoice" onclick="if(typeof eliminarVozGuardada === 'function') eliminarVozGuardada()" title="<?= __('btn_delete_voice_title') ?>">
+                            <i class="bi bi-trash"></i>
+                        </button>
                     </div>
-                    <div class="mb-2">
-                        <label class="small text-secondary fw-bold"><?= __('lbl_audio_ref_text') ?? 'Transcripción exacta' ?></label>
-                        <input type="text" class="form-control form-control-sm bg-dark text-light border-info pref-track" id="audioRefText" placeholder="<?= __('ph_audio_ref_text') ?? 'Escribe lo que dice la muestra...' ?>">
+
+                    <!-- Formulario para guardar nueva voz (Oculto por defecto) -->
+                    <div id="saveVoiceFormContainer" class="d-none mt-2 p-2 border border-info rounded" style="background: rgba(13, 202, 240, 0.1);">
+                        <label class="small text-info fw-bold"><?= __('lbl_new_voice_name') ?></label>
+                        <div class="d-flex mt-1">
+                            <input type="text" id="newVoiceName" class="form-control form-control-sm bg-dark text-light border-secondary me-2" placeholder="<?= __('ph_new_voice_name') ?>">
+                            <button type="button" class="btn btn-sm btn-success text-nowrap" id="btnSaveVoiceModel" onclick="if(typeof guardarModeloVoz === 'function') guardarModeloVoz()">
+                                <i class="bi bi-check-lg"></i> <?= __('btn_guardar') ?>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Subida manual / temporal (Se oculta al seleccionar una voz guardada) -->
+                    <div id="ttsUploadWrapper" class="mt-2 pt-2 border-top border-secondary">
+                        <div class="mb-2">
+                            <label class="small text-secondary fw-bold"><?= __('lbl_audio_ref_file') ?></label>
+                            <button type="button" class="btn btn-sm btn-outline-info w-100 mb-1" onclick="document.getElementById('audioRefInput').click()">
+                                <i class="bi bi-file-earmark-music"></i> <?= __('btn_subir_audio_ref') ?>
+                            </button>
+                            <input type="file" id="audioRefInput" accept="audio/*" class="d-none" onchange="if(typeof handleAudioRefUpload === 'function') handleAudioRefUpload(this)">
+                            <small id="audioRefName" class="text-info d-block text-truncate" style="max-width: 100%;"></small>
+                        </div>
+                        <div class="mb-1">
+                            <label class="small text-secondary fw-bold"><?= __('lbl_audio_ref_text') ?></label>
+                            <input type="text" class="form-control form-control-sm bg-dark text-light border-info pref-track" id="audioRefText" placeholder="<?= __('ph_audio_ref_text') ?>">
+                        </div>
                     </div>
                 </div>
                 
