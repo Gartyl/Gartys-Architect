@@ -3431,52 +3431,88 @@ if ($action === 'generar_imagen') {
     }
 	
 	// ==============================================================================
-    // 🌟 INYECCIÓN KREA-2 BODYSWAP (DOBLE IMAGEN: CUERPO + CARA)
+    // 🌟 INYECCIÓN KREA-2 NATIVA (IMG2IMG SIMPLE Y REFERENCIA MÚLTIPLE)
     // ==============================================================================
-    if ($is_krea2 && $comfy_image_filename !== "none" && !empty($tray_comfy_filenames[1])) {
+    if ($is_krea2 && $comfy_image_filename !== "none") {
         
-        // 1. Preparamos el prompt: Si escribes algo, manda TU texto exacto. Solo usa el salvavidas si la caja está vacía.
-        $prompt_texto = !empty(trim($posPrompt)) ? trim($posPrompt) : "body_swap: replace the person with the reference person.";
+        $doble_imagen = !empty($tray_comfy_filenames[1]);
+        $prompt_texto = trim($posPrompt);
 
-        // 2. Extraemos el LoRA de la UI y su FUERZA, o usamos los valores por defecto
-        $lora_krea = !empty($lora_names[0]) ? $lora_names[0] : "Krea2\\bfs_body_swap_v1_krea2.safetensors";
+        // Gestión de LoRA estrictamente a través de la UI (Cero rutas fijadas a fuego)
+        $lora_krea = (!empty($lora_names[0]) && strtolower(trim($lora_names[0])) !== 'ninguno') ? trim($lora_names[0]) : "";
         $lora_fuerza = isset($lora_strengths_high[0]) ? floatval($lora_strengths_high[0]) : 1.0;
-        
-        if (strpos($lora_krea, '\\') === false && strpos($lora_krea, '/') === false) {
-            $lora_krea = "Krea2\\" . $lora_krea;
-        }
 
-        // 3. Montaje del Workflow Nativo en PHP
+        // 🎚️ CAPTURAMOS EL DESLIZADOR DE LA INTERFAZ
+        $is_edit_panel_active = !empty($_POST['edit_tools_active']) || !empty($mask_data_base64);
+        $panel_denoise = isset($_POST['denoise']) ? floatval($_POST['denoise']) : 0.65;
+        $slider_denoise_final = $is_edit_panel_active ? $panel_denoise : 1.0;
+
+        // Nodos Base de la arquitectura Krea-2
         $workflow = [
             "57" => [ "class_type" => "VAELoader", "inputs" => [ "vae_name" => "qwen_image_vae.safetensors" ] ],
             "56" => [ "class_type" => "CLIPLoader", "inputs" => [ "clip_name" => "qwen3vl_4b_fp8_scaled.safetensors", "type" => "krea2", "device" => "default" ] ],
-            "55" => [ "class_type" => "UNETLoader", "inputs" => [ "unet_name" => $model_path, "weight_dtype" => "default" ] ],
-            "127" => [ "class_type" => "LoraLoaderModelOnly", "inputs" => [ "lora_name" => $lora_krea, "strength_model" => $lora_fuerza, "model" => ["55", 0] ] ],
-            
-            // Inyectamos las imágenes (Cuerpo = Principal | Cara = Bandeja 1)
-            "72" => [ "class_type" => "LoadImage", "inputs" => [ "image" => $comfy_image_filename ] ],
-            "139" => [ "class_type" => "LoadImage", "inputs" => [ "image" => $tray_comfy_filenames[1] ] ],
-            
-            // Redimensionado
-            "123" => [ "class_type" => "ImageResizeKJv2", "inputs" => [ "width" => 1024, "height" => 1024, "upscale_method" => "lanczos", "keep_proportion" => "resize", "pad_color" => "0, 0, 0", "crop_position" => "center", "divisible_by" => 2, "device" => "cpu", "image" => ["72", 0] ] ],
-            "140" => [ "class_type" => "ImageResizeKJv2", "inputs" => [ "width" => 1024, "height" => 1024, "upscale_method" => "lanczos", "keep_proportion" => "resize", "pad_color" => "0, 0, 0", "crop_position" => "center", "divisible_by" => 2, "device" => "cpu", "image" => ["139", 0] ] ],
-            
-            // Encoders VAE
-            "73" => [ "class_type" => "VAEEncode", "inputs" => [ "pixels" => ["123", 0], "vae" => ["57", 0] ] ],
-            "117" => [ "class_type" => "VAEEncode", "inputs" => [ "pixels" => ["140", 0], "vae" => ["57", 0] ] ],
-            "121" => [ "class_type" => "GetImageSize", "inputs" => [ "image" => ["123", 0] ] ],
-            "135" => [ "class_type" => "EmptySD3LatentImage", "inputs" => [ "width" => ["121", 0], "height" => ["121", 1], "batch_size" => 1 ] ],
-            
-            // Nodos curados de edición Krea-2
-            "119" => [ "class_type" => "Krea2EditGroundedEncode", "inputs" => [ "prompt" => $prompt_texto, "grounding_px" => 0, "system_prompt" => "", "clip" => ["56", 0], "image" => ["123", 0], "image_b" => ["140", 0] ] ],
-            "85"  => [ "class_type" => "Krea2EditGroundedEncode", "inputs" => [ "prompt" => $neg_prompt, "grounding_px" => 0, "system_prompt" => "", "clip" => ["56", 0], "image" => ["123", 0], "image_b" => ["140", 0] ] ],
-            "120" => [ "class_type" => "Krea2EditModelPatch", "inputs" => [ "ref_boost" => 1, "ref_boost_a" => 1, "fit_mode" => "fit", "model" => ["127", 0], "source_latent" => ["73", 0], "source_latent_b" => ["117", 0], "ref_boost_mask" => ["123", 3], "vae" => ["57", 0], "source_image" => ["123", 0], "source_image_b" => ["140", 0] ] ],
-            
-            // Generación y Guardado
-            "53" => [ "class_type" => "KSampler", "inputs" => [ "seed" => $seed, "steps" => $steps, "cfg" => $cfg, "sampler_name" => $sampler, "scheduler" => $scheduler, "denoise" => 1, "model" => ["120", 0], "positive" => ["119", 0], "negative" => ["85", 0], "latent_image" => ["135", 0] ] ],
-            "54" => [ "class_type" => "VAEDecode", "inputs" => [ "samples" => ["53", 0], "vae" => ["57", 0] ] ],
-            "9" => [ "class_type" => "PreviewImage", "inputs" => [ "images" => ["54", 0] ] ]
+            "55" => [ "class_type" => "UNETLoader", "inputs" => [ "unet_name" => $model_path, "weight_dtype" => "default" ] ]
         ];
+        
+        $current_model_node = "55";
+        
+        // Si el usuario seleccionó un LoRA en la web, lo aplicamos
+        if (!empty($lora_krea)) {
+            $workflow["127"] = [ "class_type" => "LoraLoaderModelOnly", "inputs" => [ "lora_name" => $lora_krea, "strength_model" => $lora_fuerza, "model" => ["55", 0] ] ];
+            $current_model_node = "127";
+        }
+        
+        // Preparación Imagen Principal (Sirve para ambos modos)
+        $workflow["72"]  = [ "class_type" => "LoadImage", "inputs" => [ "image" => $comfy_image_filename ] ];
+        $workflow["123"] = [ "class_type" => "ImageResizeKJv2", "inputs" => [ "width" => 1024, "height" => 1024, "upscale_method" => "lanczos", "keep_proportion" => "resize", "pad_color" => "0, 0, 0", "crop_position" => "center", "divisible_by" => 2, "device" => "cpu", "image" => ["72", 0] ] ];
+        
+        // Nodo 73: Imagen real codificada (Imprescindible para usar el deslizador Denoise en Img2Img)
+        $workflow["73"]  = [ "class_type" => "VAEEncode", "inputs" => [ "pixels" => ["123", 0], "vae" => ["57", 0] ] ];
+        
+        // Nodo 135: Lienzo vacío (Para reconstrucciones completas)
+        $workflow["121"] = [ "class_type" => "GetImageSize", "inputs" => [ "image" => ["123", 0] ] ];
+        $workflow["135"] = [ "class_type" => "EmptySD3LatentImage", "inputs" => [ "width" => ["121", 0], "height" => ["121", 1], "batch_size" => 1 ] ];
+        
+        // Arrays de conexión VLM
+        $encode_inputs_pos = [ "prompt" => $prompt_texto, "grounding_px" => 0, "system_prompt" => "", "clip" => ["56", 0], "image" => ["123", 0] ];
+        $encode_inputs_neg = [ "prompt" => $neg_prompt, "grounding_px" => 0, "system_prompt" => "", "clip" => ["56", 0], "image" => ["123", 0] ];
+        $patch_inputs = [ "ref_boost" => 1.0, "fit_mode" => "fit", "model" => [$current_model_node, 0], "source_latent" => ["73", 0], "ref_boost_mask" => ["123", 3], "vae" => ["57", 0], "source_image" => ["123", 0] ];
+        
+        if ($doble_imagen) {
+            // El usuario subió una segunda imagen a la bandeja (Referencia)
+            $workflow["139"] = [ "class_type" => "LoadImage", "inputs" => [ "image" => $tray_comfy_filenames[1] ] ];
+            $workflow["140"] = [ "class_type" => "ImageResizeKJv2", "inputs" => [ "width" => 1024, "height" => 1024, "upscale_method" => "lanczos", "keep_proportion" => "resize", "pad_color" => "0, 0, 0", "crop_position" => "center", "divisible_by" => 2, "device" => "cpu", "image" => ["139", 0] ] ];
+            $workflow["117"] = [ "class_type" => "VAEEncode", "inputs" => [ "pixels" => ["140", 0], "vae" => ["57", 0] ] ];
+            
+            $encode_inputs_pos["image_b"] = ["140", 0];
+            $encode_inputs_neg["image_b"] = ["140", 0];
+            
+            $patch_inputs["ref_boost_a"] = 1.0;
+            $patch_inputs["source_latent_b"] = ["117", 0];
+            $patch_inputs["source_image_b"] = ["140", 0];
+            
+            $meta_modo = 'Krea-2 Dual Image';
+            
+            // Decisión inteligente de Latente:
+            // Si el usuario deja el Denoise a 1.0, le damos un lienzo vacío para crear desde cero guiado por 2 imágenes.
+            // Si baja el Denoise (< 1.0), le pasamos el latente de su foto base para que la modifique sutilmente.
+            $latent_final = ($slider_denoise_final >= 1.0) ? ["135", 0] : ["73", 0];
+            
+        } else {
+            // Img2Img Normal (1 sola imagen)
+            $meta_modo = 'Krea-2 Img2Img';
+            $latent_final = ["73", 0];
+        }
+        
+        $workflow["119"] = [ "class_type" => "Krea2EditGroundedEncode", "inputs" => $encode_inputs_pos ];
+        $workflow["85"]  = [ "class_type" => "Krea2EditGroundedEncode", "inputs" => $encode_inputs_neg ];
+        $workflow["120"] = [ "class_type" => "Krea2EditModelPatch", "inputs" => $patch_inputs ];
+        
+        // 🚀 KSampler completamente gobernado por el slider de la interfaz
+        $workflow["53"] = [ "class_type" => "KSampler", "inputs" => [ "seed" => $seed, "steps" => $steps, "cfg" => $cfg, "sampler_name" => $sampler, "scheduler" => $scheduler, "denoise" => $slider_denoise_final, "model" => ["120", 0], "positive" => ["119", 0], "negative" => ["85", 0], "latent_image" => $latent_final ] ];
+        
+        $workflow["54"] = [ "class_type" => "VAEDecode", "inputs" => [ "samples" => ["53", 0], "vae" => ["57", 0] ] ];
+        $workflow["9"]  = [ "class_type" => "PreviewImage", "inputs" => [ "images" => ["54", 0] ] ];
 
         // 4. Metadatos y Base de Datos
         $meta_json_array = [
@@ -3486,9 +3522,11 @@ if ($action === 'generar_imagen') {
             'Steps' => $steps, 
             'CFG Scale' => $cfg, 
             'Sampler' => ucfirst($sampler) . ' (' . ucfirst($scheduler) . ')', 
-            'LoRAs' => basename($lora_krea),
-            'Modo' => 'Krea-2 Bodyswap'
+            'Denoise' => $slider_denoise_final,
+            'LoRAs' => empty($lora_krea) ? __('lbl_none') : basename($lora_krea),
+            'Modo' => $meta_modo
         ];
+        
         $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
 
         if ($historial_id > 0) {
@@ -3503,7 +3541,6 @@ if ($action === 'generar_imagen') {
         $current_image_node = "9";
         goto EJECUTAR_COMFYUI;
     }
-	
 	
 	// ==============================================================================
     // 🌟 INYECCIÓN IDEOGRAM 4 (Vía JSON Plantilla Estricta)
