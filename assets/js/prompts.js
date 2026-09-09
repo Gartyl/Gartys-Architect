@@ -151,11 +151,16 @@ async function cargarTablaPrompts() {
             tbody.innerHTML = `<tr><td colspan="7" class="text-warning fw-bold py-4">${GartyLang.adm_msg_empty_prompts}</td></tr>`;
         }
 		
-		// 👇 NUEVO: Reaplicar el filtro tras reconstruir la tabla 👇
+		// 👇 NUEVO: Reaplicar los filtros dobles (Tipo e Idioma) tras reconstruir la tabla 👇
         setTimeout(() => {
-            const filtroPrompts = document.querySelector('select[onchange*="tablaPromptsBody"]');
-            if (filtroPrompts && filtroPrompts.value !== "") {
-                filtroPrompts.dispatchEvent(new Event('change'));
+            const filtroTipo = document.getElementById('filtroTipoPrompt');
+            const filtroIdioma = document.getElementById('filtroIdiomaPrompt');
+            
+            // Si existe la función (debería estar en modelos.js) y algún filtro está activo, la lanzamos
+            if (typeof window.filtrarPromptsAvanzado === 'function') {
+                if ((filtroTipo && filtroTipo.value !== "") || (filtroIdioma && filtroIdioma.value !== "")) {
+                    window.filtrarPromptsAvanzado();
+                }
             }
         }, 50);
         // 👆 HASTA AQUÍ 👆

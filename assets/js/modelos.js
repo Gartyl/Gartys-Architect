@@ -1093,3 +1093,36 @@ document.addEventListener('DOMContentLoaded', () => {
         modelSel.addEventListener('change', sugerirAjustesMotor); // <--- NUEVO: Llama a la sugerencia al cambiar
     }
 });
+
+// ============================================================================
+// NUEVA FUNCIÓN: Filtrado combinado (Tipo + Idioma) para la tabla de Prompts
+// ============================================================================
+window.filtrarPromptsAvanzado = function() {
+    const filtroTipo = document.getElementById('filtroTipoPrompt').value.toLowerCase();
+    const filtroIdioma = document.getElementById('filtroIdiomaPrompt').value.toLowerCase();
+    const tbody = document.getElementById('tablaPromptsBody');
+    
+    if (!tbody) return;
+
+    const filas = tbody.querySelectorAll('tr');
+    
+    filas.forEach(fila => {
+        // Ignorar filas de estado (spinner de carga o mensajes de "tabla vacía")
+        if (fila.cells.length < 4) return;
+
+        // La columna Tipo es la 2 y la de Idioma es la 3 (empezando desde 0)
+        const textoTipo = fila.cells[2].textContent.toLowerCase();
+        const textoIdioma = fila.cells[3].textContent.toLowerCase().trim();
+
+        // Validamos si la fila cumple las condiciones de los selectores
+        const coincideTipo = filtroTipo === "" || textoTipo.includes(filtroTipo);
+        const coincideIdioma = filtroIdioma === "" || textoIdioma === filtroIdioma;
+
+        // Si cumple ambas condiciones, la mostramos. Si falla alguna, la ocultamos.
+        if (coincideTipo && coincideIdioma) {
+            fila.style.display = '';
+        } else {
+            fila.style.display = 'none';
+        }
+    });
+};
