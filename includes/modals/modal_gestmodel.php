@@ -254,102 +254,108 @@
                     </div>
                     
                     <div class="tab-pane fade" id="tab-prompts" role="tabpanel">
+                        
+                        <?php
+                        // 1. Movemos la lectura de la carpeta de idiomas al principio de la pestaña
+                        // Así podemos usar esta lista tanto para el nuevo FILTRO como para el FORMULARIO
+                        $lang_dir_admin = __DIR__ . '/../../lang/';
+                        $json_path_admin = $lang_dir_admin . 'idiomas_meta.json';
+                        $nombres_json_admin = [];
+                        if (file_exists($json_path_admin)) {
+                            $nombres_json_admin = json_decode(file_get_contents($json_path_admin), true) ?? [];
+                        }
+
+                        $nombres_base_admin = [
+                            'es' => '🇪🇸 Español', 'en' => '🇬🇧 English',
+                            'ca' => '<img src="assets/img/ca.svg" alt="CAT" style="width: 20px; height: 20px; border-radius: 2px; vertical-align: middle; margin-right: 6px; margin-top: -2px;"> Català',
+                            'fr' => '🇫🇷 Français', 'it' => '🇮🇹 Italiano', 'de' => '🇩🇪 Deutsch', 'pt' => '🇵🇹 Português'
+                        ];
+
+                        $nombres_vis_admin = array_merge($nombres_base_admin, $nombres_json_admin);
+                        $archivos_admin = is_dir($lang_dir_admin) ? glob($lang_dir_admin . '*.php') : [];
+                        ?>
+
                         <div class="card bg-dark border-secondary mb-4 shadow-sm">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <h6 class="text-info fw-bold m-0"><i class="bi bi-plus-circle"></i> <?= __('tit_pan_tit_prompt') ?></h6>
                                     
-                                    <select class="form-select form-select-sm bg-dark text-light border-secondary w-auto" onchange="filtrarTablaAdmin('tablaPromptsBody', 2, this.value)">
-										<option value=""><?= __('adm_type_all') ?></option>
-										
-										<option value="<?= __('flt_seed') ?? 'Semilla' ?>">🌱 <?= __('adm_type_seeds') ?></option>
-										<option value="<?= __('flt_random') ?? 'Aleatorio' ?>">🎲 <?= __('adm_type_randoms') ?></option>
-										<option value="<?= __('flt_persona') ?? 'Personalidad' ?>">🗣️ <?= __('adm_type_personas') ?></option>
-										
-										<option value="<?= __('flt_assistant') ?? 'Asistente' ?>">🤖 <?= __('adm_pr_chat_def') ?? 'Asistente (Defecto)' ?></option>
-										<option value="<?= __('flt_system') ?? 'Sistema' ?>">💬 <?= __('adm_pr_chat_sys') ?? 'Sistema Chat Directo' ?></option>
-										
-										<option value="<?= __('flt_rule') ?? 'Reglas' ?>">⚙️ <?= __('adm_type_rules') ?></option>
-										<option value="<?= __('flt_style') ?? 'Estilo' ?>">🎨 <?= __('adm_type_styles') ?></option>
-										<!--option value="< ?= __('flt_analyst') ?? 'Analista' ?>">👁️ < ?= __('adm_type_analysts') ?></option-->
-										<option value="<?= __('flt_enhancer') ?? 'Amplificador' ?>">✨ <?= __('adm_type_amps') ?></option>
-									</select>
+                                    <!-- 2. ZONA DE FILTROS (ARRIBA A LA DERECHA) -->
+                                    <div class="d-flex gap-2">
+                                        <!-- Filtro 1: El de Tipo/Categoría -->
+                                        <select id="filtroTipoPrompt" class="form-select form-select-sm bg-dark text-light border-secondary w-auto" onchange="filtrarPromptsAvanzado()">
+                                            <option value=""><?= __('adm_type_all') ?></option>
+                                            <option value="<?= __('flt_seed') ?? 'Semilla' ?>">🌱 <?= __('adm_type_seeds') ?></option>
+                                            <option value="<?= __('flt_random') ?? 'Aleatorio' ?>">🎲 <?= __('adm_type_randoms') ?></option>
+                                            <option value="<?= __('flt_persona') ?? 'Personalidad' ?>">🗣️ <?= __('adm_type_personas') ?></option>
+                                            <option value="<?= __('flt_assistant') ?? 'Asistente' ?>">🤖 <?= __('adm_pr_chat_def') ?? 'Asistente (Defecto)' ?></option>
+                                            <option value="<?= __('flt_system') ?? 'Sistema' ?>">💬 <?= __('adm_pr_chat_sys') ?? 'Sistema Chat Directo' ?></option>
+                                            <option value="<?= __('flt_rule') ?? 'Reglas' ?>">⚙️ <?= __('adm_type_rules') ?></option>
+                                            <option value="<?= __('flt_style') ?? 'Estilo' ?>">🎨 <?= __('adm_type_styles') ?></option>
+                                            <option value="<?= __('flt_enhancer') ?? 'Amplificador' ?>">✨ <?= __('adm_type_amps') ?></option>
+                                        </select>
+
+                                        <!-- Filtro 2: EL NUEVO FILTRO DINÁMICO DE IDIOMA -->
+                                        <select id="filtroIdiomaPrompt" class="form-select form-select-sm bg-dark text-light border-secondary w-auto" onchange="filtrarPromptsAvanzado()">
+                                            <option value=""><?= __('adm_lang_all') ?? '🌍 Todos los idiomas' ?></option>
+                                            <?php
+                                            // Bucle dinámico que lee los archivos físicos que existan en la carpeta /lang/
+                                            foreach ($archivos_admin as $archivo_lang) {
+                                                $iso = basename($archivo_lang, '.php');
+                                                // Rescatamos el nombre bonito (ej: 🇪🇸 Español) o usamos las siglas si es inventado
+                                                $nombre_bonito = strip_tags($nombres_vis_admin[$iso] ?? strtoupper($iso));
+                                                
+                                                // Value en mayúsculas (CA, ES) para que el Javascript lo pueda cruzar con el texto de la tabla
+                                                echo '<option value="' . strtoupper($iso) . '">' . $nombre_bonito . '</option>';
+                                            }
+                                            ?>
+                                        </select>
+                                    </div>
+                                    <!-- FIN ZONA DE FILTROS -->
+
                                 </div>
+                                
+                                <!-- 3. ZONA DEL FORMULARIO DE ALTA/EDICIÓN -->
                                 <form id="formNuevoPrompt" class="row g-2">
                                     <div class="col-md-3">
                                         <label class="small text-secondary fw-bold"><?= __('tit_pan_titulo') ?></label>
                                         <input type="text" class="form-control bg-dark text-light border-secondary" id="prTitulo" placeholder="<?= __('adm_ph_pr_tit') ?>">
                                     </div>
-									<div class="col-md-3">
+                                    <div class="col-md-3">
                                         <label class="small text-secondary fw-bold"><?= __('tit_pan_tipo_pr') ?></label>
-									<select class="form-select bg-dark text-light border-secondary" id="prTipo">
-										<option value="seed_image">🌱 <?= __('adm_pr_sd_img') ?></option>
-										<option value="seed_chat">🌱 <?= __('adm_pr_sd_chat') ?></option>
-										
-										<option value="seed_video" <?= !$is_pro ? 'disabled' : '' ?>>
-											🌱 <?= __('adm_pr_sd_vid') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?>
-										</option>
-										
-										<option value="random_prompt">🎲 <?= __('adm_pr_rnd_char') ?></option>
-										
-										<option value="chat_personality" <?= !$is_pro ? 'disabled' : '' ?>>
-											🗣️ <?= __('adm_pr_chat_pers') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?>
-										</option>
-										
-										<option value="chat_default">🤖 <?= __('adm_pr_chat_def') ?? 'Asistente Chat (Defecto)' ?></option>
-										<option value="sys_prompt_chat">💬 <?= __('adm_pr_chat_sys') ?? 'Sistema Chat Directo' ?></option>
-										<option value="enhance_prompt">✨ <?= __('adm_pr_amp_trad') ?></option>
-										<option value="core_architect">⚙️ <?= __('adm_pr_core_arq') ?></option>
-										<option value="estilo_sd15">🎨 <?= __('adm_pr_sty_sd15') ?></option>
-										<option value="estilo_sdxl">⚡ <?= __('adm_pr_sty_sdxl') ?></option>
-										
-										<option value="estilo_flux" <?= !$is_pro ? 'disabled' : '' ?>>
-											💎 <?= __('adm_pr_sty_flux') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?>
-										</option>
-										<option value="estilo_video" <?= !$is_pro ? 'disabled' : '' ?>>
-											🎬 <?= __('adm_pr_sty_vid') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?>
-										</option>
-									</select>
+                                        <select class="form-select bg-dark text-light border-secondary" id="prTipo">
+                                            <option value="seed_image">🌱 <?= __('adm_pr_sd_img') ?></option>
+                                            <option value="seed_chat">🌱 <?= __('adm_pr_sd_chat') ?></option>
+                                            <option value="seed_video" <?= !$is_pro ? 'disabled' : '' ?>>
+                                                🌱 <?= __('adm_pr_sd_vid') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?>
+                                            </option>
+                                            <option value="random_prompt">🎲 <?= __('adm_pr_rnd_char') ?></option>
+                                            <option value="chat_personality" <?= !$is_pro ? 'disabled' : '' ?>>
+                                                🗣️ <?= __('adm_pr_chat_pers') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?>
+                                            </option>
+                                            <option value="chat_default">🤖 <?= __('adm_pr_chat_def') ?? 'Asistente Chat (Defecto)' ?></option>
+                                            <option value="sys_prompt_chat">💬 <?= __('adm_pr_chat_sys') ?? 'Sistema Chat Directo' ?></option>
+                                            <option value="enhance_prompt">✨ <?= __('adm_pr_amp_trad') ?></option>
+                                            <option value="core_architect">⚙️ <?= __('adm_pr_core_arq') ?></option>
+                                            <option value="estilo_sd15">🎨 <?= __('adm_pr_sty_sd15') ?></option>
+                                            <option value="estilo_sdxl">⚡ <?= __('adm_pr_sty_sdxl') ?></option>
+                                            <option value="estilo_flux" <?= !$is_pro ? 'disabled' : '' ?>>
+                                                💎 <?= __('adm_pr_sty_flux') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?>
+                                            </option>
+                                            <option value="estilo_video" <?= !$is_pro ? 'disabled' : '' ?>>
+                                                🎬 <?= __('adm_pr_sty_vid') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?>
+                                            </option>
+                                        </select>
                                     </div>
                                     <div class="col-md-2">
                                         <label class="small text-secondary fw-bold"><?= __('tit_pan_idioma') ?></label>
                                         <select class="form-select bg-dark text-light border-secondary" id="prIdioma">
                                             <?php
-                                            // Escaneamos la carpeta de idiomas para montar el desplegable automáticamente
-                                            $lang_dir_admin = __DIR__ . '/../../lang/';
-                                            
-                                            // 1. Leemos los idiomas personalizados del JSON (Si existe)
-                                            $json_path_admin = $lang_dir_admin . 'idiomas_meta.json';
-                                            $nombres_json_admin = [];
-                                            if (file_exists($json_path_admin)) {
-                                                $nombres_json_admin = json_decode(file_get_contents($json_path_admin), true) ?? [];
-                                            }
-
-                                            if (is_dir($lang_dir_admin)) {
-                                                $archivos_admin = glob($lang_dir_admin . '*.php');
-                                                
-                                                // 2. Diccionario visual base (igual que el del menú superior)
-                                                $nombres_base_admin = [
-                                                    'es' => '🇪🇸 Español',
-                                                    'en' => '🇬🇧 English',
-                                                    'ca' => '<img src="assets/img/ca.svg" alt="CAT" style="width: 20px; height: 20px; border-radius: 2px; vertical-align: middle; margin-right: 6px; margin-top: -2px;"> Català',
-                                                    'fr' => '🇫🇷 Français',
-                                                    'it' => '🇮🇹 Italiano',
-                                                    'de' => '🇩🇪 Deutsch',
-                                                    'pt' => '🇵🇹 Português'
-                                                ];
-
-                                                // 3. Fusionamos los diccionarios. El JSON manda si hay coincidencias o idiomas nuevos.
-                                                $nombres_vis_admin = array_merge($nombres_base_admin, $nombres_json_admin);
-
-                                                foreach ($archivos_admin as $archivo_lang) {
-                                                    $iso = basename($archivo_lang, '.php');
-                                                    // Si está en el diccionario fusionado usamos su nombre, sino ponemos las siglas en mayúsculas
-                                                    $nombre = $nombres_vis_admin[$iso] ?? strtoupper($iso);
-                                                    
-                                                    // Usamos strip_tags() para el texto visible nativo y data-content para plugins
-                                                    echo '<option value="' . htmlspecialchars($iso) . '" data-content="' . htmlspecialchars($nombre) . '">' . strip_tags($nombre) . '</option>';
-                                                }
+                                            // 4. Reutilizamos las variables generadas arriba para no ejecutar el código 2 veces
+                                            foreach ($archivos_admin as $archivo_lang) {
+                                                $iso = basename($archivo_lang, '.php');
+                                                $nombre = $nombres_vis_admin[$iso] ?? strtoupper($iso);
+                                                echo '<option value="' . htmlspecialchars($iso) . '" data-content="' . htmlspecialchars($nombre) . '">' . strip_tags($nombre) . '</option>';
                                             }
                                             ?>
                                         </select>
@@ -371,16 +377,16 @@
                         <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                             <table class="table table-dark table-hover table-bordered border-secondary text-center align-middle m-0">
                                 <thead class="table-active text-info text-nowrap" style="position: sticky; top: 0; z-index: 1;">
-									<tr>
-										<th style="width: 5%;"><?= __('tit_pan_id') ?></th>
-										<th class="text-wrap" style="width: 40%; min-width: 250px;"><?= __('tit_pan_titulo') ?></th>
-										<th><?= __('tit_pan_tipo') ?></th>
-										<th><?= __('tit_pan_idioma') ?></th>
-										<th><?= __('tit_pan_param') ?></th>
-										<th><?= __('tit_pan_estado') ?></th>
-										<th><?= __('tit_pan_accion') ?></th>
-									</tr>
-								</thead>
+                                    <tr>
+                                        <th style="width: 5%;"><?= __('tit_pan_id') ?></th>
+                                        <th class="text-wrap" style="width: 40%; min-width: 250px;"><?= __('tit_pan_titulo') ?></th>
+                                        <th><?= __('tit_pan_tipo') ?></th>
+                                        <th><?= __('tit_pan_idioma') ?></th>
+                                        <th><?= __('tit_pan_param') ?></th>
+                                        <th><?= __('tit_pan_estado') ?></th>
+                                        <th><?= __('tit_pan_accion') ?></th>
+                                    </tr>
+                                </thead>
                                 <tbody id="tablaPromptsBody"></tbody>
                             </table>
                         </div>
