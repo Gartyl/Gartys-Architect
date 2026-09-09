@@ -2105,6 +2105,14 @@ document.getElementById('promptForm').onsubmit = async (e) => {
     document.getElementById('submitBtn').disabled = true;
 
     const fd = new FormData(); fd.append('selector', selValue); fd.append('descripcion', idea);
+    
+    // 👇 NUEVO: CABLEAMOS EL BOTÓN DE INTERNET (SOLO AÑADIMOS ESTO) 👇
+    const chkInternet = document.getElementById('internetToggle');
+    if (chkInternet) {
+        fd.append('usar_internet', chkInternet.checked ? 'true' : 'false');
+    }
+    // 👆 HASTA AQUÍ 👆
+
     const llmSel = document.getElementById('llmModelSelector');
     if (llmSel && llmSel.value && selValue === '[CHAT]') fd.append('model_path', llmSel.value);
     
@@ -2306,12 +2314,24 @@ async function runLlm() {
     const resBox = document.getElementById('llmResponse');
     resBox.classList.remove('d-none'); resBox.innerText = GartyLang.msg_synthesizing_draft;
     
-    const fd = new FormData(); fd.append('ejecutar_llm', 'true'); fd.append('prompt_final', document.getElementById('posContent').innerText);
-    const modelSel = document.getElementById('llmModelSelector'); if (modelSel && modelSel.value) fd.append('llm_model', modelSel.value);
+    const fd = new FormData(); 
+    fd.append('ejecutar_llm', 'true'); 
+    fd.append('prompt_final', document.getElementById('posContent').innerText);
+    
+    const modelSel = document.getElementById('llmModelSelector'); 
+    if (modelSel && modelSel.value) fd.append('llm_model', modelSel.value);
+    
     if (currentPromptId > 0) fd.append('prompt_id', currentPromptId);
     
     // Bandera para avisar a PHP de que queremos la respuesta en tiempo real
     fd.append('stream', 'true'); 
+    
+    // 👇 NUEVO: CABLEAMOS EL BOTÓN DE INTERNET 👇
+    const chkInternet = document.getElementById('internetToggle'); // <--- ¡AQUÍ ESTABA EL FALLO!
+    if (chkInternet) {
+        fd.append('usar_internet', chkInternet.checked ? 'true' : 'false');
+    }
+    // 👆 HASTA AQUÍ 👆
     
     try {
         const res = await fetch('procesar.php', { method: 'POST', body: fd });
