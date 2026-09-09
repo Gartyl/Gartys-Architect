@@ -107,15 +107,15 @@ Perfect for getting started. Includes the core unified dashboard, asynchronous g
 
 **2. PRO License**
 For power users. Unlocks the true potential of the integrated studio:
-* **Advanced Workflows:** Access to heavy architectures like Flux, SD3.5, Krea-2, Chroma, Z-Image, Qwen-Image, Qwen-Edit, Hunyuan Image, Hidream, LTX-Video, and Wan generation.
-* **The Graphic Studio:** Unlocks Native ReActor, IP-Adapter, Rembg, High-Res Fix, IC-Light, and Inpainting/Outpainting.
+* **Advanced Workflows:** Access to heavy architectures like Flux, Flux 2 Klein, SD3.5, Krea-2, Chroma, Z-Image, Qwen-Image, Qwen-Edit, Hunyuan Image, Hidream, Ideogram, LTX-Video, Minimax H3, Hunyuan Video and Wan.
+* **The Graphic Studio:** Unlocks Native ReActor, IP-Adapter, Rembg, High-Res Fix, IC-Light, Upscale, DDColor, Inpainting/Outpainting...
 👉 *[Unlock the PRO License here](https://garty.lemonsqueezy.com/checkout/buy/70636e1a-0dde-49c5-bf97-d4d852dceee8)*
 
 ---
 
 ## 🔮 The Roadmap
 This project is an actively developed Swiss Army knife for AI enthusiasts. Coming soon:
-* **Continuous Evolution:** Ongoing integration of next-generation image and video solutions (like Hunyuan Video), as well as advanced workflow tools.
+* **Continuous Evolution:** Ongoing integration of next-generation image and video solutions, as well as advanced workflow tools.
 * **The Server Edition:** A future standalone release designed for remote network access, complete with secure multi-user logins (MySQL/MariaDB), role management, and audit logs.
 
 ---
