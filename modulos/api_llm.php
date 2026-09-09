@@ -57,50 +57,102 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
         // --------------------------------------------------------------------------
 
         // ====================================================================
-        // 🌐 RAG BÁSICO: BÚSQUEDA EN INTERNET (DUCKDUCKGO + WIKIPEDIA STRICT)
+        // 🌐 RAG FRANCOTIRADOR (WIKIPEDIA API + DDG LITE + DEBUGGING)
         // ====================================================================
+        // IMPORTANTE: Asegúrate de que tu main.js / api_chat.js está enviando usar_internet: 'true' en el FormData
         $usar_internet = isset($_POST['usar_internet']) && $_POST['usar_internet'] === 'true';
         $contexto_web = "";
 
         if ($usar_internet && !empty($prompt_final)) {
-            // Extraemos el idioma para forzar que busque en la Wikipedia correcta
-            $codigo_base = strtolower(substr($lang, 0, 2));
-            $excepciones_wiki = ['jp' => 'ja', 'kr' => 'ko', 'cn' => 'zh'];
+            $codigo_base = strtolower(substr($lang ?? 'es', 0, 2));
+            $excepciones_wiki = ['jp' => 'ja', 'kr' => 'ko', 'cn' => 'zh', 'ca' => 'ca'];
             $idioma_wiki = $excepciones_wiki[$codigo_base] ?? $codigo_base;
+            
+            // 1. LIMPIEZA DEL PROMPT (Para que Wikipedia no busque "Háblame de...")
+            $stopwords = ['/h[áa]blame\s+de\s+/i', '/informaci[oó]n\s+(sobre|de)\s+/i', '/qu[ée]\s+es\s+/i', '/dime\s+algo\s+de\s+/i', '/expl[íi]came\s+/i'];
+            $termino_limpio = trim(preg_replace($stopwords, '', $prompt_final));
+            if(empty($termino_limpio)) $termino_limpio = trim($prompt_final);
 
-            // Truco Maestro: Usamos DuckDuckGo pero le obligamos a leer SOLO Wikipedia en tu idioma
-            $query_inteligente = trim($prompt_final) . " site:{$idioma_wiki}.wikipedia.org";
-            $termino_url = urlencode($query_inteligente);
+            // ---------------------------------------------------------
+            // MOTOR 1: WIKIPEDIA API (Prioridad absoluta para lugares y cosas)
+            // ---------------------------------------------------------
+            $wiki_search_url = "https://{$idioma_wiki}.wikipedia.org/w/api.php?action=query&list=search&srsearch=" . urlencode($termino_limpio) . "&utf8=&format=json&srlimit=1";
+            
+            $ch_w = curl_init($wiki_search_url);
+            curl_setopt($ch_w, CURLOPT_RETURNTRANSFER, true);
+            // Wikipedia bloquea los cURL anónimos, fingimos ser tu aplicación
+            curl_setopt($ch_w, CURLOPT_USERAGENT, 'GartysArchitect/1.2 (Local RAG System)');
+            curl_setopt($ch_w, CURLOPT_TIMEOUT, 4);
+            $res_w = curl_exec($ch_w);
+            curl_close($ch_w);
 
-            $url_ddg = "https://html.duckduckgo.com/html/?q={$termino_url}";
-
-            $ch_ddg = curl_init($url_ddg);
-            curl_setopt($ch_ddg, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch_ddg, CURLOPT_FOLLOWLOCATION, true);
-            curl_setopt($ch_ddg, CURLOPT_TIMEOUT, 8);
-            curl_setopt($ch_ddg, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'); 
-            $res_ddg = curl_exec($ch_ddg);
-            curl_close($ch_ddg);
-
-            if ($res_ddg) {
-                // Extraemos los resúmenes limpios
-                preg_match_all('/class="result__snippet[^>]*>(.*?)<\/a>/is', $res_ddg, $matches);
-                if (!empty($matches[1])) {
-                    $top_resultados = array_slice($matches[1], 0, 3);
-                    foreach ($top_resultados as $snippet) {
-                        $texto_limpio = html_entity_decode(trim(strip_tags($snippet)), ENT_QUOTES, 'UTF-8');
-                        // Solo añadimos frases que tengan sentido (más de 20 caracteres)
-                        if (strlen($texto_limpio) > 20) {
-                            $contexto_web .= "- " . $texto_limpio . "\n";
+            if ($res_w) {
+                $wiki_data = json_decode($res_w, true);
+                if (!empty($wiki_data['query']['search'][0]['pageid'])) {
+                    $pageid = $wiki_data['query']['search'][0]['pageid'];
+                    // Pedimos las primeras 7 frases del artículo exacto, sin código HTML
+                    $wiki_text_url = "https://{$idioma_wiki}.wikipedia.org/w/api.php?action=query&prop=extracts&exsentences=7&explaintext&redirects=1&format=json&pageids={$pageid}";
+                    
+                    $ch_t = curl_init($wiki_text_url);
+                    curl_setopt($ch_t, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch_t, CURLOPT_USERAGENT, 'GartysArchitect/1.2 (Local RAG System)');
+                    $res_t = curl_exec($ch_t);
+                    curl_close($ch_t);
+                    
+                    if ($res_t) {
+                        $text_data = json_decode($res_t, true);
+                        if (isset($text_data['query']['pages'][$pageid]['extract'])) {
+                            $extracto = trim($text_data['query']['pages'][$pageid]['extract']);
+                            if (strlen($extracto) > 50) {
+                                $contexto_web .= "WIKIPEDIA: " . $extracto . "\n\n";
+                            }
                         }
                     }
                 }
             }
 
+            // ---------------------------------------------------------
+            // MOTOR 2: DUCKDUCKGO LITE (Fallback para actualidad)
+            // Solo entra aquí si Wikipedia no ha devuelto nada útil
+            // ---------------------------------------------------------
+            if (empty($contexto_web)) { 
+                $url_ddg = "https://lite.duckduckgo.com/lite/";
+                $ch_ddg = curl_init($url_ddg);
+                curl_setopt($ch_ddg, CURLOPT_POST, true);
+                curl_setopt($ch_ddg, CURLOPT_POSTFIELDS, "q=" . urlencode($prompt_final)); 
+                curl_setopt($ch_ddg, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch_ddg, CURLOPT_FOLLOWLOCATION, true);
+                curl_setopt($ch_ddg, CURLOPT_TIMEOUT, 5);
+                curl_setopt($ch_ddg, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; rv:120.0) Gecko/20100101 Firefox/120.0'); 
+                $res_ddg = curl_exec($ch_ddg);
+                curl_close($ch_ddg);
+
+                if ($res_ddg) {
+                    // Regex todoterreno que ignora si son comillas simples o dobles
+                    preg_match_all('/class=[\'"]?result-snippet[\'"]?[^>]*>(.*?)<\//is', $res_ddg, $matches);
+                    if (!empty($matches[1])) {
+                        $top_resultados = array_slice($matches[1], 0, 4);
+                        foreach ($top_resultados as $snippet) {
+                            $texto_limpio = html_entity_decode(trim(strip_tags($snippet)), ENT_QUOTES, 'UTF-8');
+                            if (strlen($texto_limpio) > 20) {
+                                $contexto_web .= "- " . $texto_limpio . "\n";
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ---------------------------------------------------------
+            // 3. CHIVATO DE DEPURACIÓN (Borrar cuando funcione)
+            // ---------------------------------------------------------
+            file_put_contents(__DIR__ . '/debug_rag.txt', "PROMPT ORIGINAL: {$prompt_final}\nLIMPIADO PARA WIKI: {$termino_limpio}\nRESULTADOS OBTENIDOS:\n" . ($contexto_web ?: "NADA ENCONTRADO"));
+
+            // ---------------------------------------------------------
+            // 4. INYECCIÓN DEL CONTEXTO REAL EN EL MODELO
+            // ---------------------------------------------------------
             if (!empty($contexto_web)) {
-				// Prompt directo para modelos estándar (Gemma, Llama, Mistral): Cero metadatos, cero pensamientos.
-                $sys_prompt .= "\n\n[REAL-TIME SEARCH RESULTS]\n\"\"\"\n{$contexto_web}\n\"\"\"\n\n[CRITICAL DIRECTIVE]: You are a conversational and helpful assistant. Use the search results above to answer the user's question accurately. DO NOT output any internal monologue, reasoning, or drafting. DO NOT use technical headers like 'Topic' or 'Constraints'. Just talk to the user directly, naturally, and straight to the point.";
-			}
+                $sys_prompt .= "\n\n[REAL-TIME SEARCH RESULTS]\n\"\"\"\n{$contexto_web}\n\"\"\"\n\n[CRITICAL DIRECTIVE]: You are a conversational and helpful assistant. Use the search results above to answer the user's question accurately. Ignore your previous knowledge if it contradicts the search results. Talk naturally directly to the user.";
+            }
         }
         // ====================================================================
 
@@ -426,6 +478,87 @@ if (!empty($modelo_grafico_recibido) && $selector !== '[LLM]') {
     } catch (Exception $e) { /* Silencioso */ }
 }
 // -------------------------------------------------------------------------------
+
+// ====================================================================
+// 🌐 RAG FRANCOTIRADOR (PARA EL CHAT DEL ARQUITECTO)
+// ====================================================================
+$usar_internet = isset($_POST['usar_internet']) && $_POST['usar_internet'] === 'true';
+$contexto_web = "";
+
+if ($usar_internet && !empty($descripcion)) {
+    $codigo_base = strtolower(substr($lang ?? 'es', 0, 2));
+    $excepciones_wiki = ['jp' => 'ja', 'kr' => 'ko', 'cn' => 'zh', 'ca' => 'ca'];
+    $idioma_wiki = $excepciones_wiki[$codigo_base] ?? $codigo_base;
+    
+    // 1. Limpiamos el texto para que los buscadores no se líen
+    $stopwords = ['/h[áa]blame\s+de\s+/i', '/informaci[oó]n\s+(sobre|de)\s+/i', '/qu[ée]\s+es\s+/i', '/dime\s+algo\s+de\s+/i', '/expl[íi]came\s+/i', '/busca\s+en\s+internet\s+/i'];
+    $termino_limpio = trim(preg_replace($stopwords, '', $descripcion));
+    if(empty($termino_limpio)) $termino_limpio = trim($descripcion);
+
+    // 2. MOTOR WIKIPEDIA API
+    $wiki_search_url = "https://{$idioma_wiki}.wikipedia.org/w/api.php?action=query&list=search&srsearch=" . urlencode($termino_limpio) . "&utf8=&format=json&srlimit=1";
+    $ch_w = curl_init($wiki_search_url);
+    curl_setopt($ch_w, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch_w, CURLOPT_USERAGENT, 'GartysArchitect/1.2 (Local RAG)');
+    curl_setopt($ch_w, CURLOPT_TIMEOUT, 4);
+    $res_w = curl_exec($ch_w);
+    curl_close($ch_w);
+
+    if ($res_w) {
+        $wiki_data = json_decode($res_w, true);
+        if (!empty($wiki_data['query']['search'][0]['pageid'])) {
+            $pageid = $wiki_data['query']['search'][0]['pageid'];
+            $wiki_text_url = "https://{$idioma_wiki}.wikipedia.org/w/api.php?action=query&prop=extracts&exsentences=7&explaintext&redirects=1&format=json&pageids={$pageid}";
+            $ch_t = curl_init($wiki_text_url);
+            curl_setopt($ch_t, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch_t, CURLOPT_USERAGENT, 'GartysArchitect/1.2');
+            $res_t = curl_exec($ch_t);
+            curl_close($ch_t);
+            
+            if ($res_t) {
+                $text_data = json_decode($res_t, true);
+                if (isset($text_data['query']['pages'][$pageid]['extract'])) {
+                    $extracto = trim($text_data['query']['pages'][$pageid]['extract']);
+                    if (strlen($extracto) > 50) $contexto_web .= "WIKIPEDIA: " . $extracto . "\n\n";
+                }
+            }
+        }
+    }
+
+    // 3. MOTOR DUCKDUCKGO LITE (Solo si Wikipedia falló)
+    if (empty($contexto_web)) { 
+        $url_ddg = "https://lite.duckduckgo.com/lite/";
+        $ch_ddg = curl_init($url_ddg);
+        curl_setopt($ch_ddg, CURLOPT_POST, true);
+        curl_setopt($ch_ddg, CURLOPT_POSTFIELDS, "q=" . urlencode($termino_limpio)); 
+        curl_setopt($ch_ddg, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch_ddg, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch_ddg, CURLOPT_TIMEOUT, 5);
+        curl_setopt($ch_ddg, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; rv:120.0)'); 
+        $res_ddg = curl_exec($ch_ddg);
+        curl_close($ch_ddg);
+
+        if ($res_ddg) {
+            preg_match_all('/class=[\'"]?result-snippet[\'"]?[^>]*>(.*?)<\//is', $res_ddg, $matches);
+            if (!empty($matches[1])) {
+                $top_resultados = array_slice($matches[1], 0, 4);
+                foreach ($top_resultados as $snippet) {
+                    $texto_limpio = html_entity_decode(trim(strip_tags($snippet)), ENT_QUOTES, 'UTF-8');
+                    if (strlen($texto_limpio) > 20) $contexto_web .= "- " . $texto_limpio . "\n";
+                }
+            }
+        }
+    }
+
+    // 4. CHIVATO (Ya podemos apagarlo)
+    // file_put_contents(__DIR__ . '/debug_rag.txt', "PROMPT ORIGINAL: {$descripcion}\nLIMPIADO: {$termino_limpio}\nRESULTADOS:\n" . ($contexto_web ?: "NADA ENCONTRADO"));
+
+    // 5. INYECTAMOS LOS RESULTADOS AL SISTEMA ANTES DE HABLAR CON OLLAMA
+    if (!empty($contexto_web)) {
+        $system_prompt .= "\n\n[REAL-TIME SEARCH RESULTS FROM THE INTERNET]\n\"\"\"\n{$contexto_web}\n\"\"\"\n\n[CRITICAL DIRECTIVE]: You are a conversational and helpful assistant. Use the search results above to answer the user's question accurately. Ignore your previous training knowledge if it contradicts the search results. Talk naturally directly to the user.";
+    }
+}
+// ====================================================================
 
 $messages = [];
 $messages[] = ["role" => "system", "content" => $system_prompt];
