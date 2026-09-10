@@ -1170,3 +1170,35 @@ window.filtrarPromptsAvanzado = function() {
         }
     });
 };
+
+// ==============================================================================
+// --- MÓDULO: GESTIÓN DE MEMORIA (VRAM) ---
+// ==============================================================================
+async function vaciarVramComfy() {
+    let fd = new FormData();
+    fd.append('action', 'liberar_vram');
+    
+    try {
+        let res = await fetch('procesar.php', { method: 'POST', body: fd });
+        let data = await res.json();
+        
+        if (data.success) {
+            SwalDark.fire({
+                toast: true, 
+                position: 'top-end', 
+                icon: 'success', 
+                title: '🧹 ' + (GartyLang.swal_vram_freed_title || 'VRAM Liberada'), 
+                showConfirmButton: false, 
+                timer: 2000
+            });
+        } else {
+            SwalDark.fire({
+                icon: 'error', 
+                title: GartyLang.swal_err_title || 'Error', 
+                text: data.error
+            });
+        }
+    } catch(e) {
+        console.error(GartyLang.log_err_vram_free || "Fallo al liberar VRAM:", e);
+    }
+}
