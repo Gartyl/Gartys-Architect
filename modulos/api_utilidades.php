@@ -68,12 +68,12 @@ if ($action === 'amplificar_prompt') {
 
 if ($action === 'traducir_rapido') {
     $texto = trim($_POST['texto'] ?? '');
-    if (empty($texto)) { echo json_encode(['error' => 'Texto vacío']); exit(); }
+    if (empty($texto)) { echo json_encode(['error' => __('err_empty_text')]); exit(); }
 
     $stmt_llm = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND categoria = 'SYS_LLM' AND activo = 1 LIMIT 1");
     $modelo_traductor = $stmt_llm->fetchColumn() ?: $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND activo = 1 LIMIT 1")->fetchColumn();
 
-    if (empty($modelo_traductor)) { echo json_encode(['error' => 'No hay modelo SYS_LLM activo']); exit(); }
+    if (empty($modelo_traductor)) { echo json_encode(['error' => __('err_no_sys_llm_active')]); exit(); }
 
     $payload = [
         "model" => $modelo_traductor,
@@ -97,8 +97,8 @@ if ($action === 'traducir_rapido') {
             $clean_trad = preg_replace('/<think>.*?<\/think>/is', '', $res_trad['message']['content']);
             $clean_trad = str_replace(['"', "'", '*'], '', trim(strip_tags($clean_trad)));
             echo json_encode(['success' => true, 'traduccion' => $clean_trad]);
-        } else { echo json_encode(['error' => 'Formato inesperado de Ollama: ' . $api_res]); }
-    } else { echo json_encode(['error' => 'Fallo de conexión con Ollama. cURL Error: ' . curl_error($ch)]); }
+        } else { echo json_encode(['error' => __('err_ollama_unexp_format') . ' ' . $api_res]); }
+    } else { echo json_encode(['error' => __('err_ollama_conn_fail_curl') . ' ' . curl_error($ch)]); }
     exit();
 }
 

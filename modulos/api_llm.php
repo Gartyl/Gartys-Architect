@@ -304,7 +304,7 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
                 if (empty($final_text) && !empty(trim($raw))) $final_text = trim($raw);
 
                 if (empty($final_text)) {
-                    echo json_encode(['error' => 'El modelo devolvió una respuesta vacía real. Revisa debug_ollama.txt']);
+                    echo json_encode(['error' => __('err_model_empty_response')]);
                     exit();
                 }
 
@@ -344,7 +344,7 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
 
     } catch (Throwable $t) {
         file_put_contents(__DIR__ . '/debug_llm_fatal.txt', "Error en ejecutar_llm: " . $t->getMessage() . " en línea " . $t->getLine());
-        echo json_encode(['error' => 'Fallo interno. Revisa debug_llm_fatal.txt']);
+        echo json_encode(['error' => __('err_internal_fatal')]);
         exit();
     }
 }

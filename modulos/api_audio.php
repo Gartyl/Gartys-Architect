@@ -339,7 +339,7 @@ case 'generar_audio':
             
             // 🛠️ CORRECCIÓN 4: Si ComfyUI rechaza el audio (ej. por culpa de F5), lo mostramos en pantalla
             if (isset($comfy_data['error'])) {
-                echo json_encode(['error' => 'ComfyUI rechazó el audio: ' . ($comfy_data['error']['message'] ?? 'Error de nodo.')]);
+                echo json_encode(['error' => __('err_comfyui_reject_audio') . ' ' . ($comfy_data['error']['message'] ?? __('err_node_error'))]);
                 exit();
             }
 

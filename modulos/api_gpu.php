@@ -631,7 +631,7 @@ if ($action === 'generar_imagen') {
     }
     
     // Bloqueo de seguridad contextual: si no es categoría fotográfica (SD1.5), anulamos IC-Light
-    if (in_array($selector, ['[VIDEO]', '[LLM]', '[CHANT]', '[CHAT]', '[VISION]', '[NATURAL_IMAGE]', '[SDXL]'])) {
+    if (in_array($selector, ['[VIDEO]', '[LLM]', '[CHANT]', '[CHAT]', '[NATURAL_IMAGE]', '[SDXL]'])) {
         $iclight_enabled = false;
     }
 	
@@ -3552,8 +3552,8 @@ if ($action === 'generar_imagen') {
         
         // 🛑 ESCUDO ANTI-CRASH: Si el usuario intenta usar Img2Img con Ideogram, 
         // lo frenamos aquí mismo y le mostramos un aviso en la web.
-        if (!empty($init_image_base64) || $is_outpainting) {
-            echo json_encode(['error' => 'Ideogram 4 actualmente es un modelo puro de Texto-a-Imagen. Por favor, elimina la imagen base o la máscara del panel para poder renderizar.']);
+       if (!empty($init_image_base64) || $is_outpainting) {
+            echo json_encode(['error' => __('err_ideogram_t2i_only')]);
             exit();
         }
         
@@ -3976,7 +3976,7 @@ if ($action === 'generar_imagen') {
                     $adetailer_cfg     = 5.5; 
                 } else {
                     // Si no hay refiner en la BD, apagamos ADetailer o avisamos para no romper Flux
-                    echo json_encode(['error' => "Para usar ADetailer con modelos Flux/DiT, necesitas asignar un modelo SD1.5 o SDXL en la categoría 'sys_refiner'."]);
+                    echo json_encode(['error' => __('err_adetailer_needs_refiner')]);
                     exit();
                 }
             }

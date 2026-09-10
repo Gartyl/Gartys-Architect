@@ -17,20 +17,14 @@ if ($action === 'vision_extract') {
         $stmtModel->execute();
         $visionModel = $stmtModel->fetchColumn();
 
-        // 2. Salvavidas: si no hay SYS_VISION, pillamos el general de visión
-        if (empty($visionModel)) {
-            $stmtModel = $pdo->prepare("SELECT nombre_archivo FROM modelos_ia WHERE UPPER(categoria) = 'VISION' AND activo = 1 LIMIT 1");
-            $stmtModel->execute();
-            $visionModel = $stmtModel->fetchColumn();
-        }
-
+        // Si no hay SYS_VISION, abortamos con error
         if (empty($visionModel)) {
             echo json_encode(['error' => __('err_no_vision_model_db')]);
             exit();
         }
 
     } catch (PDOException $e) {
-        echo json_encode(['error' => 'Error consultando la base de datos: ' . $e->getMessage()]);
+        echo json_encode(['error' => __('err_db_query') . ' ' . $e->getMessage()]);
         exit();
     }
 
