@@ -3,6 +3,12 @@
              <label class="small text-info fw-bold mb-0"><i class="bi bi-sliders me-1"></i> <?= __('tit_ajus_motor') ?></label>
              <div class="d-flex align-items-center gap-3">
                  <small class="text-muted d-none d-md-block"><i class="bi bi-info-circle"></i> <?= __('txt_arrast_meta') ?></small>
+                 
+                 <!-- NUEVO BOTÓN DE VRAM -->
+                 <button type="button" class="btn btn-sm btn-outline-info border-0 p-0 px-2 fw-bold" style="font-size: 0.8rem; background: rgba(13,202,240,0.1);" onclick="vaciarVramComfy()" title="<?= __('btn_free_vram') ?? 'Forzar vaciado de VRAM' ?>">
+                     <i class="bi bi-memory"></i> <?= __('btn_free_vram') ?? 'VRAM' ?>
+                 </button>
+                 
                  <div class="form-check form-switch m-0">
                      <input class="form-check-input pref-track" style="cursor: pointer;" type="checkbox" id="engineToggle" onchange="document.getElementById('engineUI').classList.toggle('d-none', !this.checked)">
                  </div>
