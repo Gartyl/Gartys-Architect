@@ -4487,4 +4487,33 @@ if ($action === 'generar_imagen') {
 	echo json_encode(['status' => 'completed', 'images' => $final_base64_responses, 'filenames' => $filenames_for_db]);
     exit();
 }
+
+// ==============================================================================
+// --- ACCIÓN: LIBERAR VRAM DE COMFYUI ---
+// ==============================================================================
+if ($action === 'liberar_vram') {
+    $comfy_url = "http://127.0.0.1:8188/free"; // Cambia la IP/Puerto si tu ComfyUI está en otra ruta
+    
+    $payload = json_encode([
+        "unload_models" => true,
+        "free_memory" => true
+    ]);
+
+    $ch = curl_init($comfy_url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    
+    $resultado = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($http_code === 200) {
+        echo json_encode(['success' => true, 'mensaje' => __('msg_vram_freed')]);
+    } else {
+        echo json_encode(['error' => __('err_vram_free_failed')]);
+    }
+    exit();
+}
 ?>
