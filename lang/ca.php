@@ -127,6 +127,7 @@ return [
 	'tit_clip_skip' => "CLIP Skip",
 	'msg_clip_skip_info' => "1 = Per defecte (SDXL/Flux). 2 = Recomanat per a SD1.5 Anime/Il·lustració.",
 	'tit_ups_denoise' => "Força de Redibuixat",
+	'adm_lang_all' => "🌍 Tots els idiomes",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
@@ -723,7 +724,7 @@ return [
     'adm_cat_sd15' => "SD 1.5",
     'adm_cat_sdxl' => "SDXL",
     'adm_cat_sys' => "Sistemes Ocults",
-    'adm_cat_todas' => "Totes les Categories",
+    'adm_cat_todas' => "🔓 Totes les Categories",
     'adm_cat_vid_wan' => "Vídeo - WAN / LTX",
     'adm_cat_video' => "Vídeo",
     'adm_cat_vis_ana' => "Anàlisi de Visió",
@@ -823,7 +824,7 @@ return [
     'adm_tit_pending' => "Sol·licituds Pendents",
     'adm_title' => "Tauler Admin",
     'adm_title_short' => "Garty's Architect - Tauler Admin",
-    'adm_type_all' => "Tots els Tipus",
+    'adm_type_all' => "🔓 Tots els Tipus",
     'adm_type_amps' => "Amplificadors",
     'adm_type_analysts' => "Analistes",
     'adm_type_personas' => "Personalitats",
@@ -837,6 +838,7 @@ return [
 	'tit_pan_reglas_arq' => "Regles per a l'Arquitecte (Opcional)",
 	'adm_ph_reglas_arq' => "Ex: Usa etiquetes separades per comes (1girl, solo, ...). Prioritza llenguatge tècnic fotogràfic.",
 	'adm_hlp_reglas_arq' => "Instruccions estrictes que l'LLM acatarà en generar un prompt quan aquest model estigui seleccionat.",
+	'adm_btn_new_lang' => "Crear Nou Idioma",
 
     'mod_lic_activated' => "Activat!",
     'mod_lic_btn_activate' => "Validar i Activar",
@@ -1231,6 +1233,18 @@ return [
     'err_vision_fallback' => "Si has enviat una foto, és molt probable que aquest model no tingui mòdul de Visió.",
 	'err_foley_no_video' => "Hunyuan Foley necessita que carreguis un vídeo al visor principal per sincronitzar el so.",
 	'err_pure_mode_refiner' => "Per utilitzar el Mode Pur amb Krea-2 o Flux, assigna un model SD1.5 o SDXL a la categoria 'sys_refiner'.",
+	'err_adetailer_needs_refiner' => "Per utilitzar ADetailer amb models Flux/DiT, necessites assignar un model SD1.5 o SDXL a la categoria 'sys_refiner'.",
+	'err_ideogram_t2i_only' => "Ideogram 4 actualment és un model pur de Text-a-Imatge. Si us plau, elimina la imatge base o la màscara del panell per poder renderitzar.",
+	'err_invalid_router_action' => "Acció no vàlida o no definida a l'enrutador.",
+	'err_comfyui_reject_audio' => "ComfyUI ha rebutjat l'àudio:",
+    'err_node_error' => "Error de node.",
+	'err_model_empty_response' => "El model ha retornat una resposta buida real. Revisa debug_ollama.txt",
+	'err_internal_fatal' => "Error intern. Revisa debug_llm_fatal.txt",
+	'err_db_query' => "Error consultant la base de dades:",
+	'err_empty_text' => "Text buit",
+    'err_no_sys_llm_active' => "No hi ha cap model SYS_LLM actiu",
+	'err_ollama_unexp_format' => "Format inesperat d'Ollama:",
+    'err_ollama_conn_fail_curl' => "Error de connexió amb Ollama. Error cURL:",
 
     // ==============================================================================
     // 13. LOGS DE CONSOLA (log_)

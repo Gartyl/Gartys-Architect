@@ -127,6 +127,7 @@ return [
 	'tit_clip_skip' => "CLIP Skip",
 	'msg_clip_skip_info' => "1 = Por defecto (SDXL/Flux). 2 = Recomendado para SD1.5 Anime/Ilustración.",
 	'tit_ups_denoise' => "Fuerza de Redibujado",
+	'adm_lang_all' => "🌍 Todos los idiomas",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
@@ -723,7 +724,7 @@ return [
     'adm_cat_sd15' => "SD 1.5",
     'adm_cat_sdxl' => "SDXL",
     'adm_cat_sys' => "Sistemas Ocultos",
-    'adm_cat_todas' => "Todas las Categorías",
+    'adm_cat_todas' => "🔓 Todas las Categorías",
     'adm_cat_vid_wan' => "Vídeo - WAN / LTX",
     'adm_cat_video' => "Vídeo",
     'adm_cat_vis_ana' => "Análisis de Visión",
@@ -823,7 +824,7 @@ return [
     'adm_tit_pending' => "Solicitudes Pendientes",
     'adm_title' => "Panel Admin",
     'adm_title_short' => "Garty's Architect - Panel Admin",
-    'adm_type_all' => "Todos los Tipos",
+    'adm_type_all' => "🔓 Todos los Tipos",
     'adm_type_amps' => "Amplificadores",
     'adm_type_analysts' => "Analistas",
     'adm_type_personas' => "Personalidades",
@@ -837,6 +838,7 @@ return [
 	'tit_pan_reglas_arq' => "Reglas para el Arquitecto (Opcional)",
 	'adm_ph_reglas_arq' => "Ej: Usa etiquetas separadas por comas (1girl, solo, ...). Prioriza lenguaje técnico fotográfico.",
 	'adm_hlp_reglas_arq' => "Instrucciones estrictas que el LLM acatará al generar un prompt cuando este modelo esté seleccionado.",
+	'adm_btn_new_lang' => "Crear Nuevo Idioma",
 
     'mod_lic_activated' => "¡Activado!",
     'mod_lic_btn_activate' => "Validar y Activar",
@@ -1216,6 +1218,18 @@ return [
     'err_vision_fallback' => "Si enviaste una foto, es muy probable que este modelo no tenga módulo de Visión.",
 	'err_foley_no_video' => "Hunyuan Foley necesita que cargues un vídeo en el visor principal para sincronizar el sonido.",
 	'err_pure_mode_refiner' => "Para usar el Modo Puro con Krea-2 o Flux, asigna un modelo SD1.5 o SDXL en la categoría 'sys_refiner'.",
+	'err_adetailer_needs_refiner' => "Para usar ADetailer con modelos Flux/DiT, necesitas asignar un modelo SD1.5 o SDXL en la categoría 'sys_refiner'.",
+	'err_ideogram_t2i_only' => "Ideogram 4 actualmente es un modelo puro de Texto-a-Imagen. Por favor, elimina la imagen base o la máscara del panel para poder renderizar.",
+	'err_invalid_router_action' => "Acción no válida o no definida en el enrutador.",
+	'err_comfyui_reject_audio' => "ComfyUI rechazó el audio:",
+    'err_node_error' => "Error de nodo.",
+	'err_model_empty_response' => "El modelo devolvió una respuesta vacía real. Revisa debug_ollama.txt",
+	'err_internal_fatal' => "Fallo interno. Revisa debug_llm_fatal.txt",
+	'err_db_query' => "Error consultando la base de datos:",
+	'err_empty_text' => "Texto vacío",
+    'err_no_sys_llm_active' => "No hay modelo SYS_LLM activo",
+	'err_ollama_unexp_format' => "Formato inesperado de Ollama:",
+    'err_ollama_conn_fail_curl' => "Fallo de conexión con Ollama. cURL Error:",
 
     // ==============================================================================
     // 13. LOGS DE CONSOLA (log_)

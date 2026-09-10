@@ -127,6 +127,7 @@ return [
 	'tit_clip_skip' => "CLIP Skip",
 	'msg_clip_skip_info' => "1 = Default (SDXL/Flux). 2 = Recommended for SD1.5 Anime/Illustration.",
 	'tit_ups_denoise' => "Redraw Strength",
+	'adm_lang_all' => "🌍 All languages",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
@@ -723,7 +724,7 @@ return [
     'adm_cat_sd15' => "SD 1.5",
     'adm_cat_sdxl' => "SDXL",
     'adm_cat_sys' => "Hidden Systems",
-    'adm_cat_todas' => "All Categories",
+    'adm_cat_todas' => "🔓 All Categories",
     'adm_cat_vid_wan' => "Video - WAN / LTX",
     'adm_cat_video' => "Video",
     'adm_cat_vis_ana' => "Vision Analysis",
@@ -823,7 +824,7 @@ return [
     'adm_tit_pending' => "Pending Requests",
     'adm_title' => "Admin Panel",
     'adm_title_short' => "Garty's Architect - Admin Panel",
-    'adm_type_all' => "All Types",
+    'adm_type_all' => "🔓 All Types",
     'adm_type_amps' => "Amplifiers",
     'adm_type_analysts' => "Analysts",
     'adm_type_personas' => "Personalities",
@@ -837,6 +838,7 @@ return [
 	'tit_pan_reglas_arq' => "Architect Rules (Optional)",
 	'adm_ph_reglas_arq' => "Ex: Use comma-separated tags (1girl, solo, ...). Prioritize technical photography terms.",
 	'adm_hlp_reglas_arq' => "Strict instructions the LLM will follow when generating a prompt for this specific model.",
+	'adm_btn_new_lang' => "Create New Language",
 
     'mod_lic_activated' => "Activated!",
     'mod_lic_btn_activate' => "Validate and Activate",
@@ -1231,6 +1233,18 @@ return [
     'err_vision_fallback' => "If you sent a photo, it is highly likely that this model does not have a Vision module.",
 	'err_foley_no_video' => "Hunyuan Foley needs you to load a video in the main viewer to synchronize the sound.",
 	'err_pure_mode_refiner' => "To use Pure Mode with Krea-2 or Flux, assign an SD1.5 or SDXL model in the 'sys_refiner' category.",
+	'err_adetailer_needs_refiner' => "To use ADetailer with Flux/DiT models, you need to assign an SD1.5 or SDXL model in the 'sys_refiner' category.",
+	'err_ideogram_t2i_only' => "Ideogram 4 is currently a pure Text-to-Image model. Please remove the base image or mask from the panel to be able to render.",
+	'err_invalid_router_action' => "Invalid or undefined action in the router.",
+	'err_comfyui_reject_audio' => "ComfyUI rejected the audio:",
+    'err_node_error' => "Node error.",
+	'err_model_empty_response' => "The model returned an actual empty response. Check debug_ollama.txt",
+	'err_internal_fatal' => "Internal failure. Check debug_llm_fatal.txt",
+	'err_db_query' => "Error querying the database:",
+	'err_empty_text' => "Empty text",
+    'err_no_sys_llm_active' => "No active SYS_LLM model",
+	'err_ollama_unexp_format' => "Unexpected format from Ollama:",
+    'err_ollama_conn_fail_curl' => "Connection failure with Ollama. cURL Error:",
 
     // ==============================================================================
     // 13. LOGS DE CONSOLA (log_)
