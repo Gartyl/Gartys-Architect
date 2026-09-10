@@ -153,8 +153,8 @@ try {
             // Si no hay 'action', pero hay 'selector', es el Arquitecto generando un prompt JSON
             if (isset($_POST['selector'])) {
                 require_once __DIR__ . '/modulos/api_llm.php';
-            } else {
-                echo json_encode(['error' => 'Acción no válida o no definida en el enrutador.']);
+           } else {
+                echo json_encode(['error' => __('err_invalid_router_action')]);
             }
             break;
     }
