@@ -46,9 +46,9 @@ function inyectarModelosOllama() {
     if (!llmSel) return;
 
     const modeloPrevio = llmSel.value;
-    const selectorEl = document.getElementById('selector');
-    const selActual = selectorEl ? selectorEl.value : '';
-    const catDB = (selActual === '[VISION]') ? 'vision' : 'chat';
+    
+    // 👇 LIMPIO: Como ya no existe la pestaña [VISION], el desplegable siempre carga los modelos de chat
+    const catDB = 'chat';
     
     const llmsDB = window.modelosDBSistema ? window.modelosDBSistema.filter(m => m.categoria === catDB && m.motor === 'ollama') : [];
 
@@ -77,7 +77,6 @@ window.autoSelectModelByTag = function(tag) {
     switch(tag) {
         case '[SD15]': keyword = 'sd15'; break;
         case '[SDXL]': 
-        case '[VISION]': keyword = 'sdxl'; break;
         case '[NATURAL_IMAGE]': keyword = 'flux'; break;
         case '[VIDEO]': keyword = 'video'; break; 
         default: return; 
@@ -95,7 +94,7 @@ window.autoSelectModelByTag = function(tag) {
 };
 
 function getFilteredItems(itemsList, category) {
-    const graphCategories = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VISION]', '[CHAT]', '[VIDEO]'];
+    const graphCategories = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[CHAT]', '[VIDEO]'];
     if (!graphCategories.includes(category)) return [];
 
     let filtered = [];
@@ -119,7 +118,8 @@ function getFilteredItems(itemsList, category) {
             const low = m.toLowerCase();
             return low.includes('video') || low.includes('wan') || low.includes('ltx') || low.includes('qwen') || low.includes('minimax');
         });
-    } else if (category === '[VISION]' || category === '[CHAT]') {
+    // 👇 LIMPIO: Solo queda [CHAT]
+    } else if (category === '[CHAT]') {
         filtered = itemsList;
     } else {
         filtered = itemsList;
@@ -207,7 +207,7 @@ function updateModelFilter(category) {
     const modelBlock = document.getElementById('modelBlock');
     if (!modelSel || !modelBlock) return;
     
-    const graphCategories = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VISION]', '[CHAT]', '[VIDEO]'];
+    const graphCategories = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[CHAT]', '[VIDEO]'];
     if (!graphCategories.includes(category)) { modelBlock.style.display = "none"; return; }
     
     modelBlock.style.display = "block";
@@ -216,26 +216,70 @@ function updateModelFilter(category) {
     const mapaCategorias = { '[SD15]': 'sd15', '[SDXL]': 'sdxl', '[NATURAL_IMAGE]': 'flux', '[VIDEO]': 'video' };
     const catDB = mapaCategorias[category] || '';
     
-    const modelosFiltradosDB = window.modelosDBSistema ? window.modelosDBSistema.filter(m => {
-        if (category === '[VISION]' || category === '[CHAT]') return m.motor === 'comfyui' && m.categoria !== 'video';
+   const modelosFiltradosDB = window.modelosDBSistema ? window.modelosDBSistema.filter(m => {
+        // 👇 NUEVO: Excluir explícitamente los modelos de sistema ocultos del desplegable
+        if (m.categoria && m.categoria.toLowerCase().startsWith('sys_')) return false;
+
+        // 👇 LIMPIO: Ya no hay rastro de [VISION]
+        if (category === '[CHAT]') return m.motor === 'comfyui' && m.categoria !== 'video';
         return m.categoria === catDB && m.motor === 'comfyui';
     }) : [];
 
     if (modelosFiltradosDB.length > 0) {
-        modelosFiltradosDB.forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m.id; 
-            if (m.categoria) opt.dataset.categoria = m.categoria;
-            
-            let esPro = (m.nivel_acceso === 'avanzado' || m.nivel_acceso === 'pro');
-            if (typeof currentUserRole !== 'undefined' && currentUserRole === 'free' && esPro) {
-                opt.disabled = true;
-                opt.textContent = m.nombre_visual + ' 🔒 (Pro)';
-            } else {
-                opt.textContent = m.nombre_visual;
+        // Si estamos en el Chat, agrupamos por familias para mantener el orden visual
+        if (category === '[CHAT]') {
+            const grupos = {};
+            const etiquetasGrupos = {
+                'sd15': '🎨 SD 1.5 (Estándar)',
+                'sdxl': '⚡ SDXL / Illustrious',
+                'flux': '💎 DiT (Flux / Krea / Anima / Qwen)'
+            };
+
+            // Clasificamos los modelos en sus grupos
+            modelosFiltradosDB.forEach(m => {
+                const catKey = m.categoria ? m.categoria.toLowerCase() : 'otros';
+                if (!grupos[catKey]) grupos[catKey] = [];
+                grupos[catKey].push(m);
+            });
+
+            // Creamos los OptGroups y metemos las opciones dentro
+            for (const cat in grupos) {
+                const optGroup = document.createElement('optgroup');
+                optGroup.label = etiquetasGrupos[cat] || cat.toUpperCase();
+                
+                grupos[cat].forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.id; 
+                    if (m.categoria) opt.dataset.categoria = m.categoria;
+                    
+                    let esPro = (m.nivel_acceso === 'avanzado' || m.nivel_acceso === 'pro');
+                    if (typeof currentUserRole !== 'undefined' && currentUserRole === 'free' && esPro) {
+                        opt.disabled = true;
+                        opt.textContent = m.nombre_visual + ' 🔒 (Pro)';
+                    } else {
+                        opt.textContent = m.nombre_visual;
+                    }
+                    optGroup.appendChild(opt);
+                });
+                modelSel.appendChild(optGroup);
             }
-            modelSel.appendChild(opt);
-        });
+        } else {
+            // Comportamiento normal (sin grupos) para las pestañas de generación dedicadas
+            modelosFiltradosDB.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.id; 
+                if (m.categoria) opt.dataset.categoria = m.categoria;
+                
+                let esPro = (m.nivel_acceso === 'avanzado' || m.nivel_acceso === 'pro');
+                if (typeof currentUserRole !== 'undefined' && currentUserRole === 'free' && esPro) {
+                    opt.disabled = true;
+                    opt.textContent = m.nombre_visual + ' 🔒 (Pro)';
+                } else {
+                    opt.textContent = m.nombre_visual;
+                }
+                modelSel.appendChild(opt);
+            });
+        }
     } else {
         // --- CIRUGÍA: FALLBACK ELIMINADO ---
         // Si no hay modelos en la Base de Datos para esta categoría, forzamos a que lo registren.
@@ -262,7 +306,7 @@ function updateModelFilter(category) {
 }
 
 function updateLoraFilter(category) {
-    const graphCategories = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VISION]', '[CHAT]', '[VIDEO]'];
+    const graphCategories = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[CHAT]', '[VIDEO]'];
     
     // --- NUEVO: CERROJO INTELIGENTE DE MODELOS ---
     const modelSel = document.getElementById('modelSelector');
@@ -292,8 +336,8 @@ function updateLoraFilter(category) {
         // --- LA MAGIA REAL: DETERMINAR LA ARQUITECTURA ---
         let targetArch = category; 
         
-        // Si estamos en Chat o Visión, miramos qué modelo gráfico está puesto para inferir la arquitectura
-        if (category === '[VISION]' || category === '[CHAT]') {
+        // Si estamos en el Chat, miramos qué modelo gráfico está puesto para inferir la arquitectura
+        if (category === '[CHAT]') {
              if (modeloSeleccionado.includes('sd15') || modeloSeleccionado.includes('v15')) targetArch = '[SD15]';
              else if (modeloSeleccionado.includes('sdxl') || modeloSeleccionado.includes('xl')) targetArch = '[SDXL]';
              else if (modeloSeleccionado.includes('video') || modeloSeleccionado.includes('wan') || modeloSeleccionado.includes('ltx') || modeloSeleccionado.includes('minimax') || (modeloSeleccionado.includes('hunyuan') && modeloSeleccionado.includes('video'))) targetArch = '[VIDEO]';

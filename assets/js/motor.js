@@ -1513,24 +1513,19 @@ function showError(msg) {
 }
 
 function appendUIParametersToFormData(fd, forceSingle = false) {
-    // 1. AJUSTES AVANZADOS DEL MOTOR
+    // 1. PARÁMETROS VITALES DEL MOTOR (Se envían SIEMPRE, incluso si el panel está oculto en el Chat)
+    if(document.getElementById('stepsInput')) fd.append('steps', document.getElementById('stepsInput').value);
+    if(document.getElementById('cfgInput')) fd.append('cfg', document.getElementById('cfgInput').value);
+    if(document.getElementById('fluxGuidanceInput')) fd.append('flux_guidance', document.getElementById('fluxGuidanceInput').value);
+    if(document.getElementById('clipSkipInput')) fd.append('clip_skip', document.getElementById('clipSkipInput').value);
+    if(document.getElementById('shiftInput')) fd.append('flow_shift', document.getElementById('shiftInput').value);
+    if(document.getElementById('samplerInput')) fd.append('sampler', document.getElementById('samplerInput').value);
+    if(document.getElementById('schedulerInput')) fd.append('scheduler', document.getElementById('schedulerInput').value);
+    if(document.getElementById('seedInput')) fd.append('seed', document.getElementById('seedInput').value);
+    if(document.getElementById('imageFormatInput')) fd.append('image_format', document.getElementById('imageFormatInput').value);
+
+    // 2. AJUSTES EXCLUSIVOS DEL PANEL AVANZADO (Solo se envían si el panel está visible)
     if (document.getElementById('advancedSettingsBlock') && document.getElementById('advancedSettingsBlock').style.display !== 'none') {
-        if(document.getElementById('stepsInput')) fd.append('steps', document.getElementById('stepsInput').value);
-        if(document.getElementById('cfgInput')) fd.append('cfg', document.getElementById('cfgInput').value);
-        
-        // 👇 NUEVO: Capturar el Guidance exclusivo de Flux
-        if(document.getElementById('fluxGuidanceInput')) fd.append('flux_guidance', document.getElementById('fluxGuidanceInput').value);
-        // ---------------------------------------------------------------
-
-        if(document.getElementById('clipSkipInput')) fd.append('clip_skip', document.getElementById('clipSkipInput').value);
-        if(document.getElementById('shiftInput')) fd.append('flow_shift', document.getElementById('shiftInput').value);
-        if(document.getElementById('samplerInput')) fd.append('sampler', document.getElementById('samplerInput').value);
-        if(document.getElementById('schedulerInput')) fd.append('scheduler', document.getElementById('schedulerInput').value);
-        if(document.getElementById('seedInput')) fd.append('seed', document.getElementById('seedInput').value);
-        
-        // Capturar el formato de imagen elegido (PNG, WEBP, JPG)
-        if(document.getElementById('imageFormatInput')) fd.append('image_format', document.getElementById('imageFormatInput').value);
-
         if(document.getElementById('dynThreshToggle')) fd.append('dynamic_thresholding', document.getElementById('dynThreshToggle').checked);
         if(document.getElementById('videoFramesInput')) fd.append('video_frames', document.getElementById('videoFramesInput').value);        
         if(document.getElementById('video_aspect_ratio')) {
