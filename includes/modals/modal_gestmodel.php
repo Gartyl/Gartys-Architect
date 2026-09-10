@@ -34,7 +34,6 @@
 												onchange="filtrarTablaAdmin('tablaModelosBody', 4, this.value)">
 											<option value=""><?= __('adm_cat_todas') ?></option>
 											<option value="chat">💬 <?= __('adm_cat_chat') ?></option>
-											<!--option value="vision">👁️ < ?= __('adm_cat_vision') ?></option-->
 											<option value="sd15">🎨 <?= __('adm_cat_sd15') ?></option>
 											<option value="sdxl">⚡ <?= __('adm_cat_sdxl') ?></option>
 											<option value="flux">💎 <?= __('adm_cat_flux') ?></option>
@@ -75,7 +74,6 @@
 										<label class="small text-secondary fw-bold"><?= __('tit_pan_categ') ?></label>
 										<select class="form-select bg-dark text-light border-secondary" id="modCat">
 											<option value="chat">💬 <?= __('adm_cat_chat_conv') ?></option>
-											<!--option value="vision">👁️ < ?= __('adm_cat_vis_ana') ?></option-->
 											<option value="sd15">🎨 <?= __('adm_cat_img_sd15') ?></option>
 											<option value="sdxl">⚡ <?= __('adm_cat_img_sdxl') ?></option>
 											<option value="flux" <?= !$is_pro ? 'disabled' : '' ?>>💎 <?= __('adm_cat_img_flux') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?></option>
@@ -325,7 +323,6 @@
                                         <label class="small text-secondary fw-bold"><?= __('tit_pan_tipo_pr') ?></label>
                                         <select class="form-select bg-dark text-light border-secondary" id="prTipo">
                                             <option value="seed_image">🌱 <?= __('adm_pr_sd_img') ?></option>
-                                            <option value="seed_chat">🌱 <?= __('adm_pr_sd_chat') ?></option>
                                             <option value="seed_video" <?= !$is_pro ? 'disabled' : '' ?>>
                                                 🌱 <?= __('adm_pr_sd_vid') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?>
                                             </option>
