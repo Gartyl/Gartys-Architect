@@ -66,6 +66,7 @@ try {
     // ==========================================================================
     switch ($action) {
         // --- GPU Y COMFYUI ---
+        case 'liberar_vram':
         case 'generar_imagen':
             require_once __DIR__ . '/modulos/api_gpu.php';
             break;
