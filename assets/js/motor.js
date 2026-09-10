@@ -1893,7 +1893,7 @@ async function visionToPrompt(btnElement) {
 async function executeProcess(fd, selValue, retries = 2, loadingId = null, silentMainBtn = false) {
     // Escudo: Verificamos la categoría real del selector DOM antes de decidir el texto del botón
     const currentCategory = document.getElementById('selector') ? document.getElementById('selector').value : selValue;
-    const resetText = (currentCategory === '[VISION]') ? GartyLang.btn_desc_imagen : (currentCategory === '[CHAT]' ? GartyLang.btn_envimensaje : GartyLang.btn_generarprompt);
+    const resetText = (currentCategory === '[CHAT]') ? GartyLang.btn_envimensaje : GartyLang.btn_generarprompt;
     
     if (!loadingId && retries === 2 && !silentMainBtn) { 
         const submitBtn = document.getElementById('submitBtn');

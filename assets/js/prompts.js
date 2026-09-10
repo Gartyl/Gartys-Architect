@@ -104,7 +104,6 @@ async function cargarTablaPrompts() {
         if (data.prompts && data.prompts.length > 0) {
             const etiquetasTipos = {
                 'seed_image': '🌱 ' + GartyLang.adm_pr_sd_img,
-                'seed_chat': '🌱 ' + GartyLang.adm_pr_sd_chat,
                 'seed_video': '🌱 ' + GartyLang.adm_pr_sd_vid,
                 'random_prompt': '🎲 ' + GartyLang.adm_pr_rnd_char,
                 'chat_personality': '🗣️ ' + GartyLang.adm_pr_chat_pers,

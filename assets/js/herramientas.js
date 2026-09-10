@@ -12,7 +12,7 @@ if (dropZone && consoleCard) {
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault(); e.stopPropagation(); consoleCard.classList.remove('dragover');
         const currentCat = document.getElementById('selector').value;
-        if (['[LLM]', '[VISION]', '[CHAT]'].includes(currentCat)) return;
+        if (['[LLM]', '[CHAT]'].includes(currentCat)) return;
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             const file = e.dataTransfer.files[0];
             if (file.type === "image/png") extractComfyUIPNG(file);
