@@ -344,6 +344,7 @@ return [
     'ctrl_vis_restaur' => "Restoration Visibility",
 	'lbl_ad_model' => "Detection Model",
     'txt_ad_model_hint' => "Select the specialized model (faces, hands, bodies...).",
+	'btn_free_vram' => "Free VRAM",
     
     // ==============================================================================
     // 05. SELECTORES Y DESPLEGABLES (Opciones)
@@ -462,6 +463,10 @@ return [
     'notif_task_done' => "Task finished!",
 	'msg_frame_extracted' => "Extracted frame:",
 	'err_pro_audio' => "Advanced Audio generation and Voice Cloning are exclusive to PRO users.",
+	'msg_vram_freed' => "ComfyUI VRAM freed successfully.",
+    'err_vram_free_failed' => "Could not clear memory. Is ComfyUI running?",
+	'swal_vram_freed_title' => "VRAM Freed",
+    'log_err_vram_free' => "Failed to free VRAM:",
 
     // ==============================================================================
     // 07. ALERTAS EMERGENTES (SweetAlerts)
