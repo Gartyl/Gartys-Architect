@@ -691,6 +691,7 @@ function editarModelo(mDataSeguro) {
     if(document.getElementById('modCfg')) document.getElementById('modCfg').value = m.default_cfg || '';
     if(document.getElementById('modSampler')) document.getElementById('modSampler').value = m.default_sampler || '';
     if(document.getElementById('modScheduler')) document.getElementById('modScheduler').value = m.default_scheduler || '';
+    if(document.getElementById('modDenoise')) document.getElementById('modDenoise').value = m.default_denoise || ''; // <-- NUEVO
     
     // Cambiamos el estilo del botón de guardar para indicar "Modo Edición"
     const btn = document.getElementById('btnSubmitModelo');
@@ -720,6 +721,7 @@ async function guardarModeloBD() {
     const defCfg = document.getElementById('modCfg') ? document.getElementById('modCfg').value : '';
     const defSampler = document.getElementById('modSampler') ? document.getElementById('modSampler').value : '';
     const defScheduler = document.getElementById('modScheduler') ? document.getElementById('modScheduler').value : '';
+    const defDenoise = document.getElementById('modDenoise') ? document.getElementById('modDenoise').value : ''; // <-- NUEVO
 
     if(!nombre || !archivo) {
         SwalDark.fire({icon: 'error', title: GartyLang.swal_miss_data_title, text: GartyLang.swal_miss_data_text});
@@ -736,13 +738,14 @@ async function guardarModeloBD() {
     fd.append('motor', motor);
     fd.append('categoria', cat);
 	fd.append('tags_uso', tags_uso);
-	fd.append('reglas_arquitecto', reglas_arq); // <-- ¡NUEVO!
+	fd.append('reglas_arquitecto', reglas_arq);
     fd.append('nivel_acceso', nivel); 
     fd.append('es_unbundled', es_unbundled);
     fd.append('default_steps', defSteps);
     fd.append('default_cfg', defCfg);
     fd.append('default_sampler', defSampler);
     fd.append('default_scheduler', defScheduler);
+	fd.append('default_denoise', defDenoise); // <-- NUEVO
 
    try {
         let res = await fetch('procesar.php', { method: 'POST', body: fd });
@@ -1049,9 +1052,14 @@ function sugerirAjustesMotor() {
     const cfgInput = document.getElementById('cfgInput') || document.querySelector('input[name="cfg"]');
     const samplerInput = document.getElementById('samplerInput');
     const schedulerInput = document.getElementById('schedulerInput');
+    
+    // 👇 NUEVAS CAJAS DE DENOISE 👇
+    const dGlobal = document.getElementById('globalDenoiseSlider');
+    const dPincel = document.getElementById('denoiseSlider'); 
+    const bPincel = document.getElementById('denoiseVal'); 
 
-    let newSteps, newCfg, newSampler, newScheduler, newShift;
-    newShift = ''; // Por defecto vacío para que decida el PHP
+    let newSteps, newCfg, newSampler, newScheduler, newShift, newDenoise;
+    newShift = ''; 
 
     // 1. PRIORIDAD: Si el modelo tiene valores configurados en la BBDD, respetamos esos
     if (modeloBD && modeloBD.default_steps && modeloBD.default_steps > 0) {
@@ -1059,14 +1067,19 @@ function sugerirAjustesMotor() {
         newCfg = modeloBD.default_cfg !== null ? modeloBD.default_cfg : 5.0;
         newSampler = modeloBD.default_sampler || 'euler_ancestral';
         newScheduler = modeloBD.default_scheduler || 'beta';
+        
+        // 👇 Rescatamos el Denoise de la BBDD, si no existe o es NULL, ponemos 0.75
+        newDenoise = (modeloBD.default_denoise !== null && modeloBD.default_denoise !== undefined) 
+                     ? parseFloat(modeloBD.default_denoise).toFixed(2) 
+                     : "0.75";
     } else {
-        // 2. FALLBACK: Si no tiene parámetros propios en BBDD, aplicamos las reglas automáticas por nombre
+        // 2. FALLBACK: Si no tiene parámetros propios en BBDD, aplicamos las reglas automáticas
         newSteps = 30;
         newCfg = 5.0;
         newSampler = 'euler_ancestral';
         newScheduler = 'beta';
+        newDenoise = "0.75"; // Fallback universal
 
-        // --- NUEVAS REGLAS DE SHIFT ---
         if (opcion.includes('wan')) {
             newShift = 5.0;
         } else if (opcion.includes('hidream')) {
@@ -1078,7 +1091,6 @@ function sugerirAjustesMotor() {
         } else if (opcion.includes('ltx') || opcion.includes('minimax')) {
             newShift = ''; 
         } else 
-        // ------------------------------
         if (opcion.includes('turbo') || opcion.includes('schnell')) {
             newSteps = 6;
             newCfg = 1.5;
@@ -1114,9 +1126,14 @@ function sugerirAjustesMotor() {
     if (samplerInput) samplerInput.value = newSampler;
     if (schedulerInput) schedulerInput.value = newScheduler;
     if (shiftInput) shiftInput.value = newShift;
+    
+    // 👇 NUEVO: Inyectamos el Denoise 👇
+    if (dGlobal) dGlobal.value = newDenoise;
+    if (dPincel) dPincel.value = newDenoise;
+    if (bPincel) bPincel.innerText = newDenoise;
 
     // Efecto visual de parpadeo azul para indicar que se han cargado los ajustes
-    const inputs = [stepsInput, cfgInput, samplerInput, schedulerInput, shiftInput];
+    const inputs = [stepsInput, cfgInput, samplerInput, schedulerInput, shiftInput, dGlobal];
     inputs.forEach(input => {
         if (input) {
             input.classList.add('border-info', 'text-info');

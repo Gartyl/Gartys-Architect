@@ -182,6 +182,11 @@ window.clearUploadData = function(keepTray = false) {
     window.currentVideoBase64 = null; 
     currentDocumentText = "";
     window.rawUploadedDataUrl = null;
+	
+	// 👇 NUEVO: Reiniciamos la memoria de visualización del chat
+    window.imgYaEnviada = false;
+    window.docYaEnviado = false;
+    // 👆 --------------------------------------------------------
     
     // Vaciamos la bandeja SOLO si no nos piden conservarla
     if (!keepTray) {
@@ -2212,10 +2217,28 @@ document.getElementById('promptForm').onsubmit = async (e) => {
                     if (chatPromptId > 0) fdImg.append('historial_id', chatPromptId);
                     
                     fdImg = appendUIParametersToFormData(fdImg, true); 
-					
-					// 🛑 FIX: Forzamos Text-to-Image desde comandos del chat.
-					fdImg.delete('init_image');
-					fdImg.delete('mask_data');
+                    
+                    // 👇 NUEVA LÓGICA: Soporte para Img2Img desde comandos del chat 👇
+                    if (currentImageBase64) {
+                        // Si hay una imagen retenida en el chat, la enviamos al motor gráfico
+                        fdImg.append('init_image', currentImageBase64.split(',')[1]);
+                        
+                        // Nos aseguramos de inyectar el Denoise de la interfaz
+                        if (!fdImg.has('denoise')) {
+                            const globalDenoise = document.getElementById('globalDenoiseSlider');
+                            fdImg.append('denoise', globalDenoise ? globalDenoise.value : 0.75);
+                        }
+                        
+                        // Por si acaso has pintado una máscara en el visor principal
+                        const extractedMask = extractMaskBase64();
+                        if (extractedMask) fdImg.append('mask_data', extractedMask);
+                        
+                    } else {
+                        // Si NO hay imagen en memoria, forzamos un Text-to-Image puro
+                        fdImg.delete('init_image');
+                        fdImg.delete('mask_data');
+                    }
+                    // 👆 -------------------------------------------------------- 👆
 					
                     fdImg.append('async_mode', 'true');
 
@@ -2272,8 +2295,14 @@ document.getElementById('promptForm').onsubmit = async (e) => {
 
         if (currentDocumentText) {
             fd.append('document_text', currentDocumentText);
-            addMessageToUI('user', idea || GartyLang.chat_msg_analyze_doc, null, true);
-            document.getElementById('descripcion').value = ""; document.getElementById('imageInput').value = ""; document.getElementById('imgPreviewContainer').style.display = 'none'; currentDocumentText = "";
+            
+            // Mostramos el icono de documento en la burbuja solo la primera vez
+            addMessageToUI('user', idea || GartyLang.chat_msg_analyze_doc, null, !window.docYaEnviado);
+            window.docYaEnviado = true; // Bandera de seguridad
+            
+            document.getElementById('descripcion').value = ""; 
+            // 🛑 HEMOS QUITADO LA DESTRUCCIÓN DE currentDocumentText E imgPreviewContainer 🛑
+            
             const loadingId = 'loading-' + Date.now(); const b = document.createElement('div'); b.className = `chat-bubble bubble-ai`; b.id = loadingId;
             b.innerHTML = `<div class="d-flex align-items-center text-info"><div class="spinner-border spinner-border-sm me-2"></div> <small>${GartyLang.chat_msg_analyzing_doc}</small></div>`;
             document.getElementById('chatThreadContainer').appendChild(b); document.getElementById('chatThreadContainer').scrollTop = document.getElementById('chatThreadContainer').scrollHeight;
@@ -2281,9 +2310,16 @@ document.getElementById('promptForm').onsubmit = async (e) => {
         }
         
         if (currentImageBase64) {
-            addMessageToUI('user', idea || GartyLang.chat_msg_analyze_img, currentImageBase64, false);
             fd.append('image_data', currentImageBase64);
-            document.getElementById('imageInput').value = ""; document.getElementById('imgPreviewContainer').style.display = 'none'; currentImageBase64 = null; document.getElementById('descripcion').value = "";
+            
+            // Mostramos la imagen enorme en la burbuja del chat SOLO la primera vez
+            let imgParaBurbuja = window.imgYaEnviada ? null : currentImageBase64;
+            addMessageToUI('user', idea || GartyLang.chat_msg_analyze_img, imgParaBurbuja, false);
+            window.imgYaEnviada = true; // Bandera de seguridad
+            
+            document.getElementById('descripcion').value = ""; 
+            // 🛑 HEMOS QUITADO LA DESTRUCCIÓN DE currentImageBase64 E imgPreviewContainer 🛑
+            
             const loadingId = 'loading-' + Date.now(); const b = document.createElement('div'); b.className = `chat-bubble bubble-ai`; b.id = loadingId;
             b.innerHTML = `<div class="d-flex align-items-center text-info"><div class="spinner-border spinner-border-sm me-2"></div> <small>${GartyLang.chat_msg_analyzing_img}</small></div>`;
             document.getElementById('chatThreadContainer').appendChild(b); document.getElementById('chatThreadContainer').scrollTop = document.getElementById('chatThreadContainer').scrollHeight;
