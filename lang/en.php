@@ -646,6 +646,7 @@ return [
 	'err_ipa_incompatible_dit' => "The IP-Adapter / Style Reference tool is not compatible with this model's architecture. Please disable it in the panel to render.",
 	'err_ipadapter_upload' => "Error uploading images to IP-Adapter.",
 	'err_ipa_flux_kontext' => "Flux Kontext uses its native Conditioner. Turn off IP-Adapter and upload photos to the normal multi-upload tray.",
+	'err_flux2_max_images' => "The current Flux 2 Klein model only supports a maximum of 3 reference images. Please remove some from the tray.",
 
     // ==============================================================================
     // 08. CHAT, RADAR Y MOTOR DE TEXTO (LLM)
@@ -844,6 +845,8 @@ return [
 	'adm_ph_reglas_arq' => "Ex: Use comma-separated tags (1girl, solo, ...). Prioritize technical photography terms.",
 	'adm_hlp_reglas_arq' => "Strict instructions the LLM will follow when generating a prompt for this specific model.",
 	'adm_btn_new_lang' => "Create New Language",
+	'adm_ph_denoise' => "Denoise (0.75)",
+    'adm_hlp_denoise' => "Alteration strength for Img2Img (0.00 to 1.00)",
 
     'mod_lic_activated' => "Activated!",
     'mod_lic_btn_activate' => "Validate and Activate",

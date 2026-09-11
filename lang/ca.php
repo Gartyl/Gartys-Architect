@@ -646,6 +646,7 @@ return [
 	'err_ipa_incompatible_dit' => "L'eina IP-Adapter / Referència d'Estil no és compatible amb l'arquitectura d'aquest model. Si us plau, desactiva-la al tauler per poder renderitzar.",
 	'err_ipadapter_upload' => "Error pujant imatges a l'IP-Adapter.",
 	'err_ipa_flux_kontext' => "Flux Kontext utilitza el seu propi Conditioner natiu. Apaga IP-Adapter i puja les fotos a la safata de multicàrrega normal.",
+	'err_flux2_max_images' => "El model Flux 2 Klein actual només admet un màxim de 3 imatges de referència. Si us plau, buida una mica la safata.",
 
     // ==============================================================================
     // 08. CHAT, RADAR Y MOTOR DE TEXTO (LLM)
@@ -844,6 +845,8 @@ return [
 	'adm_ph_reglas_arq' => "Ex: Usa etiquetes separades per comes (1girl, solo, ...). Prioritza llenguatge tècnic fotogràfic.",
 	'adm_hlp_reglas_arq' => "Instruccions estrictes que l'LLM acatarà en generar un prompt quan aquest model estigui seleccionat.",
 	'adm_btn_new_lang' => "Crear Nou Idioma",
+	'adm_ph_denoise' => "Denoise (0.75)",
+    'adm_hlp_denoise' => "Força d'alteració en Img2Img (0.00 a 1.00)",
 
     'mod_lic_activated' => "Activat!",
     'mod_lic_btn_activate' => "Validar i Activar",
