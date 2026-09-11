@@ -217,9 +217,9 @@ if ($action === 'get_modelos_bd') {
 
 if ($action === 'get_active_models') {
     try {
-        if ($is_admin) $stmt = $pdo->query("SELECT id, nombre_visual, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler FROM modelos_ia WHERE activo = 1 ORDER BY nombre_visual ASC");
-        elseif ($is_pro) $stmt = $pdo->query("SELECT id, nombre_visual, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler FROM modelos_ia WHERE activo = 1 AND nivel_acceso IN ('usuario', 'avanzado') ORDER BY nombre_visual ASC");
-        else $stmt = $pdo->query("SELECT id, nombre_visual, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler FROM modelos_ia WHERE activo = 1 AND nivel_acceso = 'usuario' ORDER BY nombre_visual ASC");
+        if ($is_admin) $stmt = $pdo->query("SELECT id, nombre_visual, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise FROM modelos_ia WHERE activo = 1 ORDER BY nombre_visual ASC");
+        elseif ($is_pro) $stmt = $pdo->query("SELECT id, nombre_visual, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise FROM modelos_ia WHERE activo = 1 AND nivel_acceso IN ('usuario', 'avanzado') ORDER BY nombre_visual ASC");
+        else $stmt = $pdo->query("SELECT id, nombre_visual, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise FROM modelos_ia WHERE activo = 1 AND nivel_acceso = 'usuario' ORDER BY nombre_visual ASC");
         echo json_encode(['modelos' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
     } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
     exit();
@@ -234,12 +234,15 @@ if ($action === 'save_modelo_bd') {
         $d_cfg = !empty($_POST['default_cfg']) ? floatval($_POST['default_cfg']) : 5.0;
         $d_sampler = !empty($_POST['default_sampler']) ? $_POST['default_sampler'] : 'euler_ancestral';
         $d_scheduler = !empty($_POST['default_scheduler']) ? $_POST['default_scheduler'] : 'beta';
+        // 👇 NUEVO: Capturar el Denoise
+        $d_denoise = (isset($_POST['default_denoise']) && $_POST['default_denoise'] !== '') ? floatval($_POST['default_denoise']) : null;
+        // 👆 ----------------------
         
         $tags_uso = $_POST['tags_uso'] ?? ''; 
-        // 👇 NUEVO: Capturar reglas del arquitecto
         $reglas_arquitecto = $_POST['reglas_arquitecto'] ?? '';
 
-        $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled, default_steps, default_cfg, default_sampler, default_scheduler, tags_uso, reglas_arquitecto) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        // Añadimos 'default_denoise' a la lista de columnas y un interrogante '?' extra a los VALUES
+        $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, tags_uso, reglas_arquitecto) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
             ->execute([
                 $_POST['nombre_visual'], 
                 $_POST['nombre_archivo'], 
@@ -251,8 +254,9 @@ if ($action === 'save_modelo_bd') {
                 $d_cfg,
                 $d_sampler,
                 $d_scheduler,
+                $d_denoise,        // <-- Añadido aquí (debe coincidir con la posición en la consulta SQL)
                 $tags_uso,
-                $reglas_arquitecto // <-- Añadido al final
+                $reglas_arquitecto 
             ]);
         echo json_encode(['success' => true]);
     } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
@@ -268,12 +272,15 @@ if ($action === 'update_modelo_bd') {
         $d_cfg = !empty($_POST['default_cfg']) ? floatval($_POST['default_cfg']) : null;
         $d_sampler = !empty($_POST['default_sampler']) ? $_POST['default_sampler'] : null;
         $d_scheduler = !empty($_POST['default_scheduler']) ? $_POST['default_scheduler'] : null;
+        // 👇 NUEVO: Capturar el Denoise
+        $d_denoise = (isset($_POST['default_denoise']) && $_POST['default_denoise'] !== '') ? floatval($_POST['default_denoise']) : null;
+        // 👆 ----------------------
 
         $tags_uso = $_POST['tags_uso'] ?? '';
-        // 👇 NUEVO: Capturar reglas del arquitecto
         $reglas_arquitecto = $_POST['reglas_arquitecto'] ?? '';
 
-        $pdo->prepare("UPDATE modelos_ia SET nombre_visual = ?, nombre_archivo = ?, motor = ?, categoria = ?, nivel_acceso = ?, es_unbundled = ?, default_steps = ?, default_cfg = ?, default_sampler = ?, default_scheduler = ?, tags_uso = ?, reglas_arquitecto = ? WHERE id = ?")
+        // Añadimos 'default_denoise = ?' a la lista de columnas a actualizar
+        $pdo->prepare("UPDATE modelos_ia SET nombre_visual = ?, nombre_archivo = ?, motor = ?, categoria = ?, nivel_acceso = ?, es_unbundled = ?, default_steps = ?, default_cfg = ?, default_sampler = ?, default_scheduler = ?, default_denoise = ?, tags_uso = ?, reglas_arquitecto = ? WHERE id = ?")
             ->execute([
                 $_POST['nombre_visual'], 
                 $_POST['nombre_archivo'], 
@@ -285,8 +292,9 @@ if ($action === 'update_modelo_bd') {
                 $d_cfg,
                 $d_sampler,
                 $d_scheduler,
+                $d_denoise,        // <-- Añadido aquí (debe coincidir con la posición en la consulta SQL)
                 $tags_uso,
-                $reglas_arquitecto, // <-- Añadido penúltimo
+                $reglas_arquitecto, 
                 $_POST['id'] // El ID que manda el frontend
             ]);
         echo json_encode(['success' => true]);

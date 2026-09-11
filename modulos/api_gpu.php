@@ -3260,6 +3260,13 @@ if ($action === 'generar_imagen') {
             $kontext_images[1] = isset($workflow["13"]) ? ["13", 0] : ["11", 0];
         }
 
+        // 👇 NUEVO: FRENO CON AVISO AL USUARIO 👇
+        if (count($kontext_images) > 3) {
+            echo json_encode(['error' => __('err_flux2_max_images') ?? 'Flux 2 Klein solo admite un máximo de 3 imágenes simultáneas. Por favor, elimina alguna de la bandeja.']);
+            exit();
+        }
+        // 👆 --------------------------------- 👆
+
         // 2. Construimos la estructura base del Conditioner
         $inputs_pos = [
             "prompt" => $posPrompt, 
