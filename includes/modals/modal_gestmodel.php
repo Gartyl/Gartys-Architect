@@ -121,17 +121,22 @@
                                     </div>
 
                                     <!-- NUEVOS CAMPOS: PARÁMETROS POR DEFECTO DEL MOTOR -->
-									<div class="col-12 mt-3">
-										<div class="p-2 border border-secondary rounded shadow-sm" style="background-color: rgba(13, 202, 240, 0.05);">
-											<label class="small text-info fw-bold mb-2"><i class="bi bi-sliders"></i> <?= __('adm_lbl_params_def') ?></label>
-											<div class="row g-2">
-												<div class="col-md-3">
-													<input type="number" id="modSteps" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="<?= __('adm_ph_steps') ?>">
-												</div>
-												<div class="col-md-3">
-													<input type="number" id="modCfg" step="0.1" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="<?= __('adm_ph_cfg') ?>">
-												</div>
-												<div class="col-md-3">
+                                    <div class="col-12 mt-3">
+                                        <div class="p-2 border border-secondary rounded shadow-sm" style="background-color: rgba(13, 202, 240, 0.05);">
+                                            <label class="small text-info fw-bold mb-2"><i class="bi bi-sliders"></i> <?= __('adm_lbl_params_def') ?></label>
+                                            <div class="row g-2">
+                                                <div class="col-md-2">
+                                                    <input type="number" id="modSteps" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="<?= __('adm_ph_steps') ?>">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <input type="number" id="modCfg" step="0.1" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="<?= __('adm_ph_cfg') ?>">
+                                                </div>
+                                                <!-- 👇 NUEVO CAMPO: DENOISE POR DEFECTO 👇 -->
+                                                <div class="col-md-2">
+                                                    <input type="number" id="modDenoise" step="0.01" min="0.00" max="1.00" class="form-control form-control-sm bg-dark text-info border-info" placeholder="<?= __('adm_ph_denoise') ?? 'Denoise (0.75)' ?>" title="<?= __('adm_hlp_denoise') ?? 'Fuerza de alteración en Img2Img (0.00 a 1.00)' ?>">
+                                                </div>
+                                                <!-- 👆 -------------------------------- 👆 -->
+                                                <div class="col-md-3">
                                                     <select id="modSampler" class="form-select form-select-sm bg-dark text-light border-secondary">
                                                         <option value=""><?= __('adm_ph_sampler') ?? 'Sampler (Automático)' ?></option>
                                                         <optgroup label="<?= __('adm_opt_estandar') ?? 'Estándar' ?>">
