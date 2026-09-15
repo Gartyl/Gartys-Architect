@@ -2581,22 +2581,51 @@ async function runGpu(mode = 'directo') {
         }
         
         if (autoTranslate) {
-            const originalTextBtn = buttonUsed.innerHTML;
-            if (!window.bucleInfinitoActivo && !window.loteBatchActivo) buttonUsed.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> ${GartyLang.gpu_msg_translating || 'Traduciendo...'}`;
-            try {
-                const fdTrad = new FormData(); fdTrad.append('action', 'traducir_rapido'); fdTrad.append('texto', ideaInicial);
-                const llmSel = document.getElementById('llmModelSelector'); if (llmSel && llmSel.value) fdTrad.append('llm_model', llmSel.value);
-                const resTrad = await fetch('procesar.php', { method: 'POST', body: fdTrad }); const textTrad = await resTrad.text(); 
+                const originalTextBtn = buttonUsed.innerHTML;
+                if (!window.bucleInfinitoActivo && !window.loteBatchActivo) buttonUsed.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> ${GartyLang.gpu_msg_translating || 'Traduciendo...'}`;
                 try {
-                    const dataTrad = JSON.parse(textTrad);
-                    if (dataTrad.error_curl || dataTrad.debug_api) console.warn(GartyLang.log_warn_trans_internal, dataTrad);
-                    if (dataTrad.traduccion && dataTrad.traduccion.trim() !== '') finalPrompt = dataTrad.traduccion; else finalPrompt = ideaInicial;
-                } catch(eJson) { console.error(GartyLang.log_err_trans_invalid, textTrad); finalPrompt = ideaInicial; }
-            } catch (e) { console.error(GartyLang.log_err_trans_net, e); finalPrompt = ideaInicial; }
-            if (!window.bucleInfinitoActivo && !window.loteBatchActivo) buttonUsed.innerHTML = originalTextBtn;
-        } else { 
-            finalPrompt = ideaInicial; 
-        }
+                    const fdTrad = new FormData(); fdTrad.append('action', 'traducir_rapido'); fdTrad.append('texto', ideaInicial);
+                    const llmSel = document.getElementById('llmModelSelector'); if (llmSel && llmSel.value) fdTrad.append('llm_model', llmSel.value);
+                    
+                    const resTrad = await fetch('procesar.php', { method: 'POST', body: fdTrad }); 
+                    const textTrad = await resTrad.text(); 
+                    
+                    try {
+                        // Intentamos procesarlo como JSON (comportamiento estándar)
+                        const dataTrad = JSON.parse(textTrad);
+                        if (dataTrad.error_curl || dataTrad.debug_api) console.warn(GartyLang.log_warn_trans_internal || 'Aviso de traducción:', dataTrad);
+                        
+                        // 🌟 BLINDAJE 1: Atrapamos el texto traducido sin importar el nombre de la variable
+                        let textoTraducido = dataTrad.traduccion || dataTrad.response || (dataTrad.message && dataTrad.message.content) || "";
+                        
+                        // 🌟 BLINDAJE 2: Limpiamos los tags de "pensamiento" (Útil para DeepSeek R1 y similares)
+                        textoTraducido = textoTraducido.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+                        if (textoTraducido !== '') {
+                            finalPrompt = textoTraducido; 
+                        } else {
+                            finalPrompt = ideaInicial; // Fallback
+                        }
+                    } catch(eJson) { 
+                        // 🌟 BLINDAJE 3: Si PHP no devuelve un JSON, sino texto plano directamente
+                        let textoPlano = textTrad.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+                        
+                        // Si el texto plano no está vacío y no parece un error de PHP, lo damos por bueno
+                        if (textoPlano !== '' && !textoPlano.includes('<?php') && !textoPlano.includes('<br')) {
+                            finalPrompt = textoPlano;
+                        } else {
+                            console.error(GartyLang.log_err_trans_invalid || 'Respuesta de traducción inválida:', textTrad); 
+                            finalPrompt = ideaInicial; 
+                        }
+                    }
+                } catch (e) { 
+                    console.error(GartyLang.log_err_trans_net || 'Error de red en traducción:', e); 
+                    finalPrompt = ideaInicial; 
+                }
+                if (!window.bucleInfinitoActivo && !window.loteBatchActivo) buttonUsed.innerHTML = originalTextBtn;
+            } else { 
+                finalPrompt = ideaInicial; 
+            }
         
         const applied = getPromptsWithPresets(finalPrompt, ""); 
         finalPrompt = applied.pos; 
