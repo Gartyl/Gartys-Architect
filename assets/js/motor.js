@@ -1291,22 +1291,25 @@ function updateUIForSelector(sel) {
     const ipaBlock = document.getElementById('ipAdapterBlock'); const ipaToggle = document.getElementById('ipAdapterToggle');
     const ipaAdvancedControls = document.getElementById('ipaAdvancedControls'); const ipaTitleLabel = document.getElementById('ipaTitleLabel');
     if (ipaBlock) {
-        if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel) && isAvanzado) {
+        if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel)) {
             ipaBlock.style.display = 'block';
+            if (!isAvanzado && ipaToggle) { ipaToggle.disabled = true; ipaToggle.checked = false; }
+            
             if (sel === '[NATURAL_IMAGE]') {
                 if (ipaAdvancedControls) ipaAdvancedControls.style.display = 'none';
                 if (ipaTitleLabel) {
-                    const tituloRedux = (typeof GartyLang !== 'undefined' && GartyLang.tit_flux_redux) ? GartyLang.tit_flux_redux : 'TRANSFERENCIA DE ESTILO (FLUX Redux)';
-                    ipaTitleLabel.innerHTML = '<i class="bi bi-images me-1"></i> ' + tituloRedux + (APP_ENV.isAvanzado ? '' : ' 🔒 (Pro)');
+                    ipaTitleLabel.innerText = (typeof GartyLang !== 'undefined' && GartyLang.tit_flux_redux) ? GartyLang.tit_flux_redux : 'TRANSFERENCIA DE ESTILO (FLUX Redux)';
                 }
             } else {
-                if (ipaAdvancedControls) ipaAdvancedControls.style.display = 'flex';
+                if (ipaAdvancedControls) ipaAdvancedControls.style.display = isAvanzado ? 'flex' : 'none';
                 if (ipaTitleLabel) {
-                    const tituloBase = (typeof GartyLang !== 'undefined' && GartyLang.tit_ipadapter) ? GartyLang.tit_ipadapter : 'TRANSFERENCIA DE ESTILO (IP-Adapter)';
-                    ipaTitleLabel.innerHTML = '<i class="bi bi-images me-1"></i> ' + tituloBase + (APP_ENV.isAvanzado ? '' : ' 🔒 (Pro)');
+                    ipaTitleLabel.innerText = (typeof GartyLang !== 'undefined' && GartyLang.tit_ipadapter) ? GartyLang.tit_ipadapter : 'TRANSFERENCIA DE ESTILO (IP-Adapter)';
                 }
             }
-        } else { ipaBlock.style.display = 'none'; if(ipaToggle) { ipaToggle.checked = false; if(typeof toggleIpAdapterUI === 'function') toggleIpAdapterUI(); } }
+        } else { 
+            ipaBlock.style.display = 'none'; 
+            if(ipaToggle) { ipaToggle.checked = false; if(typeof toggleIpAdapterUI === 'function') toggleIpAdapterUI(); } 
+        }
     }
 
     const denoiseBlock = document.getElementById('denoiseBlock'); if (denoiseBlock) denoiseBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel)) ? 'block' : 'none';
