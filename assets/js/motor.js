@@ -2591,32 +2591,19 @@ async function runGpu(mode = 'directo') {
                     const textTrad = await resTrad.text(); 
                     
                     try {
-                        // Intentamos procesarlo como JSON (comportamiento estándar)
                         const dataTrad = JSON.parse(textTrad);
-                        if (dataTrad.error_curl || dataTrad.debug_api) console.warn(GartyLang.log_warn_trans_internal || 'Aviso de traducción:', dataTrad);
+                        if (dataTrad.error_curl || dataTrad.debug_api) console.warn(GartyLang.log_warn_trans_internal || 'Aviso interno:', dataTrad);
                         
-                        // 🌟 BLINDAJE 1: Atrapamos el texto traducido sin importar el nombre de la variable
-                        let textoTraducido = dataTrad.traduccion || dataTrad.response || (dataTrad.message && dataTrad.message.content) || "";
-                        
-                        // 🌟 BLINDAJE 2: Limpiamos los tags de "pensamiento" (Útil para DeepSeek R1 y similares)
-                        textoTraducido = textoTraducido.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-
-                        if (textoTraducido !== '') {
-                            finalPrompt = textoTraducido; 
+                        // Como PHP ya ha hecho todo el trabajo duro de limpieza, 
+                        // sabemos con un 100% de seguridad que 'traduccion' viene pura
+                        if (dataTrad.traduccion && dataTrad.traduccion.trim() !== '') {
+                            finalPrompt = dataTrad.traduccion; 
                         } else {
-                            finalPrompt = ideaInicial; // Fallback
+                            finalPrompt = ideaInicial;
                         }
                     } catch(eJson) { 
-                        // 🌟 BLINDAJE 3: Si PHP no devuelve un JSON, sino texto plano directamente
-                        let textoPlano = textTrad.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-                        
-                        // Si el texto plano no está vacío y no parece un error de PHP, lo damos por bueno
-                        if (textoPlano !== '' && !textoPlano.includes('<?php') && !textoPlano.includes('<br')) {
-                            finalPrompt = textoPlano;
-                        } else {
-                            console.error(GartyLang.log_err_trans_invalid || 'Respuesta de traducción inválida:', textTrad); 
-                            finalPrompt = ideaInicial; 
-                        }
+                        console.error(GartyLang.log_err_trans_invalid || 'Fallo al leer el JSON de PHP:', textTrad); 
+                        finalPrompt = ideaInicial; 
                     }
                 } catch (e) { 
                     console.error(GartyLang.log_err_trans_net || 'Error de red en traducción:', e); 
