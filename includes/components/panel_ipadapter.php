@@ -1,6 +1,8 @@
 <div class="param-group shadow-sm border-primary mb-3" id="ipAdapterBlock" style="display: none; border-color: rgba(13, 110, 253, 0.4) !important; background: rgba(13, 110, 253, 0.05);">
         <div class="d-flex justify-content-between align-items-center">
-            <label class="small text-primary fw-bold mb-0" id="ipaTitleLabel"><i class="bi bi-images me-1"></i> <?= __('tit_ipadapter') ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?></label>
+            <label class="small text-primary fw-bold mb-0">
+				<i class="bi bi-images me-1"></i> <span id="ipaTitleLabel"><?= __('tit_ipadapter') ?></span> <?= !$is_pro ? '<span id="ipaCandadoPHP">🔒 (Pro)</span>' : '' ?>
+			</label>
             <div class="form-check form-switch m-0">
                 <input class="form-check-input pref-track" style="cursor: pointer;" type="checkbox" id="ipAdapterToggle" onchange="toggleIpAdapterUI()" <?= !$is_pro ? 'disabled' : '' ?>>
             </div>
