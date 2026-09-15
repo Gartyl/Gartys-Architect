@@ -45,29 +45,58 @@ if ($action === 'get_recent_images') {
 
 if ($action === 'eliminar_prompt') {
     $prompt_id = intval($_POST['prompt_id'] ?? 0);
-    $stmt = $pdo->prepare("SELECT imagen_path FROM historial_prompts WHERE id = ? AND user_id = ?");
+    // 1. Obtenemos los datos vitales ANTES de borrar
+    $stmt = $pdo->prepare("SELECT imagen_path, descripcion_original, fecha_hora FROM historial_prompts WHERE id = ? AND user_id = ?");
     $stmt->execute([$prompt_id, $user_id]);
     $row = $stmt->fetch();
     
-    if ($row && !empty($row['imagen_path'])) {
-        $filepath = __DIR__ . '/../galeria/' . $row['imagen_path'];
-        if (file_exists($filepath)) { 
-            @unlink($filepath); 
+    if ($row) {
+        $img_path = $row['imagen_path'];
+        $desc = $row['descripcion_original'];
+        
+        // 2. Borrar la imagen
+        if (!empty($img_path)) {
+            $filepath = __DIR__ . '/../galeria/' . $img_path;
+            if (file_exists($filepath)) { 
+                @unlink($filepath); 
+            }
+            
+            // CAZAFANTASMAS: Borrar JSONs antiguos (por nombre de archivo)
+            $json_alt = __DIR__ . '/../galeria/' . pathinfo($img_path, PATHINFO_FILENAME) . '.json';
+            if (file_exists($json_alt)) { 
+                @unlink($json_alt); 
+            }
         }
         
-        // CAZAFANTASMAS: Borrar JSONs antiguos que se guardaron con el nombre de la imagen
-        $json_alt = __DIR__ . '/../galeria/' . pathinfo($row['imagen_path'], PATHINFO_FILENAME) . '.json';
-        if (file_exists($json_alt)) { 
-            @unlink($json_alt); 
+        // 3. Borrar el JSON por ID directo (por si acaso esta es la imagen padre)
+        $json_file = __DIR__ . '/../galeria/workflow_' . $prompt_id . '.json';
+        if (file_exists($json_file)) {
+            @unlink($json_file);
+        }
+
+        // 4. EL BORRADO INTELIGENTE (JSON FANTASMAS)
+        // Comprobamos si quedan más "variantes" vivas de esta misma sesión 
+        // (mismo usuario, mismo prompt, creadas en la misma hora)
+        $stmt_check = $pdo->prepare("SELECT id FROM historial_prompts WHERE user_id = ? AND descripcion_original = ? AND id != ? AND fecha_hora >= DATE_SUB(?, INTERVAL 1 HOUR)");
+        $stmt_check->execute([$user_id, $desc, $prompt_id, $row['fecha_hora']]);
+        
+        // Si no quedan variantes vivas, fulminamos el JSON padre original
+        if ($stmt_check->rowCount() === 0) {
+            // Buscamos cuál fue la primera imagen generada de este bloque para borrar su JSON
+            $stmt_old = $pdo->prepare("SELECT id FROM historial_prompts WHERE user_id = ? AND descripcion_original = ? ORDER BY id ASC LIMIT 1");
+            $stmt_old->execute([$user_id, $desc]);
+            $row_old = $stmt_old->fetch();
+            
+            if ($row_old) {
+                $json_padre = __DIR__ . '/../galeria/workflow_' . $row_old['id'] . '.json';
+                if (file_exists($json_padre)) {
+                    @unlink($json_padre);
+                }
+            }
         }
     }
     
-    // BORRAR EL WORKFLOW JSON ASOCIADO A LA ID (Estándar Nuevo)
-    $json_file = __DIR__ . '/../galeria/workflow_' . $prompt_id . '.json';
-    if (file_exists($json_file)) {
-        @unlink($json_file);
-    }
-    
+    // 5. Borrar de BBDD
     $stmt = $pdo->prepare("DELETE FROM historial_prompts WHERE id = ? AND user_id = ?");
     $success = $stmt->execute([$prompt_id, $user_id]);
     echo json_encode(['success' => $success]);
