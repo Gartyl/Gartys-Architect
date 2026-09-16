@@ -83,7 +83,7 @@ if ($action === 'traducir_rapido') {
             ["role" => "user", "content" => "Translate this exact text into English:\n\n" . $texto]
         ],
         "stream" => false, 
-        "keep_alive" => 0, 
+        "keep_alive" => "2m", 
         "options" => ["temperature" => 0.1]
     ];
     
