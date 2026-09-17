@@ -1546,6 +1546,78 @@ if ($action === 'generar_imagen') {
             $current_image_node = "102"; // Nodo SaveVideo
             goto EJECUTAR_COMFYUI;
         }
+		
+		// ====================================================================
+        // --- 1.7. BLOQUE COGVIDEO X ---
+        // ====================================================================
+        if (strpos(strtolower($modelo_seguro), 'cogvideo') !== false) {
+
+            $tiene_imagen = (!empty($init_image_base64) && $comfy_image_filename !== "none" && $init_image_base64 !== "TRAY_IMAGE_USED");
+
+            // Calculamos los frames exactos: (N * 4) + 1
+            $n = round(($video_frames - 1) / 4);
+            $video_frames_cog = max(9, ($n * 4) + 1);
+
+            $nombre_modelo_puro = basename($modelo_seguro);
+            $modelo_lower = strtolower($nombre_modelo_puro);
+
+            // 🛡️ MAPEO INTELIGENTE (Sin hardcodear en el frontend)
+            // Kijai exige su string exacto, así que deducimos qué string necesita leyendo el archivo que el usuario haya seleccionado en la app
+            $kijai_target = "THUDM/CogVideoX-5b-I2V"; // Fallback por defecto
+            
+            if (strpos($modelo_lower, '1.5') !== false || strpos($modelo_lower, '1_5') !== false) {
+                $kijai_target = $tiene_imagen ? "kijai/CogVideoX-5b-1.5-I2V" : "kijai/CogVideoX-5b-1.5-T2V";
+            } elseif (strpos($modelo_lower, 'fun') !== false) {
+                $kijai_target = "kijai/CogVideoX-Fun-5b";
+            } else {
+                $kijai_target = $tiene_imagen ? "THUDM/CogVideoX-5b-I2V" : "THUDM/CogVideoX-5b";
+            }
+
+            if ($tiene_imagen) {
+                $ruta_json = __DIR__ . '/../workflows/CogVideo_I2V.json';
+            } else {
+                $ruta_json = __DIR__ . '/../workflows/CogVideo_T2V.json';
+            }
+
+            $reemplazos = [
+                '__SEED__' => $seed,
+                '__WIDTH__' => $width,
+                '__HEIGHT__' => $height,
+                '__VIDEO_FRAMES__' => $video_frames_cog,
+                '__FPS__' => $video_fps,
+                '__STEPS__' => $steps,
+                '__CFG__' => $cfg,
+                '__MODELO_KIJAI__' => $kijai_target,
+                '__PROMPT_POSITIVO__' => $posPrompt,
+                '__PROMPT_NEGATIVO__' => $neg_prompt,
+                '__INIT_IMAGE__' => $comfy_image_filename
+            ];
+
+            $workflow = cargarWorkflowJSON($ruta_json, $reemplazos);
+
+            // --- HISTORIAL Y METADATOS ---
+            $meta_json_array = [
+                'Model' => $nombre_modelo_puro,
+                'Resolution' => $width . 'x' . $height,
+                'Seed' => $seed,
+                'Steps' => $steps,
+                'CFG Scale' => $cfg,
+                'Duration' => $video_frames_cog . ' frames'
+            ];
+            $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
+
+            if ($historial_id > 0) {
+                $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ?, metadata = ? WHERE id = ?");
+                $stmt_upd->execute([$posPrompt, $neg_prompt, $meta_json, $historial_id]);
+            } else {
+                $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt_ins->execute([$user_id, $selector, $posPrompt, $posPrompt, $neg_prompt, $meta_json]);
+                $historial_id = $pdo->lastInsertId();
+            }
+
+            $current_image_node = "44"; 
+            goto EJECUTAR_COMFYUI;
+        }
 
         // ====================================================================
         // --- 2. BLOQUE WAN VIDEO ---

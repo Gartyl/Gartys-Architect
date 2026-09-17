@@ -83,7 +83,7 @@ if ($action === 'traducir_rapido') {
             ["role" => "user", "content" => "Translate this exact text into English:\n\n" . $texto]
         ],
         "stream" => false, 
-        "keep_alive" => "2m", 
+        "keep_alive" => 0, 
         "options" => ["temperature" => 0.1]
     ];
     
@@ -276,4 +276,53 @@ if ($action === 'get_ollama_models') {
     echo json_encode(['models' => $models]);
     exit();
 }
+
+// ==============================================================================
+// --- MÓDULO: MONITOR DE SISTEMA EN TIEMPO REAL (VRAM, OLLAMA, COMFYUI) ---
+// ==============================================================================
+if ($action === 'get_system_stats') {
+    session_write_close(); 
+    $stats = ['ollama' => null, 'comfy_queue' => null, 'comfy_sys' => null];
+
+    // Array de peticiones
+    $requests = [
+        'ollama'      => "http://" . LLM_IP . ":" . LLM_PORT . "/api/ps",
+        'comfy_queue' => COMFY_URL . "/queue",
+        'comfy_sys'   => COMFY_URL . "/system_stats"
+    ];
+
+    // Iniciamos cURL múltiple para consultar a la vez y no bloquearnos
+    $mh = curl_multi_init();
+    $handles = [];
+
+    foreach ($requests as $key => $url) {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 2); // Máximo 2 segundos por intento
+        curl_multi_add_handle($mh, $ch);
+        $handles[$key] = $ch;
+    }
+
+    // Ejecutar todas las peticiones en paralelo
+    $running = null;
+    do {
+        curl_multi_exec($mh, $running);
+        curl_multi_select($mh);
+    } while ($running > 0);
+
+    // Recoger los resultados
+    foreach ($handles as $key => $ch) {
+        $res = curl_multi_getcontent($ch);
+        if ($res) {
+            $stats[$key] = json_decode($res, true);
+        }
+        curl_multi_remove_handle($mh, $ch);
+        curl_close($ch);
+    }
+    curl_multi_close($mh);
+
+    echo json_encode($stats);
+    exit();
+}
+
 ?>
