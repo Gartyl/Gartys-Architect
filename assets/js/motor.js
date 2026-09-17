@@ -1866,8 +1866,8 @@ async function visionToPrompt(btnElement) {
     // 2. Determinamos inteligentemente el selector estructural según el modelo
     let targetSelector = '[SDXL]'; // Fallback por defecto
     
-    if (lowerModel.includes('flux') || lowerModel.includes('chroma') || lowerModel.includes('sd3') || lowerModel.includes('z-image') || lowerModel.includes('zimage') || lowerModel.includes('qwen') || lowerModel.includes('krea') || lowerModel.includes('dit')) {
-        targetSelector = '[NATURAL_IMAGE]';
+    if (lowerModel.includes('flux') || lowerModel.includes('chroma') || lowerModel.includes('sd3') || lowerModel.includes('z-image') || lowerModel.includes('zimage') || lowerModel.includes('qwen') || lowerModel.includes('krea') || lowerModel.includes('dit') || lowerModel.includes('cogvideo')) {
+    targetSelector = '[NATURAL_IMAGE]';
     } else if (lowerModel.includes('15') || lowerModel.includes('v1-5') || lowerModel.includes('sd15')) {
         targetSelector = '[SD15]';
     } else if (modelSelect && modelSelect.selectedIndex >= 0) {

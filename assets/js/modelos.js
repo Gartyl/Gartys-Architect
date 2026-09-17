@@ -1219,3 +1219,189 @@ async function vaciarVramComfy() {
         console.error(GartyLang.log_err_vram_free || "Fallo al liberar VRAM:", e);
     }
 }
+
+// ==============================================================================
+// --- MÓDULO: MONITOR DE SISTEMA EN TIEMPO REAL (VRAM, Ollama, ComfyUI) ---
+// ==============================================================================
+window.monitorSistemaInterval = null;
+
+window.abrirMonitorSistema = function() {
+    const offcanvasEl = document.getElementById('monitorSistemaOffcanvas');
+    if (!offcanvasEl) return;
+    
+    const bsOffcanvas = new bootstrap.Offcanvas(offcanvasEl);
+    bsOffcanvas.show();
+    
+    offcanvasEl.addEventListener('hidden.bs.offcanvas', detenerMonitorSistema, { once: true });
+    
+    actualizarDatosMonitor();
+    // 🌟 RELAJAMOS EL BOMBARDEO A 4 SEGUNDOS PARA EVITAR CRASHEOS DE COMFYUI
+    window.monitorSistemaInterval = setInterval(actualizarDatosMonitor, 4000); 
+};
+
+window.detenerMonitorSistema = function() {
+    if (window.monitorSistemaInterval) {
+        clearInterval(window.monitorSistemaInterval);
+        window.monitorSistemaInterval = null;
+    }
+};
+
+window.lastSysStats = { comfy_sys: null, ollama: null };
+
+async function actualizarDatosMonitor() {
+    if (!document.getElementById('monitorSistemaOffcanvas').classList.contains('show')) return;
+
+    const lblGpu = (typeof GartyLang !== 'undefined' && GartyLang.mon_gpu) ? GartyLang.mon_gpu : 'GPU';
+    const lblRam = (typeof GartyLang !== 'undefined' && GartyLang.mon_ram) ? GartyLang.mon_ram : 'RAM';
+    const lblFree = (typeof GartyLang !== 'undefined' && GartyLang.mon_vram_free) ? GartyLang.mon_vram_free : 'GB Libres';
+    const lblWaitGpu = (typeof GartyLang !== 'undefined' && GartyLang.mon_wait_gpu) ? GartyLang.mon_wait_gpu : 'Esperando datos GPU...';
+    const lblNoLlm = (typeof GartyLang !== 'undefined' && GartyLang.mon_no_llm) ? GartyLang.mon_no_llm : 'Ningún LLM cargado en VRAM.';
+    const lblState = (typeof GartyLang !== 'undefined' && GartyLang.mon_state) ? GartyLang.mon_state : 'Estado:';
+    const lblRendering = (typeof GartyLang !== 'undefined' && GartyLang.mon_rendering) ? GartyLang.mon_rendering : 'Renderizando';
+    const lblIdle = (typeof GartyLang !== 'undefined' && GartyLang.mon_inactive) ? GartyLang.mon_inactive : 'Inactivo';
+    const lblQueue = (typeof GartyLang !== 'undefined' && GartyLang.mon_queue_tasks) ? GartyLang.mon_queue_tasks : 'Tareas en Cola:';
+    const lblErrUpdate = (typeof GartyLang !== 'undefined' && GartyLang.mon_err_update) ? GartyLang.mon_err_update : 'Fallo al actualizar el monitor de sistema.';
+
+    try {
+        let fd = new FormData(); fd.append('action', 'get_system_stats');
+        let res = await fetch('procesar.php', { method: 'POST', body: fd });
+        
+        if (!res.ok) throw new Error("HTTP Status " + res.status);
+        let textData = await res.text();
+        if (!textData) throw new Error("Respuesta vacía del servidor");
+        
+        let data = JSON.parse(textData);
+
+        if (data.comfy_sys) window.lastSysStats.comfy_sys = data.comfy_sys;
+        if (data.ollama) window.lastSysStats.ollama = data.ollama;
+
+        const activeComfySys = data.comfy_sys || window.lastSysStats.comfy_sys;
+        const opacityStyle = (!data.comfy_sys) ? 'opacity: 0.6;' : 'opacity: 1;';
+
+        // --- 1A. RENDERIZAR HARDWARE (VRAM) ---
+        const hwBox = document.getElementById('monHardwareData');
+        if (activeComfySys && activeComfySys.devices && activeComfySys.devices.length > 0) {
+            const gpu = activeComfySys.devices[0];
+            const vramTotal = (gpu.vram_total / 1024 / 1024 / 1024).toFixed(2);
+            const vramFree = (gpu.vram_free / 1024 / 1024 / 1024).toFixed(2);
+            const vramUsed = (vramTotal - vramFree).toFixed(2);
+            const percentUsed = Math.round((vramUsed / vramTotal) * 100);
+            
+            let colorClass = 'bg-success';
+            if (percentUsed > 75) colorClass = 'bg-warning';
+            if (percentUsed > 90) colorClass = 'bg-danger';
+
+            hwBox.innerHTML = `
+                <div style="${opacityStyle} transition: opacity 0.3s;">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-light">${gpu.name || lblGpu}</span>
+                        <span class="fw-bold text-white">${vramUsed} GB / ${vramTotal} GB</span>
+                    </div>
+                    <div class="progress" style="height: 10px; background-color: rgba(255,255,255,0.1);">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated ${colorClass}" style="width: ${percentUsed}%"></div>
+                    </div>
+                    <div class="text-end mt-1 small text-success">${vramFree} ${lblFree}</div>
+                </div>
+            `;
+        } else {
+            hwBox.innerHTML = `<div class="text-center text-success" style="opacity: 0.7;">${lblWaitGpu}</div>`;
+        }
+
+        // --- 1B. RENDERIZAR HARDWARE (RAM SISTEMA) ---
+        const ramBox = document.getElementById('monRamData');
+        if (activeComfySys && activeComfySys.system) {
+            const sys = activeComfySys.system;
+            const ramTotal = (sys.ram_total / 1024 / 1024 / 1024).toFixed(2);
+            const ramFree = (sys.ram_free / 1024 / 1024 / 1024).toFixed(2);
+            const ramUsed = (ramTotal - ramFree).toFixed(2);
+            const percentRamUsed = Math.round((ramUsed / ramTotal) * 100);
+            
+            let colorRamClass = 'bg-warning';
+            if (percentRamUsed > 85) colorRamClass = 'bg-danger';
+
+            ramBox.innerHTML = `
+                <div style="${opacityStyle} transition: opacity 0.3s;">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-light">${lblRam}</span>
+                        <span class="fw-bold text-white">${ramUsed} GB / ${ramTotal} GB</span>
+                    </div>
+                    <div class="progress" style="height: 10px; background-color: rgba(255,255,255,0.1);">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated ${colorRamClass}" style="width: ${percentRamUsed}%"></div>
+                    </div>
+                    <div class="text-end mt-1 small text-warning">${ramFree} ${lblFree}</div>
+                </div>
+            `;
+        } else {
+            if (ramBox) ramBox.innerHTML = `<div class="text-center text-warning" style="opacity: 0.7;">Esperando datos RAM...</div>`;
+        }
+
+        // --- 2. RENDERIZAR OLLAMA ---
+        const activeOllama = data.ollama || window.lastSysStats.ollama;
+        const ollamaBox = document.getElementById('monOllamaData');
+        
+        if (activeOllama && activeOllama.models && activeOllama.models.length > 0) {
+            let htmlOllama = '';
+            const opacityOllama = (!data.ollama) ? 'opacity: 0.6;' : 'opacity: 1;';
+            
+            activeOllama.models.forEach(mod => {
+                const sizeGB = (mod.size / 1024 / 1024 / 1024).toFixed(2);
+                htmlOllama += `
+                <div class="d-flex justify-content-between border-bottom border-info pb-1 mb-1" style="border-color: rgba(13,202,240,0.2) !important; ${opacityOllama}">
+                    <span class="text-white text-truncate" style="max-width: 65%;" title="${mod.name}">${mod.name}</span>
+                    <span class="text-info fw-bold" style="white-space: nowrap;">${sizeGB} GB</span>
+                </div>`;
+            });
+            ollamaBox.innerHTML = htmlOllama;
+        } else {
+            ollamaBox.innerHTML = `<div class="text-center text-info" style="opacity: 0.7;">${lblNoLlm}</div>`;
+        }
+
+        // --- 3. RENDERIZAR COMFYUI QUEUE ---
+        const comfyBox = document.getElementById('monComfyData');
+        if (data.comfy_queue) {
+            const running = data.comfy_queue.queue_running ? data.comfy_queue.queue_running.length : 0;
+            const pending = data.comfy_queue.queue_pending ? data.comfy_queue.queue_pending.length : 0;
+            
+            let statusBadge = running > 0 
+                ? `<span class="badge bg-primary text-white"><span class="spinner-grow spinner-grow-sm me-1"></span> ${lblRendering}</span>`
+                : `<span class="badge" style="background-color: rgba(255,255,255,0.1); color: #ccc;"><i class="bi bi-moon-fill"></i> ${lblIdle}</span>`;
+
+            let currentModelTask = '';
+            if (running > 0 && data.comfy_queue.queue_running[0] && data.comfy_queue.queue_running[0][2]) {
+                const promptDef = data.comfy_queue.queue_running[0][2];
+                let loadedModels = [];
+                for (let nodeId in promptDef) {
+                    let node = promptDef[nodeId];
+                    if (node.class_type === "CheckpointLoaderSimple" && node.inputs && node.inputs.ckpt_name) {
+                        loadedModels.push(node.inputs.ckpt_name.split(/[\\/]/).pop());
+                    } else if (node.class_type === "UNETLoader" && node.inputs && node.inputs.unet_name) {
+                        loadedModels.push(node.inputs.unet_name.split(/[\\/]/).pop());
+                    }
+                }
+                
+                if (loadedModels.length > 0) {
+                    currentModelTask = `
+                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-secondary text-light" style="border-color: rgba(255,255,255,0.1) !important;">
+                        <span class="small text-secondary"><i class="bi bi-box-seam"></i> Modelo:</span>
+                        <span class="small text-info text-truncate ms-2 fw-bold" style="max-width: 65%;" title="${loadedModels[0]}">${loadedModels[0]}</span>
+                    </div>`;
+                }
+            }
+
+            comfyBox.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-2 text-light">
+                    <span>${lblState}</span> ${statusBadge}
+                </div>
+                <div class="d-flex justify-content-between align-items-center text-light">
+                    <span>${lblQueue}</span> <span class="fw-bold text-white fs-6">${pending}</span>
+                </div>
+                ${currentModelTask}
+            `;
+        } else {
+            comfyBox.innerHTML = `<div class="text-center text-primary" style="opacity: 0.7;">${lblOffline}</div>`;
+        }
+
+    } catch (e) {
+        console.warn(lblErrUpdate, e);
+    }
+}
