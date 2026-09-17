@@ -345,6 +345,19 @@ return [
 	'lbl_ad_model' => "Modelo de detección",
     'txt_ad_model_hint' => "Selecciona el modelo especializado (rostros, manos, cuerpos...).",
 	'btn_free_vram' => "Liberar VRAM",
+	'tit_sys_monitor' => "Monitor de Hardware",
+    'btn_sys_stats'   => "Monitor de Rendimiento",
+    'btn_stats'       => "STATS",
+	'mon_gpu'           => "GPU",
+    'mon_vram_free'     => "GB Libres",
+    'mon_wait_gpu'      => "Esperando datos GPU...",
+    'mon_no_llm'        => "Ningún LLM cargado en VRAM.",
+    'mon_state'         => "Estado:",
+    'mon_rendering'     => "Renderizando",
+    'mon_inactive'      => "Inactivo",
+    'mon_queue_tasks'   => "Tareas en Cola:",
+    'mon_comfy_offline' => "Desconectado de ComfyUI.",
+	'mon_err_update'    => "Fallo al actualizar el monitor de sistema.",
     
     // ==============================================================================
     // 05. SELECTORES Y DESPLEGABLES (Opciones)
@@ -467,6 +480,7 @@ return [
     'err_vram_free_failed' => "No se pudo vaciar la memoria. ¿ComfyUI está encendido?",
 	'swal_vram_freed_title' => "VRAM Liberada",
     'log_err_vram_free' => "Fallo al liberar VRAM:",
+	'mon_ram'           => "RAM",
 
     // ==============================================================================
     // 07. ALERTAS EMERGENTES (SweetAlerts)
