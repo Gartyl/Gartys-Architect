@@ -112,6 +112,7 @@ try {
         case 'generar_prompt_sorpresa':
         case 'get_wildcards':
         case 'get_ollama_models':
+		case 'get_system_stats':
             require_once __DIR__ . '/modulos/api_utilidades.php';
             break;
 
