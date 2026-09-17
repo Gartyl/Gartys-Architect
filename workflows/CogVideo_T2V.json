@@ -1,0 +1,9 @@
+{
+  "20": { "inputs": { "clip_name": "t5xxl_fp8_e4m3fn.safetensors", "type": "sd3", "device": "default" }, "class_type": "CLIPLoader" },
+  "30": { "inputs": { "prompt": "__PROMPT_POSITIVO__", "strength": 1, "force_offload": false, "clip": [ "20", 0 ] }, "class_type": "CogVideoTextEncode" },
+  "31": { "inputs": { "prompt": "__PROMPT_NEGATIVO__", "strength": 1, "force_offload": true, "clip": [ "30", 1 ] }, "class_type": "CogVideoTextEncode" },
+  "59": { "inputs": { "model": "__MODELO_KIJAI__", "precision": "bf16", "quantization": "fp8_e4m3fn", "enable_sequential_cpu_offload": false, "attention_mode": "sdpa", "load_device": "main_device" }, "class_type": "DownloadAndLoadCogVideoModel" },
+  "63": { "inputs": { "num_frames": __VIDEO_FRAMES__, "steps": __STEPS__, "cfg": __CFG__, "seed": __SEED__, "scheduler": "CogVideoXDDIM", "denoise_strength": 1, "model": [ "59", 0 ], "positive": [ "30", 0 ], "negative": [ "31", 0 ] }, "class_type": "CogVideoSampler" },
+  "60": { "inputs": { "enable_vae_tiling": true, "tile_sample_min_height": 240, "tile_sample_min_width": 360, "tile_overlap_factor_height": 0.2, "tile_overlap_factor_width": 0.2, "auto_tile_size": true, "vae": [ "59", 1 ], "samples": [ "63", 0 ] }, "class_type": "CogVideoDecode" },
+  "44": { "inputs": { "frame_rate": __FPS__, "loop_count": 0, "filename_prefix": "byGarty_CogVideo", "format": "video/h264-mp4", "pix_fmt": "yuv420p", "crf": 19, "save_metadata": true, "trim_to_audio": false, "pingpong": false, "save_output": true, "images": [ "60", 0 ] }, "class_type": "VHS_VideoCombine" }
+}
