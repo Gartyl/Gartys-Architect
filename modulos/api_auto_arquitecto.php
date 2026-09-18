@@ -51,9 +51,24 @@ foreach ($modelos_db as $m) {
     }
 }
 
-// 3. BUSCAR EL MOTOR LLM ACTIVO EN LA BD 
-$stmt_llm = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE activo = 1 AND motor = 'ollama' AND categoria = 'sys_llm' LIMIT 1");
-$llm_model = $stmt_llm->fetchColumn() ?: 'llama3:latest'; 
+// 3. BUSCAR EL MOTOR LLM ACTIVO EN LA BD Y SU KEEP_ALIVE
+$stmt_llm = $pdo->query("SELECT nombre_archivo, keep_alive FROM modelos_ia WHERE activo = 1 AND motor = 'ollama' AND (categoria = 'sys_llm' OR categoria = 'SYS_LLM') LIMIT 1");
+$row_llm = $stmt_llm->fetch(PDO::FETCH_ASSOC);
+
+// Plan B: Si no hay SYS_LLM, cogemos CUALQUIER modelo de Ollama activo
+if (!$row_llm || empty($row_llm['nombre_archivo'])) {
+    $stmt_fb = $pdo->query("SELECT nombre_archivo, keep_alive FROM modelos_ia WHERE activo = 1 AND motor = 'ollama' LIMIT 1");
+    $row_llm = $stmt_fb->fetch(PDO::FETCH_ASSOC);
+}
+
+// Plan C: Si no hay absolutamente ningún modelo de texto configurado, abortamos con gracia
+if (!$row_llm || empty($row_llm['nombre_archivo'])) {
+    echo json_encode(['error' => __('err_no_sys_llm_active') ?? 'Error: No hay ningún modelo de texto (Ollama) activo en el sistema.']);
+    exit;
+}
+
+$llm_model = $row_llm['nombre_archivo'];
+$keep_alive_val = (!empty(trim($row_llm['keep_alive']))) ? trim($row_llm['keep_alive']) : 0;
 
 // 4. EL PROMPT MAESTRO (Solo pedimos que devuelva el ID del modelo)
 $system_prompt = "You are an expert AI routing system.
@@ -75,7 +90,7 @@ EXAMPLE OUTPUT:
   \"proporcion\": \"1024x1024\"
 }";
 
-// 5. PETICIÓN A OLLAMA
+// 5. PETICIÓN A OLLAMA (Inyectando el Keep Alive dinámico)
 $ch = curl_init("http://" . LLM_IP . ":" . LLM_PORT . "/api/generate");
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_POST, true);
@@ -85,6 +100,7 @@ curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
     'prompt' => $system_prompt,
     'stream' => false,
     'format' => 'json',
+    'keep_alive' => $keep_alive_val, // <--- CABLEADO DE SEGURIDAD
     'options' => ['temperature' => 0.0] // 0 Creatividad. Obediencia absoluta.
 ]));
 curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);

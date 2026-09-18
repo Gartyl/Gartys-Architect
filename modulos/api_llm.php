@@ -177,11 +177,17 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
         // Comprobamos si el Frontend nos está pidiendo Streaming
         $is_stream = isset($_POST['stream']) && $_POST['stream'] === 'true';
 
+        // --- CONTROL INTELIGENTE DE MEMORIA (VRAM) ---
+        // FALLBACK: Mantenemos el modelo vivo 10m en chat directo.
+        $keep_alive_fallback = "10m";
+        // Buscamos si la Base de Datos tiene una regla estricta definida
+        $keep_alive_val = (isset($info_modelo['keep_alive']) && trim($info_modelo['keep_alive']) !== '') ? trim($info_modelo['keep_alive']) : $keep_alive_fallback;
+
         $payload = [
             "model" => $llm_model_selected,
             "messages" => $messages, 
             "stream" => $is_stream, 
-            "keep_alive" => "10m",
+            "keep_alive" => $keep_alive_val,
             "options" => [
                 "temperature" => $temp_segura,
                 "num_ctx" => 8192
@@ -465,15 +471,21 @@ if ($isChat) {
 
 // --- NUEVO: INYECCIÓN DE REGLAS ESPECÍFICAS DEL MODELO GRÁFICO (Arquitecto) ---
 $modelo_grafico_recibido = $_POST['modelo_grafico_id'] ?? '';
+$default_negativo_bd = ''; // <--- NUEVA VARIABLE DE RESCATE
 
 if (!empty($modelo_grafico_recibido) && $selector !== '[LLM]') {
     try {
-        $stmtReglas = $pdo->prepare("SELECT reglas_arquitecto FROM modelos_ia WHERE id = ? LIMIT 1");
+        $stmtReglas = $pdo->prepare("SELECT reglas_arquitecto, default_negative FROM modelos_ia WHERE id = ? LIMIT 1");
         $stmtReglas->execute([$modelo_grafico_recibido]);
-        $reglas_modelo = $stmtReglas->fetchColumn();
+        $rowReglas = $stmtReglas->fetch(PDO::FETCH_ASSOC);
         
-        if (!empty($reglas_modelo)) {
-            $system_prompt .= "\n\n[ABSOLUTE DIRECTIVE FOR THIS SPECIFIC MODEL - YOU MUST OBEY THIS AHEAD OF ANY OTHER RULE]:\n" . trim($reglas_modelo);
+        if ($rowReglas) {
+            $reglas_modelo = $rowReglas['reglas_arquitecto'];
+            $default_negativo_bd = $rowReglas['default_negative'] ?? '';
+            
+            if (!empty($reglas_modelo)) {
+                $system_prompt .= "\n\n[ABSOLUTE DIRECTIVE FOR THIS SPECIFIC MODEL - YOU MUST OBEY THIS AHEAD OF ANY OTHER RULE]:\n" . trim($reglas_modelo);
+            }
         }
     } catch (Exception $e) { /* Silencioso */ }
 }
@@ -608,14 +620,26 @@ if (($isChat || $selector === '[LLM]') && !empty($modelo_recibido)) {
     $selected_model = $info_modelo['nombre_archivo'];
 }
 
+$ka_from_db = null;
+
 if (empty($selected_model)) {
-    $stmt_llm = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND categoria = 'SYS_LLM' AND activo = 1 LIMIT 1");
-    $selected_model = $stmt_llm->fetchColumn();
+    $stmt_llm = $pdo->query("SELECT nombre_archivo, keep_alive FROM modelos_ia WHERE motor = 'ollama' AND categoria = 'SYS_LLM' AND activo = 1 LIMIT 1");
+    $row_llm = $stmt_llm->fetch(PDO::FETCH_ASSOC);
     
-    if (!$selected_model) {
-        $stmt_fb = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND activo = 1 LIMIT 1");
-        $selected_model = $stmt_fb->fetchColumn();
+    if ($row_llm) {
+        $selected_model = $row_llm['nombre_archivo'];
+        $ka_from_db = $row_llm['keep_alive'];
+    } else {
+        $stmt_fb = $pdo->query("SELECT nombre_archivo, keep_alive FROM modelos_ia WHERE motor = 'ollama' AND activo = 1 LIMIT 1");
+        $row_fb = $stmt_fb->fetch(PDO::FETCH_ASSOC);
+        if ($row_fb) {
+            $selected_model = $row_fb['nombre_archivo'];
+            $ka_from_db = $row_fb['keep_alive'];
+        }
     }
+} else {
+    // Si el modelo vino del desplegable, rescatamos el keep_alive de la info consultada al principio
+    $ka_from_db = $info_modelo['keep_alive'] ?? null;
 }
 
 if (empty($selected_model)) {
@@ -624,14 +648,16 @@ if (empty($selected_model)) {
 }
 
 // --- CONTROL INTELIGENTE DE MEMORIA (VRAM) ---
-// Mantenemos el modelo vivo ÚNICAMENTE si estamos en el Chat conversacional o en redacción de texto pura ([LLM]).
-// Si el selector es gráfico ([SDXL], [FLUX], [VIDEO], etc.), forzamos keep_alive a 0 para liberar la VRAM al instante.
-$keep_alive_val = ($isChat || $selector === '[LLM]') ? "10m" : 0;
+// FALLBACK: 10m para Chat/Redacción, 0 para gráficos (libera VRAM al instante)
+$keep_alive_fallback = ($isChat || $selector === '[LLM]') ? "10m" : 0;
+
+// Si el usuario/administrador definió un valor en la base de datos, este prevalece
+$keep_alive_val = (isset($ka_from_db) && trim($ka_from_db) !== '') ? trim($ka_from_db) : $keep_alive_fallback;
 
 $payload = [
     "model" => $selected_model, 
     "messages" => $messages, 
-    "stream" => true, // <-- CAMBIADO A TRUE PARA MANTENER LA CONEXIÓN VIVA
+    "stream" => true, // <-- Mantenemos la conexión viva con FrankenPHP
     "options" => [
         "temperature" => $temp_final,
         "num_ctx" => 8192 
@@ -740,12 +766,25 @@ if ($isChat || $selector === '[LLM]') {
 
 $noise = ["none", "n/a", "vacío", "empty", "null", "undefined"];
 if (in_array(strtolower(trim($finalN)), $noise)) { $finalN = ""; }
-if (in_array($selector, ['[LLM]', '[NATURAL_IMAGE]', '[VIDEO]'])) { $finalN = ""; }
 
 $finalP = trim(preg_replace('/^(The user wants|Here is|Prompt:|Positive Prompt:)/i', '', trim($finalP)));
 
-if (empty($finalN) && ($selector === '[SD15]' || $selector === '[SDXL]')) {
-    $finalN = "lowres, bad quality, worst quality, blurry, text, (deformed, distorted:1.3), CGI, render, plastic skin, bad anatomy";
+// 1. DIOS MANDA: Si has escrito un negativo en la BD para este modelo, MACHACA lo que haya dicho el LLM.
+// Esto aplica a CUALQUIER modelo (SD15, SDXL, NATURAL_IMAGE, VIDEO).
+if (!empty(trim($default_negativo_bd))) {
+    $finalN = trim($default_negativo_bd);
+} else {
+    // 2. Si la BD está vacía, aplicamos la lógica estándar de contención:
+    
+    // A. Borramos las "alucinaciones" negativas del LLM para modelos Flux, DiT o Video, ya que les hacen daño.
+    if (in_array($selector, ['[LLM]', '[NATURAL_IMAGE]', '[VIDEO]'])) { 
+        $finalN = ""; 
+    }
+    
+    // B. Si es SD1.5 o SDXL y el LLM no generó ningún negativo, ponemos el salvavidas universal clásico.
+    if (empty($finalN) && ($selector === '[SD15]' || $selector === '[SDXL]')) {
+        $finalN = "lowres, bad quality, worst quality, blurry, text, (deformed, distorted:1.3), CGI, render, plastic skin, bad anatomy";
+    }
 }
 
 if (!empty(trim($finalP))) {

@@ -13,15 +13,20 @@ if ($action === 'vision_extract') {
 
     try {
         // 1. Buscamos el motor de visión en la sombra (SYS_VISION)
-        $stmtModel = $pdo->prepare("SELECT nombre_archivo FROM modelos_ia WHERE categoria = 'SYS_VISION' AND activo = 1 LIMIT 1");
+        $stmtModel = $pdo->prepare("SELECT nombre_archivo, keep_alive FROM modelos_ia WHERE categoria = 'SYS_VISION' AND activo = 1 LIMIT 1");
         $stmtModel->execute();
-        $visionModel = $stmtModel->fetchColumn();
+        $rowModel = $stmtModel->fetch(PDO::FETCH_ASSOC);
 
         // Si no hay SYS_VISION, abortamos con error
-        if (empty($visionModel)) {
+        if (!$rowModel || empty($rowModel['nombre_archivo'])) {
             echo json_encode(['error' => __('err_no_vision_model_db')]);
             exit();
         }
+
+        $visionModel = $rowModel['nombre_archivo'];
+        
+        // FALLBACK: Si no definiste keep_alive para visión, descargamos rápido (0)
+        $keep_alive_val = (isset($rowModel['keep_alive']) && trim($rowModel['keep_alive']) !== '') ? trim($rowModel['keep_alive']) : 0;
 
     } catch (PDOException $e) {
         echo json_encode(['error' => __('err_db_query') . ' ' . $e->getMessage()]);
@@ -36,7 +41,7 @@ if ($action === 'vision_extract') {
         "prompt" => $promptVis,
         "images" => [$base64_image],
         "stream" => false,
-        "keep_alive" => 0,
+        "keep_alive" => $keep_alive_val, // <--- Variable inyectada con fallback
         "options" => [
             "temperature" => 0.0 // Cero creatividad, solo hechos objetivos
         ]

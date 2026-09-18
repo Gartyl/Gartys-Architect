@@ -23,11 +23,9 @@ if ($action === 'amplificar_prompt') {
     $prompt_sistema = $resultado_varita['prompt_texto'];
     $temperatura_varita = 0.7; 
     
-    $modelo_varita = !empty($_POST['llm_model']) ? $_POST['llm_model'] : '';
-    if (empty($modelo_varita)) {
-        $stmt_llm = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND categoria = 'SYS_LLM' AND activo = 1 LIMIT 1");
-        $modelo_varita = $stmt_llm->fetchColumn() ?: $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND activo = 1 LIMIT 1")->fetchColumn();
-    }
+    // SIEMPRE forzamos la búsqueda del SYS_LLM para utilidades en la sombra
+    $stmt_llm = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND categoria = 'SYS_LLM' AND activo = 1 LIMIT 1");
+    $modelo_varita = $stmt_llm->fetchColumn() ?: $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND activo = 1 LIMIT 1")->fetchColumn();
     
     if (empty($modelo_varita)) { echo json_encode(['error' => __('err_no_sys_llm_active')]); exit(); }
     
@@ -37,8 +35,16 @@ if ($action === 'amplificar_prompt') {
         if (isset($json_params['model'])) $modelo_varita = $json_params['model'];
     }
 
-    // Si elegiste modelo del desplegable lo mantenemos vivo, si usa el SYS_LLM de fondo, lo descargamos (0)
-    $keep_alive_val = !empty($_POST['llm_model']) ? "10m" : 0;
+    // Buscamos si hay regla específica de keep_alive en la BD (con try-catch de seguridad)
+    $ka_db = null;
+    try {
+        $stmt_ka = $pdo->prepare("SELECT keep_alive FROM modelos_ia WHERE nombre_archivo = ? LIMIT 1");
+        $stmt_ka->execute([$modelo_varita]);
+        $ka_db = $stmt_ka->fetchColumn();
+    } catch (Exception $e) {}
+
+    // FALLBACK: Como es una utilidad gráfica, liberamos VRAM al instante (0)
+    $keep_alive_val = (!empty($ka_db)) ? trim($ka_db) : 0;
 
     $data = [
         "model" => $modelo_varita,
@@ -75,6 +81,17 @@ if ($action === 'traducir_rapido') {
 
     if (empty($modelo_traductor)) { echo json_encode(['error' => __('err_no_sys_llm_active')]); exit(); }
 
+    // Buscamos si hay regla específica de keep_alive en la BD (con try-catch)
+    $ka_db = null;
+    try {
+        $stmt_ka = $pdo->prepare("SELECT keep_alive FROM modelos_ia WHERE nombre_archivo = ? LIMIT 1");
+        $stmt_ka->execute([$modelo_traductor]);
+        $ka_db = $stmt_ka->fetchColumn();
+    } catch (Exception $e) {}
+
+    // FALLBACK: El traductor siempre 0 por defecto para que ComfyUI tenga la GPU libre al instante
+    $keep_alive_val = (!empty($ka_db)) ? trim($ka_db) : 0;
+
     $payload = [
         "model" => $modelo_traductor,
         "messages" => [
@@ -83,7 +100,7 @@ if ($action === 'traducir_rapido') {
             ["role" => "user", "content" => "Translate this exact text into English:\n\n" . $texto]
         ],
         "stream" => false, 
-        "keep_alive" => 0, 
+        "keep_alive" => $keep_alive_val, 
         "options" => ["temperature" => 0.1]
     ];
     
@@ -165,24 +182,17 @@ if ($action === 'generar_prompt_sorpresa') {
         $sys = $semilla;
         $factor_caos = rand(10000, 99999);
         
-        // 🔍 CHIVATO DE ENTRADA (Comentado para producción, actívalo para depurar)
-        // $titulo_personaje = $resultado_db['titulo'] ?? 'Desconocido';
-        // $debug_usr = "[DEBUG: Personaje -> $titulo_personaje]\n\n";
-        $debug_usr = ""; 
-        
         // 🛑 INSTRUCCIÓN BASE Y BLOQUEO DE REPETICIONES
-        $usr = $debug_usr . __('cmd_adopt_persona') . "\n[" . $resultado_db['prompt_texto'] . "]\n\n" . __('cmd_adopt_persona_rules') . "\n\n[SYSTEM DIRECTIVE: This is a highly creative task. Chaos Factor: " . $factor_caos . ". DO NOT rely on common concepts like A24 movies, miniatures, giant heads, robots, bugs, beetles, or clocks. Be radically original and explore completely different themes.]";
+        $usr = __('cmd_adopt_persona') . "\n[" . $resultado_db['prompt_texto'] . "]\n\n" . __('cmd_adopt_persona_rules') . "\n\n[SYSTEM DIRECTIVE: This is a highly creative task. Chaos Factor: " . $factor_caos . ". DO NOT rely on common concepts like A24 movies, miniatures, giant heads, robots, bugs, beetles, or clocks. Be radically original and explore completely different themes.]";
 
         $temperatura_final = 0.95; // Temperatura por defecto para asegurar máxima creatividad
-        $modelo_base = !empty($_POST['llm_model']) ? $_POST['llm_model'] : '';
         
-        if (empty($modelo_base)) {
-            $stmt_llm = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND categoria = 'SYS_LLM' AND activo = 1 LIMIT 1");
-            $modelo_base = $stmt_llm ? $stmt_llm->fetchColumn() : false;
-            if (!$modelo_base) {
-                $stmt_fb = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND activo = 1 LIMIT 1");
-                $modelo_base = $stmt_fb ? $stmt_fb->fetchColumn() : false;
-            }
+        // SIEMPRE forzamos el SYS_LLM
+        $stmt_llm = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND categoria = 'SYS_LLM' AND activo = 1 LIMIT 1");
+        $modelo_base = $stmt_llm ? $stmt_llm->fetchColumn() : false;
+        if (!$modelo_base) {
+            $stmt_fb = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND activo = 1 LIMIT 1");
+            $modelo_base = $stmt_fb ? $stmt_fb->fetchColumn() : false;
         }
         
         if (empty($modelo_base)) { echo json_encode(['error' => __('err_surprise_no_sys_llm')]); exit(); }
@@ -196,7 +206,16 @@ if ($action === 'generar_prompt_sorpresa') {
             if (isset($json_params['model']) && !empty($json_params['model'])) $modelo_dado = $json_params['model'];
         }
 
-        $keep_alive_val = !empty($_POST['llm_model']) ? "1h" : 0;
+        // Buscamos si hay regla específica de keep_alive en la BD (con try-catch)
+        $ka_db = null;
+        try {
+            $stmt_ka = $pdo->prepare("SELECT keep_alive FROM modelos_ia WHERE nombre_archivo = ? LIMIT 1");
+            $stmt_ka->execute([$modelo_dado]);
+            $ka_db = $stmt_ka->fetchColumn();
+        } catch (Exception $e) {}
+
+        // FALLBACK: Al ser utilidad para generar imagen, liberamos la memoria (0)
+        $keep_alive_val = (!empty($ka_db)) ? trim($ka_db) : 0;
 
         // 🚀 PAYLOAD ÚNICO CON INYECCIÓN DE CAOS
         $payload = [
@@ -206,8 +225,8 @@ if ($action === 'generar_prompt_sorpresa') {
             "keep_alive" => $keep_alive_val, 
             "options" => [ 
                 "temperature" => $temperatura_final, 
-                "top_p" => 0.95,           
-                "top_k" => 80,             
+                "top_p" => 0.95,            
+                "top_k" => 80,              
                 "repeat_penalty" => 1.3,   
                 "seed" => rand(1, 2147483647) 
             ]
@@ -227,10 +246,6 @@ if ($action === 'generar_prompt_sorpresa') {
             $clean = preg_replace('/<think>.*?<\/think>/is', '', $raw);
             if ($clean === null) $clean = $raw;
             if (empty(trim($clean))) $clean = trim(strip_tags($raw)); 
-            
-            // 🔍 CHIVATO DE SALIDA (Comentado para producción, actívalo para depurar)
-            // $titulo_personaje = $resultado_db['titulo'] ?? 'Desconocido';
-            // $texto_final = "[PERSONAJE ELEGIDO POR BD: $titulo_personaje]\n\n" . trim(str_replace('"', '', $clean));
             
             // Texto de salida final limpio
             $texto_final = trim(str_replace('"', '', $clean));
