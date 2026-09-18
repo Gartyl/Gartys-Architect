@@ -861,6 +861,9 @@ return [
 	'adm_btn_new_lang' => "Crear Nou Idioma",
 	'adm_ph_denoise' => "Denoise (0.75)",
     'adm_hlp_denoise' => "Força d'alteració en Img2Img (0.00 a 1.00)",
+	'adm_lbl_default_neg' => "Prompt Negatiu per Defecte (Opcional)",
+	'adm_ph_default_neg' => "Ex: lowres, bad anatomy, worst quality...",
+	'adm_desc_default_neg' => "Si l'Arquitecte no genera un negatiu, usarà aquest. Si està buit, usarà el salvavides universal del sistema.",
 
     'mod_lic_activated' => "Activat!",
     'mod_lic_btn_activate' => "Validar i Activar",
@@ -870,6 +873,8 @@ return [
     'mod_lic_no_key_yet' => "Encara no tens la teva llicència?",
     'mod_lic_title' => "Activar Garty's Architect Pro",
     'mod_lic_validating' => "Validant...",
+	'adm_ph_keepalive' => "Keep Alive (Ex: 10m, 0, -1)",
+    'adm_hlp_keepalive' => "Temps en VRAM (0 = Descarregar ràpid, -1 = Infinit)",
 
     // ==============================================================================
     // 10. MÓDULOS ESPECÍFICOS Y HERRAMIENTAS

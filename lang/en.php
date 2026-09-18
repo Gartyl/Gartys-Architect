@@ -861,6 +861,9 @@ return [
 	'adm_btn_new_lang' => "Create New Language",
 	'adm_ph_denoise' => "Denoise (0.75)",
     'adm_hlp_denoise' => "Alteration strength for Img2Img (0.00 to 1.00)",
+	'adm_lbl_default_neg' => "Default Negative Prompt (Optional)",
+	'adm_ph_default_neg' => "Ex: lowres, bad anatomy, worst quality...",
+	'adm_desc_default_neg' => "If the Architect does not generate a negative prompt, this will be used. If left empty, the system universal fallback will be used.",
 
     'mod_lic_activated' => "Activated!",
     'mod_lic_btn_activate' => "Validate and Activate",
@@ -870,6 +873,8 @@ return [
     'mod_lic_no_key_yet' => "Don't have your license yet?",
     'mod_lic_title' => "Activate Garty's Architect Pro",
     'mod_lic_validating' => "Validating...",
+	'adm_ph_keepalive' => "Keep Alive (Ex: 10m, 0, -1)",
+    'adm_hlp_keepalive' => "Time in VRAM (0 = Unload fast, -1 = Infinite)",
 
     // ==============================================================================
     // 10. MÓDULOS ESPECÍFICOS Y HERRAMIENTAS

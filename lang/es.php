@@ -861,6 +861,9 @@ return [
 	'adm_btn_new_lang' => "Crear Nuevo Idioma",
 	'adm_ph_denoise' => "Denoise (0.75)",
     'adm_hlp_denoise' => "Fuerza de alteración en Img2Img (0.00 a 1.00)",
+	'adm_lbl_default_neg' => "Prompt Negativo por Defecto (Opcional)",
+	'adm_ph_default_neg' => "Ej: lowres, bad anatomy, worst quality...",
+	'adm_desc_default_neg' => "Si el Arquitecto no genera un negativo, usará este. Si está vacío, usará el salvavidas universal del sistema.",
 
     'mod_lic_activated' => "¡Activado!",
     'mod_lic_btn_activate' => "Validar y Activar",
@@ -870,6 +873,8 @@ return [
     'mod_lic_no_key_yet' => "¿Aún no tienes tu licencia?",
     'mod_lic_title' => "Activar Garty's Architect Pro",
     'mod_lic_validating' => "Validando...",
+	'adm_ph_keepalive' => "Keep Alive (Ej: 10m, 0, -1)",
+    'adm_hlp_keepalive' => "Tiempo en VRAM (0 = Descargar rápido, -1 = Infinito)",
 
     // ==============================================================================
     // 10. MÓDULOS ESPECÍFICOS Y HERRAMIENTAS
