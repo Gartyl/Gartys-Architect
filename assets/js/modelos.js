@@ -691,7 +691,9 @@ function editarModelo(mDataSeguro) {
     if(document.getElementById('modCfg')) document.getElementById('modCfg').value = m.default_cfg || '';
     if(document.getElementById('modSampler')) document.getElementById('modSampler').value = m.default_sampler || '';
     if(document.getElementById('modScheduler')) document.getElementById('modScheduler').value = m.default_scheduler || '';
-    if(document.getElementById('modDenoise')) document.getElementById('modDenoise').value = m.default_denoise || ''; // <-- NUEVO
+    if(document.getElementById('modDenoise')) document.getElementById('modDenoise').value = m.default_denoise || '';
+	if(document.getElementById('modKeepAlive')) document.getElementById('modKeepAlive').value = m.keep_alive || '';
+	if(document.getElementById('modDefaultNegative')) document.getElementById('modDefaultNegative').value = m.default_negative || '';
     
     // Cambiamos el estilo del botón de guardar para indicar "Modo Edición"
     const btn = document.getElementById('btnSubmitModelo');
@@ -721,7 +723,9 @@ async function guardarModeloBD() {
     const defCfg = document.getElementById('modCfg') ? document.getElementById('modCfg').value : '';
     const defSampler = document.getElementById('modSampler') ? document.getElementById('modSampler').value : '';
     const defScheduler = document.getElementById('modScheduler') ? document.getElementById('modScheduler').value : '';
-    const defDenoise = document.getElementById('modDenoise') ? document.getElementById('modDenoise').value : ''; // <-- NUEVO
+    const defDenoise = document.getElementById('modDenoise') ? document.getElementById('modDenoise').value : '';
+	const keepAlive = document.getElementById('modKeepAlive') ? document.getElementById('modKeepAlive').value.trim() : '';
+	const defNegative = document.getElementById('modDefaultNegative') ? document.getElementById('modDefaultNegative').value.trim() : '';
 
     if(!nombre || !archivo) {
         SwalDark.fire({icon: 'error', title: GartyLang.swal_miss_data_title, text: GartyLang.swal_miss_data_text});
@@ -745,7 +749,9 @@ async function guardarModeloBD() {
     fd.append('default_cfg', defCfg);
     fd.append('default_sampler', defSampler);
     fd.append('default_scheduler', defScheduler);
-	fd.append('default_denoise', defDenoise); // <-- NUEVO
+	fd.append('default_denoise', defDenoise);
+	fd.append('keep_alive', keepAlive);
+	fd.append('default_negative', defNegative);
 
    try {
         let res = await fetch('procesar.php', { method: 'POST', body: fd });
@@ -1073,50 +1079,46 @@ function sugerirAjustesMotor() {
                      ? parseFloat(modeloBD.default_denoise).toFixed(2) 
                      : "0.75";
     } else {
-        // 2. FALLBACK: Si no tiene parámetros propios en BBDD, aplicamos las reglas automáticas
-        newSteps = 30;
-        newCfg = 5.0;
-        newSampler = 'euler_ancestral';
-        newScheduler = 'beta';
-        newDenoise = "0.75"; // Fallback universal
+        // 2. FALLBACK: Diccionario de reglas automáticas según el nombre del modelo
+        const REGLAS_MOTORES = {
+            'wan':     { steps: 30, cfg: 5.0, sampler: 'euler_ancestral', scheduler: 'beta', shift: 5.0, denoise: "0.75" },
+            'hidream': { steps: 30, cfg: 5.0, sampler: 'ipndm', scheduler: 'beta', shift: 3.0, denoise: "0.75" },
+            'ltx':     { steps: 30, cfg: 5.0, sampler: 'euler_ancestral', scheduler: 'beta', shift: '', denoise: "0.75" },
+            'minimax': { steps: 30, cfg: 5.0, sampler: 'euler_ancestral', scheduler: 'beta', shift: '', denoise: "0.75" },
+            'turbo':   { steps: 6,  cfg: 1.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'schnell': { steps: 6,  cfg: 1.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'krea2':   { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'krea-2':  { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'krea 2':  { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'qwen':    { steps: 20, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'chroma':  { steps: 10, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'flux':    { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'klein':   { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'kontext': { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'sd35':    { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'sd3.5':   { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'z-image': { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'zimage':  { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'z_image': { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" }
+        };
 
-        if (opcion.includes('wan')) {
-            newShift = 5.0;
-        } else if (opcion.includes('hidream')) {
-            newShift = 3.0;
-            newSteps = 30;
-            newCfg = 5.0;
-            newSampler = 'ipndm';
-            newScheduler = 'beta';
-        } else if (opcion.includes('ltx') || opcion.includes('minimax')) {
-            newShift = ''; 
-        } else 
-        if (opcion.includes('turbo') || opcion.includes('schnell')) {
-            newSteps = 6;
-            newCfg = 1.5;
-            newSampler = 'euler';
-            newScheduler = 'simple';
-        } else if (opcion.includes('krea2') || opcion.includes('krea-2') || opcion.includes('krea 2')) {
-            newSteps = 8;
-            newCfg = 1.0;
-            newSampler = 'euler';
-            newScheduler = 'simple';
-        } else if (opcion.includes('qwen')) {
-            newSteps = 20;
-            newCfg = 1.0;
-            newSampler = 'euler';
-            newScheduler = 'simple';
-        } else if (opcion.includes('chroma')) {
-            newSteps = 10; 
-            newCfg = 1.0;
-            newSampler = 'euler';
-            newScheduler = 'simple';
-        } else if (opcion.includes('flux') || opcion.includes('klein') || opcion.includes('kontext') || opcion.includes('sd35') || opcion.includes('sd3.5') || opcion.includes('z-image') || opcion.includes('zimage') || opcion.includes('z_image')) {
-            newSteps = 25;
-            newCfg = 4.0;
-            newSampler = 'euler';
-            newScheduler = 'simple';
+        // Regla por defecto para SD1.5, SDXL, etc.
+        let ajustes = { steps: 30, cfg: 5.0, sampler: 'euler_ancestral', scheduler: 'beta', shift: '', denoise: "0.75" };
+        
+        // Recorremos el diccionario buscando la primera palabra clave que coincida con el nombre del modelo
+        for (const clave in REGLAS_MOTORES) {
+            if (opcion.includes(clave)) {
+                ajustes = REGLAS_MOTORES[clave];
+                break;
+            }
         }
+
+        newSteps = ajustes.steps;
+        newCfg = ajustes.cfg;
+        newSampler = ajustes.sampler;
+        newScheduler = ajustes.scheduler;
+        newShift = ajustes.shift;
+        newDenoise = ajustes.denoise;
     }
 
     // Aplicamos los valores a las cajas de la interfaz

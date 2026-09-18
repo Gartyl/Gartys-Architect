@@ -2060,13 +2060,16 @@ document.getElementById('promptForm').onsubmit = async (e) => {
     const isPureUpscaleForm = activeUpscaleForm && idea === '';
 
     // --- CORRECCIÓN 1: Inclusión estricta SOLO de Modos Puros ---
-    const isPureModeForm = (document.getElementById('pureFaceSwapToggle') && document.getElementById('pureFaceSwapToggle').checked) ||
-                           (document.getElementById('pureRembgToggle') && document.getElementById('pureRembgToggle').checked) ||
-                           (document.getElementById('pureAdetailerToggle') && document.getElementById('pureAdetailerToggle').checked) ||
-                           (document.getElementById('pureDDColorToggle') && document.getElementById('pureDDColorToggle').checked) ||
-                           (document.getElementById('toggleLamaMode') && document.getElementById('toggleLamaMode').checked) ||
-                           (document.getElementById('iclight_enabled') && document.getElementById('iclight_enabled').checked) ||
-                           isPureUpscaleForm; // <-- Ahora sí es 100% inteligente
+    // En lugar de múltiples OR, comprobamos un array de IDs. Si mañana añades otro modo, solo añade el ID aquí.
+    const pureModeIds = [
+        'pureFaceSwapToggle', 'pureRembgToggle', 'pureAdetailerToggle', 
+        'pureDDColorToggle', 'toggleLamaMode', 'iclight_enabled'
+    ];
+    
+    const isPureModeForm = pureModeIds.some(id => {
+        const el = document.getElementById(id);
+        return el && el.checked;
+    }) || isPureUpscaleForm;
 
     // Ahora la validación respeta si hay un modo puro activo para ignorar la idea vacía
     if (!idea && !hasFile && !isPureModeForm) {
@@ -2550,13 +2553,8 @@ async function runGpu(mode = 'directo') {
     // =========================================================================
 
     // --- CORRECCIÓN DEFINITIVA DE MODOS PUROS EN GPU ---
-    const isPureMode = (document.getElementById('pureFaceSwapToggle') && document.getElementById('pureFaceSwapToggle').checked) || 
-                       (document.getElementById('pureRembgToggle') && document.getElementById('pureRembgToggle').checked) ||
-                       (document.getElementById('pureAdetailerToggle') && document.getElementById('pureAdetailerToggle').checked) ||
-                       (document.getElementById('pureDDColorToggle') && document.getElementById('pureDDColorToggle').checked) ||
-                       (document.getElementById('toggleLamaMode') && document.getElementById('toggleLamaMode').checked) ||
-                       (document.getElementById('iclight_enabled') && document.getElementById('iclight_enabled').checked) ||
-                       isPureUpscaleActive; // <-- Ahora SOLO es modo puro si NO hay texto. Si hay texto, te dejará generar de cero!
+    const pureModeIds = ['pureFaceSwapToggle', 'pureRembgToggle', 'pureAdetailerToggle', 'pureDDColorToggle', 'toggleLamaMode', 'iclight_enabled'];
+    const isPureMode = pureModeIds.some(id => document.getElementById(id) && document.getElementById(id).checked) || isPureUpscaleActive;
 
     const isModoDirecto = document.getElementById('modoDirectoToggle') && document.getElementById('modoDirectoToggle').checked;
 
@@ -4007,13 +4005,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const finalPrompt = document.getElementById('posContent') ? document.getElementById('posContent').innerText.trim() : '';
             const isModoDirecto = document.getElementById('modoDirectoToggle') && document.getElementById('modoDirectoToggle').checked;
             
-            const isPureMode = (document.getElementById('pureFaceSwapToggle') && document.getElementById('pureFaceSwapToggle').checked) || 
-                               (document.getElementById('pureRembgToggle') && document.getElementById('pureRembgToggle').checked) ||
-                               (document.getElementById('pureAdetailerToggle') && document.getElementById('pureAdetailerToggle').checked) ||
-                               (document.getElementById('pureDDColorToggle') && document.getElementById('pureDDColorToggle').checked) ||
-                               (document.getElementById('toggleLamaMode') && document.getElementById('toggleLamaMode').checked) ||
-                               (document.getElementById('iclight_enabled') && document.getElementById('iclight_enabled').checked) ||
-                               (document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked && ideaInicial === '');
+            const pureModeIds = ['pureFaceSwapToggle', 'pureRembgToggle', 'pureAdetailerToggle', 'pureDDColorToggle', 'toggleLamaMode', 'iclight_enabled'];
+            const isPureUpscaleBatch = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked && ideaInicial === '';
+            
+            const isPureMode = pureModeIds.some(id => document.getElementById(id) && document.getElementById(id).checked) || isPureUpscaleBatch;
             
             const panelAudioActivo = document.getElementById('audioToggle') && document.getElementById('audioToggle').checked;
 
