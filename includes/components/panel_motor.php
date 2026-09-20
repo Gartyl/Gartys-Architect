@@ -1,21 +1,20 @@
 <div class="param-group shadow-sm border-info mb-3" id="advancedSettingsBlock" style="display: none; border-color: rgba(13, 202, 240, 0.4) !important; background: rgba(13, 202, 240, 0.05);">
-    <div class="d-flex justify-content-between align-items-center">
+    <div class="d-flex justify-content-between align-items-center py-1">
         <label class="small text-info fw-bold mb-0"><i class="bi bi-sliders me-1"></i> <?= __('tit_ajus_motor') ?></label>
-        <div class="d-flex align-items-center gap-3">
-            <small class="text-muted d-none d-md-block"><i class="bi bi-info-circle"></i> <?= __('txt_arrast_meta') ?></small>
-            
+        
+        <div class="d-flex align-items-center gap-2">
             <!-- BOTÓN STATS -->
-            <button type="button" class="btn btn-sm btn-outline-warning border-0 p-0 px-2 fw-bold me-2" style="font-size: 0.8rem; background: rgba(255,193,7,0.1);" onclick="abrirMonitorSistema()" title="<?= __('btn_sys_stats') ?? 'Monitor de Rendimiento' ?>">
-                <i class="bi bi-activity"></i> <?= __('btn_stats') ?? 'STATS' ?>
+            <button type="button" class="btn btn-sm btn-outline-warning border-0 py-1 px-2 fw-bold" style="font-size: 0.75rem; background: rgba(255,193,7,0.1);" onclick="abrirMonitorSistema()" title="<?= __('btn_sys_stats') ?? 'Monitor de Rendimiento' ?>">
+                <i class="bi bi-activity"></i> STATS
             </button>
-			 
-			 <!-- NUEVO BOTÓN DE VRAM -->
-            <button type="button" class="btn btn-sm btn-outline-info border-0 p-0 px-2 fw-bold" style="font-size: 0.8rem; background: rgba(13,202,240,0.1);" onclick="vaciarVramComfy()" title="<?= __('btn_free_vram') ?? 'Forzar vaciado de VRAM' ?>">
-                <i class="bi bi-memory"></i> <?= __('btn_free_vram') ?? 'VRAM' ?>
+             
+             <!-- BOTÓN DE VRAM -->
+            <button type="button" class="btn btn-sm btn-outline-info border-0 py-1 px-2 fw-bold" style="font-size: 0.75rem; background: rgba(13,202,240,0.1);" onclick="vaciarVramComfy()" title="<?= __('btn_free_vram') ?? 'Forzar vaciado de VRAM' ?>">
+                <i class="bi bi-memory"></i> VRAM
             </button>
             
-            <div class="form-check form-switch m-0">
-                <input class="form-check-input pref-track" style="cursor: pointer;" type="checkbox" id="engineToggle" onchange="document.getElementById('engineUI').classList.toggle('d-none', !this.checked)">
+            <div class="form-check form-switch m-0 ms-1 d-flex align-items-center">
+                <input class="form-check-input pref-track shadow-none m-0" style="cursor: pointer;" type="checkbox" id="engineToggle" onchange="document.getElementById('engineUI').classList.toggle('d-none', !this.checked)">
             </div>
         </div>
     </div>
@@ -27,7 +26,6 @@
                 <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary pref-track" id="stepsInput" value="30" min="1" max="150">
             </div>
            
-            <!-- BLOQUE DIVIDIDO: CFG y GUIDANCE -->
             <div class="col-md-3 mb-2">
                 <div class="row g-1">
                     <div class="col-6">
@@ -59,7 +57,6 @@
                </select>
            </div>
 
-            <!-- CLIP SKIP REDUCIDO (col-md-2) para que todo cuadre en 12 columnas -->
             <div class="col-md-2 mb-2">
                <label class="small text-secondary fw-bold mb-1"><?= __('tit_clip_skip') ?? 'CLIP SKIP' ?></label>
                <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary pref-track" id="clipSkipInput" name="clip_skip" min="1" max="4" value="1" title="<?= __('msg_clip_skip_info') ?? '1 = Por defecto (SDXL/Flux). 2 = Recomendado para SD1.5 Anime.' ?>">
@@ -76,7 +73,6 @@
                   <option value="dpmpp_2m_sde_gpu">dpmpp_2m_sde_gpu</option>
                   <option value="dpmpp_3m_sde_gpu">dpmpp_3m_sde_gpu</option>
                   <option value="lcm">lcm</option>
-
                   <option value="euler_cfg_pp" class="adv-sampler d-none">euler_cfg_pp</option>
                   <option value="euler_ancestral_cfg_pp" class="adv-sampler d-none">euler_ancestral_cfg_pp</option>
                   <option value="heun" class="adv-sampler d-none">heun</option>
@@ -145,7 +141,6 @@
                   <option value="karras">karras</option>
                   <option value="simple">simple</option>
                   <option value="sgm_uniform">sgm_uniform</option>
-                  
                   <option value="linear_quadratic" class="adv-scheduler d-none">linear_quadratic</option>
                   <option value="beta57" class="adv-scheduler d-none">beta57</option>
                   <option value="bong_tangent" class="adv-scheduler d-none">bong_tangent</option>
@@ -165,14 +160,12 @@
                <input type="number" class="form-control form-control-sm bg-dark text-warning border-secondary pref-track" id="shiftInput" value="" min="0.1" max="15.0" step="0.1" placeholder="Auto">
            </div>
 
-           <!-- EL NUEVO DENOISE GLOBAL (Se acomodará limpiamente en la línea de abajo sin romper CSS) -->
            <div class="col-md-2 mb-2" id="globalDenoiseBlock">
                <label class="small text-secondary fw-bold mb-1" for="globalDenoiseSlider">DENOISE (I2I)</label>
                <input type="number" class="form-control form-control-sm bg-dark text-info border-secondary pref-track" id="globalDenoiseSlider" step="0.01" min="0.0" max="1.0" value="0.75" title="<?= __('tit_denoise') ?? 'Fuerza de alteración' ?>">
            </div>
 
            <div class="col-12 mt-1 pt-2 pb-1 d-flex justify-content-between align-items-center border-top border-info" style="border-color: rgba(13, 202, 240, 0.2) !important;">
-               
                <div class="d-flex gap-4">
                    <div class="form-check form-switch m-0 d-flex align-items-center">
                        <input class="form-check-input mt-0 me-2 border-secondary" style="cursor: pointer;" type="checkbox" id="toggleSamplers" onchange="document.querySelectorAll('.adv-sampler').forEach(el => this.checked ? el.classList.remove('d-none') : el.classList.add('d-none'))">
@@ -183,7 +176,6 @@
                        <label class="form-check-label text-secondary small" style="margin-top: 1px;" for="toggleSchedulers"><?= __('lbl_show_all') ?? 'Mostrar todos' ?> (Scheduler)</label>
                    </div>
                </div>
-
                <div class="form-check form-switch m-0 d-flex align-items-center">
                    <input class="form-check-input pref-track border-info mt-0 me-2" style="cursor: pointer;" type="checkbox" id="dynThreshToggle">
                    <label class="form-check-label small text-info fw-bold" style="margin-top: 1px;" for="dynThreshToggle">
@@ -266,6 +258,8 @@
         <h5 class="offcanvas-title text-warning fw-bold"><i class="bi bi-activity"></i> <?= __('tit_sys_monitor') ?? 'Monitor de Hardware' ?></h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" onclick="detenerMonitorSistema()"></button>
     </div>
+    
+    <!-- ESTA ES LA ETIQUETA QUE SEGURO SE HABÍA BORRADO -->
     <div class="offcanvas-body" style="font-family: monospace; font-size: 0.85rem;">
         
         <!-- SECCIÓN 1: VRAM Y RAM (HARDWARE) -->
@@ -289,7 +283,6 @@
         <h6 class="text-primary fw-bold mb-2"><i class="bi bi-layers-fill"></i> <?= __('mon_tit_comfyui') ?></h6>
         <div class="p-2 rounded border border-primary" style="background-color: rgba(13, 110, 253, 0.1);" id="monComfyData">
             <div class="d-flex justify-content-center py-2"><span class="spinner-border spinner-border-sm text-primary"></span></div>
-        </div>
         </div>
 
     </div>
