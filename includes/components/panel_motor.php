@@ -269,26 +269,27 @@
     <div class="offcanvas-body" style="font-family: monospace; font-size: 0.85rem;">
         
         <!-- SECCIÓN 1: VRAM Y RAM (HARDWARE) -->
-        <h6 class="text-success fw-bold mb-2"><i class="bi bi-gpu-card"></i> VRAM (NVIDIA)</h6>
+        <h6 class="text-success fw-bold mb-2"><i class="bi bi-gpu-card"></i> <?= __('mon_tit_vram') ?></h6>
         <div class="p-2 mb-3 rounded border border-success" style="background-color: rgba(25, 135, 84, 0.1);" id="monHardwareData">
             <div class="d-flex justify-content-center py-2"><span class="spinner-border spinner-border-sm text-success"></span></div>
         </div>
 
-        <h6 class="text-warning fw-bold mb-2"><i class="bi bi-memory"></i> RAM (SISTEMA)</h6>
+        <h6 class="text-warning fw-bold mb-2"><i class="bi bi-memory"></i> <?= __('mon_tit_ram') ?></h6>
         <div class="p-2 mb-4 rounded border border-warning" style="background-color: rgba(255, 193, 7, 0.1);" id="monRamData">
             <div class="d-flex justify-content-center py-2"><span class="spinner-border spinner-border-sm text-warning"></span></div>
         </div>
 
         <!-- SECCIÓN 2: OLLAMA (LLM) -->
-        <h6 class="text-info fw-bold mb-2"><i class="bi bi-cpu-fill"></i> Ollama (Modelos Activos)</h6>
+        <h6 class="text-info fw-bold mb-2"><i class="bi bi-cpu-fill"></i> <?= __('mon_tit_ollama') ?></h6>
         <div class="p-2 mb-4 rounded border border-info" style="background-color: rgba(13, 202, 240, 0.1);" id="monOllamaData">
             <div class="d-flex justify-content-center py-2"><span class="spinner-border spinner-border-sm text-info"></span></div>
         </div>
 
         <!-- SECCIÓN 3: COMFYUI -->
-        <h6 class="text-primary fw-bold mb-2"><i class="bi bi-layers-fill"></i> ComfyUI (Render)</h6>
+        <h6 class="text-primary fw-bold mb-2"><i class="bi bi-layers-fill"></i> <?= __('mon_tit_comfyui') ?></h6>
         <div class="p-2 rounded border border-primary" style="background-color: rgba(13, 110, 253, 0.1);" id="monComfyData">
             <div class="d-flex justify-content-center py-2"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+        </div>
         </div>
 
     </div>
