@@ -1194,6 +1194,18 @@ window.filtrarPromptsAvanzado = function() {
 // --- MÓDULO: GESTIÓN DE MEMORIA (VRAM) ---
 // ==============================================================================
 async function vaciarVramComfy() {
+	
+	// 👇 NUEVO: Si hay modelos de Ollama activos en el monitor, los matamos en bloque
+    if (window.lastSysStats && window.lastSysStats.ollama && window.lastSysStats.ollama.models) {
+        window.lastSysStats.ollama.models.forEach(mod => {
+            let fdOllama = new FormData();
+            fdOllama.append('action', 'liberar_modelo_ollama');
+            fdOllama.append('modelo', mod.name);
+            fetch('procesar.php', { method: 'POST', body: fdOllama }).catch(() => {});
+        });
+    }
+    // 👆 FIN DE LO NUEVO 👆
+	
     let fd = new FormData();
     fd.append('action', 'liberar_vram');
     
@@ -1245,6 +1257,23 @@ window.detenerMonitorSistema = function() {
     if (window.monitorSistemaInterval) {
         clearInterval(window.monitorSistemaInterval);
         window.monitorSistemaInterval = null;
+    }
+};
+
+window.liberarModeloOllama = async function(modelName) {
+    let fd = new FormData();
+    fd.append('action', 'liberar_modelo_ollama');
+    fd.append('modelo', modelName);
+    
+    // Mostramos un pequeño toast informativo para que el usuario sepa que está reaccionando
+    SwalDark.fire({toast: true, position: 'top-end', icon: 'info', title: 'Cerrando ' + modelName + '...', showConfirmButton: false, timer: 1500});
+    
+    try {
+        await fetch('procesar.php', { method: 'POST', body: fd });
+        // Forzamos al monitor a refrescarse al instante para que el modelo desaparezca visualmente
+        setTimeout(actualizarDatosMonitor, 500); 
+    } catch(e) {
+        console.error("Error liberando Ollama:", e);
     }
 };
 
@@ -1348,9 +1377,12 @@ async function actualizarDatosMonitor() {
             activeOllama.models.forEach(mod => {
                 const sizeGB = (mod.size / 1024 / 1024 / 1024).toFixed(2);
                 htmlOllama += `
-                <div class="d-flex justify-content-between border-bottom border-info pb-1 mb-1" style="border-color: rgba(13,202,240,0.2) !important; ${opacityOllama}">
-                    <span class="text-white text-truncate" style="max-width: 65%;" title="${mod.name}">${mod.name}</span>
-                    <span class="text-info fw-bold" style="white-space: nowrap;">${sizeGB} GB</span>
+                <div class="d-flex justify-content-between align-items-center border-bottom border-info pb-1 mb-1" style="border-color: rgba(13,202,240,0.2) !important; ${opacityOllama}">
+                    <span class="text-white text-truncate" style="max-width: 55%;" title="${mod.name}">${mod.name}</span>
+                    <div class="text-end" style="white-space: nowrap;">
+                        <span class="text-info fw-bold me-2" style="font-size: 0.8rem;">${sizeGB} GB</span>
+                        <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 border-0 shadow-none" onclick="liberarModeloOllama('${mod.name}')" title="Cerrar modelo y liberar VRAM"><i class="bi bi-x-circle-fill"></i></button>
+                    </div>
                 </div>`;
             });
             ollamaBox.innerHTML = htmlOllama;
