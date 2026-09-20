@@ -295,6 +295,30 @@ if ($action === 'get_ollama_models') {
 // ==============================================================================
 // --- MÓDULO: MONITOR DE SISTEMA EN TIEMPO REAL (VRAM, OLLAMA, COMFYUI) ---
 // ==============================================================================
+
+if ($action === 'liberar_modelo_ollama') {
+    $modelo = trim($_POST['modelo'] ?? '');
+    if (!empty($modelo)) {
+        // Rescatamos tu constante dinámica o caemos al puerto por defecto
+        $puerto = defined('LLM_PORT') ? LLM_PORT : '11434';
+        
+        // keep_alive: 0 es la orden nativa de Ollama para descargar de la VRAM
+        $payload = ["model" => $modelo, "keep_alive" => 0];
+        
+        $ch = curl_init("http://" . LLM_IP . ":" . $puerto . "/api/generate");
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true); // <-- CRÍTICO: Forzamos envío por POST
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        
+        curl_exec($ch);
+        curl_close($ch);
+    }
+    echo json_encode(['success' => true]);
+    exit();
+}
+
 if ($action === 'get_system_stats') {
     session_write_close(); 
     $stats = ['ollama' => null, 'comfy_queue' => null, 'comfy_sys' => null];
