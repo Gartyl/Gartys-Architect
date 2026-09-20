@@ -358,6 +358,10 @@ return [
     'mon_queue_tasks'   => "Tareas en Cola:",
     'mon_comfy_offline' => "Desconectado de ComfyUI.",
 	'mon_err_update'    => "Fallo al actualizar el monitor de sistema.",
+	'mon_tit_vram' => 'VRAM (NVIDIA)',
+	'mon_tit_ram' => 'RAM (SISTEMA)',
+	'mon_tit_ollama' => 'Ollama (Modelos Activos)',
+	'mon_tit_comfyui' => 'ComfyUI (Render)',
     
     // ==============================================================================
     // 05. SELECTORES Y DESPLEGABLES (Opciones)
