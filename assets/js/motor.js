@@ -746,12 +746,10 @@ function toggleFaceSwapPuro(activo) {
         const translateToggle = document.getElementById('translateToggleBlock'); 
 
         if (activo) {
-            if (inputPrompt) { inputPrompt.dataset.oldValue = inputPrompt.value; inputPrompt.value = ''; inputPrompt.style.setProperty('display', 'none', 'important'); }
+            if (inputPrompt) { inputPrompt.style.opacity = '0.4'; inputPrompt.style.pointerEvents = 'none'; inputPrompt.style.transition = 'opacity 0.3s ease'; }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'none', 'important');
-            //if (btnAmplify) btnAmplify.style.setProperty('display', 'none', 'important');
-			if (btnAmplify) btnAmplify.style.removeProperty('display');
-            //if (btnSurprise) btnSurprise.style.setProperty('display', 'none', 'important');
-			if (btnSurprise) btnSurprise.style.removeProperty('display');
+            if (btnAmplify) btnAmplify.style.removeProperty('display');
+            if (btnSurprise) btnSurprise.style.removeProperty('display');
             if (translateToggle) translateToggle.classList.add('d-none'); 
             if (resultsArea) resultsArea.classList.add('d-none');
             
@@ -763,10 +761,9 @@ function toggleFaceSwapPuro(activo) {
             }
         } else {
             if (inputPrompt) {
-                const selCurrent = document.getElementById('selector') ? document.getElementById('selector').value : '';
-                inputPrompt.style.setProperty('display', 'block', 'important');
-                if (inputPrompt.dataset.oldValue !== undefined) { inputPrompt.value = inputPrompt.dataset.oldValue; delete inputPrompt.dataset.oldValue; }
-            }
+				inputPrompt.style.opacity = '1';
+				inputPrompt.style.pointerEvents = 'auto';
+			}
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
             if (btnAmplify) btnAmplify.style.removeProperty('display');
             if (btnSurprise) btnSurprise.style.removeProperty('display');
@@ -790,7 +787,7 @@ function toggleRembgPuro(activo) {
         const translateToggle = document.getElementById('translateToggleBlock'); 
 
         if (activo) {
-            if (inputPrompt) { inputPrompt.dataset.oldValue = inputPrompt.value; inputPrompt.value = ''; inputPrompt.style.setProperty('display', 'none', 'important'); }
+            if (inputPrompt) { inputPrompt.style.opacity = '0.4'; inputPrompt.style.pointerEvents = 'none'; inputPrompt.style.transition = 'opacity 0.3s ease'; }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'none', 'important');
             if (btnAmplify) btnAmplify.style.removeProperty('display');
             if (btnSurprise) btnSurprise.style.removeProperty('display');
@@ -803,10 +800,9 @@ function toggleRembgPuro(activo) {
             }
         } else {
             if (inputPrompt) {
-                const selCurrent = document.getElementById('selector') ? document.getElementById('selector').value : '';
-                inputPrompt.style.setProperty('display', 'block', 'important');
-                if (inputPrompt.dataset.oldValue !== undefined) { inputPrompt.value = inputPrompt.dataset.oldValue; delete inputPrompt.dataset.oldValue; }
-            }
+				inputPrompt.style.opacity = '1';
+				inputPrompt.style.pointerEvents = 'auto';
+			}
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
             if (btnAmplify) btnAmplify.style.removeProperty('display');
             if (btnSurprise) btnSurprise.style.removeProperty('display');
@@ -830,7 +826,7 @@ function toggleAdetailerPuro(activo) {
         const translateToggle = document.getElementById('translateToggleBlock'); 
 
         if (activo) {
-            if (inputPrompt) { inputPrompt.dataset.oldValue = inputPrompt.value; inputPrompt.value = ''; inputPrompt.style.setProperty('display', 'none', 'important'); }
+            if (inputPrompt) { inputPrompt.style.opacity = '0.4'; inputPrompt.style.pointerEvents = 'none'; inputPrompt.style.transition = 'opacity 0.3s ease'; }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'none', 'important');
             if (btnAmplify) btnAmplify.style.removeProperty('display');
             if (btnSurprise) btnSurprise.style.removeProperty('display');
@@ -843,10 +839,9 @@ function toggleAdetailerPuro(activo) {
             }
         } else {
             if (inputPrompt) {
-                const selCurrent = document.getElementById('selector') ? document.getElementById('selector').value : '';
-                inputPrompt.style.setProperty('display', 'block', 'important');
-                if (inputPrompt.dataset.oldValue !== undefined) { inputPrompt.value = inputPrompt.dataset.oldValue; delete inputPrompt.dataset.oldValue; }
-            }
+				inputPrompt.style.opacity = '1';
+				inputPrompt.style.pointerEvents = 'auto';
+			}
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
             if (btnAmplify) btnAmplify.style.removeProperty('display');
             if (btnSurprise) btnSurprise.style.removeProperty('display');
@@ -876,7 +871,7 @@ function toggleDDColorPuro(activo) {
         }
 
         if (activo) {
-            if (inputPrompt) { inputPrompt.dataset.oldValue = inputPrompt.value; inputPrompt.value = ''; inputPrompt.style.setProperty('display', 'none', 'important'); }
+            if (inputPrompt) { inputPrompt.style.opacity = '0.4'; inputPrompt.style.pointerEvents = 'none'; inputPrompt.style.transition = 'opacity 0.3s ease'; }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'none', 'important');
             if (btnAmplify) btnAmplify.style.removeProperty('display');
             if (btnSurprise) btnSurprise.style.removeProperty('display');															   
@@ -889,11 +884,10 @@ function toggleDDColorPuro(activo) {
                 btnDirecto.className = 'btn flex-grow-1 text-light fw-bold shadow btn-danger';
             }
         } else {
-            if (inputPrompt) {
-                const selCurrent = document.getElementById('selector') ? document.getElementById('selector').value : '';
-                inputPrompt.style.setProperty('display', 'block', 'important');
-                if (inputPrompt.dataset.oldValue !== undefined) { inputPrompt.value = inputPrompt.dataset.oldValue; delete inputPrompt.dataset.oldValue; }
-            }
+           if (inputPrompt) {
+				inputPrompt.style.opacity = '1';
+				inputPrompt.style.pointerEvents = 'auto';
+			}
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
             if (btnAmplify) btnAmplify.style.removeProperty('display');
             if (btnSurprise) btnSurprise.style.removeProperty('display');													  
@@ -4135,3 +4129,51 @@ window.siguienteTareaBatch = function() {
     };
     reader.readAsDataURL(file);
 };
+
+// ==============================================================================
+// --- UX VISUAL: BLOQUEO DE PROMPTS EN MODO 100% AUDIO ---
+// ==============================================================================
+window.actualizarUxAudio = function() {
+    const audioPanel = document.getElementById('audioToggle');
+    const vhsCombine = document.getElementById('syncAudioVideo');
+    const wav2lip = document.getElementById('wav2lipToggle'); // Capturamos Wav2Lip
+    
+    // Contenedores de los prompts principales (Normal y Directo)
+    const cajaIdea = document.getElementById('contenedorIdea');
+    const cajaDirecta = document.getElementById('promptArea');
+
+    // Es "Audio Puro" SÓLO si el panel está encendido Y las dos opciones de vídeo están APAGADAS
+    const vhsApagado = !vhsCombine || !vhsCombine.checked;
+    const wav2lipApagado = !wav2lip || !wav2lip.checked;
+    const esAudioPuro = audioPanel && audioPanel.checked && vhsApagado && wav2lipApagado;
+
+    // Aplicamos estilos (0.4 de opacidad y quitar eventos de ratón para bloquearlo)
+    const opacidad = esAudioPuro ? '0.4' : '1';
+    const interaccion = esAudioPuro ? 'none' : 'auto';
+
+    if (cajaIdea) {
+        cajaIdea.style.opacity = opacidad;
+        cajaIdea.style.pointerEvents = interaccion;
+        cajaIdea.style.transition = 'opacity 0.3s ease'; // Animación suave
+    }
+    
+    if (cajaDirecta) {
+        cajaDirecta.style.opacity = opacidad;
+        cajaDirecta.style.pointerEvents = interaccion;
+        cajaDirecta.style.transition = 'opacity 0.3s ease';
+    }
+};
+
+// Escuchamos los cambios en los interruptores cuando cargue la página
+document.addEventListener('DOMContentLoaded', () => {
+    const audioPanel = document.getElementById('audioToggle');
+    const vhsCombine = document.getElementById('syncAudioVideo');
+    const wav2lip = document.getElementById('wav2lipToggle');
+    
+    if (audioPanel) audioPanel.addEventListener('change', window.actualizarUxAudio);
+    if (vhsCombine) vhsCombine.addEventListener('change', window.actualizarUxAudio);
+    if (wav2lip) wav2lip.addEventListener('change', window.actualizarUxAudio); // Escuchamos también Wav2Lip
+    
+    // Un pequeño retardo inicial para asegurar que la UI original ya se pintó
+    setTimeout(window.actualizarUxAudio, 500);
+});
