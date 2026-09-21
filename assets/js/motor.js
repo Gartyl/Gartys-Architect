@@ -1110,201 +1110,239 @@ function stopProgressBar() {
     setTimeout(() => { const pc = document.getElementById('progressContainer'); if(pc) pc.classList.add('d-none'); if(pBar) pBar.style.width = '0%'; }, 1000);
 }
 
-// --- ACTUALIZACIÓN DE UI SEGÚN SELECTOR - APAREIX O NO ---
-function updateUIForSelector(sel) {
-    const modoDirectoToggle = document.getElementById('modoDirectoToggle');
-    const modoDirectoWrapper = document.getElementById('modoDirectoWrapper');
-    
-    // Ocultar físicamente el interruptor en el Chat
-    if (modoDirectoWrapper) {
-        modoDirectoWrapper.style.display = (sel === '[CHAT]') ? 'none' : 'block';
+// ==============================================================================
+// --- DICCIONARIO REACTIVO DE ESTADOS UI ---
+// ==============================================================================
+const UI_CONFIG = {
+    '[SD15]': {
+        modoDirecto: true, formato: true, separador: true, wildcards: true,
+        placeholder: 'img', btnAudio: false, uploadType: 'base', gpuDirectMode: 'render',
+        translateMode: 'prompt', internet: false, arqBtnMode: 'prompt', llmModel: false,
+        modelBlock: true, swapCols: false, resolucion: true, estilos: true, multiInput: true,
+        preset: true, proTools: true, chat: false, surpriseAmp: true, autoArch: false,
+        lora: true, cnAdetailer: true, reactor: true, ipa: true, ipaType: 'normal',
+        denoiseBatch: true, advBlock: true, videoSpecific: false, staticGraphic: true,
+        hiresRembgDdcolor: true, icLight: true, showNegativePrompt: true
+    },
+    '[SDXL]': {
+        modoDirecto: true, formato: true, separador: true, wildcards: true,
+        placeholder: 'img', btnAudio: false, uploadType: 'base', gpuDirectMode: 'render',
+        translateMode: 'prompt', internet: false, arqBtnMode: 'prompt', llmModel: false,
+        modelBlock: true, swapCols: false, resolucion: true, estilos: true, multiInput: true,
+        preset: true, proTools: true, chat: false, surpriseAmp: true, autoArch: false,
+        lora: true, cnAdetailer: true, reactor: true, ipa: true, ipaType: 'normal',
+        denoiseBatch: true, advBlock: true, videoSpecific: false, staticGraphic: true,
+        hiresRembgDdcolor: true, icLight: false, showNegativePrompt: true
+    },
+    '[NATURAL_IMAGE]': {
+        modoDirecto: true, formato: true, separador: true, wildcards: true,
+        placeholder: 'img', btnAudio: false, uploadType: 'base', gpuDirectMode: 'render',
+        translateMode: 'prompt', internet: false, arqBtnMode: 'prompt', llmModel: false,
+        modelBlock: true, swapCols: false, resolucion: true, estilos: true, multiInput: true,
+        preset: true, proTools: true, chat: false, surpriseAmp: true, autoArch: false,
+        lora: true, cnAdetailer: true, reactor: true, ipa: true, ipaType: 'redux',
+        denoiseBatch: true, advBlock: true, videoSpecific: false, staticGraphic: true,
+        hiresRembgDdcolor: true, icLight: false, showNegativePrompt: true
+    },
+    '[VIDEO]': {
+        modoDirecto: true, formato: false, separador: true, wildcards: true,
+        placeholder: 'img', btnAudio: true, uploadType: 'base', gpuDirectMode: 'video',
+        translateMode: 'video', internet: false, arqBtnMode: 'video', llmModel: false,
+        modelBlock: true, swapCols: false, resolucion: false, estilos: false, multiInput: true,
+        preset: false, proTools: true, chat: false, surpriseAmp: true, autoArch: false,
+        lora: true, cnAdetailer: false, reactor: true, ipa: false, ipaType: 'normal',
+        denoiseBatch: false, advBlock: true, videoSpecific: true, staticGraphic: true,
+        hiresRembgDdcolor: false, icLight: false, showNegativePrompt: true
+    },
+    '[CHAT]': {
+        modoDirecto: false, formato: false, separador: false, wildcards: false,
+        placeholder: 'chat', btnAudio: false, uploadType: 'chat', gpuDirectMode: 'hidden',
+        translateMode: 'hidden', internet: true, arqBtnMode: 'prompt', llmModel: true,
+        modelBlock: true, swapCols: true, resolucion: true, estilos: false, multiInput: false,
+        preset: 'avanzado_only', proTools: false, chat: true, surpriseAmp: false, autoArch: true,
+        lora: true, cnAdetailer: false, reactor: false, ipa: false, ipaType: 'normal',
+        denoiseBatch: false, advBlock: false, videoSpecific: false, staticGraphic: false,
+        hiresRembgDdcolor: false, icLight: false, showNegativePrompt: false
     }
+};
 
-    // Apagar el Modo Directo automáticamente si entramos al Chat
-    if (modoDirectoToggle && modoDirectoToggle.checked && sel === '[CHAT]') {
-        modoDirectoToggle.checked = false;
-        if(typeof window.toggleModoIngreso === 'function') {
-            window.toggleModoIngreso();
-            return;
-        }
-    }
-    
-    const formatoBlock = document.getElementById('formatoImagenBlock');
-    if (formatoBlock) formatoBlock.style.display = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel) ? 'block' : 'none';
-    
-    const separador = document.getElementById('separadorBotones');
-    if (separador) separador.style.display = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]'].includes(sel) ? 'block' : 'none';
-    
+// --- ACTUALIZACIÓN DE UI SEGÚN SELECTOR (Refactorizado Reactivo - Conservando DOM Nativo) ---
+function updateUIForSelector(sel) {
+    const cfg = UI_CONFIG[sel] || UI_CONFIG['[SDXL]']; // Carga las reglas exactas
+    const modoDirectoToggle = document.getElementById('modoDirectoToggle');
     const isDirectMode = modoDirectoToggle ? modoDirectoToggle.checked : false;
 
+    // 1. MODO DIRECTO WRAPPER
+    const modoDirectoWrapper = document.getElementById('modoDirectoWrapper');
+    if (modoDirectoWrapper) {
+        modoDirectoWrapper.style.display = cfg.modoDirecto ? 'block' : 'none';
+    }
+    if (modoDirectoToggle && modoDirectoToggle.checked && sel === '[CHAT]') {
+        modoDirectoToggle.checked = false;
+        if(typeof window.toggleModoIngreso === 'function') { window.toggleModoIngreso(); return; }
+    }
+
+    // 2. BLOQUES SIMPLES
+    const formatoBlock = document.getElementById('formatoImagenBlock');
+    if (formatoBlock) formatoBlock.style.display = cfg.formato ? 'block' : 'none';
+
+    const separador = document.getElementById('separadorBotones');
+    if (separador) separador.style.display = cfg.separador ? 'block' : 'none';
+
+    // 3. TEXTOS Y WILDCARDS
     const btnUpload = document.getElementById('uploadBtn'); const btnGaleria = document.getElementById('btnCargarGaleria');
     const descInput = document.getElementById('descripcion'); const btnWildcards = document.getElementById('btnWildcards');
     const btnAudio = document.getElementById('audioUploadBtn'); const lblIdea = document.getElementById('lblIdea');
 
     if (descInput) { descInput.hidden = false; descInput.classList.remove('d-none'); descInput.style.removeProperty('display'); }
     if (btnWildcards) {
-        if (sel === '[CHAT]') { btnWildcards.hidden = true; btnWildcards.classList.add('d-none'); } 
+        if (!cfg.wildcards) { btnWildcards.hidden = true; btnWildcards.classList.add('d-none'); } 
         else { btnWildcards.hidden = false; btnWildcards.classList.remove('d-none'); btnWildcards.style.removeProperty('display'); }
     }
     
-    if (lblIdea) lblIdea.innerHTML = GartyLang.tit_idea;
-    if (sel === '[CHAT]') { if (descInput) descInput.placeholder = GartyLang.txt_xat_mensaje; } 
-    else { if (descInput) descInput.placeholder = GartyLang.txt_arrast_png; }
+    if (lblIdea) lblIdea.innerHTML = typeof GartyLang !== 'undefined' ? GartyLang.tit_idea : 'Idea Inicial';
+    if (descInput) descInput.placeholder = cfg.placeholder === 'chat' ? (typeof GartyLang !== 'undefined' ? GartyLang.txt_xat_mensaje : 'Escribe un mensaje...') : (typeof GartyLang !== 'undefined' ? GartyLang.txt_arrast_png : 'Arrastra un PNG...');
     if (btnGaleria) btnGaleria.classList.remove('d-none');
 
-    if (btnAudio) btnAudio.classList.toggle('d-none', sel !== '[VIDEO]');
+    if (btnAudio) btnAudio.classList.toggle('d-none', !cfg.btnAudio);
 
-    if (sel === '[CHAT]') {
-        if (btnUpload) { btnUpload.classList.remove('d-none'); btnUpload.innerHTML = '<i class="bi bi-paperclip"></i> ' + GartyLang.btn_subiranalisis; }
+    // 4. BOTÓN UPLOAD
+    if (cfg.uploadType === 'chat') {
+        if (btnUpload) { btnUpload.classList.remove('d-none'); btnUpload.innerHTML = '<i class="bi bi-paperclip"></i> ' + (typeof GartyLang !== 'undefined' ? GartyLang.btn_subiranalisis : 'Subir'); }
     } else {
         if (btnUpload) {
             if (!isAvanzado) btnUpload.classList.add('d-none');
-            else { btnUpload.classList.remove('d-none'); btnUpload.innerHTML = '<i class="bi bi-image"></i> ' + GartyLang.btn_subirbase; }
+            else { btnUpload.classList.remove('d-none'); btnUpload.innerHTML = '<i class="bi bi-image"></i> ' + (typeof GartyLang !== 'undefined' ? GartyLang.btn_subirbase : 'Subir Base'); }
         }
     }
 
+    // 5. RENDER GPU Y TRADUCTOR
     const gpuDirectBtn = document.getElementById('gpuDirectBtn');
     const translateToggleBlock = document.getElementById('translateToggleBlock'); const translateLabel = document.querySelector('label[for="autoTranslateToggle"]');
     const autoTranslateToggle = document.getElementById('autoTranslateToggle');
     const internetToggleBlock = document.getElementById('internetToggleBlock');
 
     if (gpuDirectBtn) {
-        if (sel === '[CHAT]') { 
+        if (cfg.gpuDirectMode === 'hidden') { 
             gpuDirectBtn.classList.add('d-none');
             if (translateToggleBlock) { translateToggleBlock.classList.remove('d-flex'); translateToggleBlock.classList.add('d-none'); translateToggleBlock.style.setProperty('display', 'none', 'important'); }
             if (autoTranslateToggle) autoTranslateToggle.checked = false; 
-
-            // Mostrar botón de Internet SOLO en CHAT
-            if (internetToggleBlock) {
-                internetToggleBlock.classList.remove('d-none');
-                internetToggleBlock.classList.add('d-flex');
-                internetToggleBlock.style.setProperty('display', 'flex', 'important');
-            }
-        } else if (sel === '[VIDEO]') {
+        } else if (cfg.gpuDirectMode === 'video') {
             gpuDirectBtn.classList.remove('d-none');
             if (translateToggleBlock) { translateToggleBlock.classList.remove('d-none'); translateToggleBlock.classList.add('d-flex'); translateToggleBlock.style.setProperty('display', 'flex', 'important'); }
-            if (translateLabel) translateLabel.innerHTML = '<i class="bi bi-translate"></i> ' + (GartyLang.ctrl_auto_trad3 || 'Auto-traducir Vídeo');
+            if (translateLabel) translateLabel.innerHTML = '<i class="bi bi-translate"></i> ' + (typeof GartyLang !== 'undefined' ? GartyLang.ctrl_auto_trad3 : 'Auto-traducir Vídeo');
             gpuDirectBtn.innerHTML = '<i class="bi bi-film"></i> Vídeo Directo';
-            
-            // Ocultar botón de Internet
-            if (internetToggleBlock) { internetToggleBlock.classList.remove('d-flex'); internetToggleBlock.classList.add('d-none'); internetToggleBlock.style.setProperty('display', 'none', 'important'); }
         } else {
             gpuDirectBtn.classList.remove('d-none');
             if (translateToggleBlock) { translateToggleBlock.classList.remove('d-none'); translateToggleBlock.classList.add('d-flex'); translateToggleBlock.style.setProperty('display', 'flex', 'important'); }
-            if (translateLabel) translateLabel.innerHTML = '<i class="bi bi-translate"></i> ' + (GartyLang.ctrl_auto_trad2 || 'Auto-traducir Prompt');
-            gpuDirectBtn.innerHTML = '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
-            
-            // Ocultar botón de Internet
-            if (internetToggleBlock) { internetToggleBlock.classList.remove('d-flex'); internetToggleBlock.classList.add('d-none'); internetToggleBlock.style.setProperty('display', 'none', 'important'); }
+            if (translateLabel) translateLabel.innerHTML = '<i class="bi bi-translate"></i> ' + (typeof GartyLang !== 'undefined' ? GartyLang.ctrl_auto_trad2 : 'Auto-traducir Prompt');
+            gpuDirectBtn.innerHTML = '<i class="bi bi-lightning-fill"></i> ' + (typeof GartyLang !== 'undefined' ? GartyLang.btn_renderizar : 'Renderizar');
+        }
+
+        if (internetToggleBlock) {
+            if (cfg.internet) {
+                internetToggleBlock.classList.remove('d-none'); internetToggleBlock.classList.add('d-flex'); internetToggleBlock.style.setProperty('display', 'flex', 'important');
+            } else {
+                internetToggleBlock.classList.remove('d-flex'); internetToggleBlock.classList.add('d-none'); internetToggleBlock.style.setProperty('display', 'none', 'important');
+            }
         }
     }
 
     const gpuArquitectoBtn = document.getElementById('gpuArquitectoBtn');
     if (gpuArquitectoBtn) {
-        if (sel === '[VIDEO]') { gpuArquitectoBtn.innerHTML = '<i class="bi bi-film"></i> ' + GartyLang.btn_render_video; gpuArquitectoBtn.className = 'btn w-100 py-2 text-dark fw-bold shadow btn-warning'; } 
-        else { gpuArquitectoBtn.innerHTML = '<i class="bi bi-gpu-card"></i> ' + GartyLang.btn_rendprompt; gpuArquitectoBtn.className = 'btn btn-gpu w-100 py-2 text-white fw-bold shadow'; }
+        if (cfg.arqBtnMode === 'video') { gpuArquitectoBtn.innerHTML = '<i class="bi bi-film"></i> ' + (typeof GartyLang !== 'undefined' ? GartyLang.btn_render_video : 'Vídeo'); gpuArquitectoBtn.className = 'btn w-100 py-2 text-dark fw-bold shadow btn-warning'; } 
+        else { gpuArquitectoBtn.innerHTML = '<i class="bi bi-gpu-card"></i> ' + (typeof GartyLang !== 'undefined' ? GartyLang.btn_rendprompt : 'Arquitecto'); gpuArquitectoBtn.className = 'btn btn-gpu w-100 py-2 text-white fw-bold shadow'; }
     }
 
-    const llmModelBlock = document.getElementById('llmModelBlock'); if (llmModelBlock) llmModelBlock.style.display = (sel === '[CHAT]') ? 'block' : 'none';
-    const modelBlock = document.getElementById('modelBlock'); if (modelBlock) modelBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[CHAT]', '[VIDEO]'].includes(sel)) ? 'block' : 'none';
-	
-	// --- MAGIA: INTERCAMBIO DE COLUMNAS LLM / GRÁFICO ---
+    // 6. COLUMNAS DE MODELOS Y ORDENAMIENTO (Mantiene el insertBefore exacto del original)
+    const llmModelBlock = document.getElementById('llmModelBlock'); if (llmModelBlock) llmModelBlock.style.display = cfg.llmModel ? 'block' : 'none';
+    const modelBlock = document.getElementById('modelBlock'); if (modelBlock) modelBlock.style.display = cfg.modelBlock ? 'block' : 'none';
+    
     if (llmModelBlock && modelBlock) {
-        // Encontramos las columnas enteras para moverlas limpiamente
         const colLlm = llmModelBlock.closest('[class*="col-"]') || llmModelBlock;
         const colModel = modelBlock.closest('[class*="col-"]') || modelBlock;
         
-        if (sel === '[CHAT]') {
-            // En el Chat, movemos la columna del LLM justo ANTES del Modelo Gráfico
+        if (cfg.swapCols) {
             if (colModel.parentNode) colModel.parentNode.insertBefore(colLlm, colModel);
         } else {
-            // En el resto de categorías, devolvemos el Modelo Gráfico a su sitio original (ANTES del LLM)
             if (colLlm.parentNode) colLlm.parentNode.insertBefore(colModel, colLlm);
         }
     }
-    // -----------------------------------------------------
     
+    // 7. BLOQUES CENTRALES (Resolución, Estilos, Multicarga, Presets)
     const propBlock = document.getElementById('proporcionIndependienteBlock');
     const manualResBlock = document.getElementById('manualResBoxesBlock');
-    const mostrarResolucionImagen = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[CHAT]'].includes(sel);
-
-    if (propBlock) propBlock.style.display = mostrarResolucionImagen ? 'block' : 'none';
-    if (manualResBlock) manualResBlock.style.display = mostrarResolucionImagen ? 'block' : 'none';
+    if (propBlock) propBlock.style.display = cfg.resolucion ? 'block' : 'none';
+    if (manualResBlock) manualResBlock.style.display = cfg.resolucion ? 'block' : 'none';
     
-    const estilosContainer = document.getElementById('estilosContainer'); if (estilosContainer) estilosContainer.style.display = (['[VIDEO]', '[CHAT]'].includes(sel)) ? 'none' : 'block';
+    const estilosContainer = document.getElementById('estilosContainer'); if (estilosContainer) estilosContainer.style.display = cfg.estilos ? 'block' : 'none';
     
     const multiInputWrapper = document.getElementById('multiInputWrapper');
     if (multiInputWrapper) {
-        if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]'].includes(sel)) {
+        if (cfg.multiInput) {
             multiInputWrapper.style.setProperty('display', 'flex', 'important');
         } else {
             multiInputWrapper.style.setProperty('display', 'none', 'important');
             const multiToggle = document.getElementById('multiInputToggle');
             if (multiToggle && multiToggle.checked) {
                 multiToggle.checked = false;
-                if (typeof window.renderizarBandeja === 'function') {
-                    window.bandejaArchivos = []; window.renderizarBandeja();
-                }
+                if (typeof window.renderizarBandeja === 'function') { window.bandejaArchivos = []; window.renderizarBandeja(); }
             }
         }
     }
 
     const presetBlock = document.getElementById('presetBlock');
-    if (presetBlock) { if (['[VIDEO]'].includes(sel) || (sel === '[CHAT]' && !isAvanzado)) presetBlock.style.display = 'none'; else presetBlock.style.display = 'block'; }
+    if (presetBlock) { 
+        if (cfg.preset === true) presetBlock.style.display = 'block'; 
+        else if (cfg.preset === 'avanzado_only' && isAvanzado) presetBlock.style.display = 'block'; 
+        else presetBlock.style.display = 'none'; 
+    }
     
     const proToolsBlock = document.getElementById('accordionProTools') || document.getElementById('proToolsContainer')?.parentElement;
-    if (proToolsBlock) { proToolsBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]'].includes(sel) && isAvanzado) ? 'block' : 'none'; }
+    if (proToolsBlock) { proToolsBlock.style.display = (cfg.proTools && isAvanzado) ? 'block' : 'none'; }
 
-    const chatView = document.getElementById('chatView'); if (chatView) chatView.classList.toggle('d-none', sel !== '[CHAT]');
-    const chatRoleBlock = document.getElementById('chatRoleBlock'); if (chatRoleBlock) chatRoleBlock.style.display = (sel === '[CHAT]') ? 'block' : 'none';
+    // 8. CHAT & BOTONES ACCESORIOS
+    const chatView = document.getElementById('chatView'); if (chatView) chatView.classList.toggle('d-none', !cfg.chat);
+    const chatRoleBlock = document.getElementById('chatRoleBlock'); if (chatRoleBlock) chatRoleBlock.style.display = cfg.chat ? 'block' : 'none';
     
     const surpriseBtn = document.getElementById('surpriseBtn'); 
     const autoArchBtn = document.getElementById('autoArchitectBtn');
     const amplifyBtnTop = document.getElementById('amplifyBtn'); 
 
-    const mostrarDado = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]'].includes(sel);
-    if (surpriseBtn) surpriseBtn.classList.toggle('d-none', !mostrarDado);
-
-    const mostrarAmplify = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]'].includes(sel); 
-    if (amplifyBtnTop) amplifyBtnTop.classList.toggle('d-none', !mostrarAmplify); 
-
-    // El Auto-Arquitecto ahora pertenece al Chat
-    const mostrarAutoArch = ['[CHAT]'].includes(sel);
-    if (autoArchBtn) autoArchBtn.classList.toggle('d-none', !mostrarAutoArch);
+    if (surpriseBtn) surpriseBtn.classList.toggle('d-none', !cfg.surpriseAmp);
+    if (amplifyBtnTop) amplifyBtnTop.classList.toggle('d-none', !cfg.surpriseAmp); 
+    if (autoArchBtn) autoArchBtn.classList.toggle('d-none', !cfg.autoArch);
                                         
-    const loraContainer = document.getElementById('loraContainer'); if (loraContainer) loraContainer.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]', '[CHAT]'].includes(sel)) ? 'block' : 'none';
+    const loraContainer = document.getElementById('loraContainer'); if (loraContainer) loraContainer.style.display = cfg.lora ? 'block' : 'none';
 
+    // 9. HERRAMIENTAS AVANZADAS INDIVIDUALES
     ['controlNet', 'adetailer'].forEach(id => {
         const block = document.getElementById(id + 'Block'); const toggle = document.getElementById(id + 'Toggle') || document.getElementById(id);
         if (block) {
-            if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel) && isAvanzado) block.style.display = 'block';
+            if (cfg.cnAdetailer && isAvanzado) block.style.display = 'block';
             else { block.style.display = 'none'; if(toggle) toggle.checked = false; }
         }
     });
 
     const reactorBlock = document.getElementById('reactorBlock'); const reactorToggle = document.getElementById('reactorToggle');
     if (reactorBlock) {
-        if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]'].includes(sel) && isAvanzado) reactorBlock.style.display = 'block';
+        if (cfg.reactor && isAvanzado) reactorBlock.style.display = 'block';
         else { reactorBlock.style.display = 'none'; if(reactorToggle) reactorToggle.checked = false; }
     }
 
     const ipaBlock = document.getElementById('ipAdapterBlock'); const ipaToggle = document.getElementById('ipAdapterToggle');
     const ipaAdvancedControls = document.getElementById('ipaAdvancedControls'); const ipaTitleLabel = document.getElementById('ipaTitleLabel');
     if (ipaBlock) {
-        if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel)) {
+        if (cfg.ipa) {
             ipaBlock.style.display = 'block';
             if (!isAvanzado && ipaToggle) { ipaToggle.disabled = true; ipaToggle.checked = false; }
             
-            if (sel === '[NATURAL_IMAGE]') {
+            if (cfg.ipaType === 'redux') {
                 if (ipaAdvancedControls) ipaAdvancedControls.style.display = 'none';
-                if (ipaTitleLabel) {
-                    ipaTitleLabel.innerText = (typeof GartyLang !== 'undefined' && GartyLang.tit_flux_redux) ? GartyLang.tit_flux_redux : 'TRANSFERENCIA DE ESTILO (FLUX Redux)';
-                }
+                if (ipaTitleLabel) { ipaTitleLabel.innerText = (typeof GartyLang !== 'undefined' && GartyLang.tit_flux_redux) ? GartyLang.tit_flux_redux : 'TRANSFERENCIA DE ESTILO (FLUX Redux)'; }
             } else {
                 if (ipaAdvancedControls) ipaAdvancedControls.style.display = isAvanzado ? 'flex' : 'none';
-                if (ipaTitleLabel) {
-                    ipaTitleLabel.innerText = (typeof GartyLang !== 'undefined' && GartyLang.tit_ipadapter) ? GartyLang.tit_ipadapter : 'TRANSFERENCIA DE ESTILO (IP-Adapter)';
-                }
+                if (ipaTitleLabel) { ipaTitleLabel.innerText = (typeof GartyLang !== 'undefined' && GartyLang.tit_ipadapter) ? GartyLang.tit_ipadapter : 'TRANSFERENCIA DE ESTILO (IP-Adapter)'; }
             }
         } else { 
             ipaBlock.style.display = 'none'; 
@@ -1312,30 +1350,26 @@ function updateUIForSelector(sel) {
         }
     }
 
-    const denoiseBlock = document.getElementById('denoiseBlock'); if (denoiseBlock) denoiseBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel)) ? 'block' : 'none';
-    const globalDenoiseBlock = document.getElementById('globalDenoiseBlock'); if (globalDenoiseBlock) globalDenoiseBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel)) ? 'block' : 'none';
-	const batchBlock = document.getElementById('batchSize') ? document.getElementById('batchBlock') : null; if (batchBlock) batchBlock.style.display = (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel)) ? 'block' : 'none';
+    const denoiseBlock = document.getElementById('denoiseBlock'); if (denoiseBlock) denoiseBlock.style.display = cfg.denoiseBatch ? 'block' : 'none';
+    const globalDenoiseBlock = document.getElementById('globalDenoiseBlock'); if (globalDenoiseBlock) globalDenoiseBlock.style.display = cfg.denoiseBatch ? 'block' : 'none';
+    const batchBlock = document.getElementById('batchSize') ? document.getElementById('batchBlock') : null; if (batchBlock) batchBlock.style.display = cfg.denoiseBatch ? 'block' : 'none';
     
     const advBlock = document.getElementById('advancedSettingsBlock');
     if (advBlock) {
         const framesBlock = document.getElementById('videoFramesBlock'); 
-        if (framesBlock) framesBlock.style.display = (sel === '[VIDEO]') ? 'block' : 'none';
+        if (framesBlock) framesBlock.style.display = cfg.videoSpecific ? 'block' : 'none';
         
-        if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]'].includes(sel) && isAvanzado) {
-            advBlock.style.display = 'block'; 
-        } else {
-            advBlock.style.display = 'none';
-        }
+        if (cfg.advBlock && isAvanzado) { advBlock.style.display = 'block'; } 
+        else { advBlock.style.display = 'none'; }
     }
 
     const imgPreviewContainer = document.getElementById('imgPreviewContainer');
-    const currentImgBase64 = currentImageBase64 || null; 
+    const currentImgBase64 = typeof currentImageBase64 !== 'undefined' ? currentImageBase64 : null; 
     const hasImage = imgPreviewContainer && imgPreviewContainer.style.display === 'block' && currentImgBase64 !== null;
     
-    const videoOptimizeBlock = document.getElementById('videoOptimizeBlock'); if (videoOptimizeBlock) videoOptimizeBlock.style.display = (sel === '[VIDEO]') ? 'block' : 'none';
+    const videoOptimizeBlock = document.getElementById('videoOptimizeBlock'); if (videoOptimizeBlock) videoOptimizeBlock.style.display = cfg.videoSpecific ? 'block' : 'none';
     
-    const isStaticGraphical = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]'].includes(sel);
-    const canEdit = isStaticGraphical && isAvanzado;
+    const canEdit = cfg.staticGraphic && isAvanzado;
     
     const inpaintToolbar = document.getElementById('inpaintToolbar'); const outpaintToolbar = document.getElementById('outpaintToolbar');
     const maskCanvas = document.getElementById('maskCanvas');
@@ -1345,25 +1379,25 @@ function updateUIForSelector(sel) {
     
     const hiresBlock = document.getElementById('hiresBlock');
     if (hiresBlock) {
-        if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel) && isAvanzado) hiresBlock.style.display = 'block';
+        if (cfg.hiresRembgDdcolor && isAvanzado) hiresBlock.style.display = 'block';
         else { hiresBlock.style.display = 'none'; const hiresToggle = document.getElementById('hiresToggle'); if (hiresToggle) hiresToggle.checked = false; }
     }
     
     const rembgBlock = document.getElementById('rembgBlock');
     if (rembgBlock) {
-        if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel) && isAvanzado) rembgBlock.style.display = 'block';
+        if (cfg.hiresRembgDdcolor && isAvanzado) rembgBlock.style.display = 'block';
         else { rembgBlock.style.display = 'none'; const rembgToggle = document.getElementById('rembgToggle'); if (rembgToggle) rembgToggle.checked = false; }
     }
     
     const ddcolorBlock = document.getElementById('ddcolorBlock');
     if (ddcolorBlock) {
-        if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(sel) && isAvanzado) ddcolorBlock.style.display = 'block';
+        if (cfg.hiresRembgDdcolor && isAvanzado) ddcolorBlock.style.display = 'block';
         else { ddcolorBlock.style.display = 'none'; const toggleDDColor = document.getElementById('toggleDDColor'); if (toggleDDColor) { toggleDDColor.checked = false; toggleDDColor.dispatchEvent(new Event('change')); } }
     }
 
     const icLightBlock = document.getElementById('icLightBlock');
     if (icLightBlock) {
-        if (['[SD15]'].includes(sel) && isAvanzado) icLightBlock.style.display = 'block';
+        if (cfg.icLight && isAvanzado) icLightBlock.style.display = 'block';
         else { 
             icLightBlock.style.display = 'none'; 
             const toggleIcLight = document.getElementById('iclight_enabled'); 
@@ -1372,9 +1406,9 @@ function updateUIForSelector(sel) {
     }
 
     const submitBtn = document.getElementById('submitBtn');
-    if (submitBtn) { submitBtn.innerText = (sel === '[CHAT]' ? GartyLang.btn_envimensaje : GartyLang.btn_arquitecto); }
+    if (submitBtn) { submitBtn.innerText = (sel === '[CHAT]' ? (typeof GartyLang !== 'undefined' ? GartyLang.btn_envimensaje : 'Enviar') : (typeof GartyLang !== 'undefined' ? GartyLang.btn_arquitecto : 'Arquitecto')); }
 
-    // Enforzar ocultación si Modo Directo
+    // 10. BLOQUEO MODO DIRECTO (Idéntico a tu lógica original)
     if (isDirectMode) {
         const btnArq = document.getElementById('submitBtn'); if (btnArq) btnArq.style.setProperty('display', 'none', 'important');
         const btnAmp = document.getElementById('amplifyBtn'); if (btnAmp) btnAmp.style.setProperty('display', 'none', 'important');
@@ -1389,13 +1423,13 @@ function updateUIForSelector(sel) {
         }
 
         const pArea = document.getElementById('promptArea'); const nArea = document.getElementById('negativeArea');
-		
-		const rArea = document.getElementById('results');
+        
+        const rArea = document.getElementById('results');
         if (rArea) rArea.classList.remove('d-none');
-		
+        
         if (pArea) pArea.classList.remove('d-none');
         if (nArea) {
-            if (['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[VIDEO]'].includes(sel)) { nArea.classList.remove('d-none'); } 
+            if (cfg.showNegativePrompt) { nArea.classList.remove('d-none'); } 
             else { nArea.classList.add('d-none'); }
         }
     } else {
@@ -1406,6 +1440,7 @@ function updateUIForSelector(sel) {
         const contenedorIdea = document.getElementById('contenedorIdea'); if(contenedorIdea) contenedorIdea.classList.remove('d-none');
     }
     
+    // 11. TIMEOUTS DE RESTAURACIÓN
     setTimeout(() => {
         const ddColorPuro = document.getElementById('pureDDColorToggle');
         if (ddColorPuro && ddColorPuro.checked && typeof toggleDDColorPuro === 'function') toggleDDColorPuro(true);
@@ -1416,7 +1451,6 @@ function updateUIForSelector(sel) {
         const aDetailer = document.getElementById('pureAdetailerToggle');
         if (aDetailer && aDetailer.checked && typeof toggleAdetailerPuro === 'function') toggleAdetailerPuro(true);
         
-        // --- ESCUDO ANTI-SOBREESCRITURA PARA BOTONES DE PARADA ---
         setTimeout(() => {
             if (window.loteBatchActivo || window.bucleInfinitoActivo) {
                 const btnD = document.getElementById('gpuDirectBtn');
