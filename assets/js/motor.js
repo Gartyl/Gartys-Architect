@@ -1440,16 +1440,28 @@ function updateUIForSelector(sel) {
         const contenedorIdea = document.getElementById('contenedorIdea'); if(contenedorIdea) contenedorIdea.classList.remove('d-none');
     }
     
-    // 11. TIMEOUTS DE RESTAURACIÓN
+    // 11. TIMEOUTS DE RESTAURACIÓN INTELIGENTES
     setTimeout(() => {
-        const ddColorPuro = document.getElementById('pureDDColorToggle');
-        if (ddColorPuro && ddColorPuro.checked && typeof toggleDDColorPuro === 'function') toggleDDColorPuro(true);
-        const rembgPuro = document.getElementById('pureRembgToggle');
-        if (rembgPuro && rembgPuro.checked && typeof toggleRembgPuro === 'function') toggleRembgPuro(true);
-        const faceSwap = document.getElementById('pureFaceSwapToggle');
-        if (faceSwap && faceSwap.checked && typeof toggleFaceSwapPuro === 'function') toggleFaceSwapPuro(true);
-        const aDetailer = document.getElementById('pureAdetailerToggle');
-        if (aDetailer && aDetailer.checked && typeof toggleAdetailerPuro === 'function') toggleAdetailerPuro(true);
+        const checkPureMode = (toggleId, blockId, toggleFunc) => {
+            const toggle = document.getElementById(toggleId);
+            const block = document.getElementById(blockId);
+            if (toggle && typeof toggleFunc === 'function') {
+                // Si el panel padre está oculto (ej. al cambiar a Chat), apagamos el modo puro y restauramos la UI
+                if (block && block.style.display === 'none') {
+                    if (toggle.checked) { 
+                        toggle.checked = false; 
+                        toggleFunc(false); 
+                    }
+                } else if (toggle.checked) {
+                    toggleFunc(true);
+                }
+            }
+        };
+
+        checkPureMode('pureDDColorToggle', 'ddcolorBlock', typeof toggleDDColorPuro !== 'undefined' ? toggleDDColorPuro : null);
+        checkPureMode('pureRembgToggle', 'rembgBlock', typeof toggleRembgPuro !== 'undefined' ? toggleRembgPuro : null);
+        checkPureMode('pureFaceSwapToggle', 'reactorBlock', typeof toggleFaceSwapPuro !== 'undefined' ? toggleFaceSwapPuro : null);
+        checkPureMode('pureAdetailerToggle', 'adetailerBlock', typeof toggleAdetailerPuro !== 'undefined' ? toggleAdetailerPuro : null);
         
         setTimeout(() => {
             if (window.loteBatchActivo || window.bucleInfinitoActivo) {
@@ -1461,7 +1473,14 @@ function updateUIForSelector(sel) {
                         ? (typeof GartyLang !== 'undefined' && GartyLang.btn_stop_batch ? GartyLang.btn_stop_batch : 'DETENER BATCH') 
                         : (typeof GartyLang !== 'undefined' && GartyLang.btn_stop_inf ? GartyLang.btn_stop_inf : 'DETENER BUCLE ∞');
                     activeBtn.innerHTML = '<i class="bi bi-stop-circle-fill"></i> ' + txt;
-                    activeBtn.className = 'btn flex-grow-1 text-light fw-bold shadow btn-danger';
+                    
+                    // Solo cambiamos el color, respetando el tamaño y la barra original
+                    activeBtn.classList.replace('btn-gpu', 'btn-danger');
+                    activeBtn.classList.replace('btn-primary', 'btn-danger');
+                    activeBtn.classList.replace('btn-success', 'btn-danger');
+                    activeBtn.classList.replace('btn-warning', 'btn-danger');
+                    activeBtn.classList.remove('text-dark', 'text-white');
+                    activeBtn.classList.add('text-light');
                 }
             }
         }, 50);
@@ -2553,246 +2572,222 @@ async function ejecutarAudioAutonomo(config, targetDiv, btnElement, originalCate
     }
 }
 
-// --- GPU Y RADAR ---
-async function runGpu(mode = 'directo') {
-    const resDiv = document.getElementById('imageResult'); const resultsArea = document.getElementById('results'); 
-    const autoTranslate = document.getElementById('autoTranslateToggle') ? document.getElementById('autoTranslateToggle').checked : false;
-    const originalCategory = document.getElementById('selector').value;
-    let ideaInicial = document.getElementById('descripcion').value.trim(); 
+// ==============================================================================
+// --- GPU Y RADAR (Refactorización Arquitectura MVC) ---
+// ==============================================================================
+
+// [1] VISTA Y UTILIDADES (Manejo del DOM)
+function _actualizarBotonRender(button, estado, textoOriginal = null, textoParada = null) {
+    if (!button || window.bucleInfinitoActivo || window.loteBatchActivo) return; // Si es bucle/batch, la lógica de parada lo gobierna
     
-   let finalPrompt = ""; let finalNegPrompt = "";
-    let buttonUsed = mode === 'directo' ? document.getElementById('gpuDirectBtn') : document.getElementById('gpuArquitectoBtn');
-    // Comprobamos si es un Upscale Puro (está encendido el Upscale PERO no hay ningún prompt/idea para generar de cero)
-    const activeUpscale = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked;
-    const currentPromptText = document.getElementById('descripcion') ? document.getElementById('descripcion').value.trim() : '';
-    const isPureUpscaleActive = activeUpscale && currentPromptText === '';
-
-    // =========================================================================
-    // --- SEMÁFORO INTELIGENTE: INTERCEPCIÓN DE AUDIO PRO (F5-TTS / SFX) ---
-    // =========================================================================
-    if (typeof getActiveAudioConfig === 'function') {
-        const audioConfig = getActiveAudioConfig();
-        
-        // Si falta el archivo de referencia o el prompt, getActiveAudioConfig devuelve false -> Abortamos
-        if (audioConfig === false) {
-            if (buttonUsed) buttonUsed.disabled = false;
-            return;
-        }
-        // Si es audio autónomo (sin acoplar a vídeo), desviamos el tráfico y detenemos la imagen
-        if (audioConfig && !audioConfig.sync_with_video) {
-            ejecutarAudioAutonomo(audioConfig, resDiv, buttonUsed, originalCategory);
-            return; // ¡CORTAMOS EL FLUJO AQUÍ! Adiós para siempre a Illustrious y la rubia
-        }
+    if (estado === 'procesando') {
+        button.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> ${GartyLang.gpu_sending_spinner || 'Enviando...'}`;
+        button.disabled = true;
+    } else if (estado === 'restaurar' && textoOriginal) {
+        button.innerHTML = textoOriginal;
+        button.disabled = false;
+    } else if (estado === 'traduciendo') {
+        button.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> ${GartyLang.gpu_msg_translating || 'Traduciendo...'}`;
     }
-    // =========================================================================
+}
 
-    // --- CORRECCIÓN DEFINITIVA DE MODOS PUROS EN GPU ---
-    const pureModeIds = ['pureFaceSwapToggle', 'pureRembgToggle', 'pureAdetailerToggle', 'pureDDColorToggle', 'toggleLamaMode', 'iclight_enabled'];
-    const isPureMode = pureModeIds.some(id => document.getElementById(id) && document.getElementById(id).checked) || isPureUpscaleActive;
-
-    const isModoDirecto = document.getElementById('modoDirectoToggle') && document.getElementById('modoDirectoToggle').checked;
-
-    // Si es modo directo estándar (y NO hemos activado el toggle manual de Prompts)
+// [2] MODELO (Construcción pura de datos)
+async function _construirPayloadGpu(mode, ideaInicial, isModoDirecto, isPureMode, buttonUsed, originalTextBtn) {
+    let finalPrompt = ""; 
+    let finalNegPrompt = "";
+    
+    // --- 2.1 TRATAMIENTO DEL PROMPT ---
     if (mode === 'directo' && !isModoDirecto) {
-        
-        // --- BLINDAJE AUDIO PRO: Rescate de Prompt si Idea Inicial está vacía ---
-        // 1. Comprobamos si el interruptor de audio está encendido
         const checkAudio = document.getElementById('audioToggle');
         const panelAudioActivo = (checkAudio && checkAudio.checked);
 
-        // 2. Si la caja de imagen está vacía, no es modo puro, y TAMPOCO hay audio -> Error
         if (!ideaInicial && !isPureMode && !panelAudioActivo) { 
-            showError(GartyLang.avis_gengpu1); 
-            if (window.loteBatchActivo && typeof window.detenerLoteBatch === 'function') window.detenerLoteBatch();
-            return; 
+            throw new Error('STOP_SILENT_MSG:' + (GartyLang.avis_gengpu1 || "Falta información."));
         }
         
-        // CORRECCIÓN: No deshabilitamos el botón si estamos en Batch o Bucle (para poder pararlo)
-        if (!window.bucleInfinitoActivo && !window.loteBatchActivo) {
-            buttonUsed.disabled = true;
-        }
+        const autoTranslate = document.getElementById('autoTranslateToggle') ? document.getElementById('autoTranslateToggle').checked : false;
         
         if (autoTranslate) {
-                const originalTextBtn = buttonUsed.innerHTML;
-                if (!window.bucleInfinitoActivo && !window.loteBatchActivo) buttonUsed.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> ${GartyLang.gpu_msg_translating || 'Traduciendo...'}`;
+            _actualizarBotonRender(buttonUsed, 'traduciendo');
+            try {
+                const fdTrad = new FormData(); 
+                fdTrad.append('action', 'traducir_rapido'); 
+                fdTrad.append('texto', ideaInicial);
+                const llmSel = document.getElementById('llmModelSelector'); 
+                if (llmSel && llmSel.value) fdTrad.append('llm_model', llmSel.value);
+                
+                const resTrad = await fetch('procesar.php', { method: 'POST', body: fdTrad }); 
+                const textTrad = await resTrad.text(); 
+                
                 try {
-                    const fdTrad = new FormData(); fdTrad.append('action', 'traducir_rapido'); fdTrad.append('texto', ideaInicial);
-                    const llmSel = document.getElementById('llmModelSelector'); if (llmSel && llmSel.value) fdTrad.append('llm_model', llmSel.value);
-                    
-                    const resTrad = await fetch('procesar.php', { method: 'POST', body: fdTrad }); 
-                    const textTrad = await resTrad.text(); 
-                    
-                    try {
-                        const dataTrad = JSON.parse(textTrad);
-                        if (dataTrad.error_curl || dataTrad.debug_api) console.warn(GartyLang.log_warn_trans_internal || 'Aviso interno:', dataTrad);
-                        
-                        // Como PHP ya ha hecho todo el trabajo duro de limpieza, 
-                        // sabemos con un 100% de seguridad que 'traduccion' viene pura
-                        if (dataTrad.traduccion && dataTrad.traduccion.trim() !== '') {
-                            finalPrompt = dataTrad.traduccion; 
-                        } else {
-                            finalPrompt = ideaInicial;
-                        }
-                    } catch(eJson) { 
-                        console.error(GartyLang.log_err_trans_invalid || 'Fallo al leer el JSON de PHP:', textTrad); 
-                        finalPrompt = ideaInicial; 
-                    }
-                } catch (e) { 
-                    console.error(GartyLang.log_err_trans_net || 'Error de red en traducción:', e); 
+                    const dataTrad = JSON.parse(textTrad);
+                    if (dataTrad.error_curl || dataTrad.debug_api) console.warn(GartyLang.log_warn_trans_internal || 'Aviso interno:', dataTrad);
+                    if (dataTrad.traduccion && dataTrad.traduccion.trim() !== '') {
+                        finalPrompt = dataTrad.traduccion; 
+                    } else { finalPrompt = ideaInicial; }
+                } catch(eJson) { 
+                    console.error(GartyLang.log_err_trans_invalid || 'Fallo al leer JSON:', textTrad); 
                     finalPrompt = ideaInicial; 
                 }
-                if (!window.bucleInfinitoActivo && !window.loteBatchActivo) buttonUsed.innerHTML = originalTextBtn;
-            } else { 
+            } catch (e) { 
+                console.error(GartyLang.log_err_trans_net || 'Error de red en traducción:', e); 
                 finalPrompt = ideaInicial; 
             }
+            _actualizarBotonRender(buttonUsed, 'restaurar', originalTextBtn);
+        } else { 
+            finalPrompt = ideaInicial; 
+        }
         
         const applied = getPromptsWithPresets(finalPrompt, ""); 
         finalPrompt = applied.pos; 
         finalNegPrompt = applied.neg;
         
     } else {
-        // Ejecución de "Arquitecto" o "Modo Directo Manual" (Leemos de las cajas)
-        finalPrompt = document.getElementById('posContent').innerText.trim();
+        // Modo "Arquitecto" o "Directo Manual"
+        finalPrompt = document.getElementById('posContent') ? document.getElementById('posContent').innerText.trim() : '';
         finalNegPrompt = document.getElementById('negContent') ? document.getElementById('negContent').innerText.trim() : "";
+        
         if (!finalPrompt && !isPureMode) { 
-            showError(GartyLang.avis_no_prompt_arq || "Por favor, introduce un prompt."); 
-            if (window.loteBatchActivo && typeof window.detenerLoteBatch === 'function') window.detenerLoteBatch();
-            return; 
+            throw new Error('STOP_SILENT_MSG:' + (GartyLang.avis_no_prompt_arq || "Por favor, introduce un prompt."));
         }
         
-        // --- SOLUCIÓN: Si estamos en Modo Directo manual, aplicamos los presets a lo introducido en las cajas ---
         if (isModoDirecto) {
             const applied = getPromptsWithPresets(finalPrompt, finalNegPrompt);
             finalPrompt = applied.pos;
             finalNegPrompt = applied.neg;
         }
-
-        // CORRECCIÓN: No deshabilitar en lote/bucle
-        if (!window.bucleInfinitoActivo && !window.loteBatchActivo) {
-            buttonUsed.disabled = true;
-        }
     }
-    
+
+    // --- 2.2 CHEQUEOS DE SEGURIDAD PRO ---
     const isReactorOn = document.getElementById('reactorToggle') && document.getElementById('reactorToggle').checked;
     const reacSavedSel = document.getElementById('reactorSavedFaces');
     if (isReactorOn && (!reacSavedSel || reacSavedSel.value === "") && (!currentFaceBase64 || currentFaceBase64.indexOf(',') === -1)) { 
-        SwalDark.fire({icon: 'warning', title: GartyLang.swal_reactor_title, text: GartyLang.swal_reactor_text}); 
-        if (!window.bucleInfinitoActivo && !window.loteBatchActivo) buttonUsed.disabled = false; 
-        if (window.loteBatchActivo) window.detenerLoteBatch();
-        return; 
+        throw new Error('STOP_LOUD_MSG:' + JSON.stringify({title: GartyLang.swal_reactor_title, text: GartyLang.swal_reactor_text}));
     }
         
     const isIpAdapterOn = document.getElementById('ipAdapterToggle') && document.getElementById('ipAdapterToggle').checked;
     if (isIpAdapterOn && (!window.currentIpAdapterImages || window.currentIpAdapterImages.length === 0)) { 
-        SwalDark.fire({icon: 'warning', title: GartyLang.swal_ip_title, text: GartyLang.swal_ip_text}); 
-        if (!window.bucleInfinitoActivo && !window.loteBatchActivo) buttonUsed.disabled = false; 
-        if (window.loteBatchActivo) window.detenerLoteBatch();
-        return; 
+        throw new Error('STOP_LOUD_MSG:' + JSON.stringify({title: GartyLang.swal_ip_title, text: GartyLang.swal_ip_text}));
     }
     
     const isControlNetOn = document.getElementById('controlNetToggle') && document.getElementById('controlNetToggle').checked;
     if (isControlNetOn && (!currentCnBase64 || currentCnBase64.indexOf(',') === -1)) { 
-        SwalDark.fire({icon: 'warning', title: GartyLang.swal_cn_title, text: GartyLang.swal_cn_text}); 
-        if (!window.bucleInfinitoActivo && !window.loteBatchActivo) buttonUsed.disabled = false; 
-        if (window.loteBatchActivo) window.detenerLoteBatch();
-        return; 
+        throw new Error('STOP_LOUD_MSG:' + JSON.stringify({title: GartyLang.swal_cn_title, text: GartyLang.swal_cn_text}));
     }
     
-    // Si es Modo Lote, saltamos esta validación porque la imagen base64 tarda unos milisegundos en asentarse
     if (isPureMode && !currentImageBase64 && !window.loteBatchActivo) { 
-        SwalDark.fire({icon: 'warning', title: GartyLang.swal_pure_title, text: GartyLang.swal_pure_text}); 
-        if (!window.bucleInfinitoActivo && !window.loteBatchActivo) buttonUsed.disabled = false; 
-        return; 
+        throw new Error('STOP_LOUD_MSG:' + JSON.stringify({title: GartyLang.swal_pure_title, text: GartyLang.swal_pure_text}));
     }
 
-    // --- NUEVO: INTERCEPCIÓN DEL MÓDULO DE AUDIO PRO ---
-    // Llamamos a la función de audio.js (si existe) para obtener la configuración
+    return { finalPrompt, finalNegPrompt };
+}
+
+// [3] CONTROLADOR PRINCIPAL (El flujo maestro)
+async function runGpu(mode = 'directo') {
+    const resDiv = document.getElementById('imageResult'); 
+    const resultsArea = document.getElementById('results'); 
+    const originalCategory = document.getElementById('selector').value;
+    const ideaInicial = document.getElementById('descripcion') ? document.getElementById('descripcion').value.trim() : ''; 
+    let buttonUsed = mode === 'directo' ? document.getElementById('gpuDirectBtn') : document.getElementById('gpuArquitectoBtn');
+    const originalBtnText = buttonUsed ? buttonUsed.innerHTML : '';
+    
+    // --- 3.1 Detección Inteligente (Modos Puros y Audio) ---
+    const isModoDirecto = document.getElementById('modoDirectoToggle') && document.getElementById('modoDirectoToggle').checked;
+    const activeUpscale = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked;
+    const isPureUpscaleActive = activeUpscale && ideaInicial === '';
+    
+    const pureModeIds = ['pureFaceSwapToggle', 'pureRembgToggle', 'pureAdetailerToggle', 'pureDDColorToggle', 'toggleLamaMode', 'iclight_enabled'];
+    const isPureMode = pureModeIds.some(id => {
+        const el = document.getElementById(id);
+        if (!el || !el.checked) return false;
+        const parentBlock = el.closest('[id$="Block"]') || el.parentElement;
+        return parentBlock && parentBlock.style.display !== 'none';
+    }) || isPureUpscaleActive;
+
     if (typeof getActiveAudioConfig === 'function') {
         const audioConfig = getActiveAudioConfig();
-        
-        // Si el usuario activó el audio pero se le olvidó subir el archivo o poner texto, getActiveAudioConfig devuelve false.
-        // Detenemos la generación de golpe antes de tocar la UI o hacer llamadas inútiles al backend.
-        if (audioConfig === false) {
-            buttonUsed.disabled = false;
-            return;
+        if (audioConfig === false) return; // Abortar
+        if (audioConfig && !audioConfig.sync_with_video) {
+            ejecutarAudioAutonomo(audioConfig, resDiv, buttonUsed, originalCategory);
+            return; 
         }
     }
-    // ---------------------------------------------------- 
 
-    const originalBtnText = buttonUsed.innerHTML;
-    if (!window.bucleInfinitoActivo && !window.loteBatchActivo) {
-        buttonUsed.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> ${GartyLang.gpu_sending_spinner || 'Enviando...'}`;
-    } else {
-        // Blindaje absoluto: Si estamos en bucle o batch, forzamos su identidad aquí y ahora.
-        const txtParada = window.loteBatchActivo 
-            ? (typeof GartyLang !== 'undefined' && GartyLang.btn_stop_batch ? GartyLang.btn_stop_batch : 'DETENER BATCH') 
-            : (typeof GartyLang !== 'undefined' && GartyLang.btn_stop_inf ? GartyLang.btn_stop_inf : 'DETENER BUCLE ∞');
+    // --- 3.2 Construcción del Modelo (Payload) y Validaciones ---
+    let prompts;
+    try {
+        prompts = await _construirPayloadGpu(mode, ideaInicial, isModoDirecto, isPureMode, buttonUsed, originalBtnText);
+    } catch (e) {
+        if (window.loteBatchActivo && typeof window.detenerLoteBatch === 'function') window.detenerLoteBatch();
+        
+        if (e.message.startsWith('STOP_SILENT_MSG:')) {
+            showError(e.message.replace('STOP_SILENT_MSG:', ''));
+        } else if (e.message.startsWith('STOP_LOUD_MSG:')) {
+            const data = JSON.parse(e.message.replace('STOP_LOUD_MSG:', ''));
+            SwalDark.fire({icon: 'warning', title: data.title, text: data.text});
+        }
+        _actualizarBotonRender(buttonUsed, 'restaurar', originalBtnText);
+        return;
+    }
+
+    // --- 3.3 Preparación Visual para Generar ---
+    _actualizarBotonRender(buttonUsed, 'procesando');
+    
+    if (window.bucleInfinitoActivo || window.loteBatchActivo) {
+        const txtParada = window.loteBatchActivo ? (GartyLang.btn_stop_batch || 'DETENER BATCH') : (GartyLang.btn_stop_inf || 'DETENER BUCLE ∞');
         buttonUsed.innerHTML = '<i class="bi bi-stop-circle-fill"></i> ' + txtParada;
-        buttonUsed.className = 'btn flex-grow-1 text-light fw-bold shadow btn-danger';
+        buttonUsed.classList.replace('btn-gpu', 'btn-danger');
+        buttonUsed.classList.replace('btn-primary', 'btn-danger');
+        buttonUsed.classList.replace('btn-warning', 'btn-danger');
+        buttonUsed.classList.replace('btn-success', 'btn-danger');
+        buttonUsed.classList.remove('text-dark', 'text-white');
+        buttonUsed.classList.add('text-light');
         buttonUsed.disabled = false;
     }
 
     const currentModelCheck = document.getElementById('modelSelector') ? document.getElementById('modelSelector').value : "";
     let limpiarPanel = false;
-    
-    // Limpiamos si es la 1ª foto de un Batch, o si el usuario ha cambiado de modelo (checkpoint)
     if (window.loteBatchActivo && window.loteIndiceActual === 1) limpiarPanel = true;
     else if (!window.loteBatchActivo && window.ultimoModeloGenerado !== currentModelCheck) limpiarPanel = true;
 
     if (limpiarPanel) {
         resDiv.innerHTML = '';
-        if (mode === 'directo' && resultsArea && !isModoDirecto) { 
-            resultsArea.classList.add('d-none'); 
-        }
+        if (mode === 'directo' && resultsArea && !isModoDirecto) resultsArea.classList.add('d-none'); 
     }
-    
-    // Guardamos el modelo actual en la memoria para la siguiente generación
     window.ultimoModeloGenerado = currentModelCheck;
-    
     if (typeof startProgressBar === 'function') startProgressBar(20); 
-    
-    let fd = new FormData(); fd.append('action', 'generar_imagen'); fd.append('selector', originalCategory);
-    fd.append('prompt', finalPrompt); fd.append('negative_prompt', finalNegPrompt); fd.append('descripcion_original', ideaInicial || finalPrompt); 
-    fd.append('model_path', document.getElementById('modelSelector') ? document.getElementById('modelSelector').value : "");
+
+    // --- 3.4 Ensamble de la Petición y Opciones Avanzadas ---
+    let fd = new FormData(); 
+    fd.append('action', 'generar_imagen'); 
+    fd.append('selector', originalCategory);
+    fd.append('prompt', prompts.finalPrompt); 
+    fd.append('negative_prompt', prompts.finalNegPrompt); 
+    fd.append('descripcion_original', ideaInicial || prompts.finalPrompt); 
+    fd.append('model_path', currentModelCheck);
     fd.append('async_mode', 'true'); 
     if (currentPromptId > 0) fd.append('historial_id', currentPromptId);
+    
     fd = appendUIParametersToFormData(fd);
 
-    // --- NUEVO: ADJUNTAR PARÁMETROS AL FORMDATA ---
     if (typeof getActiveAudioConfig === 'function') {
         const audioConfig = getActiveAudioConfig();
-        if (audioConfig !== null) {
-            fd.append('audio_params', JSON.stringify(audioConfig));
-        }
+        if (audioConfig !== null) fd.append('audio_params', JSON.stringify(audioConfig));
     }
-    // ----------------------------------------------------
 
-    const modoActual = document.getElementById('selector').value;
-    const numFrames = parseInt(document.getElementById('videoFramesInput').value) || 33;
-    const tieneAudio = typeof currentAudioBase64 !== 'undefined' && currentAudioBase64 !== null;
-    
-    // --- LECTURA INTELIGENTE DEL MODELO LTX ---
-    const modelSelect = document.getElementById('modelSelector');
-    const nombreModeloVisible = modelSelect && modelSelect.options[modelSelect.selectedIndex] ? modelSelect.options[modelSelect.selectedIndex].text.toLowerCase() : '';
-    const modeloSeleccionado = fd.get('model_path') ? fd.get('model_path').toLowerCase() : '';
-    const esLTX = modeloSeleccionado.includes('ltx') || nombreModeloVisible.includes('ltx');
-
-    // --- CONTROL DE VÍDEOS LARGOS AUTOREGRESIVOS (LTX) ---
-    if (modoActual === '[VIDEO]' && numFrames > 121 && esLTX) {
-        if (tieneAudio) console.log("Detectado vídeo LTX largo con audio...");
+    const numFrames = parseInt(document.getElementById('videoFramesInput')?.value) || 33;
+    const esLTX = currentModelCheck.toLowerCase().includes('ltx') || (document.getElementById('modelSelector')?.options[document.getElementById('modelSelector').selectedIndex]?.text.toLowerCase() || '').includes('ltx');
+    if (originalCategory === '[VIDEO]' && numFrames > 121 && esLTX) {
         if (typeof lanzarVideoEncadenado === 'function') {
-            lanzarVideoEncadenado(fd, numFrames).finally(() => {
-                buttonUsed.innerHTML = originalBtnText; buttonUsed.disabled = false;
-            });
+            lanzarVideoEncadenado(fd, numFrames).finally(() => _actualizarBotonRender(buttonUsed, 'restaurar', originalBtnText));
         }
         return; 
     }
 
-    // === NUEVO: INTERCEPCIÓN PARA SEMILLAS ÚNICAS Y BUCLE INFINITO ===
     const batchVal = document.getElementById('batchSize') ? document.getElementById('batchSize').value : "1";
     const seedVal = document.getElementById('seedInput') ? parseInt(document.getElementById('seedInput').value) : -1;
 
-    // 1. GESTIÓN DEL BUCLE INFINITO ('inf')
+    // --- Módulo Bucle, Lote y Benchmark ---
     if (batchVal === 'inf') {
         window.bucleInfinitoActivo = true;
         window.configBucleInfinito = { fd: fd, resDiv: resDiv, buttonUsed: buttonUsed, originalCategory: originalCategory };
@@ -2800,101 +2795,82 @@ async function runGpu(mode = 'directo') {
         buttonUsed.innerHTML = `<i class="bi bi-stop-circle-fill"></i> ${GartyLang.btn_stop_inf || 'DETENER BUCLE ∞'}`;
         buttonUsed.classList.replace('btn-gpu', 'btn-danger');
         buttonUsed.classList.replace('btn-primary', 'btn-danger');
+        buttonUsed.classList.replace('btn-warning', 'btn-danger');
+        buttonUsed.classList.replace('btn-success', 'btn-danger');
+        buttonUsed.classList.remove('text-dark', 'text-white');
+        buttonUsed.classList.add('text-light');
         buttonUsed.disabled = false;
+        
         buttonUsed.onclick = window.detenerBucleInfinito;
-
-        // Inyectamos 2 tareas iniciales para calentar motores y tener el buffer lleno
-        window.dispararTareaInfinita();
-        window.dispararTareaInfinita();
+        window.dispararTareaInfinita(); window.dispararTareaInfinita();
         return;
     }
 
-    // 2. GESTIÓN DE SEMILLAS ÚNICAS PARA LOTES (2 o 4 imágenes)
     if (batchVal === '2' || batchVal === '4') {
-        const totalImagenes = parseInt(batchVal);
-        for (let i = 0; i < totalImagenes; i++) {
+        const total = parseInt(batchVal);
+        for (let i = 0; i < total; i++) {
             let fdSingle = new FormData();
-            fd.forEach((value, key) => fdSingle.append(key, value));
-            fdSingle.set('batch_size', 1); // Forzamos 1 a 1 para que ComfyUI no repita semilla
-            
-            // Si la semilla era -1 generamos una nueva para cada imagen. Si era fija (ej. 5000), le sumamos i (5000, 5001...)
-            let semillaUnica = (seedVal === -1 || isNaN(seedVal)) 
-                ? Math.floor(Math.random() * 9007199254740991) 
-                : (seedVal + i);
-            fdSingle.set('seed', semillaUnica);
-
-            enviarTareaIndividualGpu(fdSingle, resDiv, buttonUsed, currentPromptId, originalCategory, i + 1, totalImagenes);
+            fd.forEach((v, k) => fdSingle.append(k, v));
+            fdSingle.set('batch_size', 1); 
+            fdSingle.set('seed', (seedVal === -1 || isNaN(seedVal)) ? Math.floor(Math.random() * 9007199254740991) : (seedVal + i));
+            enviarTareaIndividualGpu(fdSingle, resDiv, buttonUsed, currentPromptId, originalCategory, i + 1, total);
         }
         return;
     }
-	
-	// === NUEVO: 3. GESTIÓN DE BENCHMARK (TODOS LOS MODELOS) ===
-    if (batchVal === 'all') {
-        // Capturamos todos los modelos válidos cargados en el desplegable actual
-        const modelSelect = document.getElementById('modelSelector');
-        const opcionesModelos = Array.from(modelSelect.options).filter(opt => opt.value !== "");
-        const totalModelos = opcionesModelos.length;
 
-        if (totalModelos === 0) {
-            showError(GartyLang.err_no_models_benchmark || "No hay modelos disponibles en esta categoría para hacer el Benchmark.");
-            if (buttonUsed) buttonUsed.disabled = false;
+    if (batchVal === 'all') {
+        const modelSelect = document.getElementById('modelSelector');
+        const opciones = Array.from(modelSelect.options).filter(opt => opt.value !== "");
+        if (opciones.length === 0) {
+            showError(GartyLang.err_no_models_benchmark || "No hay modelos disponibles.");
+            _actualizarBotonRender(buttonUsed, 'restaurar', originalBtnText);
             return;
         }
-
-        // Semilla fija para poder comparar manzanas con manzanas. 
-        // Si el usuario puso -1, calculamos una y la anclamos para todos los modelos de este pase.
-        const semillaFija = (seedVal === -1 || isNaN(seedVal)) 
-            ? Math.floor(Math.random() * 9007199254740991) 
-            : seedVal;
-
-        // Disparamos las peticiones a la cola
-        for (let i = 0; i < totalModelos; i++) {
+        const semillaFija = (seedVal === -1 || isNaN(seedVal)) ? Math.floor(Math.random() * 9007199254740991) : seedVal;
+        for (let i = 0; i < opciones.length; i++) {
             let fdSingle = new FormData();
-            fd.forEach((value, key) => fdSingle.append(key, value));
-            
-            fdSingle.set('batch_size', 1); // Forzamos a 1 para no colapsar la petición
-            fdSingle.set('model_path', opcionesModelos[i].value); // Inyectamos el modelo de la iteración
-            fdSingle.set('seed', semillaFija); // Fijamos la semilla
-			
-			// 👇 NUEVA LÍNEA: Avisamos al backend de que esto es un Benchmark 👇
-            fdSingle.set('is_benchmark', 'true');
-
-            // Usamos tu función blindada existente para mandar la tarea a la cola
-            enviarTareaIndividualGpu(fdSingle, resDiv, buttonUsed, currentPromptId, originalCategory, i + 1, totalModelos);
+            fd.forEach((v, k) => fdSingle.append(k, v));
+            fdSingle.set('batch_size', 1); fdSingle.set('model_path', opciones[i].value); fdSingle.set('seed', semillaFija); fdSingle.set('is_benchmark', 'true');
+            enviarTareaIndividualGpu(fdSingle, resDiv, buttonUsed, currentPromptId, originalCategory, i + 1, opciones.length);
         }
         return;
     }
-    // === FIN DE LA INTERCEPCIÓN (Si es 1 imagen, continúa con el try normal de abajo) ===
 
+    // --- 3.5 Disparo Estándar (La tarea principal) ---
     try {
-        const res = await fetch('procesar.php', { method: 'POST', body: fd }); const data = await res.json();
+        const res = await fetch('procesar.php', { method: 'POST', body: fd }); 
+        const data = await res.json();
+        
         if (data.error) {
             if (typeof stopProgressBar === 'function') stopProgressBar(); 
-            SwalDark.fire({ toast: false, position: 'center', timer: undefined, showConfirmButton: true, icon: 'error', title: GartyLang.swal_gen_cancel_title, html: data.error, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${GartyLang.btn_entendido}` });
-            buttonUsed.innerHTML = originalBtnText; buttonUsed.disabled = false; return; 
-            }
+            SwalDark.fire({ toast: false, position: 'center', icon: 'error', title: GartyLang.swal_gen_cancel_title, html: data.error, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${GartyLang.btn_entendido}` });
+            _actualizarBotonRender(buttonUsed, 'restaurar', originalBtnText);
+            return; 
+        }
         
         if (data.status === 'ticket_issued' && data.prompt_id) {
-            currentPromptId = data.historial_id || currentPromptId; 
+            // FIX: Secuestro local de ID para evitar pisados asíncronos en colas rápidas
+            const localDbId = data.historial_id || currentPromptId;
+            currentPromptId = localDbId; 
             
-            // --- ESCUDO: No reescribir el botón si estamos en Batch o Bucle ---
             if (!window.bucleInfinitoActivo && !window.loteBatchActivo) {
-                buttonUsed.innerText = typeof GartyLang !== 'undefined' && GartyLang.btn_procesando ? GartyLang.btn_procesando : 'Procesando...';
+                buttonUsed.innerText = GartyLang.btn_procesando || 'Procesando...';
             }
             
-            localStorage.setItem('garty_tarea_pendiente', JSON.stringify({ prompt_id: data.prompt_id, db_id: currentPromptId, categoria: originalCategory }));
-            iniciarRadarGpu(data.prompt_id, resDiv, buttonUsed, currentPromptId, originalCategory); 
+            localStorage.setItem('garty_tarea_pendiente', JSON.stringify({ prompt_id: data.prompt_id, db_id: localDbId, categoria: originalCategory }));
+            iniciarRadarGpu(data.prompt_id, resDiv, buttonUsed, localDbId, originalCategory); 
         } else {
             if (typeof stopProgressBar === 'function') stopProgressBar();
             SwalDark.fire({ icon: 'error', title: GartyLang.swal_gpu_err_title, text: GartyLang.swal_gpu_err_text, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${GartyLang.btn_entendido}` });
-            buttonUsed.innerHTML = originalBtnText; buttonUsed.disabled = false; return;
+            _actualizarBotonRender(buttonUsed, 'restaurar', originalBtnText);
         }
     } catch (e) { 
         if (typeof stopProgressBar === 'function') stopProgressBar();
-        SwalDark.fire({ icon: 'error', title: GartyLang.swal_net_arq_title, text: `${GartyLang.swal_net_arq_text}${e.message}`, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${GartyLang.btn_entendido}` });
-        buttonUsed.innerHTML = originalBtnText; buttonUsed.disabled = false;
+        SwalDark.fire({ icon: 'error', title: GartyLang.swal_net_arq_title, text: `${GartyLang.swal_net_arq_text}${e.message}` });
+        _actualizarBotonRender(buttonUsed, 'restaurar', originalBtnText);
     }
 }
+// ==============================================================================
 
 window.activeRadars = window.activeRadars || {};
 window.bucleInfinitoActivo = false;
