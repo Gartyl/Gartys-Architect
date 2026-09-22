@@ -29,7 +29,6 @@ window.comfySocket = null;
 window.lastPreviewUrl = null;
 
 window.iniciarWebSocketComfy = function() {
-    // Asumimos que ComfyUI usa el puerto 8188 en la IP de la web
     const wsHost = window.location.hostname; 
     const wsUrl = `ws://${wsHost}:8188/ws?clientId=${window.comfyClientId}`;
     
@@ -41,28 +40,31 @@ window.iniciarWebSocketComfy = function() {
         };
         
         window.comfySocket.onmessage = (event) => {
+            // 1. IMÁGENES EN VIVO (¡Quitamos el bloqueo de vídeo para que lleguen los blobs!)
             if (event.data instanceof Blob) {
                 let previewContainer = document.getElementById('livePreviewContainer');
                 let previewImg = document.getElementById('livePreviewImg');
                 
-                // MAGIA DE RESURRECCIÓN: Si el radar mató la caja (ej: tras la foto 1 de un batch), la reconstruimos al vuelo
+                // MAGIA DE RESURRECCIÓN
                 if (!previewContainer) {
                     const resDiv = document.getElementById('imageResult');
                     if (resDiv) {
                         let rowContainer = resDiv.querySelector('.row.g-3');
                         if (rowContainer) {
-                            const txtRevelando = (typeof GartyLang !== 'undefined' && GartyLang.gpu_revealing_img) ? GartyLang.gpu_revealing_img : 'Revelando imagen...';
+                            const isVid = window.isCurrentTaskVideo;
+                            const txtRevelando = isVid ? (typeof GartyLang !== 'undefined' && GartyLang.gpu_animating_video ? GartyLang.gpu_animating_video : 'Generando vídeo...') : (typeof GartyLang !== 'undefined' && GartyLang.gpu_revealing_img ? GartyLang.gpu_revealing_img : 'Revelando imagen...');
+                            const iconClass = isVid ? "spinner-border spinner-border-sm" : "spinner-grow spinner-grow-sm";
+                            
                             const htmlPreview = `
-                                <div id="livePreviewContainer" class="col-12 col-md-6" style="display:none;">
-                                    <div class="img-container shadow border border-warning rounded p-1" style="position: relative; background: #010409; min-height: 256px; display: flex; justify-content: center; align-items: center;">
+                                <div id="livePreviewContainer" class="col-12 col-md-6" style="display:block;">
+                                    <div class="img-container shadow border border-warning rounded p-1" style="position: relative; background: #010409; min-height: 256px; display: flex; justify-content: center; align-items: center; overflow: hidden;">
                                         <img id="livePreviewImg" src="" class="result-image w-100 rounded" style="opacity: 0.2; filter: blur(8px); transition: all 0.3s ease; object-fit: contain;">
                                         <div style="position: absolute; bottom: 15px; left: 15px; z-index: 50;">
-                                            <span class="badge bg-warning text-dark shadow-sm px-3 py-2"><span class="spinner-grow spinner-grow-sm me-2"></span>${txtRevelando}</span>
+                                            <span class="badge bg-warning text-dark shadow-sm px-3 py-2"><span class="${iconClass} me-2"></span>${txtRevelando}<span id="wsProgressPercent" class="ms-1 fw-bold"></span></span>
                                         </div>
                                     </div>
                                 </div>`;
                             
-                            // Inyectamos la caja al final de la fila de resultados actuales
                             rowContainer.insertAdjacentHTML('beforeend', htmlPreview);
                             previewContainer = document.getElementById('livePreviewContainer');
                             previewImg = document.getElementById('livePreviewImg');
@@ -77,11 +79,41 @@ window.iniciarWebSocketComfy = function() {
                     window.lastPreviewUrl = URL.createObjectURL(imageBlob);
                     
                     previewImg.src = window.lastPreviewUrl;
-                    
                     previewContainer.style.display = 'block';
                     previewImg.style.filter = 'blur(0px)';
                     previewImg.style.opacity = '1';
                 }
+            } 
+            // 2. SINCRONIZACIÓN DE PROGRESO GLOBAL
+            else if (typeof event.data === "string") {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === 'progress') {
+                        const val = msg.data.value;
+                        const max = msg.data.max;
+                        const percent = Math.round((val / max) * 100);
+                        
+                        // A) Actualizamos el porcentaje amarillo
+                        const percentEl = document.getElementById('wsProgressPercent');
+                        if (percentEl) percentEl.innerText = ` (${percent}%)`;
+                        
+                        // B) Tomamos el control de la barra morada (¡CORREGIDO EL CLERINTERVAL!)
+                        const pBar = document.getElementById('progressBar'); 
+                        const pText = document.getElementById('progressPercent');
+                        if (pBar && pText) {
+                            if (typeof progressInterval !== 'undefined' && progressInterval !== null) {
+                                clearInterval(progressInterval); 
+                                progressInterval = null; 
+                            }
+                            pBar.style.width = percent + '%'; 
+                            pText.innerText = percent + '%';
+                        }
+                        
+                    } else if (msg.type === 'execution_error') {
+                        const pContainer = document.getElementById('livePreviewContainer');
+                        if (pContainer) pContainer.remove();
+                    }
+                } catch(e) {}
             }
         };
         
@@ -97,6 +129,7 @@ window.iniciarWebSocketComfy = function() {
 document.addEventListener('DOMContentLoaded', () => {
     window.iniciarWebSocketComfy();
 });
+// ==============================================================================
 
 // ==============================================================================
 // --- NUEVO: LÓGICA DE LA BANDEJA MULTIENTRADA (OmniGen, etc.) ---
@@ -814,6 +847,7 @@ if (audioInpElem) {
 
 function toggleFaceSwapPuro(activo) {
     setTimeout(() => {
+        const isDirect = document.getElementById('modoDirectoToggle')?.checked;
         const inputPrompt = document.getElementById('descripcion'); 
         const btnArquitecto = document.getElementById('submitBtn'); 
         const btnAmplify = document.getElementById('amplifyBtn'); 
@@ -837,20 +871,22 @@ function toggleFaceSwapPuro(activo) {
                 btnDirecto.className = 'btn flex-grow-1 text-dark fw-bold shadow btn-warning';
             }
         } else {
-            if (inputPrompt) {
-				inputPrompt.style.opacity = '1';
-				inputPrompt.style.pointerEvents = 'auto';
-			}
-            if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
-            if (btnAmplify) btnAmplify.style.removeProperty('display');
-            if (btnSurprise) btnSurprise.style.removeProperty('display');
+            if (inputPrompt) { inputPrompt.style.opacity = '1'; inputPrompt.style.pointerEvents = 'auto'; }
+            
+            // 🛡️ SOLO RESTAURAMOS SI NO ESTAMOS EN MODO DIRECTO
+            if (!isDirect) {
+                if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
+                if (btnAmplify) btnAmplify.style.removeProperty('display');
+                if (btnSurprise) btnSurprise.style.removeProperty('display');
+                if (translateToggle) {
+                    const sel = document.getElementById('selector').value;
+                    if (sel !== '[CHAT]') translateToggle.classList.remove('d-none');
+                }
+            }
             if (btnDirecto) {
-				btnDirecto.style.removeProperty('display'); //AÑADIR ESTO
+                btnDirecto.style.removeProperty('display');
                 btnDirecto.innerHTML = btnDirecto.dataset.oldText || '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
                 btnDirecto.className = 'btn btn-gpu flex-grow-1 text-white fw-bold shadow';
-                const sel = document.getElementById('selector').value;
-                if (sel === '[CHAT]') { btnDirecto.classList.add('d-none'); if (translateToggle) translateToggle.classList.add('d-none'); } 
-                else { btnDirecto.classList.remove('d-none'); if (translateToggle) translateToggle.classList.remove('d-none'); }
             }
         }
     }, 100);
@@ -858,6 +894,7 @@ function toggleFaceSwapPuro(activo) {
 
 function toggleRembgPuro(activo) {
     setTimeout(() => {
+        const isDirect = document.getElementById('modoDirectoToggle')?.checked;
         const inputPrompt = document.getElementById('descripcion'); const btnArquitecto = document.getElementById('submitBtn'); 
         const btnAmplify = document.getElementById('amplifyBtn'); const btnSurprise = document.getElementById('surpriseBtn'); 
         const btnDirecto = document.getElementById('gpuDirectBtn'); const resultsArea = document.getElementById('results'); 
@@ -876,20 +913,20 @@ function toggleRembgPuro(activo) {
                 btnDirecto.className = 'btn flex-grow-1 text-light fw-bold shadow btn-success';
             }
         } else {
-            if (inputPrompt) {
-				inputPrompt.style.opacity = '1';
-				inputPrompt.style.pointerEvents = 'auto';
-			}
-            if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
-            if (btnAmplify) btnAmplify.style.removeProperty('display');
-            if (btnSurprise) btnSurprise.style.removeProperty('display');
+            if (inputPrompt) { inputPrompt.style.opacity = '1'; inputPrompt.style.pointerEvents = 'auto'; }
+            if (!isDirect) {
+                if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
+                if (btnAmplify) btnAmplify.style.removeProperty('display');
+                if (btnSurprise) btnSurprise.style.removeProperty('display');
+                if (translateToggle) {
+                    const sel = document.getElementById('selector').value;
+                    if (sel !== '[CHAT]') translateToggle.classList.remove('d-none');
+                }
+            }
             if (btnDirecto) {
-				btnDirecto.style.removeProperty('display'); //AÑADIR ESTO
+                btnDirecto.style.removeProperty('display');
                 btnDirecto.innerHTML = btnDirecto.dataset.oldText || '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
                 btnDirecto.className = 'btn btn-gpu flex-grow-1 text-white fw-bold shadow';
-                const sel = document.getElementById('selector').value;
-                if (sel === '[CHAT]') { btnDirecto.classList.add('d-none'); if (translateToggle) translateToggle.classList.add('d-none'); } 
-                else { btnDirecto.classList.remove('d-none'); if (translateToggle) translateToggle.classList.remove('d-none'); }
             }
         }
     }, 100);
@@ -897,6 +934,7 @@ function toggleRembgPuro(activo) {
 
 function toggleAdetailerPuro(activo) {
     setTimeout(() => {
+        const isDirect = document.getElementById('modoDirectoToggle')?.checked;
         const inputPrompt = document.getElementById('descripcion'); const btnArquitecto = document.getElementById('submitBtn'); 
         const btnAmplify = document.getElementById('amplifyBtn'); const btnSurprise = document.getElementById('surpriseBtn'); 
         const btnDirecto = document.getElementById('gpuDirectBtn'); const resultsArea = document.getElementById('results'); 
@@ -915,20 +953,20 @@ function toggleAdetailerPuro(activo) {
                 btnDirecto.className = 'btn flex-grow-1 text-dark fw-bold shadow btn-info';
             }
         } else {
-            if (inputPrompt) {
-				inputPrompt.style.opacity = '1';
-				inputPrompt.style.pointerEvents = 'auto';
-			}
-            if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
-            if (btnAmplify) btnAmplify.style.removeProperty('display');
-            if (btnSurprise) btnSurprise.style.removeProperty('display');
+            if (inputPrompt) { inputPrompt.style.opacity = '1'; inputPrompt.style.pointerEvents = 'auto'; }
+            if (!isDirect) {
+                if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
+                if (btnAmplify) btnAmplify.style.removeProperty('display');
+                if (btnSurprise) btnSurprise.style.removeProperty('display');
+                if (translateToggle) {
+                    const sel = document.getElementById('selector').value;
+                    if (sel !== '[CHAT]') translateToggle.classList.remove('d-none');
+                }
+            }
             if (btnDirecto) {
-				btnDirecto.style.removeProperty('display'); //AÑADIR ESTO
+                btnDirecto.style.removeProperty('display');
                 btnDirecto.innerHTML = btnDirecto.dataset.oldText || '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
                 btnDirecto.className = 'btn btn-gpu flex-grow-1 text-white fw-bold shadow';
-                const sel = document.getElementById('selector').value;
-                if (sel === '[CHAT]') { btnDirecto.classList.add('d-none'); if (translateToggle) translateToggle.classList.add('d-none'); } 
-                else { btnDirecto.classList.remove('d-none'); if (translateToggle) translateToggle.classList.remove('d-none'); }
             }
         }
     }, 100);
@@ -936,44 +974,42 @@ function toggleAdetailerPuro(activo) {
 
 function toggleDDColorPuro(activo) {
     setTimeout(() => {
+        const isDirect = document.getElementById('modoDirectoToggle')?.checked;
         const inputPrompt = document.getElementById('descripcion'); const btnArquitecto = document.getElementById('submitBtn'); 
         const btnAmplify = document.getElementById('amplifyBtn'); const btnSurprise = document.getElementById('surpriseBtn'); 
         const btnDirecto = document.getElementById('gpuDirectBtn'); const resultsArea = document.getElementById('results'); 
         const translateToggle = document.getElementById('translateToggleBlock'); 
 
-        // Si activamos colorear, apagamos Rembg por seguridad
         if (activo) {
             const rembg = document.getElementById('pureRembgToggle') || document.getElementById('rembgToggle');
             if (rembg && rembg.checked) { rembg.checked = false; rembg.dispatchEvent(new Event('change')); }
-        }
 
-        if (activo) {
             if (inputPrompt) { inputPrompt.style.opacity = '0.4'; inputPrompt.style.pointerEvents = 'none'; inputPrompt.style.transition = 'opacity 0.3s ease'; }
             if (btnArquitecto) btnArquitecto.style.setProperty('display', 'none', 'important');
             if (btnAmplify) btnAmplify.style.removeProperty('display');
-            if (btnSurprise) btnSurprise.style.removeProperty('display');															   
+            if (btnSurprise) btnSurprise.style.removeProperty('display'); 
             if (translateToggle) translateToggle.classList.add('d-none'); if (resultsArea) resultsArea.classList.add('d-none');
             if (btnDirecto) {
-				btnDirecto.style.removeProperty('display'); //AÑADIR ESTO
+                btnDirecto.style.removeProperty('display');
                 btnDirecto.classList.remove('d-none'); btnDirecto.style.setProperty('display', 'inline-block', 'important');
                 btnDirecto.dataset.oldText = btnDirecto.innerHTML;
                 btnDirecto.innerHTML = '<i class="bi bi-palette-fill"></i> Colorear Directo';
                 btnDirecto.className = 'btn flex-grow-1 text-light fw-bold shadow btn-danger';
             }
         } else {
-           if (inputPrompt) {
-				inputPrompt.style.opacity = '1';
-				inputPrompt.style.pointerEvents = 'auto';
-			}
-            if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
-            if (btnAmplify) btnAmplify.style.removeProperty('display');
-            if (btnSurprise) btnSurprise.style.removeProperty('display');													  
+            if (inputPrompt) { inputPrompt.style.opacity = '1'; inputPrompt.style.pointerEvents = 'auto'; }
+            if (!isDirect) {
+                if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
+                if (btnAmplify) btnAmplify.style.removeProperty('display');
+                if (btnSurprise) btnSurprise.style.removeProperty('display'); 
+                if (translateToggle) {
+                    const sel = document.getElementById('selector').value;
+                    if (sel !== '[CHAT]') translateToggle.classList.remove('d-none');
+                }
+            }
             if (btnDirecto) {
                 btnDirecto.innerHTML = btnDirecto.dataset.oldText || '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
                 btnDirecto.className = 'btn btn-gpu flex-grow-1 text-white fw-bold shadow';
-                const sel = document.getElementById('selector').value;
-                if (sel === '[CHAT]') { btnDirecto.classList.add('d-none'); if (translateToggle) translateToggle.classList.add('d-none'); } 
-                else { btnDirecto.classList.remove('d-none'); if (translateToggle) translateToggle.classList.remove('d-none'); }
             }
         }
     }, 100);
@@ -1463,7 +1499,14 @@ function updateUIForSelector(sel) {
     const ddcolorBlock = document.getElementById('ddcolorBlock');
     if (ddcolorBlock) {
         if (cfg.hiresRembgDdcolor && isAvanzado) ddcolorBlock.style.display = 'block';
-        else { ddcolorBlock.style.display = 'none'; const toggleDDColor = document.getElementById('toggleDDColor'); if (toggleDDColor) { toggleDDColor.checked = false; toggleDDColor.dispatchEvent(new Event('change')); } }
+        else { 
+            ddcolorBlock.style.display = 'none'; 
+            const toggleDDColor = document.getElementById('toggleDDColor'); 
+            if (toggleDDColor && toggleDDColor.checked) { 
+                toggleDDColor.checked = false; 
+                toggleDDColor.dispatchEvent(new Event('change')); 
+            } 
+        }
     }
 
     const icLightBlock = document.getElementById('icLightBlock');
@@ -1479,11 +1522,12 @@ function updateUIForSelector(sel) {
     const submitBtn = document.getElementById('submitBtn');
     if (submitBtn) { submitBtn.innerText = (sel === '[CHAT]' ? (typeof GartyLang !== 'undefined' ? GartyLang.btn_envimensaje : 'Enviar') : (typeof GartyLang !== 'undefined' ? GartyLang.btn_arquitecto : 'Arquitecto')); }
 
-    // 10. BLOQUEO MODO DIRECTO (Idéntico a tu lógica original)
+    // 10. BLOQUEO MODO DIRECTO (Blindaje Total)
     if (isDirectMode) {
         const btnArq = document.getElementById('submitBtn'); if (btnArq) btnArq.style.setProperty('display', 'none', 'important');
         const btnAmp = document.getElementById('amplifyBtn'); if (btnAmp) btnAmp.style.setProperty('display', 'none', 'important');
         const btnSur = document.getElementById('surpriseBtn'); if (btnSur) btnSur.style.setProperty('display', 'none', 'important');
+        const translateToggle = document.getElementById('translateToggleBlock'); if (translateToggle) translateToggle.style.setProperty('display', 'none', 'important');
         const contenedorIdea = document.getElementById('contenedorIdea'); if (contenedorIdea) contenedorIdea.classList.add('d-none');
         const btnGpu = document.getElementById('gpuDirectBtn');
 
@@ -1494,7 +1538,6 @@ function updateUIForSelector(sel) {
         }
 
         const pArea = document.getElementById('promptArea'); const nArea = document.getElementById('negativeArea');
-        
         const rArea = document.getElementById('results');
         if (rArea) rArea.classList.remove('d-none');
         
@@ -1508,6 +1551,7 @@ function updateUIForSelector(sel) {
         const btnAmp = document.getElementById('amplifyBtn'); if(btnAmp) btnAmp.style.removeProperty('display');
         const btnSur = document.getElementById('surpriseBtn'); if(btnSur) btnSur.style.removeProperty('display');
         const btnGpu = document.getElementById('gpuDirectBtn'); if(btnGpu) btnGpu.style.removeProperty('display');
+        const translateToggle = document.getElementById('translateToggleBlock'); if(translateToggle) translateToggle.style.removeProperty('display');
         const contenedorIdea = document.getElementById('contenedorIdea'); if(contenedorIdea) contenedorIdea.classList.remove('d-none');
     }
     
@@ -2827,17 +2871,33 @@ async function runGpu(mode = 'directo') {
     }
 
     let pContainer = document.getElementById('livePreviewContainer');
-    const txtRevelando = (typeof GartyLang !== 'undefined' && GartyLang.gpu_revealing_img) ? GartyLang.gpu_revealing_img : 'Revelando imagen...';
-    const pixelTransparente = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+    
+    const modLower = currentModelCheck.toLowerCase();
+    window.isCurrentTaskVideo = (originalCategory === '[VIDEO]' || modLower.includes('ltx') || modLower.includes('wan') || modLower.includes('minimax') || modLower.includes('cogvideo'));
+
+    const txtBadge = window.isCurrentTaskVideo 
+        ? ((typeof GartyLang !== 'undefined' && GartyLang.gpu_animating_video) ? GartyLang.gpu_animating_video : 'Generando vídeo...')
+        : ((typeof GartyLang !== 'undefined' && GartyLang.gpu_revealing_img) ? GartyLang.gpu_revealing_img : 'Revelando imagen...');
+        
+    const iconBadge = window.isCurrentTaskVideo ? "spinner-border spinner-border-sm" : "spinner-grow spinner-grow-sm";
+    
+    let imgSrc = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+    let filterStyle = "opacity: 0.2; filter: blur(8px);";
+
+    // Si tenemos imagen base, la ponemos de fondo mientras llega el primer blob
+    if (typeof currentImageBase64 !== 'undefined' && currentImageBase64) {
+        imgSrc = currentImageBase64;
+    } else if (window.bandejaArchivos && window.bandejaArchivos.length > 0) {
+        imgSrc = window.bandejaArchivos[0];
+    }
 
     if (!pContainer) {
-        // No existe: La inyectamos limpia
         const htmlPreview = `
         <div id="livePreviewContainer" class="col-12 col-md-6" style="display:block;">
-            <div class="img-container shadow border border-warning rounded p-1" style="position: relative; background: #010409; min-height: 256px; display: flex; justify-content: center; align-items: center;">
-                <img id="livePreviewImg" src="${pixelTransparente}" class="result-image w-100 rounded" style="opacity: 0.2; filter: blur(8px); transition: all 0.3s ease; object-fit: contain;">
+            <div class="img-container shadow border border-warning rounded p-1" style="position: relative; background: #010409; min-height: 256px; display: flex; justify-content: center; align-items: center; overflow: hidden;">
+                <img id="livePreviewImg" src="${imgSrc}" class="result-image w-100 rounded" style="${filterStyle} transition: all 0.3s ease; object-fit: contain;">
                 <div style="position: absolute; bottom: 15px; left: 15px; z-index: 50;">
-                    <span class="badge bg-warning text-dark shadow-sm px-3 py-2"><span class="spinner-grow spinner-grow-sm me-2"></span>${txtRevelando}</span>
+                    <span class="badge bg-warning text-dark shadow-sm px-3 py-2"><span class="${iconBadge} me-2"></span>${txtBadge}<span id="wsProgressPercent" class="ms-1 fw-bold"></span></span>
                 </div>
             </div>
         </div>`;
@@ -2849,22 +2909,25 @@ async function runGpu(mode = 'directo') {
         }
         rowContainer.insertAdjacentHTML('beforeend', htmlPreview);
     } else {
-        // Sí existe (Tanda manual sin limpiar): La reciclamos y la movemos al final de la galería
         const pImg = document.getElementById('livePreviewImg');
         if (pImg) {
             pContainer.style.display = 'block';
-            pImg.src = pixelTransparente;
-            pImg.style.opacity = '0.2';
-            pImg.style.filter = 'blur(8px)';
+            pImg.src = imgSrc;
+            pImg.style.cssText = `${filterStyle} transition: all 0.3s ease; object-fit: contain;`;
+            
+            const badgeSpan = pContainer.querySelector('.badge');
+            if (badgeSpan) {
+                badgeSpan.innerHTML = `<span class="${iconBadge} me-2"></span>${txtBadge}<span id="wsProgressPercent" class="ms-1 fw-bold"></span>`;
+            }
             if (pContainer.parentElement) {
                 pContainer.parentElement.appendChild(pContainer);
             }
         }
     }
-	
-    window.ultimoModeloGenerado = currentModelCheck;
-    if (typeof startProgressBar === 'function') startProgressBar(20); 
 
+    window.ultimoModeloGenerado = currentModelCheck;
+    if (typeof startProgressBar === 'function') startProgressBar(20);
+    
     // --- 3.4 Ensamble de la Petición y Opciones Avanzadas ---
     let fd = new FormData(); 
     fd.append('action', 'generar_imagen'); 
@@ -3010,22 +3073,28 @@ window.restaurarBotonesGpu = function() {
         btnArq.onclick = () => { if (typeof runGpu === 'function') runGpu('arquitecto'); };
     }
 
-    const selectorEl = document.getElementById('selector');
+   const selectorEl = document.getElementById('selector');
     if (selectorEl && typeof updateUIForSelector === 'function') {
         updateUIForSelector(selectorEl.value);
     }
 
+    // 👇 NUEVO: Forzamos que se aplique la estética del Modo Directo si está encendido
+    if (typeof toggleModoIngreso === 'function') {
+        toggleModoIngreso();
+    }
+    // 👆 HASTA AQUÍ 👆
+
     // SI LAMA ESTÁ ACTIVADO, RESTAURAMOS SU BOTÓN ROJO
     const toggleLama = document.getElementById('toggleLamaMode');
-    if (toggleLama && toggleLama.checked && typeof toggleLamaUI === 'function') {
-        toggleLamaUI(true);
-    }
+   if (toggleLama && toggleLama.checked && typeof toggleLamaUI === 'function') {
+       toggleLamaUI(true);
+   }
 
-    // SI IC-LIGHT ESTÁ ACTIVADO, RESTAURAMOS SU BOTÓN NARANJA
-    const toggleIcLight = document.getElementById('iclight_enabled');
-    if (toggleIcLight && toggleIcLight.checked && typeof toggleIcLightUI === 'function') {
-        toggleIcLightUI();
-    }
+   // SI IC-LIGHT ESTÁ ACTIVADO, RESTAURAMOS SU BOTÓN NARANJA
+   const toggleIcLight = document.getElementById('iclight_enabled');
+   if (toggleIcLight && toggleIcLight.checked && typeof toggleIcLightUI === 'function') {
+       toggleIcLightUI();
+   }
 };
 
 // --- DETENER BUCLE INFINITO (Suave - Deja terminar lo que está en la VRAM) ---
@@ -3036,7 +3105,6 @@ window.detenerBucleInfinito = function() {
 
 // --- PURGAR TAREA ATASCADA O COLA (En seco - Botón pequeño / Cancelar) ---
 window.forzarCancelacionTarea = function() {
-    // 1. Matamos los radares locales del navegador
     if (window.activeRadars) {
         Object.values(window.activeRadars).forEach(intervalId => clearInterval(intervalId));
         window.activeRadars = {};
@@ -3045,12 +3113,15 @@ window.forzarCancelacionTarea = function() {
     if (typeof stopProgressBar === 'function') stopProgressBar();
     localStorage.removeItem('garty_tarea_pendiente'); 
     
-    // 2. ORDEN NUCLEAR AL SERVIDOR: Avisamos a PHP para que vacíe la cola en ComfyUI
+    // 👇 Destruimos la previsualización de la pantalla al cancelar
+    const livePrev = document.getElementById('livePreviewContainer');
+    if (livePrev) { livePrev.style.display = 'none'; livePrev.remove(); }
+    // 👆 HASTA AQUÍ 👆
+
     let fdCancel = new FormData();
     fdCancel.append('action', 'cancelar_tarea');
     fetch('procesar.php', { method: 'POST', body: fdCancel }).catch(e => console.warn(GartyLang.log_err_cancel_net || "Purga red:", e));
 
-    // 3. Restauramos la interfaz
     window.restaurarBotonesGpu();
 
     SwalDark.fire({ icon: 'info', title: GartyLang.swal_kill_title, text: GartyLang.swal_kill_text, confirmButtonText: '<i class="bi bi-check2-circle"></i> ' + GartyLang.btn_entendido });
