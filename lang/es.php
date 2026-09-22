@@ -720,6 +720,7 @@ return [
     'radar_btn_gpu_fail' => "Fallo Gráfico",
     'radar_btn_timeout' => "Tiempo Agotado",
     'radar_msg_rendering' => "Renderizando... (Ticket #",
+	'gpu_animating_video' => "Generando vídeo...",
 
     // ==============================================================================
     // 09. PANEL DE ADMINISTRACIÓN Y LICENCIAS
