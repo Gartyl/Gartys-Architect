@@ -132,6 +132,10 @@ return [
     'log_ws_disconnected' => "🔴 WebSocket de ComfyUI desconnectat. Reconnectant en 5s...",
     'log_ws_error'        => "⚠️ No s'ha pogut iniciar el WebSocket de previsualització.",
     'gpu_revealing_img'   => "Revelant imatge...",
+	'tit_change_pass' => "Canviar Contrasenya",
+    'lbl_current_pass' => "CONTRASENYA ACTUAL",
+    'lbl_new_pass' => "NOVA CONTRASENYA",
+    'lbl_confirm_pass' => "CONFIRMAR NOVA CONTRASENYA",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
