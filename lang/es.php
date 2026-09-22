@@ -362,6 +362,9 @@ return [
 	'mon_tit_ram' => 'RAM (SISTEMA)',
 	'mon_tit_ollama' => 'Ollama (Modelos Activos)',
 	'mon_tit_comfyui' => 'ComfyUI (Render)',
+	'mon_title_temp' => "Temperatura GPU",
+    'mon_title_uso'  => "Uso del núcleo GPU",
+    'mon_lbl_uso'    => "Uso",
     
     // ==============================================================================
     // 05. SELECTORES Y DESPLEGABLES (Opciones)
@@ -973,6 +976,10 @@ return [
 	'msg_voice_deleted' => "Voz eliminada",
 	'tit_delete_voice' => "¿Eliminar voz?",
 	'msg_delete_voice_confirm' => "Vas a borrar permanentemente a \"{name}\". ¿Estás seguro?",
+	'lbl_sfx_prompt' => "Prompt del sonido o ambiente (en inglés preferiblemente)",
+    'ph_sfx_prompt' => "Ej: Cinematic heavy rain, thunder rumbles, dark synth ambient...",
+    'lbl_sfx_seconds' => "Duración (segundos)",
+    'lbl_sfx_steps' => "Pasos de calidad (Steps)",
 
     // --- IP Adapter (ipa_) ---
     'ipa_mod_flux' => "Flux / Next-Gen (Estilo + Composición)",

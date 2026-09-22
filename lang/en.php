@@ -362,6 +362,11 @@ return [
 	'mon_tit_ram' => 'RAM (SYSTEM)',
 	'mon_tit_ollama' => 'Ollama (Active Models)',
 	'mon_tit_comfyui' => 'ComfyUI (Rendering)',
+	'mon_title_temp' => "GPU Temperature",
+    'mon_title_uso'  => "GPU Core Usage",
+    'mon_lbl_uso'    => "Usage",
+	'btn_subir_audio_ref'   => "Upload Reference Audio",
+	'ph_audio_ref_text'     => "Type exactly what the reference audio says...",
     
     // ==============================================================================
     // 05. SELECTORES Y DESPLEGABLES (Opciones)
@@ -405,6 +410,7 @@ return [
     'opt_sup_motivo' => "Select reason...",
     'opt_sup_sug' => "✨ Improvement suggestion",
     'opt_txt_locutar' => "Text to Speak (Script)",
+	'ph_tts_speech' => "Type here exactly what you want the voice to say...",
     'sel_all' => "All",
     'sel_chat_per' => "Create Custom Character...",
     'sel_chat_super' => "🤖 AI Assistant (Chat, Vision & Web)",
@@ -947,6 +953,7 @@ return [
     'lbl_audio_ref_text' => "Sample transcription (optional, improves fidelity)",
     'lbl_remove_silence' => "Trim silences",
     'lbl_sfx_prompt' => "Prompt for sound or ambient (preferably in English)",
+	'ph_sfx_prompt' => "Ex: Cinematic heavy rain, thunder rumbles, dark synth ambient...",
     'lbl_sfx_seconds' => "Duration (seconds)",
     'lbl_sfx_steps' => "Quality Steps",
     'lbl_sync_video_vhs' => "Attach to generated video (VHS Combine)",

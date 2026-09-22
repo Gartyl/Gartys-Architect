@@ -362,6 +362,9 @@ return [
 	'mon_tit_ram' => 'RAM (SISTEMA)',
 	'mon_tit_ollama' => 'Ollama (Models Actius)',
 	'mon_tit_comfyui' => 'ComfyUI (Renderització)',
+	'mon_title_temp' => "Temperatura GPU",
+    'mon_title_uso'  => "Ús del nucli GPU",
+    'mon_lbl_uso'    => "Ús",
     
     // ==============================================================================
     // 05. SELECTORES Y DESPLEGABLES (Opciones)
@@ -944,9 +947,13 @@ return [
     'audio_remove_title' => "Treure Àudio",
     'audio_uploading' => "Pujant a ComfyUI...",
     'lbl_audio_ref_file' => "Mostra de veu (WAV/MP3 de 3 a 10 seg.)",
+	'btn_subir_audio_ref'   => "Carregar Àudio de Referència",
     'lbl_audio_ref_text' => "Transcripció de la mostra (opcional, millora la fidelitat)",
     'lbl_remove_silence' => "Retallar silencis",
     'lbl_sfx_prompt' => "Prompt del so o ambient (en anglès preferiblement)",
+	'ph_sfx_prompt' => "Ex: Cinematic heavy rain, thunder rumbles, dark synth ambient...",
+	'ph_tts_speech' => "Escriu aquí exactament el que vols que digui la veu...",
+	'ph_audio_ref_text' => "Escriu exactament el que diu l'àudio de referència...",
     'lbl_sfx_seconds' => "Durada (segons)",
     'lbl_sfx_steps' => "Passos de qualitat (Steps)",
     'lbl_sync_video_vhs' => "Acoblar al vídeo generat (VHS Combine)",
