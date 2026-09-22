@@ -359,6 +359,19 @@ if ($action === 'get_system_stats') {
         curl_close($ch);
     }
     curl_multi_close($mh);
+	
+	// 👇 NUEVO: Consultar temperatura y uso del procesador a NVIDIA 👇
+    $nvidia_stats = shell_exec('nvidia-smi --query-gpu=temperature.gpu,utilization.gpu --format=csv,noheader,nounits 2>nul');
+    if ($nvidia_stats) {
+        $valores = explode(',', trim($nvidia_stats));
+        if (count($valores) >= 2) {
+            $stats['gpu_extra'] = [
+                'temp' => (int) trim($valores[0]),
+                'util' => (int) trim($valores[1])
+            ];
+        }
+    }
+    // 👆 HASTA AQUÍ 👆
 
     echo json_encode($stats);
     exit();
