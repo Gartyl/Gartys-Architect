@@ -22,6 +22,83 @@ let hasMaskStrokes = false;
 window.isErasing = false; 
 
 // ==============================================================================
+// --- NUEVO: WEBSOCKET PARA PREVISUALIZACIÓN EN VIVO (LIVE PREVIEWS) ---
+// ==============================================================================
+window.comfyClientId = 'garty-' + Math.random().toString(36).substring(2, 15);
+window.comfySocket = null;
+window.lastPreviewUrl = null;
+
+window.iniciarWebSocketComfy = function() {
+    // Asumimos que ComfyUI usa el puerto 8188 en la IP de la web
+    const wsHost = window.location.hostname; 
+    const wsUrl = `ws://${wsHost}:8188/ws?clientId=${window.comfyClientId}`;
+    
+    try {
+        window.comfySocket = new WebSocket(wsUrl);
+        
+        window.comfySocket.onopen = () => {
+            console.log(typeof GartyLang !== 'undefined' && GartyLang.log_ws_connected ? GartyLang.log_ws_connected : "🟢 Conectado al WebSocket de ComfyUI para Previews en Vivo.");
+        };
+        
+        window.comfySocket.onmessage = (event) => {
+            if (event.data instanceof Blob) {
+                let previewContainer = document.getElementById('livePreviewContainer');
+                let previewImg = document.getElementById('livePreviewImg');
+                
+                // MAGIA DE RESURRECCIÓN: Si el radar mató la caja (ej: tras la foto 1 de un batch), la reconstruimos al vuelo
+                if (!previewContainer) {
+                    const resDiv = document.getElementById('imageResult');
+                    if (resDiv) {
+                        let rowContainer = resDiv.querySelector('.row.g-3');
+                        if (rowContainer) {
+                            const txtRevelando = (typeof GartyLang !== 'undefined' && GartyLang.gpu_revealing_img) ? GartyLang.gpu_revealing_img : 'Revelando imagen...';
+                            const htmlPreview = `
+                                <div id="livePreviewContainer" class="col-12 col-md-6" style="display:none;">
+                                    <div class="img-container shadow border border-warning rounded p-1" style="position: relative; background: #010409; min-height: 256px; display: flex; justify-content: center; align-items: center;">
+                                        <img id="livePreviewImg" src="" class="result-image w-100 rounded" style="opacity: 0.2; filter: blur(8px); transition: all 0.3s ease; object-fit: contain;">
+                                        <div style="position: absolute; bottom: 15px; left: 15px; z-index: 50;">
+                                            <span class="badge bg-warning text-dark shadow-sm px-3 py-2"><span class="spinner-grow spinner-grow-sm me-2"></span>${txtRevelando}</span>
+                                        </div>
+                                    </div>
+                                </div>`;
+                            
+                            // Inyectamos la caja al final de la fila de resultados actuales
+                            rowContainer.insertAdjacentHTML('beforeend', htmlPreview);
+                            previewContainer = document.getElementById('livePreviewContainer');
+                            previewImg = document.getElementById('livePreviewImg');
+                        }
+                    }
+                }
+                
+                if (previewImg && previewContainer) {
+                    if (window.lastPreviewUrl) URL.revokeObjectURL(window.lastPreviewUrl);
+                    
+                    const imageBlob = event.data.slice(8);
+                    window.lastPreviewUrl = URL.createObjectURL(imageBlob);
+                    
+                    previewImg.src = window.lastPreviewUrl;
+                    
+                    previewContainer.style.display = 'block';
+                    previewImg.style.filter = 'blur(0px)';
+                    previewImg.style.opacity = '1';
+                }
+            }
+        };
+        
+        window.comfySocket.onclose = () => {
+            console.warn(typeof GartyLang !== 'undefined' && GartyLang.log_ws_disconnected ? GartyLang.log_ws_disconnected : "🔴 WebSocket ComfyUI desconectado. Reconectando en 5s...");
+            setTimeout(window.iniciarWebSocketComfy, 5000);
+        };
+    } catch (e) {
+        console.warn(typeof GartyLang !== 'undefined' && GartyLang.log_ws_error ? GartyLang.log_ws_error : "⚠️ No se pudo iniciar el WebSocket de previsualización.");
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.iniciarWebSocketComfy();
+});
+
+// ==============================================================================
 // --- NUEVO: LÓGICA DE LA BANDEJA MULTIENTRADA (OmniGen, etc.) ---
 // ==============================================================================
 window.bandejaArchivos = [];
@@ -2748,6 +2825,43 @@ async function runGpu(mode = 'directo') {
         resDiv.innerHTML = '';
         if (mode === 'directo' && resultsArea && !isModoDirecto) resultsArea.classList.add('d-none'); 
     }
+
+    let pContainer = document.getElementById('livePreviewContainer');
+    const txtRevelando = (typeof GartyLang !== 'undefined' && GartyLang.gpu_revealing_img) ? GartyLang.gpu_revealing_img : 'Revelando imagen...';
+    const pixelTransparente = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+
+    if (!pContainer) {
+        // No existe: La inyectamos limpia
+        const htmlPreview = `
+        <div id="livePreviewContainer" class="col-12 col-md-6" style="display:block;">
+            <div class="img-container shadow border border-warning rounded p-1" style="position: relative; background: #010409; min-height: 256px; display: flex; justify-content: center; align-items: center;">
+                <img id="livePreviewImg" src="${pixelTransparente}" class="result-image w-100 rounded" style="opacity: 0.2; filter: blur(8px); transition: all 0.3s ease; object-fit: contain;">
+                <div style="position: absolute; bottom: 15px; left: 15px; z-index: 50;">
+                    <span class="badge bg-warning text-dark shadow-sm px-3 py-2"><span class="spinner-grow spinner-grow-sm me-2"></span>${txtRevelando}</span>
+                </div>
+            </div>
+        </div>`;
+        
+        let rowContainer = resDiv.querySelector('.row.g-3');
+        if (!rowContainer) {
+            resDiv.innerHTML = '<div class="row g-3"></div>' + resDiv.innerHTML;
+            rowContainer = resDiv.querySelector('.row.g-3');
+        }
+        rowContainer.insertAdjacentHTML('beforeend', htmlPreview);
+    } else {
+        // Sí existe (Tanda manual sin limpiar): La reciclamos y la movemos al final de la galería
+        const pImg = document.getElementById('livePreviewImg');
+        if (pImg) {
+            pContainer.style.display = 'block';
+            pImg.src = pixelTransparente;
+            pImg.style.opacity = '0.2';
+            pImg.style.filter = 'blur(8px)';
+            if (pContainer.parentElement) {
+                pContainer.parentElement.appendChild(pContainer);
+            }
+        }
+    }
+	
     window.ultimoModeloGenerado = currentModelCheck;
     if (typeof startProgressBar === 'function') startProgressBar(20); 
 
@@ -2760,6 +2874,7 @@ async function runGpu(mode = 'directo') {
     fd.append('descripcion_original', ideaInicial || prompts.finalPrompt); 
     fd.append('model_path', currentModelCheck);
     fd.append('async_mode', 'true'); 
+	fd.append('client_id', window.comfyClientId); // <---- ESTA ES LA LÍNEA NUEVA
     if (currentPromptId > 0) fd.append('historial_id', currentPromptId);
     
     fd = appendUIParametersToFormData(fd);
@@ -3057,6 +3172,15 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
                                 targetDiv.innerHTML = '<div class="row g-3"></div>';
                                 rowContainer = targetDiv.querySelector('.row.g-3');
                             }
+							
+							// 👇 NUEVO: Matamos la previsualización borrosa justo antes de que entre la imagen final
+                            const livePrev = targetDiv.querySelector('#livePreviewContainer');
+                            if (livePrev) {
+                                livePrev.style.display = 'none';
+                                livePrev.remove(); // La eliminamos del DOM por completo para que no ocupe espacio
+                            }
+                            // 👆 HASTA AQUÍ 👆
+							
                             rowContainer.insertAdjacentHTML('beforeend', htmlElements);
                         }
                         const gpuArea = document.getElementById('gpuActionArea'); if (gpuArea) gpuArea.classList.remove('d-none');
