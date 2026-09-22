@@ -4115,7 +4115,14 @@ if ($action === 'generar_imagen') {
     $ch = curl_init(COMFY_URL . "/prompt");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 600); // 10 Minutos
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(["prompt" => $workflow]));
+    
+    // Capturamos el pasaporte del WebSocket (con fallback al ID de sesión de PHP por si acaso)
+    $client_id_ws = $_POST['client_id'] ?? session_id();
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+        "prompt" => $workflow, 
+        "client_id" => $client_id_ws
+    ]));
+    
     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
     $res = json_decode(curl_exec($ch), true);
     

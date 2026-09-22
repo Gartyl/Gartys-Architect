@@ -320,7 +320,8 @@ case 'generar_audio':
         }
 
         // Enviar a ComfyUI /prompt via cURL
-        $payload = json_encode(['prompt' => $workflow, 'client_id' => session_id()]);
+        $client_id_ws = $_POST['client_id'] ?? session_id();
+        $payload = json_encode(['prompt' => $workflow, 'client_id' => $client_id_ws]);
         
         $ch = curl_init(rtrim($comfy_server, '/') . '/prompt');
         curl_setopt($ch, CURLOPT_POST, true);
