@@ -9,7 +9,7 @@
             </button>
              
              <!-- BOTÓN DE VRAM -->
-            <button type="button" class="btn btn-sm btn-outline-info border-0 py-1 px-2 fw-bold" style="font-size: 0.75rem; background: rgba(13,202,240,0.1);" onclick="vaciarVramComfy()" title="<?= __('btn_free_vram') ?? 'Forzar vaciado de VRAM' ?>">
+            <button type="button" class="btn btn-sm btn-outline-info border-0 py-1 px-2 fw-bold" style="font-size: 0.75rem; background: rgba(13,202,240,0.1);" onclick="vaciarVramComfy(); setTimeout(actualizarDatosMonitor, 1000);" title="<?= __('btn_free_vram') ?? 'Forzar vaciado de VRAM' ?>">
                 <i class="bi bi-memory"></i> VRAM
             </button>
             
