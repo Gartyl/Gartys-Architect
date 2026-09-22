@@ -128,6 +128,10 @@ return [
 	'msg_clip_skip_info' => "1 = Default (SDXL/Flux). 2 = Recommended for SD1.5 Anime/Illustration.",
 	'tit_ups_denoise' => "Redraw Strength",
 	'adm_lang_all' => "🌍 All languages",
+	'log_ws_connected'    => "🟢 Connected to ComfyUI WebSocket for Live Previews.",
+    'log_ws_disconnected' => "🔴 ComfyUI WebSocket disconnected. Reconnecting in 5s...",
+    'log_ws_error'        => "⚠️ Failed to start preview WebSocket.",
+    'gpu_revealing_img'   => "Revealing image...",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS

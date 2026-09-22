@@ -128,6 +128,10 @@ return [
 	'msg_clip_skip_info' => "1 = Per defecte (SDXL/Flux). 2 = Recomanat per a SD1.5 Anime/Il·lustració.",
 	'tit_ups_denoise' => "Força de Redibuixat",
 	'adm_lang_all' => "🌍 Tots els idiomes",
+	'log_ws_connected'    => "🟢 Connectat al WebSocket de ComfyUI per Previsualitzacions en Viu.",
+    'log_ws_disconnected' => "🔴 WebSocket de ComfyUI desconnectat. Reconnectant en 5s...",
+    'log_ws_error'        => "⚠️ No s'ha pogut iniciar el WebSocket de previsualització.",
+    'gpu_revealing_img'   => "Revelant imatge...",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
