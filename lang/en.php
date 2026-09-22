@@ -136,6 +136,10 @@ return [
     'lbl_current_pass' => "CURRENT PASSWORD",
     'lbl_new_pass' => "NEW PASSWORD",
     'lbl_confirm_pass' => "CONFIRM NEW PASSWORD",
+	'msg_pass_updated' => "Password updated successfully!",
+    'err_db_update' => "There was an error updating the database.",
+    'err_current_pass' => "The current password entered is incorrect.",
+    'err_empty_fields' => "Please fill in all fields.",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS

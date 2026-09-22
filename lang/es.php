@@ -136,7 +136,11 @@ return [
 	'lbl_current_pass' => "CONTRASEÑA ACTUAL",
 	'lbl_new_pass' => "NUEVA CONTRASEÑA",
 	'lbl_confirm_pass' => "CONFIRMAR NUEVA CONTRASEÑA",
-    
+	'msg_pass_updated' => "¡Contraseña actualizada con éxito!",
+    'err_db_update' => "Hubo un error al actualizar la base de datos.",
+    'err_current_pass' => "La contraseña actual introducida no es correcta.",
+    'err_empty_fields' => "Por favor, completa todos los campos.",
+	
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
     // ==============================================================================

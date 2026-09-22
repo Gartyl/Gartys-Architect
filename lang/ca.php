@@ -136,6 +136,10 @@ return [
     'lbl_current_pass' => "CONTRASENYA ACTUAL",
     'lbl_new_pass' => "NOVA CONTRASENYA",
     'lbl_confirm_pass' => "CONFIRMAR NOVA CONTRASENYA",
+	'msg_pass_updated' => "Contrasenya actualitzada amb èxit!",
+    'err_db_update' => "Hi ha hagut un error en actualitzar la base de dades.",
+    'err_current_pass' => "La contrasenya actual introduïda no és correcta.",
+    'err_empty_fields' => "Si us plau, omple tots els camps.",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
