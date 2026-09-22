@@ -1309,7 +1309,7 @@ async function actualizarDatosMonitor() {
         const activeComfySys = data.comfy_sys || window.lastSysStats.comfy_sys;
         const opacityStyle = (!data.comfy_sys) ? 'opacity: 0.6;' : 'opacity: 1;';
 
-        // --- 1A. RENDERIZAR HARDWARE (VRAM) ---
+        // --- 1A. RENDERIZAR HARDWARE (VRAM, TEMP Y USO) ---
         const hwBox = document.getElementById('monHardwareData');
         if (activeComfySys && activeComfySys.devices && activeComfySys.devices.length > 0) {
             const gpu = activeComfySys.devices[0];
@@ -1322,20 +1322,48 @@ async function actualizarDatosMonitor() {
             if (percentUsed > 75) colorClass = 'bg-warning';
             if (percentUsed > 90) colorClass = 'bg-danger';
 
+            // NOVO: Limpar a string gigante da placa gráfica
+            let cleanGpuName = gpu.name || lblGpu;
+            cleanGpuName = cleanGpuName.replace(/cuda:\d+\s*/gi, '')         // Remove "cuda:0 "
+                                       .replace(/NVIDIA GeForce\s*/gi, '')   // Remove "NVIDIA GeForce "
+                                       .replace(/\s*:\s*cudaMallocAsync.*/gi, ''); // Remove " : cudaMallocAsync"
+
+            // Ler os dados extra injetados pelo PHP (nvidia-smi)
+            let badgesExtra = '';
+            if (data.gpu_extra) {
+                const temp = data.gpu_extra.temp;
+                const util = data.gpu_extra.util;
+                
+                // Semáforo de temperatura
+                let colorTemp = 'text-success border-success';
+                if (temp >= 70) colorTemp = 'text-warning border-warning';
+                if (temp >= 80) colorTemp = 'text-danger border-danger';
+
+                badgesExtra = `
+                <div class="d-flex gap-2 mt-2">
+                    <span class="badge bg-dark border ${colorTemp} shadow-sm" title="${GartyLang.mon_title_temp || 'Temperatura GPU'}"><i class="bi bi-thermometer-half"></i> ${temp}°C</span>
+                    <span class="badge bg-dark border border-info text-info shadow-sm" title="${GartyLang.mon_title_uso || 'Uso del núcleo GPU'}"><i class="bi bi-activity"></i> ${util}% ${GartyLang.mon_lbl_uso || 'Uso'}</span>
+                </div>
+            `;
+            }
+
             hwBox.innerHTML = `
                 <div style="${opacityStyle} transition: opacity 0.3s;">
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="text-light">${gpu.name || lblGpu}</span>
-                        <span class="fw-bold text-white">${vramUsed} GB / ${vramTotal} GB</span>
+                    <div class="d-flex justify-content-between mb-1 align-items-center">
+                        <span class="text-light fw-bold text-truncate me-2" style="max-width: 55%;" title="${gpu.name}">${cleanGpuName}</span>
+                        <span class="fw-bold text-white small" style="white-space: nowrap;">${vramUsed} GB / ${vramTotal} GB</span>
                     </div>
-                    <div class="progress" style="height: 10px; background-color: rgba(255,255,255,0.1);">
+                    <div class="progress shadow-sm" style="height: 12px; background-color: rgba(255,255,255,0.1);">
                         <div class="progress-bar progress-bar-striped progress-bar-animated ${colorClass}" style="width: ${percentUsed}%"></div>
                     </div>
-                    <div class="text-end mt-1 small text-success">${vramFree} ${lblFree}</div>
+                    <div class="d-flex justify-content-between align-items-center mt-1">
+                        ${badgesExtra}
+                        <span class="small text-success fw-bold">${vramFree} ${lblFree}</span>
+                    </div>
                 </div>
             `;
         } else {
-            hwBox.innerHTML = `<div class="text-center text-success" style="opacity: 0.7;">${lblWaitGpu}</div>`;
+            hwBox.innerHTML = `<div class="text-center text-success" style="opacity: 0.7;"><div class="spinner-border spinner-border-sm me-2"></div>${lblWaitGpu}</div>`;
         }
 
         // --- 1B. RENDERIZAR HARDWARE (RAM SISTEMA) ---
