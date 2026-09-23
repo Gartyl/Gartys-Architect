@@ -692,7 +692,8 @@ if ($action === 'generar_imagen') {
     // 1. Separamos Arquitecturas
     $is_flux = (strpos($model_lower, 'flux') !== false);
     $is_sd35 = (strpos($model_lower, 'sd35') !== false || strpos($model_lower, 'sd3.5') !== false);
-    $is_qwen = (strpos($model_lower, 'qwen') !== false);
+    $is_qwen21 = (strpos($model_lower, 'qwen') !== false && (strpos($model_lower, '2.1') !== false || strpos($model_lower, '21') !== false));
+    $is_qwen = (strpos($model_lower, 'qwen') !== false || $is_qwen21);
     $is_krea2 = (strpos($model_lower, 'krea2') !== false || strpos($model_lower, 'krea-2') !== false);
     $is_gguf = (strpos($model_lower, '.gguf') !== false);
     $is_chroma = (strpos($model_lower, 'chroma') !== false && strpos($model_lower, 'zavy') === false);
@@ -718,6 +719,8 @@ if ($action === 'generar_imagen') {
         $vae_name = "flux_vae.safetensors";
     } elseif ($is_sd35) {
         $vae_name = "sd35_vae.safetensors";
+    } elseif ($is_qwen21) {
+        $vae_name = "qwen_image_2.1_vae_bf16.safetensors";
     } elseif ($is_qwen || $is_krea2) {
         $vae_name = "qwen_image_vae.safetensors";
     } elseif ($is_chroma) {
@@ -742,9 +745,14 @@ if ($action === 'generar_imagen') {
         $cfg = 1.5; 
         $sampler = "euler"; 
         $scheduler = "simple";
+    } elseif ($is_qwen21) {
+        $steps = 25; 
+        $cfg = 1.0; 
+        $sampler = "euler"; 
+        $scheduler = "simple";
     } elseif ($is_qwen) {
         $steps = 20; 
-        $cfg = 1.0; 
+        $cfg = 1.0;
         $sampler = "euler"; 
         $scheduler = "simple";
     } elseif ($is_krea2) {
@@ -2672,8 +2680,31 @@ if ($action === 'generar_imagen') {
         } else {
             $workflow["5"] = [ "inputs" => ["width" => $width, "height" => $height, "batch_size" => $batch_size], "class_type" => "EmptyLatentImage" ];
         }
-        $workflow["6"] = [ "inputs" => ["text" => $posPrompt, "clip" => [$base_clip_node, $base_clip_index]], "class_type" => "CLIPTextEncode" ];
-        $workflow["7"] = [ "inputs" => ["text" => $neg_prompt, "clip" => [$base_clip_node, $base_clip_index]], "class_type" => "CLIPTextEncode" ];
+        
+        // 🌟 INYECCIÓN QWEN 2.1 (Reemplaza los CLIPTextEncode estándar)
+        if ($is_qwen21) {
+            $workflow["6"] = [
+                "inputs" => [
+                    "prompt" => $posPrompt,
+                    "negative_prompt" => $neg_prompt,
+                    "resolution" => 1024,
+                    "clip" => [$base_clip_node, $base_clip_index]
+                ],
+                "class_type" => "TextEncodeQwenImage21"
+            ];
+            
+            // Nodo fantasma para que PHP no rompa los cables si luego hay edición
+            $workflow["7"] = [ 
+                "inputs" => ["text" => "", "clip" => [$base_clip_node, $base_clip_index]], 
+                "class_type" => "CLIPTextEncode" 
+            ];
+            
+            $current_positive = ["6", 0];
+            $current_negative = ["6", 1];
+        } else {
+            $workflow["6"] = [ "inputs" => ["text" => $posPrompt, "clip" => [$base_clip_node, $base_clip_index]], "class_type" => "CLIPTextEncode" ];
+            $workflow["7"] = [ "inputs" => ["text" => $neg_prompt, "clip" => [$base_clip_node, $base_clip_index]], "class_type" => "CLIPTextEncode" ];
+        }
     
     // --- CARGADOR DE MODELO (ARCHITECTURE AWARE) ---
     $ruta_minusculas = strtolower($model_path);
@@ -2717,6 +2748,8 @@ if ($action === 'generar_imagen') {
 		// 2. TEXT ENCODERS (Incluyendo FP8)
         if ($is_sd35) {
             $workflow["90"] = [ "inputs" => ["clip_name1" => "clip_l.safetensors", "clip_name2" => "clip_g.safetensors", "clip_name3" => "t5xxl_fp16.safetensors"], "class_type" => "TripleCLIPLoader" ];
+        } elseif ($is_qwen21) {
+            $workflow["90"] = [ "inputs" => ["clip_name" => "qwen3vl_8b_int8_convrot.safetensors", "type" => "qwen_image", "device" => "default"], "class_type" => "CLIPLoader" ];
         } elseif ($is_qwen) {
             $workflow["90"] = [ "inputs" => ["clip_name" => "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type" => "qwen_image"], "class_type" => "CLIPLoader" ];
         } elseif ($is_krea2) {
@@ -3269,7 +3302,7 @@ if ($action === 'generar_imagen') {
 	// ==============================================================================
     // 🌟 INYECCIÓN QWEN EDIT (Reescritura de CLIPTextEncode por el VLM Integrado)
     // ==============================================================================
-    if ($is_qwen && !empty($init_image_base64)) {
+    if ($is_qwen && !$is_qwen21 && !empty($init_image_base64)) {
         // Buscamos cuál es el nodo final de la imagen (escalada o expandida)
         $qwen_image_source = ["11", 0]; 
         if ($is_outpainting && isset($workflow["111"])) {
@@ -3297,6 +3330,10 @@ if ($action === 'generar_imagen') {
             ],
             "class_type" => "TextEncodeQwenImageEdit"
         ];
+		
+		// Restauramos los punteros al estándar para la edición
+        $current_positive = ["6", 0];
+        $current_negative = ["7", 0];
         
         // Qwen Edit reconstruye el latente condicionado por la imagen en el TextEncode.
         // Evaluamos si el panel de edición avanzada está activo
@@ -3488,8 +3525,8 @@ if ($action === 'generar_imagen') {
     }
     // =========================================================================
 
-   // --- WRAPPERS OBLIGATORIOS PARA QWEN EDIT ---
-    if ($is_qwen && !empty($init_image_base64)) {
+    // --- WRAPPERS OBLIGATORIOS PARA QWEN EDIT ---
+    if ($is_qwen && !$is_qwen21 && !empty($init_image_base64)) {
         $workflow["850_qwen_aura"] = [
             "inputs" => [
                 "shift" => 3.0,
