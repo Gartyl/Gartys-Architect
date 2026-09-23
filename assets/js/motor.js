@@ -3078,8 +3078,9 @@ window.restaurarBotonesGpu = function() {
         updateUIForSelector(selectorEl.value);
     }
 
-    // 👇 NUEVO: Forzamos que se aplique la estética del Modo Directo si está encendido
-    if (typeof toggleModoIngreso === 'function') {
+    // 👇 NUEVO: Forzamos que se aplique la estética del Modo Directo SOLO si está encendido
+    const isDirectToggleActive = document.getElementById('modoDirectoToggle')?.checked;
+    if (isDirectToggleActive && typeof toggleModoIngreso === 'function') {
         toggleModoIngreso();
     }
     // 👆 HASTA AQUÍ 👆
