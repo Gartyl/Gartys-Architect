@@ -48,6 +48,12 @@ body {
     font-size: 0.9rem; 
 }
 
+/* Arreglo hover menú usuario - Mantiene el tema oscuro */
+.dropdown-menu .dropdown-item:hover,
+.dropdown-menu .dropdown-item:focus {
+    background-color: #30363d !important;
+}
+														   
 /* ======================================================= */
 /* PANEL PRO - ACORDEÓN Y CHIVATO ANIMADO                  */
 /* ======================================================= */
