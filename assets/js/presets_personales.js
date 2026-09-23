@@ -74,6 +74,7 @@ async function savePersonalPreset() {
 
     // --- AÑADIMOS LA CATEGORÍA A LA FOTOGRAFÍA ---
     const config = {
+        descripcion: document.getElementById('descripcion') ? document.getElementById('descripcion').value.trim() : '', // <-- AÑADIDO: Capturamos la idea inicial
         categoria: document.getElementById('selector') ? document.getElementById('selector').value : '',
         prompt: posPrompt,
         prompt_negativo: negPrompt,
@@ -150,6 +151,14 @@ function loadPersonalPreset() {
     setTimeout(() => {
         const posContentEl = document.getElementById('posContent');
         const negContentEl = document.getElementById('negContent');
+        const descInput = document.getElementById('descripcion'); // <-- AÑADIDO: Localizamos la caja de la Idea Inicial
+        
+        // <-- AÑADIDO: Volcamos la descripción en la caja si el preset la guardó
+        if (descInput && config.descripcion) {
+            descInput.value = config.descripcion;
+        } else if (descInput) {
+            descInput.value = ""; // Vaciamos si el preset no tenía descripción
+        }
         
         if (posContentEl && config.prompt) {
             posContentEl.innerText = config.prompt;
