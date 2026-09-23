@@ -17,7 +17,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         // Formateamos para mantener la estructura JSON original
         foreach ($resultados as $row) {
             $presets_data[$row['nombre']] = [
-                'categoria' => $row['categoria'] ?? '', // <-- AÑADIDO
+                'descripcion' => $row['descripcion'] ?? '', // <-- AÑADIDO (DESCRIPCION)
+                'categoria' => $row['categoria'] ?? '', 
                 'prompt' => $row['prompt'],
                 'prompt_negativo' => $row['prompt_negativo'],
                 'modelo' => $row['modelo_id'],
@@ -57,7 +58,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($datos['action'])) {
             $nombre = $datos['name'];
             $config = $datos['config'];
             
-            $categoria = $config['categoria'] ?? ''; // <-- AÑADIDO
+            $descripcion = $config['descripcion'] ?? ''; // <-- AÑADIDO (DESCRIPCION)
+            $categoria = $config['categoria'] ?? ''; 
             $prompt = $config['prompt'] ?? '';
             $prompt_negativo = $config['prompt_negativo'] ?? '';
             $modelo = !empty($config['modelo']) ? $config['modelo'] : null;
@@ -78,23 +80,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($datos['action'])) {
             $existe = $check->fetchColumn();
 
             if ($existe) {
+                // <-- AÑADIDA LA DESCRIPCIÓN AL UPDATE
                 $sql = "UPDATE presets_personales SET 
-                        categoria = :categoria, prompt = :prompt, prompt_negativo = :prompt_negativo, modelo_id = :modelo, 
+                        descripcion = :descripcion, categoria = :categoria, prompt = :prompt, prompt_negativo = :prompt_negativo, modelo_id = :modelo, 
                         width = :width, height = :height, formato = :formato, steps = :steps, 
                         cfg = :cfg, sampler = :sampler, scheduler = :scheduler, seed = :seed, 
                         flow_shift = :flow_shift, loras_json = :loras_json 
                         WHERE nombre = :nombre";
             } else {
+                // <-- AÑADIDA LA DESCRIPCIÓN AL INSERT
                 $sql = "INSERT INTO presets_personales 
-                        (nombre, categoria, prompt, prompt_negativo, modelo_id, width, height, formato, steps, cfg, sampler, scheduler, seed, flow_shift, loras_json) 
+                        (nombre, descripcion, categoria, prompt, prompt_negativo, modelo_id, width, height, formato, steps, cfg, sampler, scheduler, seed, flow_shift, loras_json) 
                         VALUES 
-                        (:nombre, :categoria, :prompt, :prompt_negativo, :modelo, :width, :height, :formato, :steps, :cfg, :sampler, :scheduler, :seed, :flow_shift, :loras_json)";
+                        (:nombre, :descripcion, :categoria, :prompt, :prompt_negativo, :modelo, :width, :height, :formato, :steps, :cfg, :sampler, :scheduler, :seed, :flow_shift, :loras_json)";
             }
 
             $stmt = $pdo->prepare($sql);
             $stmt->execute([
                 ':nombre' => $nombre,
-                ':categoria' => $categoria, // <-- AÑADIDO
+                ':descripcion' => $descripcion, // <-- AÑADIDO (DESCRIPCION)
+                ':categoria' => $categoria, 
                 ':prompt' => $prompt,
                 ':prompt_negativo' => $prompt_negativo,
                 ':modelo' => $modelo,
