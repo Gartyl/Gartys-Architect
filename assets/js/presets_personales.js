@@ -151,22 +151,28 @@ function loadPersonalPreset() {
     setTimeout(() => {
         const posContentEl = document.getElementById('posContent');
         const negContentEl = document.getElementById('negContent');
-        const descInput = document.getElementById('descripcion'); // <-- AÑADIDO: Localizamos la caja de la Idea Inicial
+        const descInput = document.getElementById('descripcion'); 
         
-        // <-- AÑADIDO: Volcamos la descripción en la caja si el preset la guardó
+        // Detectamos si el usuario tiene el Modo Directo encendido
+        const isDirectMode = document.getElementById('modoDirectoToggle') && document.getElementById('modoDirectoToggle').checked;
+        
+        // Volcamos la descripción en la caja si el preset la guardó
         if (descInput && config.descripcion) {
             descInput.value = config.descripcion;
         } else if (descInput) {
-            descInput.value = ""; // Vaciamos si el preset no tenía descripción
+            descInput.value = ""; 
         }
-        
+
         if (posContentEl && config.prompt) {
             posContentEl.innerText = config.prompt;
             document.getElementById('promptArea').classList.remove('d-none');
             document.getElementById('results').classList.remove('d-none');
             
             const arqActArea = document.getElementById('arquitectoActionArea');
-            if (arqActArea) arqActArea.classList.remove('d-none');
+            // ESCUDO: Solo mostramos el botón gigante si NO estamos en Modo Directo
+            if (arqActArea && !isDirectMode) {
+                arqActArea.classList.remove('d-none');
+            }
         }
         
         if (negContentEl && config.prompt_negativo) {
