@@ -686,12 +686,12 @@ function editarModelo(mDataSeguro) {
     if(document.getElementById('modNivel')) document.getElementById('modNivel').value = m.nivel_acceso;
     if(document.getElementById('modUnbundled')) document.getElementById('modUnbundled').checked = (m.es_unbundled == 1);
     
-    // Rellenamos los nuevos parámetros
-    if(document.getElementById('modSteps')) document.getElementById('modSteps').value = m.default_steps || '';
-    if(document.getElementById('modCfg')) document.getElementById('modCfg').value = m.default_cfg || '';
+    // Rellenamos los nuevos parámetros (usando ?? para que respete el 0 numérico)
+    if(document.getElementById('modSteps')) document.getElementById('modSteps').value = m.default_steps ?? '';
+    if(document.getElementById('modCfg')) document.getElementById('modCfg').value = m.default_cfg ?? '';
     if(document.getElementById('modSampler')) document.getElementById('modSampler').value = m.default_sampler || '';
     if(document.getElementById('modScheduler')) document.getElementById('modScheduler').value = m.default_scheduler || '';
-    if(document.getElementById('modDenoise')) document.getElementById('modDenoise').value = m.default_denoise || '';
+    if(document.getElementById('modDenoise')) document.getElementById('modDenoise').value = m.default_denoise ?? '';
 	if(document.getElementById('modKeepAlive')) document.getElementById('modKeepAlive').value = m.keep_alive || '';
 	if(document.getElementById('modDefaultNegative')) document.getElementById('modDefaultNegative').value = m.default_negative || '';
     
