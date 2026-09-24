@@ -230,8 +230,8 @@ if ($action === 'save_modelo_bd') {
         $es_unbundled = isset($_POST['es_unbundled']) ? intval($_POST['es_unbundled']) : 0;
         
         // Recogemos los nuevos parámetros o aplicamos los de seguridad por defecto
-        $d_steps = !empty($_POST['default_steps']) ? intval($_POST['default_steps']) : 30;
-        $d_cfg = !empty($_POST['default_cfg']) ? floatval($_POST['default_cfg']) : 5.0;
+        $d_steps = (isset($_POST['default_steps']) && is_numeric($_POST['default_steps'])) ? intval($_POST['default_steps']) : 30;
+        $d_cfg = (isset($_POST['default_cfg']) && is_numeric($_POST['default_cfg'])) ? floatval($_POST['default_cfg']) : 5.0;
         $d_sampler = !empty($_POST['default_sampler']) ? $_POST['default_sampler'] : 'euler_ancestral';
         $d_scheduler = !empty($_POST['default_scheduler']) ? $_POST['default_scheduler'] : 'beta';
         // 👇 NUEVO: Capturar el Denoise y Keep Alive
@@ -271,8 +271,8 @@ if ($action === 'update_modelo_bd') {
         $es_unbundled = isset($_POST['es_unbundled']) ? intval($_POST['es_unbundled']) : 0;
         
         // Parámetros opcionales
-        $d_steps = !empty($_POST['default_steps']) ? intval($_POST['default_steps']) : null;
-        $d_cfg = !empty($_POST['default_cfg']) ? floatval($_POST['default_cfg']) : null;
+        $d_steps = (isset($_POST['default_steps']) && is_numeric($_POST['default_steps'])) ? intval($_POST['default_steps']) : null;
+        $d_cfg = (isset($_POST['default_cfg']) && is_numeric($_POST['default_cfg'])) ? floatval($_POST['default_cfg']) : null;
         $d_sampler = !empty($_POST['default_sampler']) ? $_POST['default_sampler'] : null;
         $d_scheduler = !empty($_POST['default_scheduler']) ? $_POST['default_scheduler'] : null;
         // 👇 NUEVO: Capturar el Denoise y Keep Alive

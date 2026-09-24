@@ -806,7 +806,8 @@ if ($action === 'generar_imagen') {
             if (!empty($ajustes_bd['default_steps']) && intval($ajustes_bd['default_steps']) > 0) {
                 $steps = intval($ajustes_bd['default_steps']);
             }
-            if (!empty($ajustes_bd['default_cfg']) && floatval($ajustes_bd['default_cfg']) > 0) {
+            // 👇 SOLUCIÓN: Cambiado a is_numeric para aceptar el 0 de la BBDD
+            if (isset($ajustes_bd['default_cfg']) && is_numeric($ajustes_bd['default_cfg'])) {
                 $cfg = floatval($ajustes_bd['default_cfg']);
             }
             if (!empty($ajustes_bd['default_sampler'])) {
@@ -821,7 +822,8 @@ if ($action === 'generar_imagen') {
         if (isset($_POST['steps']) && intval($_POST['steps']) > 0) {
             $steps = intval($_POST['steps']);
         }
-        if (isset($_POST['cfg']) && floatval($_POST['cfg']) > 0) {
+        // 👇 SOLUCIÓN: Cambiado a is_numeric para aceptar el 0 de los deslizadores web
+        if (isset($_POST['cfg']) && is_numeric($_POST['cfg'])) {
             $cfg = floatval($_POST['cfg']);
         }
         if (!empty($_POST['sampler'])) {
