@@ -112,6 +112,17 @@ window.iniciarWebSocketComfy = function() {
                     } else if (msg.type === 'execution_error') {
                         const pContainer = document.getElementById('livePreviewContainer');
                         if (pContainer) pContainer.remove();
+                        
+                        // Si hay un error de ejecución en la IA, lanzamos la recolección 
+                        // para que PHP lo capture y lo muestre en pantalla bonita
+                        if (msg.data && msg.data.prompt_id && window.activeRadars && window.activeRadars[msg.data.prompt_id]) {
+                            window.recolectarImagenGpu(msg.data.prompt_id);
+                        }
+                    } else if (msg.type === 'executing' && msg.data.node === null) {
+                        // 🌟 ¡EL CHIVATAZO PUSH DEL WEBSOCKET! ComfyUI ha terminado
+                        if (msg.data && msg.data.prompt_id && window.activeRadars && window.activeRadars[msg.data.prompt_id]) {
+                            window.recolectarImagenGpu(msg.data.prompt_id);
+                        }
                     }
                 } catch(e) {}
             }
@@ -3106,11 +3117,7 @@ window.detenerBucleInfinito = function() {
 
 // --- PURGAR TAREA ATASCADA O COLA (En seco - Botón pequeño / Cancelar) ---
 window.forzarCancelacionTarea = function() {
-    if (window.activeRadars) {
-        Object.values(window.activeRadars).forEach(intervalId => clearInterval(intervalId));
-        window.activeRadars = {};
-    }
-    if (window.currentRadarInterval) clearInterval(window.currentRadarInterval);
+    window.activeRadars = {}; // Limpiamos el objeto de tareas activas
     if (typeof stopProgressBar === 'function') stopProgressBar();
     localStorage.removeItem('garty_tarea_pendiente'); 
     
@@ -3176,187 +3183,199 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
     const pText = document.getElementById('progressText');
     if(pText) pText.innerHTML = `<span style="color: #0dcaf0 !important; font-weight: bold;">${GartyLang.radar_msg_rendering} (${promptId})</span>`;
 
-    let intentosRadar = 0; const maxIntentos = 1500; 
-    
     window.activeRadars = window.activeRadars || {};
-    if (window.activeRadars[promptId]) clearInterval(window.activeRadars[promptId]);
-    if (window.currentRadarInterval) clearInterval(window.currentRadarInterval);
 
-    window.activeRadars[promptId] = setInterval(async () => {
-        intentosRadar++;
-        if (intentosRadar > maxIntentos || !window.activeRadars[promptId]) {
-            if (window.activeRadars[promptId]) { clearInterval(window.activeRadars[promptId]); delete window.activeRadars[promptId]; }
+    // 🌟 NUEVO: Solo guardamos los datos de la tarea en memoria. CERO bucles setInterval.
+    window.activeRadars[promptId] = {
+        targetDiv: targetDiv,
+        btnElement: btnElement,
+        dbId: dbId,
+        originalCategory: originalCategory,
+        intentosRadar: 0
+    };
+    
+    // El WebSocket de ComfyUI se encargará de avisarnos cuando termine
+    // y llamará automáticamente a window.recolectarImagenGpu(promptId).
+}
+
+// 🌟 NUEVO: Función que se ejecuta UNA SOLA VEZ cuando el WebSocket avisa
+window.recolectarImagenGpu = async function(promptId) {
+    const tarea = window.activeRadars[promptId];
+    if (!tarea) return; // Si no existe, ya fue cancelada o procesada
+
+    let fd = new FormData(); 
+    fd.append('action', 'check_ticket'); 
+    fd.append('prompt_id', promptId); 
+    fd.append('historial_id', tarea.dbId || 0);
+    const formatInput = document.getElementById('imageFormatInput');
+    if (formatInput) fd.append('image_format', formatInput.value);
+
+    try {
+        let res = await fetch('procesar.php', { method: 'POST', body: fd }); 
+        let data = await res.json();
+        
+        if (data.error) {
+            delete window.activeRadars[promptId];
             if (Object.keys(window.activeRadars).length === 0) {
                 if (typeof stopProgressBar === 'function') stopProgressBar();
                 localStorage.removeItem('garty_tarea_pendiente');
-                if (btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
-                    btnElement.innerHTML = `<i class="bi bi-clock-history"></i> ${GartyLang.radar_btn_timeout}`; btnElement.classList.replace('btn-primary', 'btn-danger');
-                    setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.classList.replace('btn-danger', 'btn-primary'); btnElement.disabled = false; }, 4000);
+                if (tarea.btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
+                    tarea.btnElement.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${GartyLang.radar_btn_gpu_fail}`; 
+                    tarea.btnElement.classList.replace('btn-primary', 'btn-danger');
+                    setTimeout(() => { tarea.btnElement.innerText = GartyLang.btn_generar; tarea.btnElement.classList.replace('btn-danger', 'btn-primary'); tarea.btnElement.disabled = false; }, 4000);
                 }
             }
-            SwalDark.fire({ icon: 'warning', title: GartyLang.swal_radar_stuck_title, text: GartyLang.swal_radar_stuck_text, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${GartyLang.btn_entendido}` });
-            return;
+            SwalDark.fire({ toast: false, position: 'center', timer: undefined, showConfirmButton: true, icon: 'error', title: GartyLang.swal_radar_gpu_err_title, html: data.error, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${GartyLang.btn_entendido}` });
+            return; 
         }
 
-        let fd = new FormData(); fd.append('action', 'check_ticket'); fd.append('prompt_id', promptId); fd.append('historial_id', dbId || 0);
-        const formatInput = document.getElementById('imageFormatInput');
-        if (formatInput) fd.append('image_format', formatInput.value);
-
-        try {
-            let res = await fetch('procesar.php', { method: 'POST', body: fd }); let data = await res.json();
-            if (data.error) {
-                if (window.activeRadars[promptId]) { clearInterval(window.activeRadars[promptId]); delete window.activeRadars[promptId]; }
-                if (Object.keys(window.activeRadars).length === 0) {
-                    if (typeof stopProgressBar === 'function') stopProgressBar();
-                    localStorage.removeItem('garty_tarea_pendiente');
-                    if (btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
-                        btnElement.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${GartyLang.radar_btn_gpu_fail}`; btnElement.classList.replace('btn-primary', 'btn-danger');
-                        setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.classList.replace('btn-danger', 'btn-primary'); btnElement.disabled = false; }, 4000);
-                    }
-                }
-                SwalDark.fire({ toast: false, position: 'center', timer: undefined, showConfirmButton: true, icon: 'error', title: GartyLang.swal_radar_gpu_err_title, html: data.error, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${GartyLang.btn_entendido}` });
-                return; 
+        if (data.status === 'completed') {
+            delete window.activeRadars[promptId]; // Limpiamos la tarea completada
+            
+            // DISPARADORES DE CADENA BATCH
+            if (window.bucleInfinitoActivo && typeof window.dispararTareaInfinita === 'function') {
+                window.dispararTareaInfinita();
+            } else if (window.loteBatchActivo && typeof window.siguienteTareaBatch === 'function') {
+                setTimeout(window.siguienteTareaBatch, 1500); 
             }
 
-            if (data.status === 'completed') {
-                if (window.activeRadars[promptId]) { clearInterval(window.activeRadars[promptId]); delete window.activeRadars[promptId]; }
+            const salidas = data.images || data.audios || data.files || [];
+            if (salidas.length > 0) {
+                const currentCategory = document.getElementById('selector').value; let htmlElements = '';
+                salidas.forEach(img => {
+                    const isChatMode = (tarea.originalCategory === '[CHAT]');
+                    htmlElements += construirTarjetaImagen(img, tarea.dbId, isChatMode, false);
+                });
+
+                if (currentCategory === tarea.originalCategory || tarea.originalCategory === '[AUDIO]') {
+                    if (tarea.targetDiv) {
+                        let rowContainer = tarea.targetDiv.querySelector('.row.g-3');
+                        if (!rowContainer) {
+                            tarea.targetDiv.innerHTML = '<div class="row g-3"></div>';
+                            rowContainer = tarea.targetDiv.querySelector('.row.g-3');
+                        }
+                        
+                        const livePrev = tarea.targetDiv.querySelector('#livePreviewContainer');
+                        if (livePrev) {
+                            livePrev.style.display = 'none';
+                            livePrev.remove(); 
+                        }
+                        
+                        rowContainer.insertAdjacentHTML('beforeend', htmlElements);
+                    }
+                    const gpuArea = document.getElementById('gpuActionArea'); if (gpuArea) gpuArea.classList.remove('d-none');
+                } else {
+                    let asyncGallery = document.getElementById('asyncGallery');
+                    if (!asyncGallery) {
+                        asyncGallery = document.createElement('div'); asyncGallery.id = 'asyncGallery';
+                        const cardBody = document.querySelector('.card-body'); if (cardBody) cardBody.prepend(asyncGallery);
+                    }
+                    let galleryHtml = `
+                    <div class="alert alert-info border-info shadow-sm p-3 mb-4" style="background-color: #010409;">
+                        <div class="d-flex justify-content-between align-items-center mb-3 border-bottom border-info pb-2">
+                            <strong class="text-info"><i class="bi bi-stars"></i> ${GartyLang.radar_async_done}${promptId})</strong>
+                            <button type="button" class="btn-close btn-close-white" onclick="this.parentElement.parentElement.remove()"></button>
+                        </div>
+                        <div class="row g-3">${htmlElements}</div>
+                    </div>`;
+                    asyncGallery.innerHTML = galleryHtml + asyncGallery.innerHTML;
+                }
                 
-                // DISPARADORES DE CADENA
-                if (window.bucleInfinitoActivo && typeof window.dispararTareaInfinita === 'function') {
-                    window.dispararTareaInfinita();
-                } else if (window.loteBatchActivo && typeof window.siguienteTareaBatch === 'function') {
-                    // Solo disparamos si queda lote por delante
-                    setTimeout(window.siguienteTareaBatch, 1500); 
+                if (document.hidden) {
+                    if (!window.loteBatchActivo && typeof tocarCampana === 'function') tocarCampana();
+                    if (!window.loteBatchActivo && typeof avisarAlSistema === 'function') avisarAlSistema(GartyLang.notif_gpu_free_title || "¡GPU Liberada!", GartyLang.notif_gpu_free_text || "Tu tarea ha terminado.", salidas[0]);
                 }
 
-                const salidas = data.images || data.audios || data.files || [];
-                if (salidas.length > 0) {
-                    const currentCategory = document.getElementById('selector').value; let htmlElements = '';
-                    salidas.forEach(img => {
-                        const isChatMode = (originalCategory === '[CHAT]');
-                        htmlElements += construirTarjetaImagen(img, dbId, isChatMode, false);
-                    });
+                let toastContainer = document.getElementById('gpuToastContainer');
+                if (!toastContainer) {
+                    toastContainer = document.createElement('div'); toastContainer.id = 'gpuToastContainer';
+                    toastContainer.style.cssText = 'position: fixed; top: 80px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px; pointer-events: none;';
+                    document.body.appendChild(toastContainer);
+                }
 
-                    if (currentCategory === originalCategory || originalCategory === '[AUDIO]') {
-                        if (targetDiv) {
-                            let rowContainer = targetDiv.querySelector('.row.g-3');
-                            if (!rowContainer) {
-                                targetDiv.innerHTML = '<div class="row g-3"></div>';
-                                rowContainer = targetDiv.querySelector('.row.g-3');
-                            }
-							
-							// 👇 NUEVO: Matamos la previsualización borrosa justo antes de que entre la imagen final
-                            const livePrev = targetDiv.querySelector('#livePreviewContainer');
-                            if (livePrev) {
-                                livePrev.style.display = 'none';
-                                livePrev.remove(); // La eliminamos del DOM por completo para que no ocupe espacio
-                            }
-                            // 👆 HASTA AQUÍ 👆
-							
-                            rowContainer.insertAdjacentHTML('beforeend', htmlElements);
-                        }
-                        const gpuArea = document.getElementById('gpuActionArea'); if (gpuArea) gpuArea.classList.remove('d-none');
-                    } else {
-                        let asyncGallery = document.getElementById('asyncGallery');
-                        if (!asyncGallery) {
-                            asyncGallery = document.createElement('div'); asyncGallery.id = 'asyncGallery';
-                            const cardBody = document.querySelector('.card-body'); if (cardBody) cardBody.prepend(asyncGallery);
-                        }
-                        let galleryHtml = `
-                        <div class="alert alert-info border-info shadow-sm p-3 mb-4" style="background-color: #010409;">
-                            <div class="d-flex justify-content-between align-items-center mb-3 border-bottom border-info pb-2">
-                                <strong class="text-info"><i class="bi bi-stars"></i> ${GartyLang.radar_async_done}${promptId})</strong>
-                                <button type="button" class="btn-close btn-close-white" onclick="this.parentElement.parentElement.remove()"></button>
-                            </div>
-                            <div class="row g-3">${htmlElements}</div>
-                        </div>`;
-                        asyncGallery.innerHTML = galleryHtml + asyncGallery.innerHTML;
+                let imgDataToast = salidas[0]; let toastMediaHtml = '';
+                if (typeof imgDataToast === 'object' && imgDataToast !== null) {
+                    imgDataToast = imgDataToast.imagen_path || imgDataToast.filename || JSON.stringify(imgDataToast);
+                }
+                
+                if (typeof imgDataToast === 'string' && imgDataToast.length < 500 && imgDataToast.includes('.')) {
+                    let lowerPath = imgDataToast.toLowerCase();
+                    if (lowerPath.endsWith('.mp4') || lowerPath.endsWith('.webm') || lowerPath.endsWith('.mov')) {
+                        toastMediaHtml = `<video src="galeria/${imgDataToast}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #000;" muted autoplay loop playsinline></video>`;
+                    } else if (lowerPath.endsWith('.wav') || lowerPath.endsWith('.mp3') || lowerPath.endsWith('.flac') || lowerPath.endsWith('.ogg')) {
+                        toastMediaHtml = `<div style="width: 50px; height: 50px; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #161b22; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="bi bi-music-note-beamed text-info fs-3"></i></div>`;
+                    } else { 
+                        toastMediaHtml = `<img src="galeria/${imgDataToast}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 15px; border: 2px solid white;">`; 
                     }
+                } else if (typeof imgDataToast === 'string') {
+                    let currentCat = document.getElementById('selector') ? document.getElementById('selector').value : '';
+                    let isVideoToast = imgDataToast.startsWith('data:video') || (!imgDataToast.startsWith('data:image') && !imgDataToast.startsWith('data:audio') && currentCat === '[VIDEO]');
+                    let isAudioToast = imgDataToast.startsWith('data:audio') || (!imgDataToast.startsWith('data:image') && !imgDataToast.startsWith('data:video') && (currentCat === '[AUDIO]' || tarea.originalCategory === '[AUDIO]'));
                     
-                    if (document.hidden) {
-                        if (!window.loteBatchActivo && typeof tocarCampana === 'function') tocarCampana();
-                        if (!window.loteBatchActivo && typeof avisarAlSistema === 'function') avisarAlSistema(GartyLang.notif_gpu_free_title || "¡GPU Liberada!", GartyLang.notif_gpu_free_text || "Tu tarea ha terminado.", salidas[0]);
-                    }
-
-                    let toastContainer = document.getElementById('gpuToastContainer');
-                    if (!toastContainer) {
-                        toastContainer = document.createElement('div'); toastContainer.id = 'gpuToastContainer';
-                        toastContainer.style.cssText = 'position: fixed; top: 80px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px; pointer-events: none;';
-                        document.body.appendChild(toastContainer);
-                    }
-
-                    let imgDataToast = salidas[0]; let toastMediaHtml = '';
-                    if (typeof imgDataToast === 'object' && imgDataToast !== null) {
-                        imgDataToast = imgDataToast.imagen_path || imgDataToast.filename || JSON.stringify(imgDataToast);
-                    }
-                    
-                    if (typeof imgDataToast === 'string' && imgDataToast.length < 500 && imgDataToast.includes('.')) {
-                        let lowerPath = imgDataToast.toLowerCase();
-                        if (lowerPath.endsWith('.mp4') || lowerPath.endsWith('.webm') || lowerPath.endsWith('.mov')) {
-                            toastMediaHtml = `<video src="galeria/${imgDataToast}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #000;" muted autoplay loop playsinline></video>`;
-                        } else if (lowerPath.endsWith('.wav') || lowerPath.endsWith('.mp3') || lowerPath.endsWith('.flac') || lowerPath.endsWith('.ogg')) {
-                            toastMediaHtml = `<div style="width: 50px; height: 50px; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #161b22; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="bi bi-music-note-beamed text-info fs-3"></i></div>`;
-                        } else { 
-                            toastMediaHtml = `<img src="galeria/${imgDataToast}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 15px; border: 2px solid white;">`; 
-                        }
-                    } else if (typeof imgDataToast === 'string') {
-                        let currentCat = document.getElementById('selector') ? document.getElementById('selector').value : '';
-                        let isVideoToast = imgDataToast.startsWith('data:video') || (!imgDataToast.startsWith('data:image') && !imgDataToast.startsWith('data:audio') && currentCat === '[VIDEO]');
-                        let isAudioToast = imgDataToast.startsWith('data:audio') || (!imgDataToast.startsWith('data:image') && !imgDataToast.startsWith('data:video') && (currentCat === '[AUDIO]' || originalCategory === '[AUDIO]'));
-                        
-                        if (isVideoToast) {
-                            let src = imgDataToast.startsWith('data:') ? imgDataToast : `data:video/mp4;base64,${imgDataToast}`;
-                            toastMediaHtml = `<video src="${src}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #000;" muted autoplay loop playsinline></video>`;
-                        } else if (isAudioToast) {
-                            toastMediaHtml = `<div style="width: 50px; height: 50px; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #161b22; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="bi bi-music-note-beamed text-info fs-3"></i></div>`;
-                        } else {
-                            let src = imgDataToast.startsWith('data:') ? imgDataToast : `data:image/png;base64,${imgDataToast}`;
-                            toastMediaHtml = `<img src="${src}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 15px; border: 2px solid white;">`;
-                        }
+                    if (isVideoToast) {
+                        let src = imgDataToast.startsWith('data:') ? imgDataToast : `data:video/mp4;base64,${imgDataToast}`;
+                        toastMediaHtml = `<video src="${src}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #000;" muted autoplay loop playsinline></video>`;
+                    } else if (isAudioToast) {
+                        toastMediaHtml = `<div style="width: 50px; height: 50px; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #161b22; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="bi bi-music-note-beamed text-info fs-3"></i></div>`;
                     } else {
-                        toastMediaHtml = `<div style="width: 50px; height: 50px; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #161b22; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="bi bi-check2-circle text-success fs-3"></i></div>`;
-                    }
-
-                    const toast = document.createElement('div'); toast.className = 'toast show align-items-center text-bg-success border-0 shadow-lg'; toast.style.pointerEvents = 'auto';
-                    toast.innerHTML = `<div class="d-flex"><div class="toast-body d-flex align-items-center">${toastMediaHtml}<div><strong class="fs-6">${GartyLang.notif_gpu_free_title}</strong><br><small>${GartyLang.notif_gpu_free_text}</small></div></div><button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentElement.parentElement.remove()"></button></div>`;
-                    toastContainer.appendChild(toast); setTimeout(() => { if(toast.parentElement) toast.remove(); }, 10000);
-
-                    const pendientes = Object.keys(window.activeRadars).length;
-                    if (pendientes === 0) {
-                        if (typeof stopProgressBar === 'function') stopProgressBar();
-                        localStorage.removeItem('garty_tarea_pendiente');
-                        if (btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
-                            btnElement.innerText = GartyLang.radar_btn_completed;
-                            setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.disabled = false; }, 3000);
-                        }
-                    } else {
-                        if (btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
-                            btnElement.innerText = `${GartyLang.btn_procesando} (quedan ${pendientes})...`;
-                        }
+                        let src = imgDataToast.startsWith('data:') ? imgDataToast : `data:image/png;base64,${imgDataToast}`;
+                        toastMediaHtml = `<img src="${src}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 15px; border: 2px solid white;">`;
                     }
                 } else {
-                    if (btnElement && data.status !== 'processing' && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
-                        btnElement.innerHTML = '<i class="bi bi-exclamation-triangle"></i> ' + GartyLang.btn_gpu_free_no_images;
-                        btnElement.classList.replace('btn-primary', 'btn-danger');
-                        setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.classList.replace('btn-danger', 'btn-primary'); btnElement.disabled = false; }, 4000);
+                    toastMediaHtml = `<div style="width: 50px; height: 50px; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #161b22; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="bi bi-check2-circle text-success fs-3"></i></div>`;
+                }
+
+                const toast = document.createElement('div'); toast.className = 'toast show align-items-center text-bg-success border-0 shadow-lg'; toast.style.pointerEvents = 'auto';
+                toast.innerHTML = `<div class="d-flex"><div class="toast-body d-flex align-items-center">${toastMediaHtml}<div><strong class="fs-6">${GartyLang.notif_gpu_free_title}</strong><br><small>${GartyLang.notif_gpu_free_text}</small></div></div><button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentElement.parentElement.remove()"></button></div>`;
+                toastContainer.appendChild(toast); setTimeout(() => { if(toast.parentElement) toast.remove(); }, 10000);
+
+                const pendientes = Object.keys(window.activeRadars).length;
+                if (pendientes === 0) {
+                    if (typeof stopProgressBar === 'function') stopProgressBar();
+                    localStorage.removeItem('garty_tarea_pendiente');
+                    if (tarea.btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
+                        tarea.btnElement.innerText = GartyLang.radar_btn_completed;
+                        setTimeout(() => { tarea.btnElement.innerText = GartyLang.btn_generar; tarea.btnElement.disabled = false; }, 3000);
+                    }
+                } else {
+                    if (tarea.btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
+                        tarea.btnElement.innerText = `${GartyLang.btn_procesando} (quedan ${pendientes})...`;
                     }
                 }
+            } else {
+                if (tarea.btnElement && data.status !== 'processing' && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
+                    tarea.btnElement.innerHTML = '<i class="bi bi-exclamation-triangle"></i> ' + GartyLang.btn_gpu_free_no_images;
+                    tarea.btnElement.classList.replace('btn-primary', 'btn-danger');
+                    setTimeout(() => { tarea.btnElement.innerText = GartyLang.btn_generar; tarea.btnElement.classList.replace('btn-danger', 'btn-primary'); tarea.btnElement.disabled = false; }, 4000);
+                }
             }
-        } catch (e) { 
-            console.warn(GartyLang.log_radar_net_crit, e); 
-            if (window.activeRadars[promptId]) { clearInterval(window.activeRadars[promptId]); delete window.activeRadars[promptId]; }
+        } else if (data.status === 'processing') {
+            // Reintento: ComfyUI terminó pero PHP dice que sigue procesando 
+            // (a veces tarda medio segundo más en escribir en disco). Reintentamos manualmente.
+            setTimeout(() => window.recolectarImagenGpu(promptId), 2000);
+        }
+    } catch (e) { 
+        console.warn(GartyLang.log_radar_net_crit, e); 
+        tarea.intentosRadar = (tarea.intentosRadar || 0) + 1;
+        
+        // Fallos de red (microcortes). Reintentamos silenciosamente hasta 5 veces.
+        if (tarea.intentosRadar < 5) {
+            setTimeout(() => window.recolectarImagenGpu(promptId), 3000);
+        } else {
+            delete window.activeRadars[promptId];
             if (Object.keys(window.activeRadars).length === 0) {
                 if (typeof stopProgressBar === 'function') stopProgressBar();
                 localStorage.removeItem('garty_tarea_pendiente');
-                if (btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
-                    btnElement.innerHTML = `<i class="bi bi-wifi-off"></i> ${GartyLang.radar_btn_conn_err}`; btnElement.classList.replace('btn-primary', 'btn-danger');
-                    setTimeout(() => { btnElement.innerText = GartyLang.btn_generar; btnElement.classList.replace('btn-danger', 'btn-primary'); btnElement.disabled = false; }, 4000);
+                if (tarea.btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
+                    tarea.btnElement.innerHTML = `<i class="bi bi-wifi-off"></i> ${GartyLang.radar_btn_conn_err}`; 
+                    tarea.btnElement.classList.replace('btn-primary', 'btn-danger');
+                    setTimeout(() => { tarea.btnElement.innerText = GartyLang.btn_generar; tarea.btnElement.classList.replace('btn-danger', 'btn-primary'); tarea.btnElement.disabled = false; }, 4000);
                 }
             }
             SwalDark.fire(GartyLang.swal_radar_conn_err_title, GartyLang.swal_radar_conn_err_text, 'error');
         }
-    }, 3000); 
-}
+    }
+};
 
 // --- CONSTRUCTOR DE IMÁGENES ---
 function construirTarjetaImagen(imgData, dbId = 0, isChat = false, isVision = false, serverFilename = null) {
