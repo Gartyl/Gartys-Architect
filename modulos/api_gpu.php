@@ -562,6 +562,7 @@ if ($action === 'generar_imagen') {
     $reactor_enabled = $_POST['reactor_enabled'] ?? 'false';
     $reactor_image_base64 = $_POST['reactor_image'] ?? null;
     $reactor_saved_face = $_POST['reactor_saved_face'] ?? null;
+	$reactor_swap_model = $_POST['reactor_swap_model'] ?? "inswapper_128.onnx";
     $reactor_target_index = $_POST['reactor_target_index'] ?? "0";
     $reactor_source_index = $_POST['reactor_source_index'] ?? "0";
     $reactor_restore_model = $_POST['reactor_restore_model'] ?? "codeformer-v0.1.0.pth";
@@ -2085,7 +2086,7 @@ if ($action === 'generar_imagen') {
             // 3. Nodo de ReActor Adaptativo (Limpio para >= 0.5.1)
             $inputs_reactor = [ 
                 "enabled" => true,  
-                "swap_model" => "inswapper_128.onnx",  
+                "swap_model" => $reactor_swap_model,  
                 "facedetection" => $reactor_detector,
                 "face_restore_model" => $reactor_restore_model,
                 "face_restore_visibility" => $reactor_visibility,
@@ -4016,7 +4017,7 @@ if ($action === 'generar_imagen') {
                 // 4. Inyectamos ReActor en medio (Actualizado para >= 0.5.1)
                 $inputs_reactor = [ 
                     "enabled" => true,  
-                    "swap_model" => "inswapper_128.onnx",  
+                    "swap_model" => $reactor_swap_model,  
                     "facedetection" => $_POST['reactor_detector'] ?? "retinaface_resnet50",             
                     "face_restore_model" => $_POST['reactor_restore_model'] ?? "none",   
                     "face_restore_visibility" => isset($_POST['reactor_visibility']) ? max(0.1, floatval($_POST['reactor_visibility'])) : 1.0, 
