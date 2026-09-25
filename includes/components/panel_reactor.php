@@ -26,6 +26,52 @@ if ($facerestore_fallback) {
     $facerestore_options .= '<option value="codeformer-v0.1.0.pth" selected>CodeFormer</option><option value="GFPGANv1.4.pth">GFPGAN</option>';
 }
 
+// 1.5. Escanear Modelos de Swapping (inswapper, reswapper, hyperswap)
+$swap_options = '';
+$modelos_swap_encontrados = [];
+
+// 🛡️ Conectamos directamente con la constante maestra de config.php
+$ruta_raiz_modelos = defined('COMFY_MODELS_DIR') ? rtrim(COMFY_MODELS_DIR, '/\\') : '';
+
+if (!empty($ruta_raiz_modelos)) {
+    // Rutas oficiales de ReActor según Gourieff
+    $rutas_swap = [
+        $ruta_raiz_modelos . '/insightface',
+        $ruta_raiz_modelos . '/reswapper',
+        $ruta_raiz_modelos . '/hyperswap'
+    ];
+
+    foreach ($rutas_swap as $dir_swap) {
+        if (is_dir($dir_swap)) {
+            $archivos_sw = @scandir($dir_swap);
+            if ($archivos_sw !== false) {
+                foreach ($archivos_sw as $archivo) {
+                    if ($archivo !== '.' && $archivo !== '..') {
+                        // Filtramos que sea .onnx y que su nombre contenga "swap" (para ignorar los detectores como buffalo_l)
+                        if (is_file($dir_swap . '/' . $archivo) && preg_match('/\.onnx$/i', $archivo) && stripos($archivo, 'swap') !== false) {
+                            $modelos_swap_encontrados[] = $archivo;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Eliminamos duplicados, ordenamos y generamos el HTML
+$modelos_swap_encontrados = array_unique($modelos_swap_encontrados);
+if (!empty($modelos_swap_encontrados)) {
+    sort($modelos_swap_encontrados);
+    foreach ($modelos_swap_encontrados as $modelo) {
+        // inswapper_128 sigue siendo el valor por defecto seleccionado
+        $selected = (stripos($modelo, 'inswapper_128.onnx') !== false) ? 'selected' : '';
+        $swap_options .= "<option value=\"$modelo\" $selected>$modelo</option>";
+    }
+} else {
+    // Si no encuentra nada, avisa discretamente
+    $swap_options .= '<option value="inswapper_128.onnx" selected>inswapper_128.onnx (Revisa config.php)</option>';
+}
+
 // 2. Modelos de Detección (Estrictamente Hardcodeados según el Core de ReActor)
 $facedetect_options = '
     <option value="retinaface_resnet50" selected>RetinaFace ResNet50</option>
@@ -35,113 +81,121 @@ $facedetect_options = '
 ';
 ?>
 
-    <div class="param-group shadow-sm border-warning mb-3" id="reactorBlock" style="display: none; border-color: rgba(255, 193, 7, 0.4) !important; background: rgba(255, 193, 7, 0.05);">
-        <div class="d-flex justify-content-between align-items-center">
-            <label class="small text-warning fw-bold mb-0"><i class="bi bi-person-bounding-box me-1"></i> <?= __('tit_reactor') ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?></label>
-            <div class="form-check form-switch m-0">
-                <input class="form-check-input pref-track" style="cursor: pointer;" type="checkbox" id="reactorToggle" onchange="toggleReactorUI()" <?= !$is_pro ? 'disabled' : '' ?>>
+<div class="param-group shadow-sm border-warning mb-3" id="reactorBlock" style="display: none; border-color: rgba(255, 193, 7, 0.4) !important; background: rgba(255, 193, 7, 0.05);">
+    <div class="d-flex justify-content-between align-items-center">
+        <label class="small text-warning fw-bold mb-0"><i class="bi bi-person-bounding-box me-1"></i> <?= __('tit_reactor') ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?></label>
+        <div class="form-check form-switch m-0">
+            <input class="form-check-input pref-track" style="cursor: pointer;" type="checkbox" id="reactorToggle" onchange="toggleReactorUI()" <?= !$is_pro ? 'disabled' : '' ?>>
+        </div>
+    </div>
+    
+    <div id="reactorUI" class="d-none mt-3 text-center">
+        
+        <!-- ========================================================= -->
+        <!-- NUEVO: SELECTOR DE ROSTROS GUARDADOS -->
+        <!-- ========================================================= -->
+        <div class="mb-3 text-start">
+            <label class="small text-secondary fw-bold mb-1"><?= __('tit_reac_saved_faces') ?></label>
+            <div class="input-group input-group-sm">
+                <select class="form-select bg-dark text-light border-warning" id="reactorSavedFaces" onchange="handleSavedFaceSelection()">
+                    <option value="">-- <?= __('opt_reac_temporal') ?> --</option>
+                    <!-- Las opciones guardadas se inyectarán aquí por JS -->
+                </select>
+                
+                <!-- BOTÓN ELIMINAR (Oculto por defecto) -->
+                <button class="btn btn-outline-danger d-none" type="button" id="btnDeleteSavedFace" onclick="eliminarModeloRostro()" title="<?= __('btn_delete_face') ?>">
+                    <i class="bi bi-trash"></i>
+                </button>
+                
+                <button class="btn btn-outline-warning" type="button" id="btnToggleSaveFace" onclick="toggleSaveFaceForm()" title="<?= __('btn_title_new_face') ?>">
+                    <i class="bi bi-person-plus-fill"></i>
+                </button>
             </div>
         </div>
+
+        <!-- ========================================================= -->
+        <!-- NUEVO: FORMULARIO OCULTO PARA EXTRAER MODELO -->
+        <!-- ========================================================= -->
+        <div id="saveFaceFormContainer" class="d-none text-start border border-warning rounded p-2 mb-3 shadow-sm" style="background-color: rgba(255, 193, 7, 0.05);">
+            <label class="small text-warning fw-bold mb-1"><i class="bi bi-box-arrow-in-down"></i> <?= __('tit_reac_new_face') ?></label>
+            <input type="text" id="newFaceName" class="form-control form-control-sm bg-dark text-light border-warning mb-2" placeholder="<?= __('ph_reac_face_name') ?>" autocomplete="off">
+            <button type="button" class="btn btn-sm btn-warning w-100 fw-bold shadow-sm" id="btnSaveFaceModel" onclick="guardarModeloRostro()"><i class="bi bi-save"></i> <?= __('btn_save_face_model') ?></button>
+        </div>
+        <!-- ========================================================= -->
+
+        <!-- BOTÓN ORIGINAL DE SUBIDA Y GALERÍA (Se ocultará si eligen un rostro guardado) -->
+        <div id="reactorUploadWrapper">
+            <div class="d-flex gap-2 mb-2 w-100">
+                <button type="button" class="btn btn-sm btn-outline-warning flex-grow-1" onclick="document.getElementById('faceInput').click()">
+                    <i class="bi bi-upload"></i> <?= __('btn_selfrostro') ?>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-info" onclick="window.destinoGaleriaModal = 'reactor'; abrirModalGaleria();" title="<?= __('btn_cargaleria') ?>">
+                    <i class="bi bi-images"></i> <?= __('btn_cargaleria') ?>
+                </button>
+            </div>
+            <input type="file" id="faceInput" accept="image/*" class="d-none">
+        </div>
         
-        <div id="reactorUI" class="d-none mt-3 text-center">
-            
-            <!-- ========================================================= -->
-            <!-- NUEVO: SELECTOR DE ROSTROS GUARDADOS -->
-            <!-- ========================================================= -->
-            <div class="mb-3 text-start">
-                <label class="small text-secondary fw-bold mb-1"><?= __('tit_reac_saved_faces') ?></label>
-                <div class="input-group input-group-sm">
-                    <select class="form-select bg-dark text-light border-warning" id="reactorSavedFaces" onchange="handleSavedFaceSelection()">
-                        <option value="">-- <?= __('opt_reac_temporal') ?> --</option>
-                        <!-- Las opciones guardadas se inyectarán aquí por JS -->
-                    </select>
-                    
-                    <!-- BOTÓN ELIMINAR (Oculto por defecto) -->
-                    <button class="btn btn-outline-danger d-none" type="button" id="btnDeleteSavedFace" onclick="eliminarModeloRostro()" title="<?= __('btn_delete_face') ?>">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                    
-                    <button class="btn btn-outline-warning" type="button" id="btnToggleSaveFace" onclick="toggleSaveFaceForm()" title="<?= __('btn_title_new_face') ?>">
-                        <i class="bi bi-person-plus-fill"></i>
-                    </button>
-                </div>
-            </div>
+        <!-- PREVIEW ORIGINAL (Se ocultará si eligen un rostro guardado) -->
+        <div id="facePreviewContainer" class="d-none mt-2">
+            <img id="facePreview" src="" class="img-fluid rounded border border-warning shadow-sm" style="max-height: 120px;">
+            <div class="mt-2"><button type="button" class="btn btn-sm btn-danger" onclick="clearFace()"><i class="bi bi-trash"></i> <?= __('btn_quitar') ?></button></div>
+        </div>
+        
+        <div class="form-check form-switch mt-3 text-start" id="pureFaceSwapBlock">
+            <input class="form-check-input border-warning" style="cursor: pointer;" type="checkbox" id="pureFaceSwapToggle" onchange="toggleFaceSwapPuro(this.checked)">
+            <label class="form-check-label small text-warning fw-bold" for="pureFaceSwapToggle">
+                <i class="bi bi-shield-lock me-1"></i> <?= __('ctrl_reac_puro') ?>
+            </label>
+        </div>
 
-            <!-- ========================================================= -->
-            <!-- NUEVO: FORMULARIO OCULTO PARA EXTRAER MODELO -->
-            <!-- ========================================================= -->
-            <div id="saveFaceFormContainer" class="d-none text-start border border-warning rounded p-2 mb-3 shadow-sm" style="background-color: rgba(255, 193, 7, 0.05);">
-                <label class="small text-warning fw-bold mb-1"><i class="bi bi-box-arrow-in-down"></i> <?= __('tit_reac_new_face') ?></label>
-                <input type="text" id="newFaceName" class="form-control form-control-sm bg-dark text-light border-warning mb-2" placeholder="<?= __('ph_reac_face_name') ?>" autocomplete="off">
-                <button type="button" class="btn btn-sm btn-warning w-100 fw-bold shadow-sm" id="btnSaveFaceModel" onclick="guardarModeloRostro()"><i class="bi bi-save"></i> <?= __('btn_save_face_model') ?></button>
+        <div class="row g-2 mt-3 text-start border-top border-warning pt-3" style="border-color: rgba(255, 193, 7, 0.2) !important;">
+            <div class="col-md-6">
+                <label class="small text-secondary fw-bold" title="0 = primera cara, 1 = segunda, etc."><?= __('tit_reac_destino') ?></label>
+                <input type="text" class="form-control form-control-sm bg-dark text-light border-warning pref-track" id="reactorTargetIndex" value="0" placeholder="<?= __('reac_ph_target') ?>">
             </div>
-            <!-- ========================================================= -->
-
-            <!-- BOTÓN ORIGINAL DE SUBIDA Y GALERÍA (Se ocultará si eligen un rostro guardado) -->
-            <div id="reactorUploadWrapper">
-                <div class="d-flex gap-2 mb-2 w-100">
-                    <button type="button" class="btn btn-sm btn-outline-warning flex-grow-1" onclick="document.getElementById('faceInput').click()">
-                        <i class="bi bi-upload"></i> <?= __('btn_selfrostro') ?>
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-info" onclick="window.destinoGaleriaModal = 'reactor'; abrirModalGaleria();" title="<?= __('btn_cargaleria') ?>">
-                        <i class="bi bi-images"></i> <?= __('btn_cargaleria') ?>
-                    </button>
-                </div>
-                <input type="file" id="faceInput" accept="image/*" class="d-none">
+            <div class="col-md-6">
+                <label class="small text-secondary fw-bold"><?= __('tit_reac_origen') ?></label>
+                <input type="text" class="form-control form-control-sm bg-dark text-light border-warning pref-track" id="reactorSourceIndex" value="0" placeholder="<?= __('reac_ph_source') ?>">
             </div>
             
-            <!-- PREVIEW ORIGINAL (Se ocultará si eligen un rostro guardado) -->
-            <div id="facePreviewContainer" class="d-none mt-2">
-                <img id="facePreview" src="" class="img-fluid rounded border border-warning shadow-sm" style="max-height: 120px;">
-                <div class="mt-2"><button type="button" class="btn btn-sm btn-danger" onclick="clearFace()"><i class="bi bi-trash"></i> <?= __('btn_quitar') ?></button></div>
+            <!-- NUEVO: Selector de Modelo de Swapping -->
+           <div class="col-md-12 mt-2">
+                <label class="small text-secondary fw-bold"><?= __('tit_reac_modelo_swap') ?? 'Modelo Swap (Base)' ?></label>
+                <select class="form-select form-select-sm bg-dark text-light border-warning pref-track" id="reactorSwapModel">
+                    <?= $swap_options ?>
+                </select>
             </div>
             
-            <div class="form-check form-switch mt-3 text-start" id="pureFaceSwapBlock">
-                <input class="form-check-input border-warning" style="cursor: pointer;" type="checkbox" id="pureFaceSwapToggle" onchange="toggleFaceSwapPuro(this.checked)">
-                <label class="form-check-label small text-warning fw-bold" for="pureFaceSwapToggle">
-                    <i class="bi bi-shield-lock me-1"></i> <?= __('ctrl_reac_puro') ?>
-                </label>
+            <div class="col-md-4 mt-2">
+                <label class="small text-secondary fw-bold"><?= __('tit_reac_restau') ?></label>
+                <select class="form-select form-select-sm bg-dark text-light border-warning pref-track" id="reactorRestoreModel">
+                    <?= $facerestore_options ?>
+                </select>
+            </div>
+            <div class="col-md-4 mt-2">
+                <label class="small text-secondary fw-bold"><?= __('tit_reac_fgen') ?></label>
+                <select class="form-select form-select-sm bg-dark text-light border-warning pref-track" id="reactorGender">
+                    <option value="no"><?= __('reac_gen_ignore') ?></option>
+                    <option value="female"><?= __('reac_gen_female') ?></option>
+                    <option value="male"><?= __('reac_gen_male') ?></option>
+                </select>
+            </div>
+            <div class="col-md-4 mt-2">
+                <label class="small text-secondary fw-bold"><?= __('tit_reac_detec') ?></label>
+                <select class="form-select form-select-sm bg-dark text-light border-warning pref-track" id="reactorDetector">
+                    <?= $facedetect_options ?>
+                </select>
             </div>
 
-            <div class="row g-2 mt-3 text-start border-top border-warning pt-3" style="border-color: rgba(255, 193, 7, 0.2) !important;">
-                <div class="col-md-6">
-                    <label class="small text-secondary fw-bold" title="0 = primera cara, 1 = segunda, etc."><?= __('tit_reac_destino') ?></label>
-                    <input type="text" class="form-control form-control-sm bg-dark text-light border-warning pref-track" id="reactorTargetIndex" value="0" placeholder="<?= __('reac_ph_target') ?>">
-                </div>
-                <div class="col-md-6">
-                    <label class="small text-secondary fw-bold"><?= __('tit_reac_origen') ?></label>
-                    <input type="text" class="form-control form-control-sm bg-dark text-light border-warning pref-track" id="reactorSourceIndex" value="0" placeholder="<?= __('reac_ph_source') ?>">
-                </div>
-                
-                <div class="col-md-4 mt-2">
-                    <label class="small text-secondary fw-bold"><?= __('tit_reac_restau') ?></label>
-                    <select class="form-select form-select-sm bg-dark text-light border-warning pref-track" id="reactorRestoreModel">
-                        <?= $facerestore_options ?>
-                    </select>
-                </div>
-                <div class="col-md-4 mt-2">
-                    <label class="small text-secondary fw-bold"><?= __('tit_reac_fgen') ?></label>
-                    <select class="form-select form-select-sm bg-dark text-light border-warning pref-track" id="reactorGender">
-                        <option value="no"><?= __('reac_gen_ignore') ?></option>
-                        <option value="female"><?= __('reac_gen_female') ?></option>
-                        <option value="male"><?= __('reac_gen_male') ?></option>
-                    </select>
-                </div>
-                <div class="col-md-4 mt-2">
-                    <label class="small text-secondary fw-bold"><?= __('tit_reac_detec') ?></label>
-                    <select class="form-select form-select-sm bg-dark text-light border-warning pref-track" id="reactorDetector">
-                        <?= $facedetect_options ?>
-                    </select>
-                </div>
-
-                <div class="col-md-6 mt-3">
-                    <label class="text-secondary small fw-bold"><?= __('ctrl_fidelidad') ?>: <span id="reactorFidelityLabel" class="text-light">0.75</span></label>
-                    <input type="range" class="form-range pref-track" id="reactorFidelity" min="0.0" max="1.0" step="0.05" value="0.75" oninput="document.getElementById('reactorFidelityLabel').innerText = this.value;">
-                </div>
-                <div class="col-md-6 mt-3">
-                    <label class="text-secondary small fw-bold"><?= __('ctrl_vis_restaur') ?>: <span id="reactorVisLabel" class="text-light">1.0</span></label>
-                    <input type="range" class="form-range pref-track" id="reactorVisibility" min="0.0" max="1.0" step="0.05" value="1.0" oninput="document.getElementById('reactorVisLabel').innerText = this.value;">
-                </div>
+            <div class="col-md-6 mt-3">
+                <label class="text-secondary small fw-bold"><?= __('ctrl_fidelidad') ?>: <span id="reactorFidelityLabel" class="text-light">0.75</span></label>
+                <input type="range" class="form-range pref-track" id="reactorFidelity" min="0.0" max="1.0" step="0.05" value="0.75" oninput="document.getElementById('reactorFidelityLabel').innerText = this.value;">
+            </div>
+            <div class="col-md-6 mt-3">
+                <label class="text-secondary small fw-bold"><?= __('ctrl_vis_restaur') ?>: <span id="reactorVisLabel" class="text-light">1.0</span></label>
+                <input type="range" class="form-range pref-track" id="reactorVisibility" min="0.0" max="1.0" step="0.05" value="1.0" oninput="document.getElementById('reactorVisLabel').innerText = this.value;">
             </div>
         </div>
     </div>
+</div>
