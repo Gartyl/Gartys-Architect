@@ -5,22 +5,17 @@
 
 if ($action === 'amplificar_prompt') {
     $idea_basica = $_POST['descripcion'] ?? '';
-    $idioma_usuario = $_POST['idioma'] ?? 'ES'; 
     if (empty($idea_basica)) { echo json_encode(['error' => __('err_no_idea_amplify')]); exit(); }
 
-    $stmtVarita = $pdo->prepare("SELECT prompt_texto, parametros FROM personalidades_prompts WHERE LOWER(tipo) = 'enhance_prompt' AND activo = 1 AND LOWER(idioma) = ? LIMIT 1");
-    $stmtVarita->execute([$idioma_usuario]);
+    // 1. Buscamos un único prompt maestro activo, ignorando el idioma del usuario
+    $stmtVarita = $pdo->prepare("SELECT prompt_texto, parametros FROM personalidades_prompts WHERE LOWER(tipo) = 'enhance_prompt' AND activo = 1 LIMIT 1");
+    $stmtVarita->execute();
     $resultado_varita = $stmtVarita->fetch(PDO::FETCH_ASSOC);
 
-    if (!$resultado_varita) {
-        $stmtVarita = $pdo->prepare("SELECT prompt_texto, parametros FROM personalidades_prompts WHERE LOWER(tipo) = 'enhance_prompt' AND activo = 1 AND LOWER(idioma) = 'es' LIMIT 1");
-        $stmtVarita->execute();
-        $resultado_varita = $stmtVarita->fetch(PDO::FETCH_ASSOC);
-    }
+    // 2. Fallback de seguridad blindado (por si la base de datos está vacía)
+    $prompt_fallback = "You are an expert prompt engineer for advanced AI image generation models. The user will provide a basic concept in their native language. Expand it into a highly detailed, visually rich, and professional image generation prompt. Include details about lighting, composition, camera angles, and artistic style. CRITICAL RULE: You MUST translate and write the final output STRICTLY IN ENGLISH. DO NOT include any conversational text, explanations, or formatting. Output ONLY the raw prompt ready to be pasted into the image generator.";
 
-    if (!$resultado_varita || empty($resultado_varita['prompt_texto'])) { echo json_encode(['error' => __('err_no_amplify_prompt_db')]); exit(); }
-
-    $prompt_sistema = $resultado_varita['prompt_texto'];
+    $prompt_sistema = (!empty($resultado_varita['prompt_texto'])) ? $resultado_varita['prompt_texto'] : $prompt_fallback;
     $temperatura_varita = 0.7; 
     
     // SIEMPRE forzamos la búsqueda del SYS_LLM para utilidades en la sombra
