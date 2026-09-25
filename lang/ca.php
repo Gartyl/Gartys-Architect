@@ -1065,6 +1065,7 @@ return [
     'reac_ph_source' => "Ex: 0",
     'reac_ph_target' => "Ex: 0 o 0,1",
     'reac_rest_none' => "Cap",
+	'tit_reac_modelo_swap' => "Model Swap (Base)",
 
     // --- IC-Light (iclight_) ---
     'iclight_dir_ambient' => "Llum Ambient / Detall",

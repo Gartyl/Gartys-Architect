@@ -1052,6 +1052,7 @@ return [
     'reac_ph_source' => "Ej: 0",
     'reac_ph_target' => "Ej: 0 o 0,1",
     'reac_rest_none' => "Ninguna",
+	'tit_reac_modelo_swap' => "Modelo Swap (Base)",
 
     // --- IC-Light (iclight_) ---
     'iclight_dir_ambient' => "Luz Ambiente / Detalle",
