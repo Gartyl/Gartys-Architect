@@ -3026,6 +3026,11 @@ async function runGpu(mode = 'directo') {
         
         if (data.error) {
             if (typeof stopProgressBar === 'function') stopProgressBar(); 
+            
+            // 👇 NUEVO: Destruir el visor fantasma si ComfyUI rechaza el ticket al instante
+            const orphanPreview = document.getElementById('livePreviewContainer');
+            if (orphanPreview) orphanPreview.remove();
+            
             SwalDark.fire({ toast: false, position: 'center', icon: 'error', title: GartyLang.swal_gen_cancel_title, html: data.error, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${GartyLang.btn_entendido}` });
             _actualizarBotonRender(buttonUsed, 'restaurar', originalBtnText);
             return; 
@@ -3049,6 +3054,11 @@ async function runGpu(mode = 'directo') {
         }
     } catch (e) { 
         if (typeof stopProgressBar === 'function') stopProgressBar();
+        
+        // 👇 NUEVO: Destruir el visor fantasma si hay una caída de red severa
+        const orphanPreview = document.getElementById('livePreviewContainer');
+        if (orphanPreview) orphanPreview.remove();
+        
         SwalDark.fire({ icon: 'error', title: GartyLang.swal_net_arq_title, text: `${GartyLang.swal_net_arq_text}${e.message}` });
         _actualizarBotonRender(buttonUsed, 'restaurar', originalBtnText);
     }
@@ -3218,6 +3228,14 @@ window.recolectarImagenGpu = async function(promptId) {
             delete window.activeRadars[promptId];
             if (Object.keys(window.activeRadars).length === 0) {
                 if (typeof stopProgressBar === 'function') stopProgressBar();
+                
+                const statusContainer = document.getElementById('progressContainer');
+                if (statusContainer) statusContainer.classList.add('d-none');
+                
+                // 👇 NUEVO: Destruir visor fantasma si la generación falla a mitad de camino
+                const orphanPreview = document.getElementById('livePreviewContainer');
+                if (orphanPreview) orphanPreview.remove();
+                
                 localStorage.removeItem('garty_tarea_pendiente');
                 if (tarea.btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
                     tarea.btnElement.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${GartyLang.radar_btn_gpu_fail}`; 
