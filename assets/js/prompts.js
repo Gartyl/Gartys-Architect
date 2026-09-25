@@ -138,10 +138,10 @@ async function cargarTablaPrompts() {
                             <input class="form-check-input border-info" type="checkbox" ${p.activo == 1 ? 'checked' : ''} onchange="cambiarEstadoPrompt(${p.id}, this.checked)">
                         </div>
                     </td>
-                    <td class="text-nowrap">
-                        <button class="btn btn-sm btn-info shadow-sm me-1" onclick="duplicarRegistro(${p.id}, '${p.titulo}')" title="${GartyLang.btn_duplicar}"><i class="bi bi-copy"></i></button>
+					<td class="text-nowrap">
+                        <button class="btn btn-sm btn-info shadow-sm me-1" onclick="duplicarRegistro(${p.id})" title="${GartyLang.btn_duplicar}"><i class="bi bi-copy"></i></button>
                         <button class="btn btn-sm btn-warning me-1" onclick="cargarPromptEnFormulario(${p.id})" title="${GartyLang.btn_editar}"><i class="bi bi-pencil-fill"></i></button>
-                        <button class="btn btn-sm btn-outline-danger shadow-sm" onclick="borrarPromptBD(${p.id}, '${p.titulo}')" title="${GartyLang.btn_eliminar}"><i class="bi bi-trash3-fill"></i></button>
+                        <button class="btn btn-sm btn-outline-danger shadow-sm" onclick="borrarPromptBD(${p.id})" title="${GartyLang.btn_eliminar}"><i class="bi bi-trash3-fill"></i></button>
                     </td>
                 </tr>
                 `;
@@ -291,10 +291,14 @@ async function guardarPromptBD() {
     }
 }
 
-async function borrarPromptBD(id, titulo) {
+async function borrarPromptBD(id) {
+    // 🛡️ BLINDAJE: Buscamos el título en memoria para evitar errores de comillas
+    const prompt = window.promptsDBSistema.find(p => p.id == id);
+    const titulo = prompt ? prompt.titulo : 'este prompt';
+
     const confirm = await SwalDark.fire({ 
         title: GartyLang.swal_del_prompt_title, 
-        text: `${GartyLang.swal_del_prompt_text1} ${titulo} ${GartyLang.swal_del_prompt_text2}`, 
+        text: `${GartyLang.swal_del_prompt_text1} "${titulo}" ${GartyLang.swal_del_prompt_text2}`, 
         icon: 'warning', 
         showCancelButton: true, 
         confirmButtonColor: '#d33', 
@@ -321,10 +325,14 @@ async function borrarPromptBD(id, titulo) {
     }
 }
 
-async function duplicarRegistro(id, titulo) {
+async function duplicarRegistro(id) {
+    // 🛡️ BLINDAJE: Buscamos el título en memoria
+    const prompt = window.promptsDBSistema.find(p => p.id == id);
+    const titulo = prompt ? prompt.titulo : 'este prompt';
+
     const confirm = await SwalDark.fire({
         title: GartyLang.swal_dup_title,
-        text: `${GartyLang.swal_dup_text1} ${titulo} ${GartyLang.swal_dup_text2}`,
+        text: `${GartyLang.swal_dup_text1} "${titulo}" ${GartyLang.swal_dup_text2}`,
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#d33',
