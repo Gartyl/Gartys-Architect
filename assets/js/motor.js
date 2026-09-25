@@ -1859,7 +1859,7 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
         fd.append('ipa_end', ipaEnd);
     }
 
-   // FaceSwap / Reactor
+   // --- FACE SWAP / REACTOR ---
     const reactorToggle = document.getElementById('reactorToggle');
     const savedFaceSelect = document.getElementById('reactorSavedFaces');
     const hasSavedFace = savedFaceSelect && savedFaceSelect.value !== "";
@@ -1872,6 +1872,7 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
         } else {
             fd.append('reactor_image', currentFaceBase64.split(',')[1]);
         }
+		fd.append('reactor_swap_model', document.getElementById('reactorSwapModel') ? document.getElementById('reactorSwapModel').value : 'inswapper_128.onnx');		
         const pureFaceSwapToggle = document.getElementById('pureFaceSwapToggle'); if (pureFaceSwapToggle && pureFaceSwapToggle.checked) fd.append('pure_faceswap', 'true');
         fd.append('reactor_target_index', document.getElementById('reactorTargetIndex').value); fd.append('reactor_source_index', document.getElementById('reactorSourceIndex').value);
         fd.append('reactor_restore_model', document.getElementById('reactorRestoreModel').value); fd.append('reactor_gender', document.getElementById('reactorGender').value);
