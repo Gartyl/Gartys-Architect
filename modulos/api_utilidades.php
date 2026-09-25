@@ -146,33 +146,31 @@ if ($action === 'traducir_rapido') {
 
 if ($action === 'generar_prompt_sorpresa') {
     try {
-        $idioma_usuario = strtolower($_POST['idioma'] ?? 'es');
         $contexto_recibido = strtolower($_POST['contexto'] ?? 'imagen'); 
 
-        $mapa_contextos = [ 'imagen' => 'image', 'chat' => 'chat', 'video' => 'video' ];
+        // 1. Limpiamos el mapa de contextos (eliminamos 'chat')
+        $mapa_contextos = [ 'imagen' => 'image', 'video' => 'video' ];
         $contexto_en = $mapa_contextos[$contexto_recibido] ?? 'image';
         $tipo_semilla = 'seed_' . $contexto_en; 
         
-        $semilla = false;
-        $stmtSemilla = $pdo->prepare("SELECT prompt_texto FROM personalidades_prompts WHERE LOWER(tipo) = ? AND LOWER(idioma) = ? AND activo = 1 LIMIT 1");
-        if ($stmtSemilla) { $stmtSemilla->execute([$tipo_semilla, $idioma_usuario]); $semilla = $stmtSemilla->fetchColumn(); }
+        // 2. Buscamos la semilla base directamente (ignoramos el idioma)
+        $stmtSemilla = $pdo->prepare("SELECT prompt_texto FROM personalidades_prompts WHERE LOWER(tipo) = ? AND activo = 1 LIMIT 1");
+        $stmtSemilla->execute([$tipo_semilla]); 
+        $semilla = $stmtSemilla->fetchColumn();
 
-        if (!$semilla && $idioma_usuario !== 'es') {
-            $stmtSemillaFb = $pdo->prepare("SELECT prompt_texto FROM personalidades_prompts WHERE LOWER(tipo) = ? AND LOWER(idioma) = 'es' AND activo = 1 LIMIT 1");
-            if ($stmtSemillaFb) { $stmtSemillaFb->execute([$tipo_semilla]); $semilla = $stmtSemillaFb->fetchColumn(); }
+        // Fallback de emergencia en código por si alguna vez borras la semilla de la BD sin querer
+        if (empty($semilla)) { 
+            $semilla = "You are a master creative director. Generate a highly detailed, professional image generation prompt in English based on the rules provided."; 
         }
 
-        $resultado_db = false;
-        $stmtDado = $pdo->prepare("SELECT titulo, prompt_texto, parametros FROM personalidades_prompts WHERE LOWER(tipo) = 'random_prompt' AND activo = 1 AND LOWER(idioma) = ? ORDER BY RAND() LIMIT 1");
-        if ($stmtDado) { $stmtDado->execute([$idioma_usuario]); $resultado_db = $stmtDado->fetch(PDO::FETCH_ASSOC); }
+        // 3. Buscamos una personalidad aleatoria directamente (ignoramos el idioma)
+        $stmtDado = $pdo->query("SELECT titulo, prompt_texto, parametros FROM personalidades_prompts WHERE LOWER(tipo) = 'random_prompt' AND activo = 1 ORDER BY RAND() LIMIT 1");
+        $resultado_db = $stmtDado->fetch(PDO::FETCH_ASSOC);
 
-        if (!$resultado_db && $idioma_usuario !== 'es') {
-            $stmtDadoFb = $pdo->prepare("SELECT titulo, prompt_texto, parametros FROM personalidades_prompts WHERE LOWER(tipo) = 'random_prompt' AND activo = 1 AND LOWER(idioma) = 'es' ORDER BY RAND() LIMIT 1");
-            if ($stmtDadoFb) { $stmtDadoFb->execute(); $resultado_db = $stmtDadoFb->fetch(PDO::FETCH_ASSOC); }
+        if (!$resultado_db || empty($resultado_db['prompt_texto'])) { 
+            echo json_encode(['error' => __('err_surprise_config_char')]); 
+            exit(); 
         }
-
-        if (empty($semilla)) { echo json_encode(['error' => __('err_surprise_config_seed') . " '$tipo_semilla' / '$idioma_usuario'"]); exit(); }
-        if (!$resultado_db || empty($resultado_db['prompt_texto'])) { echo json_encode(['error' => __('err_surprise_config_char') . " '$idioma_usuario'"]); exit(); }
 
         $sys = $semilla;
         $factor_caos = rand(10000, 99999);
