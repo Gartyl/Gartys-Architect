@@ -70,12 +70,11 @@ if ($action === 'guardar_cara_reactor') {
             ],
             "2" => [
                 "inputs" => [
-                    "save_mode" => true,
-                    "face_model_name" => $safe_filename, // <--- AQUí SÍ ES "face_model_name" para el Guardado
-                    "select_face_index" => 0,
+                    "face_model_name" => $safe_filename, 
+                    "compute_device" => "Auto", # Novedad: Gestión dinámica de GPU
                     "image" => ["1", 0]
                 ],
-                "class_type" => "ReActorSaveFaceModel"
+                "class_type" => "ReActorBuildFaceModel" # Novedad: Nuevo nombre del nodo extractor
             ]
         ];
 

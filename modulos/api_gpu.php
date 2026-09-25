@@ -2058,12 +2058,14 @@ if ($action === 'generar_imagen') {
             $workflow["10"] = ["inputs" => ["image" => $res_base['name'], "upload" => "image"], "class_type" => "LoadImage"];
 
             // 2. Lógica Híbrida: ¿Foto temporal o modelo .safetensors guardado?
+            $es_modelo_guardado = false;
+            
             if (!empty($reactor_saved_face)) {
                 $workflow["11"] = [
-                    "inputs" => ["face_model" => $reactor_saved_face], // <--- CORREGIDO AQUÍ
+                    "inputs" => ["face_model" => $reactor_saved_face], 
                     "class_type" => "ReActorLoadFaceModel"
                 ];
-                $tipo_entrada_rostro = "face_model";
+                $es_modelo_guardado = true;
             } else {
                 $tmp_face = sys_get_temp_dir() . '/face_' . uniqid() . '.png';
                 file_put_contents($tmp_face, base64_decode($reactor_image_base64));
@@ -2078,26 +2080,33 @@ if ($action === 'generar_imagen') {
                     echo json_encode(['error' => __('err_faceswap_upload')]); exit();
                 }
                 $workflow["11"] = ["inputs" => ["image" => $res_face['name'], "upload" => "image"], "class_type" => "LoadImage"];
-                $tipo_entrada_rostro = "source_image";
             }
             
-            // 3. Nodo de ReActor Adaptativo
+            // 3. Nodo de ReActor Adaptativo (Limpio para >= 0.5.1)
+            $inputs_reactor = [ 
+                "enabled" => true,  
+                "swap_model" => "inswapper_128.onnx",  
+                "facedetection" => $reactor_detector,
+                "face_restore_model" => $reactor_restore_model,
+                "face_restore_visibility" => $reactor_visibility,
+                "codeformer_weight" => $reactor_fidelity,
+                "detect_gender_input" => $reactor_gender,
+                "detect_gender_source" => "no", 
+                "input_faces_index" => $reactor_target_index,
+                "source_faces_index" => $reactor_source_index,
+                "console_log_level" => 1, 
+                "input_image" => ["10", 0]
+            ];
+            
+            // 👇 El enrutamiento PERFECTO (Sin enviar textos trampa a Python) 👇
+            if ($es_modelo_guardado) {
+                $inputs_reactor["face_model"] = ["11", 0];
+            } else {
+                $inputs_reactor["source_image"] = ["11", 0];
+            }
+
             $workflow["101"] = [ 
-                "inputs" => [ 
-                    "enabled" => true,  
-                    "swap_model" => "inswapper_128.onnx",  
-                    "facedetection" => $reactor_detector,
-                    "face_restore_model" => $reactor_restore_model,
-                    "face_restore_visibility" => $reactor_visibility,
-                    "codeformer_weight" => $reactor_fidelity,
-                    "detect_gender_input" => $reactor_gender,
-                    "detect_gender_source" => "no", 
-                    "input_faces_index" => $reactor_target_index,
-                    "source_faces_index" => $reactor_source_index,
-                    "console_log_level" => 1, 
-                    "input_image" => ["10", 0], 
-                    $tipo_entrada_rostro => ["11", 0] // <- Enchufe dinámico
-                ], 
+                "inputs" => $inputs_reactor, 
                 "class_type" => "ReActorFaceSwap" 
             ];
 
@@ -3957,13 +3966,17 @@ if ($action === 'generar_imagen') {
         $reactor_saved_face = $_POST['reactor_saved_face'] ?? null;
         $reactor_image_base64 = $_POST['reactor_image'] ?? null;
 
+        $es_modelo_guardado_univ = false;
+        $carga_exitosa = false;
+
         // 1. Carga de la cara de origen (Híbrida: Temporal o Guardada)
         if (!empty($reactor_saved_face)) {
             $workflow["100_reactor_face"] = [
                 "inputs" => ["face_model" => $reactor_saved_face], 
                 "class_type" => "ReActorLoadFaceModel"
             ];
-            $tipo_entrada_rostro = "face_model";
+            $es_modelo_guardado_univ = true;
+            $carga_exitosa = true;
         } else {
             $tmp_face = sys_get_temp_dir() . '/face_' . uniqid() . '.png'; 
             file_put_contents($tmp_face, base64_decode($reactor_image_base64)); 
@@ -3979,14 +3992,15 @@ if ($action === 'generar_imagen') {
 
             if (isset($res_face['name'])) { 
                 $workflow["100_reactor_face"] = ["inputs" => ["image" => $res_face['name'], "upload" => "image"], "class_type" => "LoadImage"]; 
-                $tipo_entrada_rostro = "source_image";
+                $es_modelo_guardado_univ = false;
+                $carga_exitosa = true;
             }
         }
 
-        if (isset($tipo_entrada_rostro)) {
+        if ($carga_exitosa) {
             $nodo_empaquetador = null;
 
-            // 2. RADAR INTELIGENTE (Bug de referencia de PHP solucionado usando $n_temp)
+            // 2. RADAR INTELIGENTE
             foreach ($workflow as $id_nodo => $n_temp) {
                 if (isset($n_temp['class_type']) && in_array($n_temp['class_type'], ['PreviewImage', 'SaveImage', 'SaveAnimatedWEBP', 'VHS_VideoCombine'])) {
                     $nodo_empaquetador = $id_nodo;
@@ -3999,24 +4013,32 @@ if ($action === 'generar_imagen') {
                 // 3. Desconectamos las imágenes/frames del empaquetador
                 $nodo_origen_imagenes = $workflow[$nodo_empaquetador]["inputs"]["images"];
 
-                // 4. Inyectamos ReActor en medio (¡Y con límite de seguridad!)
+                // 4. Inyectamos ReActor en medio (Actualizado para >= 0.5.1)
+                $inputs_reactor = [ 
+                    "enabled" => true,  
+                    "swap_model" => "inswapper_128.onnx",  
+                    "facedetection" => $_POST['reactor_detector'] ?? "retinaface_resnet50",             
+                    "face_restore_model" => $_POST['reactor_restore_model'] ?? "none",   
+                    "face_restore_visibility" => isset($_POST['reactor_visibility']) ? max(0.1, floatval($_POST['reactor_visibility'])) : 1.0, 
+                    "codeformer_weight" => isset($_POST['reactor_fidelity']) ? max(0.0, floatval($_POST['reactor_fidelity'])) : 0.75,         
+                    "detect_gender_input" => $_POST['reactor_gender'] ?? "no",         
+                    "detect_gender_source" => "no", 
+                    "input_faces_index" => $_POST['reactor_target_index'] ?? "0",      
+                    "source_faces_index" => $_POST['reactor_source_index'] ?? "0",    
+                    "console_log_level" => 1, 
+                    "input_image" => $nodo_origen_imagenes // Toma el cable original
+                ];
+                
+                // 👇 Enrutamiento PERFECTO 👇
+                if ($es_modelo_guardado_univ) {
+                    $inputs_reactor["face_model"] = ["100_reactor_face", 0];
+                } else {
+                    $inputs_reactor["source_image"] = ["100_reactor_face", 0];
+                }
+
                 $workflow["101_reactor_swap"] = [ 
-                    "inputs" => [ 
-                        "enabled" => true,  
-                        "swap_model" => "inswapper_128.onnx",  
-                        "facedetection" => $_POST['reactor_detector'] ?? "retinaface_resnet50",              
-                        "face_restore_model" => $_POST['reactor_restore_model'] ?? "none",   
-                        // 👇 FIX CRÍTICO: max(0.1, ...) para que nunca baje del mínimo legal de ComfyUI
-                        "face_restore_visibility" => isset($_POST['reactor_visibility']) ? max(0.1, floatval($_POST['reactor_visibility'])) : 1.0, 
-                        "codeformer_weight" => isset($_POST['reactor_fidelity']) ? max(0.0, floatval($_POST['reactor_fidelity'])) : 0.75,         
-                        "detect_gender_input" => $_POST['reactor_gender'] ?? "no",         
-                        "detect_gender_source" => "no", 
-                        "input_faces_index" => $_POST['reactor_target_index'] ?? "0",     
-                        "source_faces_index" => $_POST['reactor_source_index'] ?? "0",    
-                        "console_log_level" => 1, 
-                        "input_image" => $nodo_origen_imagenes, // Toma el cable original
-                        $tipo_entrada_rostro => ["100_reactor_face", 0]             
-                    ], "class_type" => "ReActorFaceSwap" 
+                    "inputs" => $inputs_reactor, 
+                    "class_type" => "ReActorFaceSwap" 
                 ]; 
 
                 // 5. Conectamos la salida de ReActor al empaquetador
