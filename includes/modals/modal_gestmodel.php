@@ -111,11 +111,11 @@
                                     <!-- --------------------------------------- -->
 									
 									<!-- NUEVO: DEFAULT NEGATIVE (LLM) -->
-                                    <div class="col-12 mt-2 mb-3">
-										<label class="small text-danger fw-bold"><i class="bi bi-dash-circle"></i> <?= __('adm_lbl_default_neg') ?></label>
-										<input type="text" id="modDefaultNegative" class="form-control bg-dark text-light border-secondary" placeholder="<?= __('adm_ph_default_neg') ?>">
-										<small class="text-muted d-block mt-1" style="font-size: 0.7rem;"><?= __('adm_desc_default_neg') ?></small>
-									</div>
+                                    <div class="col-12 mt-2 mb-3 text-start">
+                                        <label class="small text-danger fw-bold mb-1"><i class="bi bi-dash-circle"></i> <?= __('adm_lbl_default_neg') ?></label>
+                                        <textarea class="form-control bg-dark text-light border-secondary" id="modDefaultNegative" rows="2" placeholder="<?= __('adm_ph_default_neg') ?>"></textarea>
+                                        <small class="text-muted d-block mt-1" style="font-size: 0.7rem;"><i class="bi bi-info-circle"></i> <?= __('adm_desc_default_neg') ?></small>
+                                    </div>
                                     <!-- --------------------------------------- -->
                                     
                                     <!-- CHECKBOX DE MODELO DESMEMBRADO (UNBUNDLED) -->
