@@ -343,7 +343,7 @@ if ($action === 'save_prompt_bd') {
     
     try {
         try { $pdo->query("SELECT parametros FROM personalidades_prompts LIMIT 1"); } catch (Exception $e) { $pdo->exec("ALTER TABLE personalidades_prompts ADD COLUMN parametros TEXT DEFAULT NULL AFTER idioma"); }
-        $pdo->prepare("INSERT INTO personalidades_prompts (titulo, tipo, idioma, parametros, prompt_texto) VALUES (?, ?, ?, ?, ?)")->execute([$_POST['titulo'], $_POST['tipo'], $_POST['idioma'], $_POST['parametros'], $_POST['prompt_texto']]);
+        $pdo->prepare("INSERT INTO personalidades_prompts (titulo, tipo, idioma, parametros, prompt_texto, activo) VALUES (?, ?, ?, ?, ?, 1)")->execute([$_POST['titulo'], $_POST['tipo'], $_POST['idioma'], $_POST['parametros'], $_POST['prompt_texto']]);
         echo json_encode(['success' => true]);
     } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
     exit();
