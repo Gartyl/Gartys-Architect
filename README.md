@@ -33,7 +33,7 @@ Since Garty's Architect communicates directly with your local AI instances, perf
     * RAM: 16GB system memory.
 * **Recommended Setup (Flux / LTX Video Generation):**
     * CPU: Modern multi-core processor (e.g., Intel Core i7 or equivalent).
-    * GPU: NVIDIA RTX series with 16GB VRAM (e.g., RTX 5060 or higher).
+    * GPU: NVIDIA RTX series with 16GB VRAM (e.g., RTX 2080 or higher).
     * RAM: 32GB system memory.
 
 ---
