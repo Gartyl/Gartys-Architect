@@ -2646,7 +2646,8 @@ async function ejecutarAudioAutonomo(config, targetDiv, btnElement, originalCate
     fd.append('standalone', '1');      
     fd.append('engine', config.engine); 
     fd.append('prompt_text', promptAudio);
-    
+	// 👇 AÑADE ESTA LÍNEA PARA QUE EL WEBSOCKET TE AVISE AL TERMINAR 👇
+    fd.append('client_id', window.comfyClientId);																	   
     if (config.engine === 'tts') {
         fd.append('tts_engine', config.tts_engine || 'f5');
         fd.append('tts_emotion', config.tts_emotion || 'calm');

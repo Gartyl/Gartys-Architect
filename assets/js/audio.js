@@ -243,12 +243,12 @@ function getActiveAudioConfig() {
             foleyMedia = currentImageBase64;
         }
 
-        // VALIDACIÓN ESTRICTA: Foley NECESITA una base en el visor para sincronizar
+       // VALIDACIÓN ESTRICTA: Foley NECESITA una base en el visor para sincronizar
         if (!foleyMedia) {
             SwalDark.fire({ 
                 icon: 'warning', 
                 title: GartyLang.audio_attn_title || 'Atención', 
-                text: 'Hunyuan Foley necesita que cargues un vídeo en el visor principal para generar el sonido sincronizado.' 
+                text: GartyLang.err_empty_foley || 'Hunyuan Foley necesita que cargues un vídeo en el visor principal para generar el sonido sincronizado.' 
             });
             return false;
         }
