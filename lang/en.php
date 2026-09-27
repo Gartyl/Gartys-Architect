@@ -683,6 +683,7 @@ return [
 	'err_ipadapter_upload' => "Error uploading images to IP-Adapter.",
 	'err_ipa_flux_kontext' => "Flux Kontext uses its native Conditioner. Turn off IP-Adapter and upload photos to the normal multi-upload tray.",
 	'err_flux2_max_images' => "The current Flux 2 Klein model only supports a maximum of 3 reference images. Please remove some from the tray.",
+	'err_empty_foley' => "Hunyuan Foley needs you to load a video in the main viewer to generate the synchronized sound.",
 
     // ==============================================================================
     // 08. CHAT, RADAR Y MOTOR DE TEXTO (LLM)
