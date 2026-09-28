@@ -198,6 +198,13 @@ case 'generar_audio':
         $video_filename = "none";
         $media_base64 = $_POST['image_data'] ?? null;
 
+        // 🛡️ ESCUDO ANTI-IMÁGENES ESTÁTICAS PARA FOLEY
+        $es_video_real = (strpos($media_base64, 'data:video/') === 0);
+        if (!$es_video_real) {
+            echo json_encode(['error' => __('err_empty_foley') ?? 'Hunyuan Foley necesita que cargues un VÍDEO finalizado en el visor. No puede generar sonido a partir de una imagen estática.']);
+            exit();
+        }
+
         // Subimos el vídeo que hay en el visor a ComfyUI asegurando metadatos limpios
 		if (!empty($media_base64)) {
 			$vidData = strpos($media_base64, 'base64,') !== false ? explode('base64,', $media_base64)[1] : $media_base64;
@@ -286,7 +293,7 @@ case 'generar_audio':
         $output_node = '24';
     }
 
-    // Si es una generación de audio autónoma (sin vídeo), añadimos el nodo de guardado
+// Si es una generación de audio autónoma (sin vídeo), añadimos el nodo de guardado
     if (($_POST['standalone'] ?? '0') === '1') {
         if ($engine === 'foley') {
             // Foley genera: [0] STRING (ruta), [1] IMAGE (fotogramas), [2] AUDIO (sonido)
@@ -301,8 +308,8 @@ case 'generar_audio':
                     'save_metadata' => true,
                     'pingpong' => false,
                     'save_output' => true,
-                    'images' => [$output_node, 1], // <-- CORREGIDO: Puerto 1 son las Imágenes
-                    'audio' => [$output_node, 2]   // <-- CORREGIDO: Puerto 2 es el Audio
+                    'images' => [$output_node, 1], 
+                    'audio' => [$output_node, 2]   
                 ],
                 'class_type' => 'VHS_VideoCombine',
                 '_meta' => ['title' => 'Guardar Foley MP4']

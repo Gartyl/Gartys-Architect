@@ -175,6 +175,12 @@ if ($action === 'generar_imagen') {
         }
     }
 
+    // 🛡️ ESCUDO FOLEY A PRUEBA DE BALAS
+    if (!$is_audio_standalone && strtolower(trim($engine_pro)) === 'foley') {
+        echo json_encode(['error' => __('err_empty_foley') ?? 'Hunyuan Foley necesita que cargues un vídeo en el visor principal para generar el sonido sincronizado.']);
+        exit();
+    }
+
     if ($is_audio_standalone) {
         
         // Rescatamos el texto si se quedó en el prompt principal por culpa del JS
@@ -276,6 +282,13 @@ if ($action === 'generar_imagen') {
             $video_filename = "none";
             $media_base64 = $_POST['image_data'] ?? null;
 
+            // 🛡️ ESCUDO ANTI-IMÁGENES ESTÁTICAS PARA FOLEY
+            $es_video_real = (strpos($media_base64, 'data:video/') === 0);
+            if (!$es_video_real) {
+                echo json_encode(['error' => __('err_empty_foley') ?? 'Hunyuan Foley necesita que cargues un VÍDEO finalizado en el visor. No puede generar sonido a partir de una imagen estática.']);
+                exit();
+            }
+
             // Subimos el vídeo que hay en el visor a ComfyUI asegurando metadatos limpios
 			if (!empty($media_base64)) {
 				$vidData = strpos($media_base64, 'base64,') !== false ? explode('base64,', $media_base64)[1] : $media_base64;
@@ -343,7 +356,7 @@ if ($action === 'generar_imagen') {
         $workflow['99'] = [
             'inputs' => [
                 'filename_prefix' => 'byGarty_Audio_' . strtoupper($engine_pro),
-                'audio' => [$output_node, $output_port] // <--- AQUÍ
+                'audio' => [$output_node, $output_port]
             ],
             'class_type' => 'SaveAudio',
             '_meta' => ['title' => 'Save Output Audio']
@@ -1295,7 +1308,7 @@ if ($action === 'generar_imagen') {
                 
                 $usar_wav2lip = ($usar_wav2lip_clasico || $usar_wav2lip_pro);
                 
-                $es_sfx = ($tiene_audio_pro && isset($audioConfigPro['engine']) && $audioConfigPro['engine'] === 'sfx');
+                $es_sfx = ($tiene_audio_pro && isset($audioConfigPro['engine']) && in_array(strtolower($audioConfigPro['engine']), ['sfx', 'foley']));
 
                 if ($usar_wav2lip && !$es_sfx) {
                     $workflow["1002_wav2lip"] = [
@@ -2003,7 +2016,7 @@ if ($action === 'generar_imagen') {
 					
 					$usar_wav2lip = ($usar_wav2lip_clasico || $usar_wav2lip_pro);
 					
-					$es_sfx = ($tiene_audio_pro && isset($audioConfigPro['engine']) && $audioConfigPro['engine'] === 'sfx');
+					$es_sfx = ($tiene_audio_pro && isset($audioConfigPro['engine']) && in_array(strtolower($audioConfigPro['engine']), ['sfx', 'foley']));
 
                     // Aplicamos lip-sync solo si se pide y NO es un efecto de sonido
                     if ($usar_wav2lip && !$es_sfx) {
@@ -3933,8 +3946,8 @@ if ($action === 'generar_imagen') {
     } // 🚨 <--- CIERRE DEL IF (PRUEBA_JSON_ACTIVADA)
 
     EJECUTAR_COMFYUI:
-	
-	// ==============================================================================
+    
+    // ==============================================================================
     // 🌟 INYECCIÓN AUTOREGRESIVA: VIDEO-TO-VIDEO UNIVERSAL (LTX / WAN)
     // ==============================================================================
 	if (isset($is_video) && $is_video && $comfy_image_filename !== "none") {
