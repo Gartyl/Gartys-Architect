@@ -210,6 +210,9 @@ function updateModelFilter(category) {
     const graphCategories = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[CHAT]', '[VIDEO]'];
     if (!graphCategories.includes(category)) { modelBlock.style.display = "none"; return; }
     
+    // 👇 1. NUEVO: Guardamos el modelo seleccionado antes de borrar la lista
+    const valorActual = modelSel.value;
+    
     modelBlock.style.display = "block";
     modelSel.innerHTML = "";
 
@@ -284,6 +287,14 @@ function updateModelFilter(category) {
         // --- CIRUGÍA: FALLBACK ELIMINADO ---
         // Si no hay modelos en la Base de Datos para esta categoría, forzamos a que lo registren.
         modelSel.innerHTML = '<option value="" disabled selected>⚠️ ' + (GartyLang.opt_no_compat_models || 'Registra un modelo en Administración') + '</option>';
+    }
+	
+	// 👇 2. NUEVO: Restauramos el valor si el modelo sigue existiendo tras refrescar
+    if (valorActual) {
+        const existe = Array.from(modelSel.options).some(opt => opt.value === valorActual);
+        if (existe) {
+            modelSel.value = valorActual;
+        }
     }
 
     const cnSel = document.getElementById('cnModelSelector');
@@ -467,6 +478,35 @@ function updateLoraFilter(category) {
             select.value = "";
         }
     });
+}
+
+// ==============================================================================
+// --- NUEVO: ACTUALIZACIÓN SILENCIOSA DE LORAS EN SEGUNDO PLANO ---
+// ==============================================================================
+async function actualizarLorasSilenciosamente() {
+    // Solo actuamos si el panel de avanzado está activo (igual que en loadModelsAndLoras)
+    if (!APP_ENV.isAvanzado) return;
+
+    try {
+        const fdLoras = new FormData();
+        fdLoras.append('action', 'get_loras');
+        const resLoras = await fetch('procesar.php', { method: 'POST', body: fdLoras });
+        const dataLoras = await resLoras.json();
+        
+        if (dataLoras.loras && dataLoras.loras.length > 0) {
+            // 1. Actualizamos tu array maestro global
+            loadedLoras = dataLoras.loras;
+            
+            // 2. Disparamos TU propia función de filtrado para que actualice la UI
+            // Usando la categoría actual del selector principal
+            const selectorGeneral = document.getElementById('selector');
+            if (selectorGeneral) {
+                updateLoraFilter(selectorGeneral.value);
+            }
+        }
+    } catch(e) {
+        // Falla en silencio absoluto. Si ComfyUI está apagado, el usuario no verá errores molestos.
+    }
 }
 
 function addLoraRow() {
@@ -759,6 +799,7 @@ async function guardarModeloBD() {
         if(data.success) {
             cancelarEdicionModelo(); // Resetea el formulario y el botón
             cargarTablaModelos();
+			descargarModelosDisponibles(); // <--- AÑADE ESTA LÍNEA AQUÍ
             SwalDark.fire({icon: 'success', title: GartyLang.swal_mod_inst_title, text: GartyLang.swal_mod_inst_text, timer: 2000, showConfirmButton: false});
         } else {
             throw new Error(data.error || GartyLang.err_db_unknown);
@@ -795,6 +836,7 @@ async function borrarModeloBD(id, nombre) {
         try {
             await fetch('procesar.php', { method: 'POST', body: fd });
             cargarTablaModelos();
+			descargarModelosDisponibles(); // <--- AÑADE ESTA LÍNEA AQUÍ
             SwalDark.fire({icon: 'success', title: GartyLang.swal_deleted_title, timer: 1500, showConfirmButton: false});
         } catch(e) {}
     }
@@ -802,7 +844,10 @@ async function borrarModeloBD(id, nombre) {
 
 async function cambiarEstadoModelo(id, estado) {
     let fd = new FormData(); fd.append('action', 'toggle_modelo_bd'); fd.append('id', id); fd.append('estado', estado ? 1 : 0);
-    try { await fetch('procesar.php', { method: 'POST', body: fd }); } catch(e) {}
+    try { 
+		await fetch('procesar.php', { method: 'POST', body: fd });
+		descargarModelosDisponibles(); // <--- AÑADE ESTA LÍNEA AQUÍ
+	} catch(e) {}
 }
 
 async function descargarModelosDisponibles() {
@@ -1151,10 +1196,22 @@ document.addEventListener('DOMContentLoaded', () => {
     loadModelsAndLoras(); 
     const modelSel = document.getElementById('modelSelector');
     
+    // 👇 NUEVOS DISPARADORES INVISIBLES 👇
+    const selectorGeneral = document.getElementById('selector');
+    
+    if (selectorGeneral) {
+        // Disparador 1: Cuando hace clic en "CATEGORÍA"
+        selectorGeneral.addEventListener('focus', actualizarLorasSilenciosamente);
+    }
+    
     if (modelSel) {
         modelSel.addEventListener('change', syncLorasWithSelectedModel);
-        modelSel.addEventListener('change', sugerirAjustesMotor); // <--- NUEVO: Llama a la sugerencia al cambiar
+        modelSel.addEventListener('change', sugerirAjustesMotor); 
+        
+        // Disparador 2: Cuando hace clic en "MODELO GRÁFICO"
+        modelSel.addEventListener('focus', actualizarLorasSilenciosamente);
     }
+    // 👆 FIN DE DISPARADORES 👆
 });
 
 // ============================================================================
