@@ -1,13 +1,13 @@
 <?php
 /**
- * historial.php - Versión v70 (Versión Local / Servidor).
+ * historial.php - Versión Paginada, Filtros Visuales y Búsqueda Semántica (Preparada)
  */
 require_once __DIR__ . '/includes/core/init.php';
 
 // Recuperamos la ID del usuario de la sesión
 $user_id = $_SESSION['user_id'];
 
-// --- AUTO-PARCHES DE BASE DE DATOS (Evita cuelgues si las columnas no existen) ---
+// --- AUTO-PARCHES DE BASE DE DATOS ---
 try { $pdo->query("SELECT favorito FROM historial_prompts LIMIT 1"); } 
 catch (Exception $e) { $pdo->exec("ALTER TABLE historial_prompts ADD COLUMN favorito TINYINT(1) DEFAULT 0"); }
 
@@ -16,6 +16,23 @@ catch (Exception $e) { $pdo->exec("ALTER TABLE historial_prompts ADD COLUMN anot
 
 try { $pdo->query("SELECT is_public FROM historial_prompts LIMIT 1"); } 
 catch (Exception $e) { $pdo->exec("ALTER TABLE historial_prompts ADD COLUMN is_public TINYINT(1) DEFAULT 0"); }
+
+// --- FUNCIONES AUXILIARES (Movidas arriba para poder usarlas en los filtros) ---
+function getIconoHistorial($modelo) {
+    $m = strtoupper($modelo);
+    if (strpos($m, 'CHAT') !== false) return '🤖';
+    if (strpos($m, 'SD15') !== false || strpos($m, 'V15') !== false || strpos($m, '1.5') !== false || strpos($m, 'BASE') !== false) return '🎨';
+    if (strpos($m, 'SDXL') !== false || strpos($m, 'XL') !== false) return '⚡';
+    if (strpos($m, 'NATURAL') !== false || strpos($m, 'FLUX') !== false || strpos($m, 'DIT') !== false) return '💎';
+    if (strpos($m, 'VIDEO') !== false || strpos($m, 'WAN') !== false || strpos($m, 'LTX') !== false) return '🎬';
+    return '✨';
+}
+
+function getPageUrl($pageNum) {
+    $get = $_GET;
+    $get['page'] = $pageNum;
+    return '?' . http_build_query($get);
+}
 
 // --- OBTENER CATEGORÍAS/MODELOS DISPONIBLES PARA EL FILTRO ---
 try {
@@ -26,41 +43,78 @@ try {
     $modelos_disponibles = [];
 }
 
-// --- CAPTURAR PARÁMETROS DE FILTRO ---
+// --- CAPTURAR PARÁMETROS DE FILTRO Y PAGINACIÓN ---
 $search = $_GET['search'] ?? '';
 $modelo_filtro = $_GET['modelo'] ?? '';
+$public_filtro = $_GET['public_filter'] ?? ''; // NUEVO: Filtro Galería
 $date_from = $_GET['date_from'] ?? '';
 $date_to = $_GET['date_to'] ?? '';
 $fav_only = isset($_GET['fav_only']) ? 1 : 0;
 
+$limit = 30; // Registros por página
+$page = isset($_GET['page']) && is_numeric($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$offset = ($page - 1) * $limit;
+
 // --- CONSTRUIR CONSULTA SQL DINÁMICA ---
-$query = "SELECT id, modelo, descripcion_original, prompt_positivo, prompt_negativo, fecha_hora, imagen_path, metadata, favorito, anotacion_admin, is_public, texto_generado FROM historial_prompts WHERE user_id = ?";
+$where_clauses = ["user_id = ?"];
 $params = [$user_id];
 
 if ($fav_only) {
-    $query .= " AND favorito = 1";
+    $where_clauses[] = "favorito = 1";
+}
+if ($public_filtro === 'published') {
+    $where_clauses[] = "is_public = 1";
+} elseif ($public_filtro === 'private') {
+    $where_clauses[] = "is_public = 0";
 }
 if (!empty($modelo_filtro)) {
-    $query .= " AND modelo = ?";
+    $where_clauses[] = "modelo = ?";
     $params[] = $modelo_filtro;
 }
 if (!empty($date_from)) {
-    $query .= " AND DATE(fecha_hora) >= ?";
+    $where_clauses[] = "DATE(fecha_hora) >= ?";
     $params[] = $date_from;
 }
 if (!empty($date_to)) {
-    $query .= " AND DATE(fecha_hora) <= ?";
+    $where_clauses[] = "DATE(fecha_hora) <= ?";
     $params[] = $date_to;
 }
 if (!empty($search)) {
-    $query .= " AND (descripcion_original LIKE ? OR prompt_positivo LIKE ? OR prompt_negativo LIKE ?)";
-    $like_search = "%$search%";
-    $params[] = $like_search;
-    $params[] = $like_search;
-    $params[] = $like_search;
+    // =========================================================================================
+    // [PREPARACIÓN PARA BÚSQUEDA SEMÁNTICA]
+    // =========================================================================================
+    $is_semantic_active = false; 
+    
+    if ($is_semantic_active) {
+        // Lógica futura: $vector = generarEmbeddingVision($search);
+        // $where_clauses[] = "VECTOR_SIMILARITY(embedding, ?) > 0.8";
+    } else {
+        $where_clauses[] = "(descripcion_original LIKE ? OR prompt_positivo LIKE ? OR prompt_negativo LIKE ?)";
+        $like_search = "%$search%";
+        $params[] = $like_search;
+        $params[] = $like_search;
+        $params[] = $like_search;
+    }
 }
 
-$query .= " ORDER BY fecha_hora DESC";
+$where_sql = implode(" AND ", $where_clauses);
+
+// 1. Contar total de registros para la paginación
+try {
+    $stmt_count = $pdo->prepare("SELECT COUNT(*) FROM historial_prompts WHERE $where_sql");
+    $stmt_count->execute($params);
+    $total_items = $stmt_count->fetchColumn();
+    $total_pages = ceil($total_items / $limit);
+} catch (PDOException $e) {
+    die("Error al contar el historial: " . $e->getMessage());
+}
+
+// 2. Obtener los registros de la página actual
+$query = "SELECT id, modelo, descripcion_original, prompt_positivo, prompt_negativo, fecha_hora, imagen_path, metadata, favorito, anotacion_admin, is_public, texto_generado 
+          FROM historial_prompts 
+          WHERE $where_sql 
+          ORDER BY fecha_hora DESC 
+          LIMIT $limit OFFSET $offset";
 
 try {
     $stmt = $pdo->prepare($query);
@@ -139,11 +193,9 @@ $items = groupHistoryItems($all_prompts);
     <title><?= __('tit_historial') ?> - Garty's Architect</title>
     
     <link rel="icon" type="image/x-icon" href="/favicon.ico?v=<?php echo time(); ?>">
-
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="assets/css/styles.css?v=<?php echo time(); ?>">
-
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <script>
@@ -173,9 +225,7 @@ $items = groupHistoryItems($all_prompts);
     <div class="position-absolute bottom-0 start-50 translate-middle-x mb-4 text-white p-2 rounded bg-dark border border-secondary" style="opacity: 0.7; z-index: 1000000; pointer-events: none;">
         <i class="bi bi-mouse3 me-1"></i> <?= __('txt_ayuda_visor') ?? 'Rueda para Zoom | Clic y Arrastrar | Doble clic = 100%' ?>
     </div>
-    
     <img id="imagenVisor" src="" style="max-width: 95%; max-height: 95vh; object-fit: contain; border-radius: 4px; box-shadow: 0 10px 40px rgba(0,0,0,0.9); transition: transform 0.1s ease-out; cursor: grab; transform-origin: center center;" draggable="false">
-    
     <video id="videoVisor" src="" style="max-width: 95%; max-height: 95vh; object-fit: contain; border-radius: 4px; box-shadow: 0 10px 40px rgba(0,0,0,0.9); display: none;" controls loop autoplay></video>
 </div>
 
@@ -201,42 +251,62 @@ $items = groupHistoryItems($all_prompts);
 </nav>
 
 <div class="container py-5">
+<!--div class="container-fluid py-5 px-md-4 px-lg-5" style="max-width: 1700px;"-->
     <div class="row justify-content-center">
-        <div class="col-lg-10">
-            <h3 class="text-light fw-bold mb-4"><?= __('tit_historial') ?></h3>
+        <div class="col-lg-12"> <!-- Ampliado a lg-12 para dar más espacio a los filtros -->
+            <div class="d-flex justify-content-between align-items-center mb-4 px-3">
+                <h3 class="text-light fw-bold m-0"><?= __('tit_historial') ?></h3>
+                <span class="text-secondary small fw-bold"><?= $total_items ?> Registros encontrados</span>
+            </div>
 
             <form method="GET" action="historial.php" class="card card-historial p-3 mb-4 shadow-sm filter-bar">
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-3">
+                <div class="row g-2 align-items-end">
+                    <!-- Búsqueda -->
+                    <div class="col-md-2">
                         <label class="form-label small text-secondary fw-bold mb-1"><i class="bi bi-search"></i> <?= __('tit_hist_bus') ?></label>
                         <input type="text" name="search" class="form-control form-control-sm bg-dark text-light" value="<?php echo htmlspecialchars($search); ?>" placeholder="<?= __('tit_hist_ph_bus') ?? 'Palabra clave...' ?>">
                     </div>
+                    <!-- Categoría (Ahora con iconos dinámicos) -->
                     <div class="col-md-2">
                         <label class="form-label small text-secondary fw-bold mb-1"><i class="bi bi-tags"></i> <?= __('tit_hist_cat') ?></label>
                         <select name="modelo" class="form-select form-select-sm bg-dark text-light">
                             <option value=""><?= __('sel_all') ?></option>
                             <?php foreach($modelos_disponibles as $m): ?>
-                                <option value="<?php echo htmlspecialchars($m); ?>" <?php if($modelo_filtro === $m) echo 'selected'; ?>><?php echo htmlspecialchars($m); ?></option>
+                                <option value="<?php echo htmlspecialchars($m); ?>" <?php if($modelo_filtro === $m) echo 'selected'; ?>>
+                                    <?php echo getIconoHistorial($m) . ' ' . htmlspecialchars($m); ?>
+                                </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
+                    <!-- NUEVO: Filtro Galería -->
+                    <div class="col-md-2">
+                        <label class="form-label small text-secondary fw-bold mb-1"><i class="bi bi-globe"></i> <?= __('lbl_filtro_galeria') ?? 'Galería' ?></label>
+                        <select name="public_filter" class="form-select form-select-sm bg-dark text-light">
+                            <option value=""><?= __('opt_gal_todas') ?? 'Todas' ?></option>
+                            <option value="published" <?php if($public_filtro === 'published') echo 'selected'; ?>><?= __('opt_gal_pub') ?? 'Publicadas' ?></option>
+                            <option value="private" <?php if($public_filtro === 'private') echo 'selected'; ?>><?= __('opt_gal_priv') ?? 'Privadas' ?></option>
+                        </select>
+                    </div>
+                    <!-- Fecha Desde -->
                     <div class="col-md-2">
                         <label class="form-label small text-secondary fw-bold mb-1"><i class="bi bi-calendar-event"></i> <?= __('tit_hist_de') ?></label>
                         <input type="date" name="date_from" class="form-control form-control-sm bg-dark text-light" value="<?php echo htmlspecialchars($date_from); ?>">
                     </div>
+                    <!-- Fecha Hasta -->
                     <div class="col-md-2">
                         <label class="form-label small text-secondary fw-bold mb-1"><i class="bi bi-calendar-event"></i> <?= __('tit_hist_hasta') ?></label>
                         <input type="date" name="date_to" class="form-control form-control-sm bg-dark text-light" value="<?php echo htmlspecialchars($date_to); ?>">
                     </div>
-                    <div class="col-md-3 d-flex align-items-center gap-2 filter-actions">
-                        <div class="form-check form-switch mt-1 me-2 d-flex align-items-center">
-                            <input class="form-check-input me-2 mt-0" type="checkbox" name="fav_only" id="fav_only" value="1" <?php if($fav_only) echo 'checked'; ?> style="cursor:pointer;">
+                    <!-- Acciones / Favoritos -->
+                    <div class="col-md-2 d-flex align-items-center gap-2 filter-actions">
+                        <div class="form-check form-switch mt-1 me-1 d-flex align-items-center" title="<?= __('lbl_favs') ?>">
+                            <input class="form-check-input me-1 mt-0 border-secondary" type="checkbox" name="fav_only" id="fav_only" value="1" <?php if($fav_only) echo 'checked'; ?> style="cursor:pointer;">
                             <label class="form-check-label small fw-bold <?php echo $fav_only ? 'text-danger' : 'text-secondary'; ?>" for="fav_only" style="cursor:pointer;">
-                                <i class="bi bi-heart-fill"></i> <?= __('lbl_favs') ?>
+                                <i class="bi bi-heart-fill"></i>
                             </label>
                         </div>
-                        <button type="submit" class="btn btn-sm btn-primary flex-grow-1 fw-bold"><i class="bi bi-funnel-fill"></i> <?= __('btn_filtrar') ?></button>
-                        <a href="historial.php" class="btn btn-sm btn-outline-secondary" title="<?= __('btn_clear_filters') ?>"><i class="bi bi-x-lg"></i></a>
+                        <button type="submit" class="btn btn-sm btn-primary flex-grow-1 fw-bold px-1" title="<?= __('btn_filtrar') ?>"><i class="bi bi-funnel-fill"></i></button>
+                        <a href="historial.php" class="btn btn-sm btn-outline-secondary px-2" title="<?= __('btn_clear_filters') ?>"><i class="bi bi-x-lg"></i></a>
                     </div>
                 </div>
             </form>
@@ -291,42 +361,39 @@ $items = groupHistoryItems($all_prompts);
                                                     <?php if (!empty($msg['imagen_path'])): ?>
                                                     <div class="col-md-4 mb-3 mb-md-0">
                                                         <div class="img-container" style="position: relative;">
-															<?php 
-															$ext = strtolower(pathinfo($msg['imagen_path'], PATHINFO_EXTENSION));
-															if ($ext === 'mp4' || $ext === 'webm' || $ext === 'mov'): ?>
-																<video src="galeria/<?php echo htmlspecialchars($msg['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: pointer;" class="img-fluid rounded border border-secondary shadow-sm w-100" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>
-															<?php elseif ($ext === 'wav' || $ext === 'mp3' || $ext === 'flac'): ?>
-																<div class="d-flex flex-column align-items-center justify-content-center p-4 bg-dark w-100 rounded border border-secondary" style="min-height: 180px;">
-																	<i class="bi bi-music-note-beamed fs-1 text-info mb-3"></i>
-																	<audio src="galeria/<?php echo htmlspecialchars($msg['imagen_path']); ?>" controls class="w-100 shadow-sm"></audio>
-																</div>
-															<?php else: ?>
-																<img src="galeria/<?php echo htmlspecialchars($msg['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: zoom-in;" class="img-fluid rounded border border-secondary shadow-sm w-100">
-															<?php endif; ?>
+                                                            <?php 
+                                                            $ext = strtolower(pathinfo($msg['imagen_path'], PATHINFO_EXTENSION));
+                                                            if ($ext === 'mp4' || $ext === 'webm' || $ext === 'mov'): ?>
+                                                                <video src="galeria/<?php echo htmlspecialchars($msg['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: pointer;" class="img-fluid rounded border border-secondary shadow-sm w-100" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>
+                                                            <?php elseif ($ext === 'wav' || $ext === 'mp3' || $ext === 'flac'): ?>
+                                                                <div class="d-flex flex-column align-items-center justify-content-center p-4 bg-dark w-100 rounded border border-secondary" style="min-height: 180px;">
+                                                                    <i class="bi bi-music-note-beamed fs-1 text-info mb-3"></i>
+                                                                    <audio src="galeria/<?php echo htmlspecialchars($msg['imagen_path']); ?>" controls class="w-100 shadow-sm"></audio>
+                                                                </div>
+                                                            <?php else: ?>
+                                                                <img src="galeria/<?php echo htmlspecialchars($msg['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: zoom-in;" class="img-fluid rounded border border-secondary shadow-sm w-100">
+                                                            <?php endif; ?>
                                                             
                                                             <a href="javascript:void(0)" onclick="togglePublic(<?php echo $msg['id']; ?>, this)" class="btn-pub-img <?php echo ($msg['is_public'] ? 'active' : ''); ?>" title="<?= __('btn_pub_gal') ?>">
                                                                 <i class="bi bi-globe"></i>
                                                             </a>
                                                             <a href="javascript:void(0)" onclick="toggleFavorito(<?php echo $msg['id']; ?>, this)" class="btn-fav-img <?php echo ($msg['favorito'] ? 'active' : ''); ?>" title="<?= __('btn_fav') ?>">
                                                             <i class="bi <?php echo ($msg['favorito'] ? 'bi-heart-fill' : 'bi-heart'); ?>"></i>
-															</a>
+                                                            </a>
 
-															<!-- Contenedor Flex para la derecha (JSON + Descarga) -->
-															<div style="position: absolute; bottom: 10px; right: 10px; display: flex; gap: 8px; z-index: 50;">
-																<?php 
-																$json_file = 'workflow_' . $msg['id'] . '.json';
-																if (file_exists(__DIR__ . '/galeria/' . $json_file)): 
-																?>
-																<a href="galeria/<?php echo $json_file; ?>" target="_blank" class="btn-fab" style="position: relative; right: auto; bottom: auto; background-color: #212529; color: #0dcaf0; border: 1px solid #0dcaf0;" title="<?= __('btn_download_json') ?>">
-																	<i class="bi bi-braces"></i>
-																</a>
-																<?php endif; ?>
-
-																<a href="galeria/<?php echo htmlspecialchars($msg['imagen_path']); ?>" download class="btn-fab btn-download-img-fab" style="position: relative; right: auto; bottom: auto;" title="<?= __('btn_descargar') ?>">
-																	<i class="bi bi-download"></i>
-																</a>
-															</div>
-
+                                                            <div style="position: absolute; bottom: 10px; right: 10px; display: flex; gap: 8px; z-index: 50;">
+                                                                <?php 
+                                                                $json_file = 'workflow_' . $msg['id'] . '.json';
+                                                                if (file_exists(__DIR__ . '/galeria/' . $json_file)): 
+                                                                ?>
+                                                                <a href="galeria/<?php echo $json_file; ?>" target="_blank" class="btn-fab" style="position: relative; right: auto; bottom: auto; background-color: #212529; color: #0dcaf0; border: 1px solid #0dcaf0;" title="<?= __('btn_download_json') ?>">
+                                                                    <i class="bi bi-braces"></i>
+                                                                </a>
+                                                                <?php endif; ?>
+                                                                <a href="galeria/<?php echo htmlspecialchars($msg['imagen_path']); ?>" download class="btn-fab btn-download-img-fab" style="position: relative; right: auto; bottom: auto;" title="<?= __('btn_descargar') ?>">
+                                                                    <i class="bi bi-download"></i>
+                                                                </a>
+                                                            </div>
                                                             <div class="cluster-btns-fab">
                                                                 <a href="index.php?reutilizar=<?php echo $msg['id']; ?>" class="btn-fab btn-reutilizar-fab" title="<?= __('btn_reutilizar') ?>">
                                                                     <i class="bi bi-magic"></i>
@@ -384,7 +451,6 @@ $items = groupHistoryItems($all_prompts);
                                                     <div id="texto-gen-<?php echo $msg['id']; ?>"><?php echo htmlspecialchars($msg['texto_generado']); ?></div>
                                                 </div>
                                             <?php endif; ?>
-                                            
                                         </div>
                                         <button class="btn-icon-gray ms-3 text-danger border-danger mt-3" title="<?= __('btn_del_var') ?>" onclick="borrarRegistro(<?php echo $msg['id']; ?>)">
                                             <i class="bi bi-trash3"></i>
@@ -405,7 +471,9 @@ $items = groupHistoryItems($all_prompts);
                             
                             <div class="d-flex justify-content-between align-items-center mb-3 border-bottom border-secondary pb-3" style="border-color: rgba(255,255,255,0.1) !important;">
                                 <div>
-                                    <span class="model-badge"><?php echo htmlspecialchars($item['modelo']); ?></span>
+                                    <span class="model-badge">
+                                        <?php echo getIconoHistorial($item['modelo']); ?> <?php echo htmlspecialchars($item['modelo']); ?>
+                                    </span>
                                     <span class="date-text ms-2"><?php echo date('d/m/Y H:i', strtotime($item['fecha_hora'])); ?></span>
                                     <?php if (!$isSingle): ?>
                                         <span class="badge bg-secondary ms-2"><?php echo count($item['items']); ?> <?= __('txt_reg_filt') ?></span>
@@ -446,41 +514,40 @@ $items = groupHistoryItems($all_prompts);
                                                     <?php if (!empty($subItem['imagen_path'])): ?>
                                                     <div class="col-md-4 mb-3 mb-md-0">
                                                         <div class="img-container" style="position: relative;">
-															<?php 
-															$ext = strtolower(pathinfo($subItem['imagen_path'], PATHINFO_EXTENSION));
-															if ($ext === 'mp4' || $ext === 'webm' || $ext === 'mov'): ?>
-																<video src="galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: pointer;" class="img-fluid rounded border border-secondary shadow-sm w-100" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>
-															<?php elseif ($ext === 'wav' || $ext === 'mp3' || $ext === 'flac'): ?>
-																<div class="d-flex flex-column align-items-center justify-content-center p-4 bg-dark w-100 rounded border border-secondary" style="min-height: 180px;">
-																	<i class="bi bi-music-note-beamed fs-1 text-info mb-3"></i>
-																	<audio src="galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>" controls class="w-100 shadow-sm"></audio>
-																</div>
-															<?php else: ?>
-																<img src="galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: zoom-in;" class="img-fluid rounded border border-secondary shadow-sm w-100">
-															<?php endif; ?>
+                                                            <?php 
+                                                            $ext = strtolower(pathinfo($subItem['imagen_path'], PATHINFO_EXTENSION));
+                                                            if ($ext === 'mp4' || $ext === 'webm' || $ext === 'mov'): ?>
+                                                                <video src="galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: pointer;" class="img-fluid rounded border border-secondary shadow-sm w-100" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>
+                                                            <?php elseif ($ext === 'wav' || $ext === 'mp3' || $ext === 'flac'): ?>
+                                                                <div class="d-flex flex-column align-items-center justify-content-center p-4 bg-dark w-100 rounded border border-secondary" style="min-height: 180px;">
+                                                                    <i class="bi bi-music-note-beamed fs-1 text-info mb-3"></i>
+                                                                    <audio src="galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>" controls class="w-100 shadow-sm"></audio>
+                                                                </div>
+                                                            <?php else: ?>
+                                                                <img src="galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>" onclick="abrirVisor(this.src)" style="cursor: zoom-in;" class="img-fluid rounded border border-secondary shadow-sm w-100">
+                                                            <?php endif; ?>
                                                             
                                                             <a href="javascript:void(0)" onclick="togglePublic(<?php echo $subItem['id']; ?>, this)" class="btn-pub-img <?php echo ($subItem['is_public'] ? 'active' : ''); ?>" title="<?= __('btn_pub_gal') ?>">
                                                                 <i class="bi bi-globe"></i>
                                                             </a>
                                                             <a href="javascript:void(0)" onclick="toggleFavorito(<?php echo $subItem['id']; ?>, this)" class="btn-fav-img <?php echo ($subItem['favorito'] ? 'active' : ''); ?>" title="<?= __('btn_fav') ?>">
                                                             <i class="bi <?php echo ($subItem['favorito'] ? 'bi-heart-fill' : 'bi-heart'); ?>"></i>
-															</a>
+                                                            </a>
 
-															<!-- Contenedor Flex para la derecha (JSON + Descarga) -->
-															<div style="position: absolute; bottom: 10px; right: 10px; display: flex; gap: 8px; z-index: 50;">
-																<?php 
-																$json_file = 'workflow_' . $subItem['id'] . '.json';
-																if (file_exists(__DIR__ . '/galeria/' . $json_file)): 
-																?>
-																<a href="galeria/<?php echo $json_file; ?>" target="_blank" class="btn-fab" style="position: relative; right: auto; bottom: auto; background-color: #212529; color: #0dcaf0; border: 1px solid #0dcaf0;" title="<?= __('btn_download_json') ?>">
-																	<i class="bi bi-braces"></i>
-																</a>
-																<?php endif; ?>
+                                                            <div style="position: absolute; bottom: 10px; right: 10px; display: flex; gap: 8px; z-index: 50;">
+                                                                <?php 
+                                                                $json_file = 'workflow_' . $subItem['id'] . '.json';
+                                                                if (file_exists(__DIR__ . '/galeria/' . $json_file)): 
+                                                                ?>
+                                                                <a href="galeria/<?php echo $json_file; ?>" target="_blank" class="btn-fab" style="position: relative; right: auto; bottom: auto; background-color: #212529; color: #0dcaf0; border: 1px solid #0dcaf0;" title="<?= __('btn_download_json') ?>">
+                                                                    <i class="bi bi-braces"></i>
+                                                                </a>
+                                                                <?php endif; ?>
 
-																<a href="galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>" download class="btn-fab btn-download-img-fab" style="position: relative; right: auto; bottom: auto;" title="<?= __('btn_descargar') ?>">
-																	<i class="bi bi-download"></i>
-																</a>
-															</div>
+                                                                <a href="galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>" download class="btn-fab btn-download-img-fab" style="position: relative; right: auto; bottom: auto;" title="<?= __('btn_descargar') ?>">
+                                                                    <i class="bi bi-download"></i>
+                                                                </a>
+                                                            </div>
 
                                                             <div class="cluster-btns-fab">
                                                                 <a href="index.php?reutilizar=<?php echo $subItem['id']; ?>" class="btn-fab btn-reutilizar-fab" title="<?= __('btn_reutilizar') ?>">
@@ -552,6 +619,33 @@ $items = groupHistoryItems($all_prompts);
                         </div>
                     <?php endif; ?>
                 <?php endforeach; ?>
+                
+                <!-- Paginación Historial -->
+                <?php if ($total_pages > 1): ?>
+                    <nav class="mt-5 mb-5">
+                        <ul class="pagination justify-content-center">
+                            <li class="page-item <?php echo ($page <= 1) ? 'disabled' : ''; ?>">
+                                <a class="page-link bg-dark text-info border-secondary" href="<?php echo getPageUrl($page - 1); ?>">Anterior</a>
+                            </li>
+                            
+                            <?php 
+                            $start_page = max(1, $page - 2);
+                            $end_page = min($total_pages, $page + 2);
+                            
+                            for ($i = $start_page; $i <= $end_page; $i++): 
+                            ?>
+                                <li class="page-item <?php echo ($page == $i) ? 'active' : ''; ?>">
+                                    <a class="page-link <?php echo ($page == $i) ? 'bg-info text-dark border-info fw-bold' : 'bg-dark text-light border-secondary'; ?>" href="<?php echo getPageUrl($i); ?>"><?php echo $i; ?></a>
+                                </li>
+                            <?php endfor; ?>
+                            
+                            <li class="page-item <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?>">
+                                <a class="page-link bg-dark text-info border-secondary" href="<?php echo getPageUrl($page + 1); ?>">Siguiente</a>
+                            </li>
+                        </ul>
+                    </nav>
+                <?php endif; ?>
+
             <?php endif; ?>
         </div>
     </div>

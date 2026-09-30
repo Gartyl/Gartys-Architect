@@ -35,7 +35,8 @@
 <!-- ======================================================= -->
 <?php include 'includes/partials/navbar.php'; ?>
 
-<div class="container pb-5">
+<!--div class="container pb-5"-->
+<div class="container-fluid pb-5 px-md-4 px-lg-5" style="max-width: 1700px;">
     <div class="row justify-content-center">
         <div class="col-lg-8">
             <div class="app-card shadow-lg" id="mainConsoleCard">
