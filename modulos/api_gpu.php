@@ -2783,13 +2783,13 @@ if ($action === 'generar_imagen') {
             // 👇 ¡RESTAURAMOS TU BLOQUE ORIGINAL! 👇
             $workflow["90"] = [ "inputs" => ["clip_name" => "qwen_3_4b.safetensors", "type" => "lumina2"], "class_type" => "CLIPLoader" ];
         } elseif ($is_hunyuan) {
-            // HunyuanDiT nativo de ComfyUI: Arquitectura Dual (CLIP-L + uMT5)
+            // Hunyuan Image nativo de ComfyUI (Nueva Generación)
             $workflow["90"] = [ 
                 "inputs" => [
-					"clip_name1" => "qwen_2.5_vl_7b_fp8_scaled.safetensors", 
-					"clip_name2" => "byt5_small_glyphxl_fp16.safetensors",    
-					"type" => "hunyuan_image" 
-				],
+                    "clip_name1" => "qwen_2.5_vl_7b_fp8_scaled.safetensors", 
+                    "clip_name2" => "byt5_small_glyphxl_fp16.safetensors",    
+                    "type" => "hunyuan_image" 
+                ],
                 "class_type" => "DualCLIPLoader" 
             ];
         } elseif ($is_hidream) {
