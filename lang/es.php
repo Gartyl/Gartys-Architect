@@ -140,6 +140,12 @@ return [
     'err_db_update' => "Hubo un error al actualizar la base de datos.",
     'err_current_pass' => "La contraseña actual introducida no es correcta.",
     'err_empty_fields' => "Por favor, completa todos los campos.",
+	'ph_busqueda_galeria' => "Buscar por prompt, autor o modelo...",
+	'btn_buscar' => "Buscar",
+	'lbl_filtro_galeria' => "Galería",
+	'opt_gal_todas'      => "Todas",
+	'opt_gal_pub'        => "🌐 Publicadas",
+	'opt_gal_priv'       => "🔒 Privadas",
 	
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
@@ -377,6 +383,7 @@ return [
 	'mon_title_temp' => "Temperatura GPU",
     'mon_title_uso'  => "Uso del núcleo GPU",
     'mon_lbl_uso'    => "Uso",
+	'btn_clear_txt' => "Borrar Texto",
     
     // ==============================================================================
     // 05. SELECTORES Y DESPLEGABLES (Opciones)

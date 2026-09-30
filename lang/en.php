@@ -140,6 +140,12 @@ return [
     'err_db_update' => "There was an error updating the database.",
     'err_current_pass' => "The current password entered is incorrect.",
     'err_empty_fields' => "Please fill in all fields.",
+	'ph_busqueda_galeria' => "Search by prompt, author or model...",
+	'btn_buscar' => "Search",
+	'lbl_filtro_galeria' => "Gallery",
+	'opt_gal_todas'      => "All",
+	'opt_gal_pub'        => "🌐 Published",
+	'opt_gal_priv'       => "🔒 Private",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
@@ -379,6 +385,7 @@ return [
     'mon_lbl_uso'    => "Usage",
 	'btn_subir_audio_ref'   => "Upload Reference Audio",
 	'ph_audio_ref_text'     => "Type exactly what the reference audio says...",
+	'btn_clear_txt' => "Delete Text",
     
     // ==============================================================================
     // 05. SELECTORES Y DESPLEGABLES (Opciones)
