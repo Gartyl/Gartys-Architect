@@ -625,7 +625,7 @@ $items = groupHistoryItems($all_prompts);
                     <nav class="mt-5 mb-5">
                         <ul class="pagination justify-content-center">
                             <li class="page-item <?php echo ($page <= 1) ? 'disabled' : ''; ?>">
-                                <a class="page-link bg-dark text-info border-secondary" href="<?php echo getPageUrl($page - 1); ?>">Anterior</a>
+                                <a class="page-link bg-dark text-info border-secondary" href="<?php echo getPageUrl($page - 1); ?>"><?= __('gal_btn_prev') ?></a>
                             </li>
                             
                             <?php 
@@ -640,7 +640,7 @@ $items = groupHistoryItems($all_prompts);
                             <?php endfor; ?>
                             
                             <li class="page-item <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?>">
-                                <a class="page-link bg-dark text-info border-secondary" href="<?php echo getPageUrl($page + 1); ?>">Siguiente</a>
+                                <a class="page-link bg-dark text-info border-secondary" href="<?php echo getPageUrl($page + 1); ?>"><?= __('gal_btn_next') ?></a>
                             </li>
                         </ul>
                     </nav>
