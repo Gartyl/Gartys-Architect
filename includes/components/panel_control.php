@@ -73,6 +73,12 @@
     </div>
 
     <div class="d-flex justify-content-end align-items-center gap-3 mt-2 mb-3">
+        
+        <!-- NUEVO: Botón Borrar (Alineado a la izquierda con me-auto y hover corregido) -->
+        <button type="button" class="btn btn-sm border-0 py-0 px-2 d-flex align-items-center text-secondary me-auto" style="background-color: transparent; transition: color 0.2s;" onmouseover="this.classList.replace('text-secondary', 'text-light')" onmouseout="this.classList.replace('text-light', 'text-secondary')" onclick="document.getElementById('descripcion').value = ''; document.getElementById('descripcion').focus();" title="<?= __('btn_title_clear_txt') ?? 'Vaciar texto' ?>">
+            <i class="bi bi-eraser-fill me-1"></i> <span class="small fw-bold"><?= __('btn_clear_txt') ?? 'Borrar texto' ?></span>
+        </button>
+
         <!-- Switch de Internet (NUEVO) -->
         <div class="form-check form-switch m-0 d-none" id="internetToggleBlock">
             <input class="form-check-input pref-track border-primary" style="cursor: pointer;" type="checkbox" id="internetToggle">
