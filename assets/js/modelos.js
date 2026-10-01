@@ -732,9 +732,33 @@ function editarModelo(mDataSeguro) {
     if(document.getElementById('modSampler')) document.getElementById('modSampler').value = m.default_sampler || '';
     if(document.getElementById('modScheduler')) document.getElementById('modScheduler').value = m.default_scheduler || '';
     if(document.getElementById('modDenoise')) document.getElementById('modDenoise').value = m.default_denoise ?? '';
-	if(document.getElementById('modKeepAlive')) document.getElementById('modKeepAlive').value = m.keep_alive || '';
-	if(document.getElementById('modDefaultNegative')) document.getElementById('modDefaultNegative').value = m.default_negative || '';
+    if(document.getElementById('modKeepAlive')) document.getElementById('modKeepAlive').value = m.keep_alive || '';
+    if(document.getElementById('modDefaultNegative')) document.getElementById('modDefaultNegative').value = m.default_negative || '';
     
+    // =========================================================================
+    // NUEVO: CARGAR DATOS DE ARQUITECTURA AL EDITAR
+    // =========================================================================
+    if(document.getElementById('modVae')) document.getElementById('modVae').value = m.vae_requerido || '';
+    
+    // Limpiamos siempre las cajas por si el modelo anterior tenía más campos llenos
+    for (let i = 1; i <= 4; i++) {
+        if(document.getElementById('modTE' + i)) document.getElementById('modTE' + i).value = '';
+    }
+    
+    if (m.text_encoders) {
+        try {
+            let tes = JSON.parse(m.text_encoders);
+            if (Array.isArray(tes)) {
+                for (let i = 0; i < tes.length; i++) {
+                    if (tes[i] && document.getElementById('modTE' + (i + 1))) {
+                        document.getElementById('modTE' + (i + 1)).value = tes[i];
+                    }
+                }
+            }
+        } catch(e) {}
+    }
+    // =========================================================================
+
     // Cambiamos el estilo del botón de guardar para indicar "Modo Edición"
     const btn = document.getElementById('btnSubmitModelo');
     if(btn) {
@@ -744,7 +768,6 @@ function editarModelo(mDataSeguro) {
 }
 
 async function guardarModeloBD() {
-    // NUEVO: Buscamos si estamos editando un modelo existente
     const idModelo = document.getElementById('modId') ? document.getElementById('modId').value : '';
     
     const nombre = document.getElementById('modNombre').value.trim();
@@ -753,19 +776,32 @@ async function guardarModeloBD() {
     const cat = document.getElementById('modCat').value;
     const nivel = document.getElementById('modNivel') ? document.getElementById('modNivel').value : 'usuario';
     const es_unbundled = document.getElementById('modUnbundled') && document.getElementById('modUnbundled').checked ? 1 : 0;
-	const tags_uso = document.getElementById('modTags') ? document.getElementById('modTags').value.trim() : '';
-	
-	// 👇 NUEVO: Capturamos las reglas del arquitecto
+    const tags_uso = document.getElementById('modTags') ? document.getElementById('modTags').value.trim() : '';
+    
     const reglas_arq = document.getElementById('modReglasArq') ? document.getElementById('modReglasArq').value.trim() : '';
-    // -----------------------------------------------------
 
     const defSteps = document.getElementById('modSteps') ? document.getElementById('modSteps').value : '';
     const defCfg = document.getElementById('modCfg') ? document.getElementById('modCfg').value : '';
     const defSampler = document.getElementById('modSampler') ? document.getElementById('modSampler').value : '';
     const defScheduler = document.getElementById('modScheduler') ? document.getElementById('modScheduler').value : '';
     const defDenoise = document.getElementById('modDenoise') ? document.getElementById('modDenoise').value : '';
-	const keepAlive = document.getElementById('modKeepAlive') ? document.getElementById('modKeepAlive').value.trim() : '';
-	const defNegative = document.getElementById('modDefaultNegative') ? document.getElementById('modDefaultNegative').value.trim() : '';
+    const keepAlive = document.getElementById('modKeepAlive') ? document.getElementById('modKeepAlive').value.trim() : '';
+    const defNegative = document.getElementById('modDefaultNegative') ? document.getElementById('modDefaultNegative').value.trim() : '';
+
+    // =========================================================================
+    // NUEVO: CAPTURAR DATOS DE LA ARQUITECTURA DESMEMBRADA
+    // =========================================================================
+    const vaeReq = document.getElementById('modVae') ? document.getElementById('modVae').value.trim() : '';
+    
+    let arrayTEs = [];
+    for (let i = 1; i <= 4; i++) {
+        let teVal = document.getElementById('modTE' + i) ? document.getElementById('modTE' + i).value.trim() : '';
+        if (teVal !== '') {
+            arrayTEs[i - 1] = teVal;
+        }
+    }
+    const jsonTextEncoders = arrayTEs.length > 0 ? JSON.stringify(arrayTEs) : '';
+    // =========================================================================
 
     if(!nombre || !archivo) {
         SwalDark.fire({icon: 'error', title: GartyLang.swal_miss_data_title, text: GartyLang.swal_miss_data_text});
@@ -773,7 +809,6 @@ async function guardarModeloBD() {
     }
 
     let fd = new FormData();
-    // MAGIA: Cambiamos la acción dinámicamente
     fd.append('action', idModelo !== '' ? 'update_modelo_bd' : 'save_modelo_bd');
     if (idModelo !== '') fd.append('id', idModelo);
 
@@ -781,25 +816,29 @@ async function guardarModeloBD() {
     fd.append('nombre_archivo', archivo);
     fd.append('motor', motor);
     fd.append('categoria', cat);
-	fd.append('tags_uso', tags_uso);
-	fd.append('reglas_arquitecto', reglas_arq);
+    fd.append('tags_uso', tags_uso);
+    fd.append('reglas_arquitecto', reglas_arq);
     fd.append('nivel_acceso', nivel); 
     fd.append('es_unbundled', es_unbundled);
     fd.append('default_steps', defSteps);
     fd.append('default_cfg', defCfg);
     fd.append('default_sampler', defSampler);
     fd.append('default_scheduler', defScheduler);
-	fd.append('default_denoise', defDenoise);
-	fd.append('keep_alive', keepAlive);
-	fd.append('default_negative', defNegative);
+    fd.append('default_denoise', defDenoise);
+    fd.append('keep_alive', keepAlive);
+    fd.append('default_negative', defNegative);
+    
+    // Añadimos los nuevos campos al payload
+    fd.append('vae_requerido', vaeReq);
+    fd.append('text_encoders', jsonTextEncoders);
 
    try {
         let res = await fetch('procesar.php', { method: 'POST', body: fd });
         let data = await res.json();
         if(data.success) {
-            cancelarEdicionModelo(); // Resetea el formulario y el botón
+            cancelarEdicionModelo(); 
             cargarTablaModelos();
-			descargarModelosDisponibles(); // <--- AÑADE ESTA LÍNEA AQUÍ
+            descargarModelosDisponibles(); 
             SwalDark.fire({icon: 'success', title: GartyLang.swal_mod_inst_title, text: GartyLang.swal_mod_inst_text, timer: 2000, showConfirmButton: false});
         } else {
             throw new Error(data.error || GartyLang.err_db_unknown);
