@@ -442,6 +442,12 @@ return [
     'sel_sd15' => "🎨 Generación Base (SD 1.5)",
     'sel_sdxl' => "⚡ Alta Resolución (SDXL)",
     'sel_video' => "🎬 Video Cinemático (WAN / LTX)",
+	'tit_pan_vae'    => "VAE (Opcional)",
+	'tit_pan_te1'    => "TE 1 (CLIP L/Qwen)",
+	'tit_pan_te2'    => "TE 2 (T5/ByT5)",
+	'tit_pan_te3'    => "TE 3 (Opcional)",
+	'tit_pan_te4'    => "TE 4 (Opcional)",
+	'adm_ph_auto'    => "Auto (Por defecto)",
 
     // ==============================================================================
     // 06. MENSAJES Y NOTIFICACIONES DE ESTADO (No Modales)
