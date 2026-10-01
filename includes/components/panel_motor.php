@@ -67,86 +67,94 @@
            <div class="col-md-3 mb-2">
               <label class="small text-secondary fw-bold mb-1"><?= __('tit_sampler') ?></label>
               <select class="form-select form-select-sm bg-dark text-light border-secondary pref-track" id="samplerInput">
-                  <option value="euler">euler</option>
-                  <option value="euler_ancestral">euler_ancestral</option>
-                  <option value="dpmpp_2m">dpmpp_2m</option>
-                  <option value="dpmpp_2m_sde_gpu">dpmpp_2m_sde_gpu</option>
-                  <option value="dpmpp_3m_sde_gpu">dpmpp_3m_sde_gpu</option>
-                  <option value="lcm">lcm</option>
-                  <option value="euler_cfg_pp" class="adv-sampler d-none">euler_cfg_pp</option>
-                  <option value="euler_ancestral_cfg_pp" class="adv-sampler d-none">euler_ancestral_cfg_pp</option>
-                  <option value="heun" class="adv-sampler d-none">heun</option>
-                  <option value="heunpp2" class="adv-sampler d-none">heunpp2</option>
-                  <option value="exp_heun_2_x0" class="adv-sampler d-none">exp_heun_2_x0</option>
-                  <option value="exp_heun_2_x0_sde" class="adv-sampler d-none">exp_heun_2_x0_sde</option>
-                  <option value="dpm_2" class="adv-sampler d-none">dpm_2</option>
-                  <option value="dpm_2_ancestral" class="adv-sampler d-none">dpm_2_ancestral</option>
-                  <option value="lms" class="adv-sampler d-none">lms</option>
-                  <option value="dpm_fast" class="adv-sampler d-none">dpm_fast</option>
-                  <option value="dpm_adaptive" class="adv-sampler d-none">dpm_adaptive</option>
-                  <option value="dpmpp_2s_ancestral" class="adv-sampler d-none">dpmpp_2s_ancestral</option>
-                  <option value="dpmpp_2s_ancestral_cfg_pp" class="adv-sampler d-none">dpmpp_2s_ancestral_cfg_pp</option>
-                  <option value="dpmpp_sde" class="adv-sampler d-none">dpmpp_sde</option>
-                  <option value="dpmpp_sde_gpu" class="adv-sampler d-none">dpmpp_sde_gpu</option>
-                  <option value="dpmpp_2m_cfg_pp" class="adv-sampler d-none">dpmpp_2m_cfg_pp</option>
-                  <option value="dpmpp_2m_sde" class="adv-sampler d-none">dpmpp_2m_sde</option>
-                  <option value="dpmpp_2m_sde_heun" class="adv-sampler d-none">dpmpp_2m_sde_heun</option>
-                  <option value="dpmpp_2m_sde_heun_gpu" class="adv-sampler d-none">dpmpp_2m_sde_heun_gpu</option>
-                  <option value="dpmpp_3m_sde" class="adv-sampler d-none">dpmpp_3m_sde</option>
-                  <option value="ddpm" class="adv-sampler d-none">ddpm</option>
-                  <option value="ipndm" class="adv-sampler d-none">ipndm</option>
-                  <option value="ipndm_v" class="adv-sampler d-none">ipndm_v</option>
-                  <option value="deis" class="adv-sampler d-none">deis</option>
-                  <option value="res_multistep" class="adv-sampler d-none">res_multistep</option>
-                  <option value="res_multistep_cfg_pp" class="adv-sampler d-none">res_multistep_cfg_pp</option>
-                  <option value="res_multistep_ancestral" class="adv-sampler d-none">res_multistep_ancestral</option>
-                  <option value="res_multistep_ancestral_cfg_pp" class="adv-sampler d-none">res_multistep_ancestral_cfg_pp</option>
-                  <option value="gradient_estimation" class="adv-sampler d-none">gradient_estimation</option>
-                  <option value="gradient_estimation_cfg_pp" class="adv-sampler d-none">gradient_estimation_cfg_pp</option>
-                  <option value="er_sde" class="adv-sampler d-none">er_sde</option>
-                  <option value="seeds_2" class="adv-sampler d-none">seeds_2</option>
-                  <option value="seeds_3" class="adv-sampler d-none">seeds_3</option>
-                  <option value="sa_solver" class="adv-sampler d-none">sa_solver</option>
-                  <option value="sa_solver_pece" class="adv-sampler d-none">sa_solver_pece</option>
-                  <option value="ddim" class="adv-sampler d-none">ddim</option>
-                  <option value="uni_pc" class="adv-sampler d-none">uni_pc</option>
-                  <option value="uni_pc_bh2" class="adv-sampler d-none">uni_pc_bh2</option>
-                  <option value="legacy_rk" class="adv-sampler d-none">legacy_rk</option>
-                  <option value="rk" class="adv-sampler d-none">rk</option>
-                  <option value="rk_beta" class="adv-sampler d-none">rk_beta</option>
-                  <option value="deis_3m_ode" class="adv-sampler d-none">deis_3m_ode</option>
-                  <option value="deis_2m_ode" class="adv-sampler d-none">deis_2m_ode</option>
-                  <option value="deis_3m" class="adv-sampler d-none">deis_3m</option>
-                  <option value="deis_2m" class="adv-sampler d-none">deis_2m</option>
-                  <option value="res_6s_ode" class="adv-sampler d-none">res_6s_ode</option>
-                  <option value="res_5s_ode" class="adv-sampler d-none">res_5s_ode</option>
-                  <option value="res_3s_ode" class="adv-sampler d-none">res_3s_ode</option>
-                  <option value="res_2s_ode" class="adv-sampler d-none">res_2s_ode</option>
-                  <option value="res_3m_ode" class="adv-sampler d-none">res_3m_ode</option>
-                  <option value="res_2m_ode" class="adv-sampler d-none">res_2m_ode</option>
-                  <option value="res_6s" class="adv-sampler d-none">res_6s</option>
-                  <option value="res_5s" class="adv-sampler d-none">res_5s</option>
-                  <option value="res_3s" class="adv-sampler d-none">res_3s</option>
-                  <option value="res_2s" class="adv-sampler d-none">res_2s</option>
-                  <option value="res_3m" class="adv-sampler d-none">res_3m</option>
-                  <option value="res_2m" class="adv-sampler d-none">res_2m</option>
+                  <option value="euler">euler</option> <!-- Default Option -->
+                  <optgroup label="<?= __('adm_opt_estandar') ?? 'Estándar' ?>">
+                      <option value="euler_ancestral">euler_ancestral</option>
+                      <option value="dpmpp_2m">dpmpp_2m</option>
+                      <option value="dpmpp_2m_sde_gpu">dpmpp_2m_sde_gpu</option>
+                      <option value="dpmpp_3m_sde_gpu">dpmpp_3m_sde_gpu</option>
+                      <option value="lcm">lcm</option>
+                  </optgroup>
+                  <optgroup label="<?= __('adm_opt_avanzados') ?? 'Avanzados' ?>" class="adv-sampler d-none">
+                      <option value="euler_cfg_pp">euler_cfg_pp</option>
+                      <option value="euler_ancestral_cfg_pp">euler_ancestral_cfg_pp</option>
+                      <option value="heun">heun</option>
+                      <option value="heunpp2">heunpp2</option>
+                      <option value="exp_heun_2_x0">exp_heun_2_x0</option>
+                      <option value="exp_heun_2_x0_sde">exp_heun_2_x0_sde</option>
+                      <option value="dpm_2">dpm_2</option>
+                      <option value="dpm_2_ancestral">dpm_2_ancestral</option>
+                      <option value="lms">lms</option>
+                      <option value="dpm_fast">dpm_fast</option>
+                      <option value="dpm_adaptive">dpm_adaptive</option>
+                      <option value="dpmpp_2s_ancestral">dpmpp_2s_ancestral</option>
+                      <option value="dpmpp_2s_ancestral_cfg_pp">dpmpp_2s_ancestral_cfg_pp</option>
+                      <option value="dpmpp_sde">dpmpp_sde</option>
+                      <option value="dpmpp_sde_gpu">dpmpp_sde_gpu</option>
+                      <option value="dpmpp_2m_cfg_pp">dpmpp_2m_cfg_pp</option>
+                      <option value="dpmpp_2m_sde">dpmpp_2m_sde</option>
+                      <option value="dpmpp_2m_sde_heun">dpmpp_2m_sde_heun</option>
+                      <option value="dpmpp_2m_sde_heun_gpu">dpmpp_2m_sde_heun_gpu</option>
+                      <option value="dpmpp_3m_sde">dpmpp_3m_sde</option>
+                      <option value="ddpm">ddpm</option>
+                      <option value="ipndm">ipndm</option>
+                      <option value="ipndm_v">ipndm_v</option>
+                      <option value="deis">deis</option>
+                      <option value="res_multistep">res_multistep</option>
+                      <option value="res_multistep_cfg_pp">res_multistep_cfg_pp</option>
+                      <option value="res_multistep_ancestral">res_multistep_ancestral</option>
+                      <option value="res_multistep_ancestral_cfg_pp">res_multistep_ancestral_cfg_pp</option>
+                      <option value="gradient_estimation">gradient_estimation</option>
+                      <option value="gradient_estimation_cfg_pp">gradient_estimation_cfg_pp</option>
+                      <option value="er_sde">er_sde</option>
+                      <option value="seeds_2">seeds_2</option>
+                      <option value="seeds_3">seeds_3</option>
+                      <option value="sa_solver">sa_solver</option>
+                      <option value="sa_solver_pece">sa_solver_pece</option>
+                      <option value="ddim">ddim</option>
+                      <option value="uni_pc">uni_pc</option>
+                      <option value="uni_pc_bh2">uni_pc_bh2</option>
+                      <option value="legacy_rk">legacy_rk</option>
+                      <option value="rk">rk</option>
+                      <option value="rk_beta">rk_beta</option>
+                      <option value="deis_3m_ode">deis_3m_ode</option>
+                      <option value="deis_2m_ode">deis_2m_ode</option>
+                      <option value="deis_3m">deis_3m</option>
+                      <option value="deis_2m">deis_2m</option>
+                      <option value="res_6s_ode">res_6s_ode</option>
+                      <option value="res_5s_ode">res_5s_ode</option>
+                      <option value="res_3s_ode">res_3s_ode</option>
+                      <option value="res_2s_ode">res_2s_ode</option>
+                      <option value="res_3m_ode">res_3m_ode</option>
+                      <option value="res_2m_ode">res_2m_ode</option>
+                      <option value="res_6s">res_6s</option>
+                      <option value="res_5s">res_5s</option>
+                      <option value="res_3s">res_3s</option>
+                      <option value="res_2s">res_2s</option>
+                      <option value="res_3m">res_3m</option>
+                      <option value="res_2m">res_2m</option>
+                  </optgroup>
               </select>
            </div>
            
            <div class="col-md-3 mb-2">
               <label class="small text-secondary fw-bold mb-1"><?= __('tit_scheduler') ?></label>
               <select class="form-select form-select-sm bg-dark text-light border-secondary pref-track" id="schedulerInput">
-                  <option value="beta">beta</option>
-                  <option value="exponential">exponential</option>
-                  <option value="karras">karras</option>
-                  <option value="simple">simple</option>
-                  <option value="sgm_uniform">sgm_uniform</option>
-                  <option value="linear_quadratic" class="adv-scheduler d-none">linear_quadratic</option>
-                  <option value="beta57" class="adv-scheduler d-none">beta57</option>
-                  <option value="bong_tangent" class="adv-scheduler d-none">bong_tangent</option>
-                  <option value="kl_optimal" class="adv-scheduler d-none">kl_optimal</option>
-                  <option value="normal" class="adv-scheduler d-none">normal</option>
-                  <option value="ddim_uniform" class="adv-scheduler d-none">ddim_uniform</option>
+                  <option value="beta">beta</option> <!-- Default Option -->
+                  <optgroup label="<?= __('adm_opt_estandar') ?? 'Estándar' ?>">
+                      <option value="exponential">exponential</option>
+                      <option value="karras">karras</option>
+                      <option value="simple">simple</option>
+                      <option value="sgm_uniform">sgm_uniform</option>
+                  </optgroup>
+                  <optgroup label="<?= __('adm_opt_avanzados') ?? 'Avanzados' ?>" class="adv-scheduler d-none">
+                      <option value="linear_quadratic">linear_quadratic</option>
+                      <option value="beta57">beta57</option>
+                      <option value="bong_tangent">bong_tangent</option>
+                      <option value="kl_optimal">kl_optimal</option>
+                      <option value="normal">normal</option>
+                      <option value="ddim_uniform">ddim_uniform</option>
+                  </optgroup>
               </select>
            </div>
            
