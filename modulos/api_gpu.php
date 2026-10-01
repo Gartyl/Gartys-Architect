@@ -388,15 +388,24 @@ if ($action === 'generar_imagen') {
     
     // Reasignamos las variables para que el resto del código no se entere del cambio
     $model_path = $info_modelo['nombre_archivo'];
-	
-	// 👇 UNBUNDLED 👇
+    
+    // 👇 UNBUNDLED Y EXTRACCIÓN DE PARÁMETROS JSON 👇
     $es_unbundled_db = isset($info_modelo['es_unbundled']) && $info_modelo['es_unbundled'] == 1;
+    
+    $vae_requerido = $info_modelo['vae_requerido'] ?? null;
+    $te_json = !empty($info_modelo['text_encoders']) ? json_decode($info_modelo['text_encoders'], true) : [];
+    
+    $te1 = !empty($te_json[0]) ? $te_json[0] : null;
+    $te2 = !empty($te_json[1]) ? $te_json[1] : null;
+    $te3 = !empty($te_json[2]) ? $te_json[2] : null;
+    $te4 = !empty($te_json[3]) ? $te_json[3] : null;
     // 👆 ======================= 👆
-	
-    // Si en la base de datos has definido un VAE específico, lo preparamos aquí para el futuro
-    if (!empty($info_modelo['vae_requerido'])) {
-        $vae_name = $info_modelo['vae_requerido']; 
+
+    // Si en la base de datos has definido un VAE específico, lo guardamos para luego
+    if (!empty($vae_requerido)) {
+        $vae_name = $vae_requerido; 
     }
+    
     $historial_id = intval($_POST['historial_id'] ?? 0); 
     $width = intval($_POST['width'] ?? 1024);
     $height = intval($_POST['height'] ?? 1024);
@@ -2770,68 +2779,64 @@ if ($action === 'generar_imagen') {
             }
         }
         
-		// 2. TEXT ENCODERS (Incluyendo FP8)
+		// 2. TEXT ENCODERS (HÍBRIDO: BD Custom + Salvavidas)
         if ($is_sd35) {
-            $workflow["90"] = [ "inputs" => ["clip_name1" => "clip_l.safetensors", "clip_name2" => "clip_g.safetensors", "clip_name3" => "t5xxl_fp16.safetensors"], "class_type" => "TripleCLIPLoader" ];
+            $workflow["90"] = [ "inputs" => ["clip_name1" => $te1 ?: "clip_l.safetensors", "clip_name2" => $te2 ?: "clip_g.safetensors", "clip_name3" => $te3 ?: "t5xxl_fp16.safetensors"], "class_type" => "TripleCLIPLoader" ];
         } elseif ($is_qwen21) {
-            $workflow["90"] = [ "inputs" => ["clip_name" => "qwen3vl_8b_int8_convrot.safetensors", "type" => "qwen_image", "device" => "default"], "class_type" => "CLIPLoader" ];
+            $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "qwen3vl_8b_int8_convrot.safetensors", "type" => "qwen_image", "device" => "default"], "class_type" => "CLIPLoader" ];
         } elseif ($is_qwen) {
-            $workflow["90"] = [ "inputs" => ["clip_name" => "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type" => "qwen_image"], "class_type" => "CLIPLoader" ];
+            $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type" => "qwen_image"], "class_type" => "CLIPLoader" ];
         } elseif ($is_krea2) {
-            $workflow["90"] = [ "inputs" => ["clip_name" => "qwen3vl_4b_fp8_scaled.safetensors", "type" => "krea2", "device" => "default"], "class_type" => "CLIPLoader" ];
+            $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "qwen3vl_4b_fp8_scaled.safetensors", "type" => "krea2", "device" => "default"], "class_type" => "CLIPLoader" ];
         } elseif ($is_zimage) {
-            // 👇 ¡RESTAURAMOS TU BLOQUE ORIGINAL! 👇
-            $workflow["90"] = [ "inputs" => ["clip_name" => "qwen_3_4b.safetensors", "type" => "lumina2"], "class_type" => "CLIPLoader" ];
+            $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "qwen_3_4b.safetensors", "type" => "lumina2"], "class_type" => "CLIPLoader" ];
         } elseif ($is_hunyuan) {
-            // Hunyuan Image nativo de ComfyUI (Nueva Generación)
             $workflow["90"] = [ 
                 "inputs" => [
-                    "clip_name1" => "qwen_2.5_vl_7b_fp8_scaled.safetensors", 
-                    "clip_name2" => "byt5_small_glyphxl_fp16.safetensors",    
+                    "clip_name1" => $te1 ?: "qwen_2.5_vl_7b_fp8_scaled.safetensors", 
+                    "clip_name2" => $te2 ?: "byt5_small_glyphxl_fp16.safetensors",    
                     "type" => "hunyuan_image" 
                 ],
                 "class_type" => "DualCLIPLoader" 
             ];
         } elseif ($is_hidream) {
-            // HiDream-I1: Arquitectura Quadruple CLIP (CLIP-L + CLIP-G + T5XXL + Llama 3.1 8B FP8)
             $workflow["90"] = [ 
                 "inputs" => [
-                    "clip_name1" => "clip_l_hidream.safetensors", 
-                    "clip_name2" => "clip_g_hidream.safetensors", 
-                    "clip_name3" => "t5xxl_fp8_e4m3fn.safetensors", 
-                    "clip_name4" => "llama_3.1_8b_instruct_fp8_scaled.safetensors" 
+                    "clip_name1" => $te1 ?: "clip_l_hidream.safetensors", 
+                    "clip_name2" => $te2 ?: "clip_g_hidream.safetensors", 
+                    "clip_name3" => $te3 ?: "t5xxl_fp8_e4m3fn.safetensors", 
+                    "clip_name4" => $te4 ?: "llama_3.1_8b_instruct_fp8_scaled.safetensors" 
                 ], 
                 "class_type" => "QuadrupleCLIPLoader" 
             ];
         } elseif ($is_anima) {
-            // Anima: Usa Qwen con la denominación genérica stable_diffusion
-            $workflow["90"] = [ 
-                "inputs" => [
-                    "clip_name" => "qwen_3_06b_base.safetensors", 
-                    "type" => "stable_diffusion" 
-                ], 
-                "class_type" => "CLIPLoader" 
-            ];
+            $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "qwen_3_06b_base.safetensors", "type" => "stable_diffusion"], "class_type" => "CLIPLoader" ];
         } elseif (strpos($model_lower, 'flux2') !== false) {
-            // EL INTOCABLE FLUX 2
-            $workflow["90"] = [ "inputs" => ["clip_name" => "qwen_3_8b.safetensors", "type" => "flux2"], "class_type" => "CLIPLoader" ];
+            $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "qwen_3_8b.safetensors", "type" => "flux2"], "class_type" => "CLIPLoader" ];
         } elseif ($is_chroma) {
-            // CLONADO EXACTO DEL JSON PARA CHROMA
-            $workflow["90"] = [ "inputs" => ["clip_name" => "t5xxl_fp8_e4m3fn.safetensors", "type" => "chroma", "device" => "default"], "class_type" => "CLIPLoader" ];
+            $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "t5xxl_fp8_e4m3fn.safetensors", "type" => "chroma", "device" => "default"], "class_type" => "CLIPLoader" ];
             $workflow["90_opt"] = [ "inputs" => ["min_padding" => 0, "min_length" => 0, "clip" => ["90", 0]], "class_type" => "T5TokenizerOptions" ];
         } else {
-            // FLUX NORMAL
+            // FLUX NORMAL (Dual)
             $workflow["90"] = [ 
                 "inputs" => [
-                    "clip_name1" => "t5xxl_fp16.safetensors", 
-                    "clip_name2" => "clip_l.safetensors", 
+                    "clip_name1" => $te1 ?: "t5xxl_fp16.safetensors", 
+                    "clip_name2" => $te2 ?: "clip_l.safetensors", 
                     "type" => "flux"
                 ], 
                 "class_type" => "DualCLIPLoader"
             ];
         }
         
-        $vae_filename = basename(str_replace('\\', '/', $vae_name));
+        // VAE Loader (Aplicando el Custom si viene de la BD)
+        if (empty($vae_requerido)) {
+            // Si no hay VAE en la BD, calculamos el automático que ya tenías
+            $vae_filename = basename(str_replace('\\', '/', $vae_name));
+        } else {
+            // Si el usuario especificó uno, manda el suyo
+            $vae_filename = basename(str_replace('\\', '/', $vae_requerido));
+        }
+        
         $workflow["91"] = [ "inputs" => ["vae_name" => $vae_filename], "class_type" => "VAELoader" ];
 
         // Si es Chroma, el clip principal pasa a ser el Tokenizer (90_opt). Si no, el 90 normal.

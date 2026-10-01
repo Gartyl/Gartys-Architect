@@ -229,21 +229,22 @@ if ($action === 'save_modelo_bd') {
     try {
         $es_unbundled = isset($_POST['es_unbundled']) ? intval($_POST['es_unbundled']) : 0;
         
-        // Recogemos los nuevos parámetros o aplicamos los de seguridad por defecto
         $d_steps = (isset($_POST['default_steps']) && is_numeric($_POST['default_steps'])) ? intval($_POST['default_steps']) : 30;
         $d_cfg = (isset($_POST['default_cfg']) && is_numeric($_POST['default_cfg'])) ? floatval($_POST['default_cfg']) : 5.0;
         $d_sampler = !empty($_POST['default_sampler']) ? $_POST['default_sampler'] : 'euler_ancestral';
         $d_scheduler = !empty($_POST['default_scheduler']) ? $_POST['default_scheduler'] : 'beta';
-        // 👇 NUEVO: Capturar el Denoise y Keep Alive
         $d_denoise = (isset($_POST['default_denoise']) && $_POST['default_denoise'] !== '') ? floatval($_POST['default_denoise']) : null;
         $keep_alive = (isset($_POST['keep_alive']) && trim($_POST['keep_alive']) !== '') ? trim($_POST['keep_alive']) : null;
-        // 👆 ----------------------
         
         $tags_uso = $_POST['tags_uso'] ?? ''; 
         $reglas_arquitecto = $_POST['reglas_arquitecto'] ?? '';
-		$d_negative = $_POST['default_negative'] ?? '';
+        $d_negative = $_POST['default_negative'] ?? '';
+        
+        // NUEVAS VARIABLES DE ARQUITECTURA
+        $vae_requerido = (isset($_POST['vae_requerido']) && trim($_POST['vae_requerido']) !== '') ? trim($_POST['vae_requerido']) : null;
+        $text_encoders = (isset($_POST['text_encoders']) && trim($_POST['text_encoders']) !== '') ? trim($_POST['text_encoders']) : null;
 
-        $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, tags_uso, reglas_arquitecto, default_negative) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, tags_uso, reglas_arquitecto, default_negative, vae_requerido, text_encoders) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
             ->execute([
                 $_POST['nombre_visual'], 
                 $_POST['nombre_archivo'], 
@@ -259,7 +260,9 @@ if ($action === 'save_modelo_bd') {
                 $keep_alive,
                 $tags_uso,
                 $reglas_arquitecto,
-				$d_negative
+                $d_negative,
+                $vae_requerido,
+                $text_encoders
             ]);
         echo json_encode(['success' => true]);
     } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
@@ -270,21 +273,22 @@ if ($action === 'update_modelo_bd') {
     try {
         $es_unbundled = isset($_POST['es_unbundled']) ? intval($_POST['es_unbundled']) : 0;
         
-        // Parámetros opcionales
         $d_steps = (isset($_POST['default_steps']) && is_numeric($_POST['default_steps'])) ? intval($_POST['default_steps']) : null;
         $d_cfg = (isset($_POST['default_cfg']) && is_numeric($_POST['default_cfg'])) ? floatval($_POST['default_cfg']) : null;
         $d_sampler = !empty($_POST['default_sampler']) ? $_POST['default_sampler'] : null;
         $d_scheduler = !empty($_POST['default_scheduler']) ? $_POST['default_scheduler'] : null;
-        // 👇 NUEVO: Capturar el Denoise y Keep Alive
         $d_denoise = (isset($_POST['default_denoise']) && $_POST['default_denoise'] !== '') ? floatval($_POST['default_denoise']) : null;
         $keep_alive = (isset($_POST['keep_alive']) && trim($_POST['keep_alive']) !== '') ? trim($_POST['keep_alive']) : null;
-        // 👆 ----------------------
 
         $tags_uso = $_POST['tags_uso'] ?? '';
         $reglas_arquitecto = $_POST['reglas_arquitecto'] ?? '';
-		$d_negative = $_POST['default_negative'] ?? '';
+        $d_negative = $_POST['default_negative'] ?? '';
+        
+        // NUEVAS VARIABLES DE ARQUITECTURA
+        $vae_requerido = (isset($_POST['vae_requerido']) && trim($_POST['vae_requerido']) !== '') ? trim($_POST['vae_requerido']) : null;
+        $text_encoders = (isset($_POST['text_encoders']) && trim($_POST['text_encoders']) !== '') ? trim($_POST['text_encoders']) : null;
 
-        $pdo->prepare("UPDATE modelos_ia SET nombre_visual = ?, nombre_archivo = ?, motor = ?, categoria = ?, nivel_acceso = ?, es_unbundled = ?, default_steps = ?, default_cfg = ?, default_sampler = ?, default_scheduler = ?, default_denoise = ?, keep_alive = ?, tags_uso = ?, reglas_arquitecto = ?, default_negative = ? WHERE id = ?")
+        $pdo->prepare("UPDATE modelos_ia SET nombre_visual = ?, nombre_archivo = ?, motor = ?, categoria = ?, nivel_acceso = ?, es_unbundled = ?, default_steps = ?, default_cfg = ?, default_sampler = ?, default_scheduler = ?, default_denoise = ?, keep_alive = ?, tags_uso = ?, reglas_arquitecto = ?, default_negative = ?, vae_requerido = ?, text_encoders = ? WHERE id = ?")
             ->execute([
                 $_POST['nombre_visual'], 
                 $_POST['nombre_archivo'], 
@@ -300,7 +304,9 @@ if ($action === 'update_modelo_bd') {
                 $keep_alive,
                 $tags_uso,
                 $reglas_arquitecto,
-				$d_negative,
+                $d_negative,
+                $vae_requerido,
+                $text_encoders,
                 $_POST['id'] // El ID que manda el frontend
             ]);
         echo json_encode(['success' => true]);
