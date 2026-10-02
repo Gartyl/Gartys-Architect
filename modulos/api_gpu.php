@@ -2077,7 +2077,10 @@ if ($action === 'generar_imagen') {
         @unlink($tmp_base);
 
         if (isset($res_base['name'])) {
-            $use_adetailer = false;
+            // ELIMINAMOS $use_adetailer = false; para permitir que ADetailer trabaje
+            $pure_faceswap_ran = true;     // Bandera para no duplicar ReActor abajo
+            $es_modo_puro_activo = true;   // Bandera para avisar a ADetailer
+            
             $workflow["10"] = ["inputs" => ["image" => $res_base['name'], "upload" => "image"], "class_type" => "LoadImage"];
 
             // 2. Lógica Híbrida: ¿Foto temporal o modelo .safetensors guardado?
@@ -3980,7 +3983,7 @@ if ($action === 'generar_imagen') {
 	// ==============================================================================
     // 🌟 INYECCIÓN UNIVERSAL DE REACTOR (FACE SWAP PARA IMAGEN Y VÍDEO)
     // ==============================================================================
-    if (isset($_POST['reactor_enabled']) && $_POST['reactor_enabled'] === 'true' && (!empty($_POST['reactor_image']) || !empty($_POST['reactor_saved_face']))) { 
+    if (isset($_POST['reactor_enabled']) && $_POST['reactor_enabled'] === 'true' && empty($pure_faceswap_ran) && (!empty($_POST['reactor_image']) || !empty($_POST['reactor_saved_face']))) {
         
         $reactor_saved_face = $_POST['reactor_saved_face'] ?? null;
         $reactor_image_base64 = $_POST['reactor_image'] ?? null;
@@ -4093,8 +4096,8 @@ if ($action === 'generar_imagen') {
             $adetailer_cfg     = $cfg;
             $adetailer_steps   = $steps;
 
-            // 🛡️ ESTRATEGIA ANTI-COLLISION PARA DiT (Flux / Chroma / Krea-2 / Qwen / Anima / etc)
-            if ($is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima) {
+            // 🛡️ ESTRATEGIA ANTI-COLLISION PARA DiT O MODO PURO
+            if (!empty($es_modo_puro_activo) || $is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima) {
                 $modelo_rostros = "";
 
                 $stmt_ref = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE categoria = 'sys_refiner' LIMIT 1");
