@@ -746,6 +746,7 @@ return [
     'radar_btn_timeout' => "Timeout",
     'radar_msg_rendering' => "Rendering... (Ticket #",
 	'gpu_animating_video' => "Generating video...",
+	'btn_retirar' => "Remove From Gallery",
 
     // ==============================================================================
     // 09. PANEL DE ADMINISTRACIÓN Y LICENCIAS

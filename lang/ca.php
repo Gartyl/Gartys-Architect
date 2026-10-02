@@ -743,6 +743,7 @@ return [
     'radar_btn_timeout' => "Temps Esgotat",
     'radar_msg_rendering' => "Renderitzant... (Tiquet #",
 	'gpu_animating_video' => "Generant vídeo...",
+	'btn_retirar' => "Retirar de Galeria",
 
     // ==============================================================================
     // 09. PANEL DE ADMINISTRACIÓN Y LICENCIAS
