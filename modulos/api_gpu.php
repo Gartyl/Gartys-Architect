@@ -4423,31 +4423,37 @@ if ($action === 'generar_imagen') {
     // ====================================================================
 
    // ====================================================================
-    // --- 2. INTERCEPTOR MODO ASÍNCRONO (TICKETS Y ÁNGEL) ---
-    // ====================================================================
-    if (isset($_POST['async_mode']) && $_POST['async_mode'] === 'true') {
-        
-        $url_angel = "http://" . $_SERVER['HTTP_HOST'] . $_SERVER['SCRIPT_NAME'];
-        $post_fields = http_build_query([
-            'action' => 'angel_guardia',
-            'prompt_id' => $prompt_id,
-            'historial_id' => $historial_id,
-            'user_id' => $user_id
-        ]);
-        
-        $ch_angel = curl_init();
-        curl_setopt($ch_angel, CURLOPT_URL, $url_angel);
-        curl_setopt($ch_angel, CURLOPT_POST, true);
-        curl_setopt($ch_angel, CURLOPT_POSTFIELDS, $post_fields);
-        curl_setopt($ch_angel, CURLOPT_TIMEOUT, 1); 
-        curl_setopt($ch_angel, CURLOPT_NOSIGNAL, 1);
-        curl_setopt($ch_angel, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch_angel, CURLOPT_COOKIE, session_name() . '=' . session_id()); 
-        @curl_exec($ch_angel);
-        
-        echo json_encode(['status' => 'ticket_issued', 'prompt_id' => $prompt_id, 'historial_id' => $historial_id]);
-        exit();
-    }
+   // --- 2. INTERCEPTOR MODO ASÍNCRONO (TICKETS Y ÁNGEL) ---
+   // ====================================================================
+   if (isset($_POST['async_mode']) && $_POST['async_mode'] === 'true') {
+       
+       $url_angel = "http://" . $_SERVER['HTTP_HOST'] . $_SERVER['SCRIPT_NAME'];
+       $post_fields = http_build_query([
+           'action' => 'angel_guardia',
+           'prompt_id' => $prompt_id,
+           'historial_id' => $historial_id,
+           'user_id' => $user_id
+       ]);
+       
+       $ch_angel = curl_init();
+       curl_setopt($ch_angel, CURLOPT_URL, $url_angel);
+       curl_setopt($ch_angel, CURLOPT_POST, true);
+       curl_setopt($ch_angel, CURLOPT_POSTFIELDS, $post_fields);
+       
+       // 🛡️ DISPARO SEGURO: Usamos MS y prohibimos reuso para no matar al proceso hijo
+       curl_setopt($ch_angel, CURLOPT_TIMEOUT_MS, 200); 
+       curl_setopt($ch_angel, CURLOPT_NOSIGNAL, 1);
+       curl_setopt($ch_angel, CURLOPT_RETURNTRANSFER, true);
+       curl_setopt($ch_angel, CURLOPT_FORBID_REUSE, true);
+       curl_setopt($ch_angel, CURLOPT_FRESH_CONNECT, true);
+       
+       curl_setopt($ch_angel, CURLOPT_COOKIE, session_name() . '=' . session_id()); 
+       @curl_exec($ch_angel);
+       curl_close($ch_angel);
+       
+       echo json_encode(['status' => 'ticket_issued', 'prompt_id' => $prompt_id, 'historial_id' => $historial_id]);
+       exit();
+   }
 
     // --- GUARDADO DE IMÁGENES (SINCRÓNICO) ---
     $final_base64_responses = [];
