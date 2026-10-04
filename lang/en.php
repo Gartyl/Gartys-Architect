@@ -697,6 +697,10 @@ return [
 	'err_ipa_flux_kontext' => "Flux Kontext uses its native Conditioner. Turn off IP-Adapter and upload photos to the normal multi-upload tray.",
 	'err_flux2_max_images' => "The current Flux 2 Klein model only supports a maximum of 3 reference images. Please remove some from the tray.",
 	'err_empty_foley' => "Hunyuan Foley needs you to load a video in the main viewer to generate the synchronized sound.",
+	'radar_btn_timeout' => "Timeout detected",
+    'swal_timeout_title' => "ComfyUI Timeout",
+    'swal_timeout_text' => "The GPU has hung or is taking too long. The interface has been freed for safety.",
+    'radar_btn_gpu_fail' => "GPU Error",
 
     // ==============================================================================
     // 08. CHAT, RADAR Y MOTOR DE TEXTO (LLM)
@@ -797,6 +801,7 @@ return [
     'adm_lbl_pro' => "(Pro)",
     'adm_lbl_pro_exc' => "Exclusive Pro version",
     'adm_lbl_unbundled' => "Unbundled Model (UNET only. Use separate nodes for CLIP/VAE)",
+	'tit_pan_arch_avanzados' => "Disassembled Architecture (Leave blank for Default)",
     'adm_lbl_you' => "You",
     'adm_lvl_adv' => "Advanced",
     'adm_lvl_user' => "User (Basic)",

@@ -694,6 +694,10 @@ return [
 	'err_ipa_flux_kontext' => "Flux Kontext utilitza el seu propi Conditioner natiu. Apaga IP-Adapter i puja les fotos a la safata de multicàrrega normal.",
 	'err_flux2_max_images' => "El model Flux 2 Klein actual només admet un màxim de 3 imatges de referència. Si us plau, buida una mica la safata.",
 	'err_empty_foley' => "Hunyuan Foley necessita que carreguis un vídeo al visor principal per a generar el so sincronitzat.",
+	'radar_btn_timeout' => "Temps esgotat",
+    'swal_timeout_title' => "Temps esgotat a ComfyUI",
+    'swal_timeout_text' => "La GPU s'ha penjat o està trigant massa. S'ha alliberat la interfície per seguretat.",
+    'radar_btn_gpu_fail' => "Error a la GPU",
 
     // ==============================================================================
     // 08. CHAT, RADAR Y MOTOR DE TEXTO (LLM)
@@ -794,6 +798,7 @@ return [
     'adm_lbl_pro' => "(Pro)",
     'adm_lbl_pro_exc' => "Exclusiu versió Pro",
     'adm_lbl_unbundled' => "Model Desmembrat (Només UNET. Usa nodes separats per a CLIP/VAE)",
+	'tit_pan_arch_avanzados' => "Arquitectura Desmembrada (Deixar en blanc per a Default)",
     'adm_lbl_you' => "Tu",
     'adm_lvl_adv' => "Avançat",
     'adm_lvl_user' => "Usuari (Bàsic)",
