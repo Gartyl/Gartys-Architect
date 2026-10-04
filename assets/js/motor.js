@@ -1266,8 +1266,8 @@ const UI_CONFIG = {
         modoDirecto: true, formato: false, separador: true, wildcards: true,
         placeholder: 'img', btnAudio: true, uploadType: 'base', gpuDirectMode: 'video',
         translateMode: 'video', internet: false, arqBtnMode: 'video', llmModel: false,
-        modelBlock: true, swapCols: false, resolucion: false, estilos: false, multiInput: true,
-        preset: false, proTools: true, chat: false, surpriseAmp: true, autoArch: false,
+        modelBlock: true, swapCols: false, resolucion: false, estilos: true, multiInput: true,
+        preset: true, proTools: true, chat: false, surpriseAmp: true, autoArch: false,
         lora: true, cnAdetailer: false, reactor: true, ipa: false, ipaType: 'normal',
         denoiseBatch: false, advBlock: true, videoSpecific: true, staticGraphic: true,
         hiresRembgDdcolor: false, icLight: false, showNegativePrompt: true
@@ -3191,29 +3191,88 @@ window.dispararTareaInfinita = async function() {
     } catch (e) { console.error(GartyLang.log_err_inf_loop, e); }
 };
 
+// ==============================================================================
+// 🛡️ SISTEMA DE RECUPERACIÓN DE ATASCOS (WATCHDOG PACIENTE)
+// ==============================================================================
+
+window.abortarRadarPorAtasco = function(promptId, tarea, isPolling, errorMsg = null) {
+    delete window.activeRadars[promptId];
+    if (Object.keys(window.activeRadars).length === 0) {
+        if (typeof stopProgressBar === 'function') stopProgressBar();
+        const statusContainer = document.getElementById('progressContainer');
+        if (statusContainer) statusContainer.classList.add('d-none');
+        
+        const orphanPreview = document.getElementById('livePreviewContainer');
+        if (orphanPreview) orphanPreview.remove();
+        
+        localStorage.removeItem('garty_tarea_pendiente');
+        if (tarea.btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
+            const txtAtasco = typeof GartyLang !== 'undefined' && GartyLang.radar_btn_timeout ? GartyLang.radar_btn_timeout : 'Atasco detectado';
+            tarea.btnElement.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${txtAtasco}`; 
+            
+            tarea.btnElement.classList.add('btn-danger');
+            tarea.btnElement.classList.remove('btn-gpu', 'btn-primary', 'btn-warning', 'btn-success');
+            
+            setTimeout(() => { 
+                tarea.btnElement.innerHTML = '<i class="bi bi-lightning-fill"></i> ' + (typeof GartyLang !== 'undefined' && GartyLang.btn_renderizar ? GartyLang.btn_renderizar : 'Renderizar'); 
+                tarea.btnElement.classList.remove('btn-danger');
+                tarea.btnElement.classList.add('btn-gpu');
+                tarea.btnElement.disabled = false; 
+            }, 4000);
+        }
+    }
+    if (!isPolling) {
+        const tit = typeof GartyLang !== 'undefined' && GartyLang.swal_timeout_title ? GartyLang.swal_timeout_title : 'Atasco en ComfyUI';
+        let txt = typeof GartyLang !== 'undefined' && GartyLang.swal_timeout_text ? GartyLang.swal_timeout_text : 'La GPU se ha quedado colgada o está tardando demasiado. Se ha liberado la interfaz.';
+        if (errorMsg && errorMsg !== "Timeout extremo") txt += `<br><br><small class="text-muted">${errorMsg}</small>`;
+        
+        const btnOk = typeof GartyLang !== 'undefined' && GartyLang.btn_entendido ? GartyLang.btn_entendido : 'Entendido';
+        SwalDark.fire({ icon: 'warning', title: tit, html: txt, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${btnOk}` });
+    }
+};
+
 function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory) {
     const pText = document.getElementById('progressText');
-    if(pText) pText.innerHTML = `<span style="color: #0dcaf0 !important; font-weight: bold;">${GartyLang.radar_msg_rendering} (${promptId})</span>`;
+    if(pText) pText.innerHTML = `<span style="color: #0dcaf0 !important; font-weight: bold;">${typeof GartyLang !== 'undefined' && GartyLang.radar_msg_rendering ? GartyLang.radar_msg_rendering : 'Renderizando...'} (${promptId})</span>`;
 
     window.activeRadars = window.activeRadars || {};
 
-    // 🌟 NUEVO: Solo guardamos los datos de la tarea en memoria. CERO bucles setInterval.
     window.activeRadars[promptId] = {
         targetDiv: targetDiv,
         btnElement: btnElement,
         dbId: dbId,
         originalCategory: originalCategory,
-        intentosRadar: 0
+        intentosRadar: 0,
+        ultimaActividad: Date.now() 
     };
     
-    // El WebSocket de ComfyUI se encargará de avisarnos cuando termine
-    // y llamará automáticamente a window.recolectarImagenGpu(promptId).
+    // Perro Guardián Global
+    if (!window.radarWatchdog) {
+        window.radarWatchdog = setInterval(() => {
+            const now = Date.now();
+            for (const [pId, tarea] of Object.entries(window.activeRadars)) {
+                // Margen de 1 minuto de silencio absoluto antes de forzar el rastreo
+                if (now - tarea.ultimaActividad > 60000) {
+                    tarea.ultimaActividad = now; 
+                    window.recolectarImagenGpu(pId, true);
+                }
+            }
+            if (Object.keys(window.activeRadars).length === 0) {
+                clearInterval(window.radarWatchdog);
+                window.radarWatchdog = null;
+                if (typeof stopProgressBar === 'function') stopProgressBar();
+                const progCont = document.getElementById('progressContainer');
+                if (progCont) progCont.classList.add('d-none');
+            }
+        }, 5000);
+    }
 }
 
-// 🌟 NUEVO: Función que se ejecuta UNA SOLA VEZ cuando el WebSocket avisa
-window.recolectarImagenGpu = async function(promptId) {
+window.recolectarImagenGpu = async function(promptId, isPolling = false) {
     const tarea = window.activeRadars[promptId];
-    if (!tarea) return; // Si no existe, ya fue cancelada o procesada
+    if (!tarea) return; 
+
+    tarea.ultimaActividad = Date.now();
 
     let fd = new FormData(); 
     fd.append('action', 'check_ticket'); 
@@ -3223,36 +3282,18 @@ window.recolectarImagenGpu = async function(promptId) {
     if (formatInput) fd.append('image_format', formatInput.value);
 
     try {
+        // Adiós AbortController limitante. Fetch natural que espere a que el MP4 llegue.
         let res = await fetch('procesar.php', { method: 'POST', body: fd }); 
         let data = await res.json();
         
         if (data.error) {
-            delete window.activeRadars[promptId];
-            if (Object.keys(window.activeRadars).length === 0) {
-                if (typeof stopProgressBar === 'function') stopProgressBar();
-                
-                const statusContainer = document.getElementById('progressContainer');
-                if (statusContainer) statusContainer.classList.add('d-none');
-                
-                // 👇 NUEVO: Destruir visor fantasma si la generación falla a mitad de camino
-                const orphanPreview = document.getElementById('livePreviewContainer');
-                if (orphanPreview) orphanPreview.remove();
-                
-                localStorage.removeItem('garty_tarea_pendiente');
-                if (tarea.btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
-                    tarea.btnElement.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${GartyLang.radar_btn_gpu_fail}`; 
-                    tarea.btnElement.classList.replace('btn-primary', 'btn-danger');
-                    setTimeout(() => { tarea.btnElement.innerText = GartyLang.btn_generar; tarea.btnElement.classList.replace('btn-danger', 'btn-primary'); tarea.btnElement.disabled = false; }, 4000);
-                }
-            }
-            SwalDark.fire({ toast: false, position: 'center', timer: undefined, showConfirmButton: true, icon: 'error', title: GartyLang.swal_radar_gpu_err_title, html: data.error, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${GartyLang.btn_entendido}` });
+            window.abortarRadarPorAtasco(promptId, tarea, isPolling, data.error);
             return; 
         }
 
         if (data.status === 'completed') {
-            delete window.activeRadars[promptId]; // Limpiamos la tarea completada
+            delete window.activeRadars[promptId];
             
-            // DISPARADORES DE CADENA BATCH
             if (window.bucleInfinitoActivo && typeof window.dispararTareaInfinita === 'function') {
                 window.dispararTareaInfinita();
             } else if (window.loteBatchActivo && typeof window.siguienteTareaBatch === 'function') {
@@ -3276,10 +3317,7 @@ window.recolectarImagenGpu = async function(promptId) {
                         }
                         
                         const livePrev = tarea.targetDiv.querySelector('#livePreviewContainer');
-                        if (livePrev) {
-                            livePrev.style.display = 'none';
-                            livePrev.remove(); 
-                        }
+                        if (livePrev) { livePrev.style.display = 'none'; livePrev.remove(); }
                         
                         rowContainer.insertAdjacentHTML('beforeend', htmlElements);
                     }
@@ -3290,10 +3328,11 @@ window.recolectarImagenGpu = async function(promptId) {
                         asyncGallery = document.createElement('div'); asyncGallery.id = 'asyncGallery';
                         const cardBody = document.querySelector('.card-body'); if (cardBody) cardBody.prepend(asyncGallery);
                     }
+                    const txtAsyncDone = typeof GartyLang !== 'undefined' && GartyLang.radar_async_done ? GartyLang.radar_async_done : 'Tarea asíncrona completada';
                     let galleryHtml = `
                     <div class="alert alert-info border-info shadow-sm p-3 mb-4" style="background-color: #010409;">
                         <div class="d-flex justify-content-between align-items-center mb-3 border-bottom border-info pb-2">
-                            <strong class="text-info"><i class="bi bi-stars"></i> ${GartyLang.radar_async_done}${promptId})</strong>
+                            <strong class="text-info"><i class="bi bi-stars"></i> ${txtAsyncDone} (${promptId})</strong>
                             <button type="button" class="btn-close btn-close-white" onclick="this.parentElement.parentElement.remove()"></button>
                         </div>
                         <div class="row g-3">${htmlElements}</div>
@@ -3302,8 +3341,10 @@ window.recolectarImagenGpu = async function(promptId) {
                 }
                 
                 if (document.hidden) {
+                    const txtFreeTitle = typeof GartyLang !== 'undefined' && GartyLang.notif_gpu_free_title ? GartyLang.notif_gpu_free_title : '¡GPU Liberada!';
+                    const txtFreeText = typeof GartyLang !== 'undefined' && GartyLang.notif_gpu_free_text ? GartyLang.notif_gpu_free_text : 'Tu tarea ha terminado.';
                     if (!window.loteBatchActivo && typeof tocarCampana === 'function') tocarCampana();
-                    if (!window.loteBatchActivo && typeof avisarAlSistema === 'function') avisarAlSistema(GartyLang.notif_gpu_free_title || "¡GPU Liberada!", GartyLang.notif_gpu_free_text || "Tu tarea ha terminado.", salidas[0]);
+                    if (!window.loteBatchActivo && typeof avisarAlSistema === 'function') avisarAlSistema(txtFreeTitle, txtFreeText, salidas[0]);
                 }
 
                 let toastContainer = document.getElementById('gpuToastContainer');
@@ -3327,72 +3368,69 @@ window.recolectarImagenGpu = async function(promptId) {
                     } else { 
                         toastMediaHtml = `<img src="galeria/${imgDataToast}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 15px; border: 2px solid white;">`; 
                     }
-                } else if (typeof imgDataToast === 'string') {
-                    let currentCat = document.getElementById('selector') ? document.getElementById('selector').value : '';
-                    let isVideoToast = imgDataToast.startsWith('data:video') || (!imgDataToast.startsWith('data:image') && !imgDataToast.startsWith('data:audio') && currentCat === '[VIDEO]');
-                    let isAudioToast = imgDataToast.startsWith('data:audio') || (!imgDataToast.startsWith('data:image') && !imgDataToast.startsWith('data:video') && (currentCat === '[AUDIO]' || tarea.originalCategory === '[AUDIO]'));
-                    
-                    if (isVideoToast) {
-                        let src = imgDataToast.startsWith('data:') ? imgDataToast : `data:video/mp4;base64,${imgDataToast}`;
-                        toastMediaHtml = `<video src="${src}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #000;" muted autoplay loop playsinline></video>`;
-                    } else if (isAudioToast) {
-                        toastMediaHtml = `<div style="width: 50px; height: 50px; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #161b22; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="bi bi-music-note-beamed text-info fs-3"></i></div>`;
-                    } else {
-                        let src = imgDataToast.startsWith('data:') ? imgDataToast : `data:image/png;base64,${imgDataToast}`;
-                        toastMediaHtml = `<img src="${src}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 15px; border: 2px solid white;">`;
-                    }
                 } else {
                     toastMediaHtml = `<div style="width: 50px; height: 50px; border-radius: 5px; margin-right: 15px; border: 2px solid white; background: #161b22; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="bi bi-check2-circle text-success fs-3"></i></div>`;
                 }
 
+                const txtFreeTitle = typeof GartyLang !== 'undefined' && GartyLang.notif_gpu_free_title ? GartyLang.notif_gpu_free_title : 'GPU Liberada';
+                const txtFreeText = typeof GartyLang !== 'undefined' && GartyLang.notif_gpu_free_text ? GartyLang.notif_gpu_free_text : 'Tu tarea está lista.';
+
                 const toast = document.createElement('div'); toast.className = 'toast show align-items-center text-bg-success border-0 shadow-lg'; toast.style.pointerEvents = 'auto';
-                toast.innerHTML = `<div class="d-flex"><div class="toast-body d-flex align-items-center">${toastMediaHtml}<div><strong class="fs-6">${GartyLang.notif_gpu_free_title}</strong><br><small>${GartyLang.notif_gpu_free_text}</small></div></div><button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentElement.parentElement.remove()"></button></div>`;
+                toast.innerHTML = `<div class="d-flex"><div class="toast-body d-flex align-items-center">${toastMediaHtml}<div><strong class="fs-6">${txtFreeTitle}</strong><br><small>${txtFreeText}</small></div></div><button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentElement.parentElement.remove()"></button></div>`;
                 toastContainer.appendChild(toast); setTimeout(() => { if(toast.parentElement) toast.remove(); }, 10000);
 
                 const pendientes = Object.keys(window.activeRadars).length;
                 if (pendientes === 0) {
                     if (typeof stopProgressBar === 'function') stopProgressBar();
+                    const statusContainer = document.getElementById('progressContainer');
+                    if (statusContainer) statusContainer.classList.add('d-none');
                     localStorage.removeItem('garty_tarea_pendiente');
+                    
                     if (tarea.btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
-                        tarea.btnElement.innerText = GartyLang.radar_btn_completed;
-                        setTimeout(() => { tarea.btnElement.innerText = GartyLang.btn_generar; tarea.btnElement.disabled = false; }, 3000);
+                        tarea.btnElement.innerText = typeof GartyLang !== 'undefined' && GartyLang.radar_btn_completed ? GartyLang.radar_btn_completed : '¡Completado!';
+                        setTimeout(() => { 
+                            tarea.btnElement.innerHTML = '<i class="bi bi-lightning-fill"></i> ' + (typeof GartyLang !== 'undefined' && GartyLang.btn_renderizar ? GartyLang.btn_renderizar : 'Renderizar'); 
+                            tarea.btnElement.disabled = false; 
+                        }, 3000);
                     }
                 } else {
                     if (tarea.btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
-                        tarea.btnElement.innerText = `${GartyLang.btn_procesando} (quedan ${pendientes})...`;
+                        tarea.btnElement.innerText = `${typeof GartyLang !== 'undefined' && GartyLang.btn_procesando ? GartyLang.btn_procesando : 'Procesando...'} (quedan ${pendientes})...`;
                     }
                 }
             } else {
                 if (tarea.btnElement && data.status !== 'processing' && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
-                    tarea.btnElement.innerHTML = '<i class="bi bi-exclamation-triangle"></i> ' + GartyLang.btn_gpu_free_no_images;
-                    tarea.btnElement.classList.replace('btn-primary', 'btn-danger');
-                    setTimeout(() => { tarea.btnElement.innerText = GartyLang.btn_generar; tarea.btnElement.classList.replace('btn-danger', 'btn-primary'); tarea.btnElement.disabled = false; }, 4000);
+                    const txtNoImg = typeof GartyLang !== 'undefined' && GartyLang.btn_gpu_free_no_images ? GartyLang.btn_gpu_free_no_images : 'Fallo. Sin imágenes.';
+                    tarea.btnElement.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${txtNoImg}`;
+                    tarea.btnElement.classList.add('btn-danger');
+                    tarea.btnElement.classList.remove('btn-gpu', 'btn-primary');
+                    setTimeout(() => { 
+                        tarea.btnElement.innerHTML = '<i class="bi bi-lightning-fill"></i> ' + (typeof GartyLang !== 'undefined' && GartyLang.btn_renderizar ? GartyLang.btn_renderizar : 'Renderizar'); 
+                        tarea.btnElement.classList.remove('btn-danger'); 
+                        tarea.btnElement.classList.add('btn-gpu'); 
+                        tarea.btnElement.disabled = false; 
+                    }, 4000);
                 }
             }
         } else if (data.status === 'processing') {
-            // Reintento: ComfyUI terminó pero PHP dice que sigue procesando 
-            // (a veces tarda medio segundo más en escribir en disco). Reintentamos manualmente.
-            setTimeout(() => window.recolectarImagenGpu(promptId), 2000);
+            tarea.intentosRadar = (tarea.intentosRadar || 0) + 1;
+            
+            // LA CLAVE: 300 intentos (unos 10 minutos reales) para que los vídeos tengan tiempo de codificarse
+            if (tarea.intentosRadar > 300) {
+                window.abortarRadarPorAtasco(promptId, tarea, isPolling, "Timeout extremo");
+            } else {
+                setTimeout(() => window.recolectarImagenGpu(promptId, isPolling), 2000);
+            }
         }
-    } catch (e) { 
-        console.warn(GartyLang.log_radar_net_crit, e); 
+    } catch (e) {
+        console.warn(typeof GartyLang !== 'undefined' && GartyLang.log_radar_net_crit ? GartyLang.log_radar_net_crit : 'Radar de GPU registró corte de red:', e); 
         tarea.intentosRadar = (tarea.intentosRadar || 0) + 1;
         
-        // Fallos de red (microcortes). Reintentamos silenciosamente hasta 5 veces.
-        if (tarea.intentosRadar < 5) {
-            setTimeout(() => window.recolectarImagenGpu(promptId), 3000);
+        // Toleramos hasta 15 microcortes o tiempos de espera de PHP antes de abortar UI
+        if (tarea.intentosRadar > 15) { 
+            window.abortarRadarPorAtasco(promptId, tarea, isPolling, "Error de red continuo");
         } else {
-            delete window.activeRadars[promptId];
-            if (Object.keys(window.activeRadars).length === 0) {
-                if (typeof stopProgressBar === 'function') stopProgressBar();
-                localStorage.removeItem('garty_tarea_pendiente');
-                if (tarea.btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
-                    tarea.btnElement.innerHTML = `<i class="bi bi-wifi-off"></i> ${GartyLang.radar_btn_conn_err}`; 
-                    tarea.btnElement.classList.replace('btn-primary', 'btn-danger');
-                    setTimeout(() => { tarea.btnElement.innerText = GartyLang.btn_generar; tarea.btnElement.classList.replace('btn-danger', 'btn-primary'); tarea.btnElement.disabled = false; }, 4000);
-                }
-            }
-            SwalDark.fire(GartyLang.swal_radar_conn_err_title, GartyLang.swal_radar_conn_err_text, 'error');
+            setTimeout(() => window.recolectarImagenGpu(promptId, isPolling), 2000);
         }
     }
 };
