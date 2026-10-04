@@ -67,8 +67,8 @@
            <div class="col-md-3 mb-2">
               <label class="small text-secondary fw-bold mb-1"><?= __('tit_sampler') ?></label>
               <select class="form-select form-select-sm bg-dark text-light border-secondary pref-track" id="samplerInput">
-                  <option value="euler">euler</option> <!-- Default Option -->
                   <optgroup label="<?= __('adm_opt_estandar') ?? 'Estándar' ?>">
+					  <option value="euler">euler</option> <!-- Default Option -->
                       <option value="euler_ancestral">euler_ancestral</option>
                       <option value="dpmpp_2m">dpmpp_2m</option>
                       <option value="dpmpp_2m_sde_gpu">dpmpp_2m_sde_gpu</option>
