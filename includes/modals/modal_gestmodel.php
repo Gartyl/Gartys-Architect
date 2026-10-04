@@ -15,7 +15,8 @@ function scanComfyFolder($subfolder) {
                 $ext = strtolower($file->getExtension());
                 if (in_array($ext, ['safetensors', 'ckpt', 'pt', 'pth', 'bin', 'gguf', 'sft'])) {
                     $rel_path = substr($file->getPathname(), strlen($dir) + 1);
-                    $results[] = str_replace('\\', '/', $rel_path);
+                    // AQUÍ ESTÁ EL CAMBIO: Forzamos la barra invertida para Windows
+                    $results[] = str_replace('/', '\\', $rel_path); 
                 }
             }
         }
