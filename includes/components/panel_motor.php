@@ -140,9 +140,9 @@
            <div class="col-md-3 mb-2">
               <label class="small text-secondary fw-bold mb-1"><?= __('tit_scheduler') ?></label>
               <select class="form-select form-select-sm bg-dark text-light border-secondary pref-track" id="schedulerInput">
-                  <option value="beta">beta</option> <!-- Default Option -->
                   <optgroup label="<?= __('adm_opt_estandar') ?? 'Estándar' ?>">
-                      <option value="exponential">exponential</option>
+                      <option value="beta">beta</option> <!-- Default Option -->
+					  <option value="exponential">exponential</option>
                       <option value="karras">karras</option>
                       <option value="simple">simple</option>
                       <option value="sgm_uniform">sgm_uniform</option>
