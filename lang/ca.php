@@ -904,6 +904,7 @@ return [
 	'adm_lbl_default_neg' => "Prompt Negatiu per Defecte (Opcional)",
 	'adm_ph_default_neg' => "Ex: lowres, bad anatomy, worst quality...",
 	'adm_desc_default_neg' => "Si l'Arquitecte no genera un negatiu, usarà aquest. Si està buit, usarà el salvavides universal del sistema.",
+	'lbl_del_fisico' => "Esborrar també el fitxer físic del disc dur",
 
     'mod_lic_activated' => "Activat!",
     'mod_lic_btn_activate' => "Validar i Activar",

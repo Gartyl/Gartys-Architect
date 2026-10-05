@@ -904,6 +904,7 @@ return [
 	'adm_lbl_default_neg' => "Prompt Negativo por Defecto (Opcional)",
 	'adm_ph_default_neg' => "Ej: lowres, bad anatomy, worst quality...",
 	'adm_desc_default_neg' => "Si el Arquitecto no genera un negativo, usará este. Si está vacío, usará el salvavidas universal del sistema.",
+	'lbl_del_fisico' => "Borrar también el archivo físico del disco duro",
 
     'mod_lic_activated' => "¡Activado!",
     'mod_lic_btn_activate' => "Validar y Activar",
