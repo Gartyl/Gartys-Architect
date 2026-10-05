@@ -317,7 +317,57 @@ if ($action === 'update_modelo_bd') {
 }
 
 if ($action === 'delete_modelo_bd') {
-    try { $pdo->prepare("DELETE FROM modelos_ia WHERE id = ?")->execute([$_POST['id']]); echo json_encode(['success' => true]); } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
+    try {
+        $id = intval($_POST['id'] ?? 0);
+        $borrar_fisico = isset($_POST['borrar_fisico']) && $_POST['borrar_fisico'] === '1';
+
+        if ($id > 0) {
+            // 1. Si el usuario marcó borrar del disco, lo hacemos ANTES de borrar el registro
+            if ($borrar_fisico) {
+                $stmt = $pdo->prepare("SELECT nombre_archivo FROM modelos_ia WHERE id = ?");
+                $stmt->execute([$id]);
+                $modelo = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($modelo && !empty($modelo['nombre_archivo'])) {
+                    $base_dir = defined('COMFY_MODELS_DIR') ? rtrim(COMFY_MODELS_DIR, '/\\') : 'C:/ComfyUI/models';
+                    $nombre_archivo = ltrim($modelo['nombre_archivo'], '/\\');
+                    
+                    // Escaneamos las rutas probables por si no lleva la subcarpeta incluida en el nombre
+                    $posibles_rutas = [
+                        $base_dir . DIRECTORY_SEPARATOR . 'checkpoints' . DIRECTORY_SEPARATOR . $nombre_archivo,
+                        $base_dir . DIRECTORY_SEPARATOR . 'unet' . DIRECTORY_SEPARATOR . $nombre_archivo,
+                        $base_dir . DIRECTORY_SEPARATOR . 'loras' . DIRECTORY_SEPARATOR . $nombre_archivo,
+                        $base_dir . DIRECTORY_SEPARATOR . $nombre_archivo
+                    ];
+
+                    foreach ($posibles_rutas as $ruta) {
+                        if (file_exists($ruta)) {
+                            // 🌟 MAGIA: Enviamos a la Papelera de Windows vía PowerShell
+                            $ruta_win = str_replace('/', '\\', $ruta);
+                            $ruta_ps = str_replace("'", "''", $ruta_win); // Escapar comillas simples por si el modelo las tiene
+                            
+                            $ps_cmd = "powershell.exe -NoProfile -Command \"Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('{$ruta_ps}', 'OnlyErrorDialogs', 'SendToRecycleBin')\"";
+                            exec($ps_cmd);
+                            
+                            // Paracaídas de emergencia: Si el servidor local tuviera PowerShell bloqueado (rarísimo) y el archivo sigue ahí, usamos el borrado físico de PHP.
+                            if (file_exists($ruta)) {
+                                @unlink($ruta); 
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 2. Borrado estándar de la Base de Datos
+            $pdo->prepare("DELETE FROM modelos_ia WHERE id = ?")->execute([$id]); 
+            echo json_encode(['success' => true]); 
+        } else {
+            echo json_encode(['error' => 'ID de modelo no válido.']);
+        }
+    } catch (Exception $e) { 
+        echo json_encode(['error' => $e->getMessage()]); 
+    }
     exit();
 }
 
