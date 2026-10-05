@@ -864,20 +864,50 @@ function cancelarEdicionModelo() {
 }
 
 async function borrarModeloBD(id, nombre) {
+    const txt1 = typeof GartyLang !== 'undefined' && GartyLang.swal_uninstall_text1 ? GartyLang.swal_uninstall_text1 : 'Vas a eliminar';
+    const txt2 = typeof GartyLang !== 'undefined' && GartyLang.swal_uninstall_text2 ? GartyLang.swal_uninstall_text2 : 'de la base de datos.';
+    const txtDelFisico = typeof GartyLang !== 'undefined' && GartyLang.lbl_del_fisico ? GartyLang.lbl_del_fisico : 'Borrar también el archivo físico del disco duro';
+
     const confirm = await SwalDark.fire({
         title: GartyLang.swal_uninstall_title,
-        text: `${GartyLang.swal_uninstall_text1} ${nombre} ${GartyLang.swal_uninstall_text2}`,
-        icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: GartyLang.btn_siborrar, cancelButtonText: GartyLang.btn_cancelar
+        html: `${txt1} <b>${nombre}</b> ${txt2}<br><br>
+               <div class="form-check form-switch d-flex justify-content-center mt-3 p-0">
+                   <input class="form-check-input border-danger mx-2" type="checkbox" id="swal-borrar-fisico" value="1" style="cursor: pointer;">
+                   <label class="form-check-label text-danger fw-bold" for="swal-borrar-fisico" style="cursor: pointer;">${txtDelFisico}</label>
+               </div>`,
+        icon: 'warning', 
+        showCancelButton: true, 
+        confirmButtonColor: '#d33', 
+        confirmButtonText: GartyLang.btn_siborrar, 
+        cancelButtonText: GartyLang.btn_cancelar,
+        preConfirm: () => {
+            // Capturamos si el interruptor está marcado antes de cerrar la alerta
+            return document.getElementById('swal-borrar-fisico').checked;
+        }
     });
 
     if (confirm.isConfirmed) {
-        let fd = new FormData(); fd.append('action', 'delete_modelo_bd'); fd.append('id', id);
+        const borrarFisico = confirm.value ? '1' : '0';
+        let fd = new FormData(); 
+        fd.append('action', 'delete_modelo_bd'); 
+        fd.append('id', id);
+        fd.append('borrar_fisico', borrarFisico); // <-- Pasamos la orden a PHP
+
         try {
-            await fetch('procesar.php', { method: 'POST', body: fd });
+            let res = await fetch('procesar.php', { method: 'POST', body: fd });
+            let data = await res.json();
+            
+            if (data.error) {
+                SwalDark.fire({icon: 'error', title: 'Error', text: data.error});
+                return;
+            }
+            
             cargarTablaModelos();
-			descargarModelosDisponibles(); // <--- AÑADE ESTA LÍNEA AQUÍ
+            descargarModelosDisponibles(); 
             SwalDark.fire({icon: 'success', title: GartyLang.swal_deleted_title, timer: 1500, showConfirmButton: false});
-        } catch(e) {}
+        } catch(e) {
+            console.error(e);
+        }
     }
 }
 

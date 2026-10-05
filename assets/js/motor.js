@@ -3272,6 +3272,10 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
     const tarea = window.activeRadars[promptId];
     if (!tarea) return; 
 
+    // 👇 ESCUDO ANTI-DUPLICADOS: Evita colisiones entre el WebSocket y el Bucle
+    if (tarea.isFetching) return;
+    tarea.isFetching = true;
+
     tarea.ultimaActividad = Date.now();
 
     let fd = new FormData(); 
@@ -3282,7 +3286,6 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
     if (formatInput) fd.append('image_format', formatInput.value);
 
     try {
-        // Adiós AbortController limitante. Fetch natural que espere a que el MP4 llegue.
         let res = await fetch('procesar.php', { method: 'POST', body: fd }); 
         let data = await res.json();
         
@@ -3413,9 +3416,9 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
                 }
             }
         } else if (data.status === 'processing') {
+            tarea.isFetching = false; // 🔓 Liberamos el candado para la siguiente consulta
             tarea.intentosRadar = (tarea.intentosRadar || 0) + 1;
             
-            // LA CLAVE: 300 intentos (unos 10 minutos reales) para que los vídeos tengan tiempo de codificarse
             if (tarea.intentosRadar > 300) {
                 window.abortarRadarPorAtasco(promptId, tarea, isPolling, "Timeout extremo");
             } else {
@@ -3423,10 +3426,10 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
             }
         }
     } catch (e) {
-        console.warn(typeof GartyLang !== 'undefined' && GartyLang.log_radar_net_crit ? GartyLang.log_radar_net_crit : 'Radar de GPU registró corte de red:', e); 
+        tarea.isFetching = false; // 🔓 Liberamos el candado si hay error de red
+        console.warn(typeof GartyLang !== 'undefined' && GartyLang.log_radar_net_crit ? GartyLang.log_radar_net_crit : 'Radar de GPU cortó conexión:', e); 
         tarea.intentosRadar = (tarea.intentosRadar || 0) + 1;
         
-        // Toleramos hasta 15 microcortes o tiempos de espera de PHP antes de abortar UI
         if (tarea.intentosRadar > 15) { 
             window.abortarRadarPorAtasco(promptId, tarea, isPolling, "Error de red continuo");
         } else {
