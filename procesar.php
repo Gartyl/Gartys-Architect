@@ -111,6 +111,7 @@ try {
         case 'traducir_rapido':
         case 'generar_prompt_sorpresa':
         case 'get_wildcards':
+		case 'get_embeddings':
 		case 'liberar_modelo_ollama':
         case 'get_ollama_models':
 		case 'get_system_stats':

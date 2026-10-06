@@ -147,6 +147,7 @@
 <?php include 'includes/modals/modal_compare.php'; ?>
 <?php include 'includes/modals/modal_viewer.php'; ?>
 <?php include 'includes/modals/modal_wildcards.php'; ?>
+<?php include 'includes/modals/modal_embeddings.php'; ?>
 <?php include 'includes/modals/modal_gestmodel.php'; ?>
 <?php include 'includes/modals/modal_videomerge.php'; ?>
 <?php include 'includes/modals/modal_support.php'; ?>
