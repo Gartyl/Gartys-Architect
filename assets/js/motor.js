@@ -2185,16 +2185,23 @@ async function executeProcess(fd, selValue, retries = 2, loadingId = null, silen
         try { const parsed = JSON.parse(data.choices[0].message.content); p = parsed.prompt || ""; n = parsed.negative_prompt || ""; } catch(e) { p = data.choices[0].message.content; }
 
         if (selValue === '[CHAT]') { 
+            // Guardamos la respuesta de la IA en el historial para que lo recuerde luego
+            if (p) window.chatHistory.push({ role: 'assistant', content: p });
+            
             if (loadingId) {
                 const b = document.getElementById(loadingId); const ts = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                // 🌟 FIX: Aplicamos el parser de Markdown al texto inyectado en vivo
+                
                 let contentHtml = window.formatearMarkdownChat ? window.formatearMarkdownChat(p) : p;
                 
-                if (isAvanzado && p.length > 5 && !p.includes(GartyLang.txt_ai_greeting)) {
+                if (isAvanzado && p.length > 5 && !p.includes(typeof GartyLang !== 'undefined' && GartyLang.txt_ai_greeting ? GartyLang.txt_ai_greeting : '¡Hola!')) {
                     const safeText = encodeURIComponent(p);
-                    contentHtml += `<div class="mt-3 text-end border-top border-secondary pt-2" style="border-color: rgba(255,255,255,0.1) !important;"><button class="btn btn-sm btn-outline-info border-0" onclick="generateImageFromChatBtn(this, '${safeText}')" title="${GartyLang.btn_paint_title}"><i class="bi bi-gpu-card"></i> ${GartyLang.btn_paint_this}</button></div>`;
+                    contentHtml += `<div class="mt-3 text-end d-flex justify-content-end gap-2 border-top border-secondary pt-2" style="border-color: rgba(255,255,255,0.1) !important;">
+                        <button class="btn btn-sm btn-outline-secondary border-0" onclick="navigator.clipboard.writeText(decodeURIComponent('${safeText}')).then(() => { let icon = this.querySelector('i'); icon.className = 'bi bi-check-lg text-success'; setTimeout(() => icon.className = 'bi bi-copy', 2000); })" title="${typeof GartyLang !== 'undefined' && GartyLang.btn_copiar ? GartyLang.btn_copiar : 'Copiar'}"><i class="bi bi-copy"></i></button>
+                        <button class="btn btn-sm btn-outline-info border-0" onclick="generateImageFromChatBtn(this, '${safeText}')" title="${typeof GartyLang !== 'undefined' && GartyLang.chat_btn_render_title ? GartyLang.chat_btn_render_title : 'Pintar esto'}"><i class="bi bi-gpu-card"></i> ${typeof GartyLang !== 'undefined' && GartyLang.chat_btn_render_this ? GartyLang.chat_btn_render_this : 'Pintar esto'}</button>
+                    </div>`;
                 }
-                b.innerHTML = `${contentHtml}<span class="bubble-meta">${GartyLang.txt_architect} — ${ts}</span>`;
+
+                b.innerHTML = `${contentHtml}<span class="bubble-meta">${typeof GartyLang !== 'undefined' && GartyLang.txt_architect ? GartyLang.txt_architect : 'Arquitecto'} — ${ts}</span>`;
                 document.getElementById('chatThreadContainer').scrollTop = document.getElementById('chatThreadContainer').scrollHeight;
             } else { addMessageToUI('ai', p); }
         } else {
@@ -2300,6 +2307,19 @@ document.getElementById('promptForm').onsubmit = async (e) => {
 
     const fd = new FormData(); fd.append('selector', selValue); fd.append('descripcion', idea);
     
+    // 👇 NUEVO: ENVIAR Y ACTUALIZAR MEMORIA DEL CHAT 👇
+    if (window.chatHistory && window.chatHistory.length > 0) {
+        fd.append('chat_history', JSON.stringify(window.chatHistory));
+    }
+    
+    if (selValue === '[CHAT]') {
+        let msgHistory = idea;
+        if (currentDocumentText) msgHistory += "\n[El usuario ha adjuntado un documento para analizar]";
+        if (currentImageBase64) msgHistory += "\n[El usuario ha adjuntado una imagen para analizar]";
+        window.chatHistory.push({ role: 'user', content: msgHistory });
+    }
+    // 👆 HASTA AQUÍ 👆
+    
     // 👇 NUEVO: CABLEAMOS EL BOTÓN DE INTERNET (SOLO AÑADIMOS ESTO) 👇
     const chkInternet = document.getElementById('internetToggle');
     if (chkInternet) {
@@ -2398,8 +2418,8 @@ document.getElementById('promptForm').onsubmit = async (e) => {
                         catch(e) { finalP = dataPrompt.choices[0].message.content; }
                     }
 
-                    document.getElementById(loadingId).innerHTML = `<b>${GartyLang.chat_msg_prompt_to_gen || 'Prompt generado:'}</b><br><code class="text-light">${finalP}</code><br><br><div class="d-flex align-items-center text-info"><div class="spinner-border spinner-border-sm me-2"></div> <small>${GartyLang.chat_msg_rendering_gpu || 'Enviando a renderizar...'}</small></div>`;
-                    thread.scrollTop = thread.scrollHeight;
+                    document.getElementById(loadingId).innerHTML = `<b>${typeof GartyLang !== 'undefined' && GartyLang.chat_msg_prompt_to_gen ? GartyLang.chat_msg_prompt_to_gen : 'Prompt generado:'}</b><br><code class="text-light">${finalP}</code><br><br><div class="d-flex align-items-center text-info"><div class="spinner-border spinner-border-sm me-2"></div> <small>${typeof GartyLang !== 'undefined' && GartyLang.chat_msg_rendering_gpu ? GartyLang.chat_msg_rendering_gpu : 'Enviando a renderizar...'}</small></div>`;
+					thread.scrollTop = thread.scrollHeight;
                     
                     let fdImg = new FormData();
                     const applied = getPromptsWithPresets(finalP, finalN); finalP = applied.pos; finalN = applied.neg;
@@ -2441,7 +2461,7 @@ document.getElementById('promptForm').onsubmit = async (e) => {
                     if (dataImg.error) throw new Error(dataImg.error); 
                     
                     if (dataImg.status === 'ticket_issued' && dataImg.prompt_id) {
-                        document.getElementById(loadingId).innerHTML = `<b>${GartyLang.chat_msg_prompt_designed || 'Diseñado:'}</b><br><code class="text-light">${finalP}</code><br><br><div class="d-flex align-items-center text-warning"><div class="spinner-grow spinner-grow-sm me-2"></div> <small>${GartyLang.chat_msg_gpu_processing || 'Procesando en GPU'} (${dataImg.prompt_id})...</small></div>`;
+                        document.getElementById(loadingId).innerHTML = `<b>${typeof GartyLang !== 'undefined' && GartyLang.chat_msg_prompt_designed ? GartyLang.chat_msg_prompt_designed : 'Diseñado:'}</b><br><code class="text-light">${finalP}</code><br><br><div class="d-flex align-items-center text-warning"><div class="spinner-grow spinner-grow-sm me-2"></div> <small>${typeof GartyLang !== 'undefined' && GartyLang.chat_msg_gpu_processing ? GartyLang.chat_msg_gpu_processing : 'Procesando en GPU'} (${dataImg.prompt_id})...</small></div>`;
                         thread.scrollTop = thread.scrollHeight;
 
                     	const chatRadarInterval = setInterval(async () => {
@@ -2461,7 +2481,7 @@ document.getElementById('promptForm').onsubmit = async (e) => {
 					            if (dataCheck.status === 'completed') {
                                     clearInterval(chatRadarInterval);
                                     if (dataCheck.images && dataCheck.images.length > 0) {
-                                        let html = `<b>${GartyLang.chat_msg_prompt_label || 'Prompt:'}</b> <code class="text-light">${finalP}</code><div class="row g-2 mt-2">`;
+                                        let html = `<b>${typeof GartyLang !== 'undefined' && GartyLang.chat_msg_prompt_label ? GartyLang.chat_msg_prompt_label : 'Prompt:'}</b> <code class="text-light">${finalP}</code><div class="row g-2 mt-2">`;
                                         dataCheck.images.forEach(img => { html += construirTarjetaImagen(img, dataImg.historial_id || chatPromptId, true); });
                                         html += `</div><span class="bubble-meta">${GartyLang.chat_meta_gpu_engine || 'Motor GPU - '}${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>`;
                                         document.getElementById(loadingId).innerHTML = html;
@@ -3804,29 +3824,36 @@ function addMessageToUI(role, text, imgSrc = null, isDoc = false) {
     const b = document.createElement('div'); b.className = `chat-bubble ${role === 'user' ? 'bubble-user' : 'bubble-ai'}`;
     const ts = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     
-    // Aplicamos el formato Markdown si es la IA, o texto seguro si es el usuario
     let contentHtml = (role === 'ai' && window.formatearMarkdownChat) 
         ? window.formatearMarkdownChat(text) 
         : text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
     if (imgSrc) contentHtml += `<br><img src="${imgSrc}" class="img-fluid rounded mt-2 shadow-sm" style="max-height: 180px;">`;
-    else if (isDoc) contentHtml += `<br><div class="badge bg-light text-dark p-2 mt-2"><i class="bi bi-file-earmark-text"></i> ${GartyLang.chat_msg_doc_processed}</div>`;
+    else if (isDoc) contentHtml += `<br><div class="badge bg-light text-dark p-2 mt-2"><i class="bi bi-file-earmark-text"></i> ${typeof GartyLang !== 'undefined' && GartyLang.chat_msg_doc_processed ? GartyLang.chat_msg_doc_processed : 'Documento procesado'}</div>`;
 
-    if (isAvanzado && role === 'ai' && text.length > 5 && !text.includes(GartyLang.txt_ai_greeting)) {
-        let rawText = text.replace(/```json|```/gi, '').trim(); let promptToSend = rawText;
+    if (isAvanzado && role === 'ai' && text.length > 5 && !text.includes(typeof GartyLang !== 'undefined' && GartyLang.txt_ai_greeting ? GartyLang.txt_ai_greeting : '¡Hola!')) {
+        let rawText = text.replace(/```json|```/gi, '').trim(); 
+        let promptToSend = rawText;
         try { const parsed = JSON.parse(rawText); if (parsed.prompt) promptToSend = parsed.prompt; } catch(e) {}
+        
         const safeText = encodeURIComponent(promptToSend);
-        contentHtml += `<div class="mt-3 text-end border-top border-secondary pt-2" style="border-color: rgba(255,255,255,0.1) !important;"><button class="btn btn-sm btn-outline-info border-0" onclick="generateImageFromChatBtn(this, '${safeText}')" title="${GartyLang.chat_btn_render_title}"><i class="bi bi-gpu-card"></i> ${GartyLang.chat_btn_render_this}</button></div>`;
+        
+        contentHtml += `<div class="mt-3 text-end d-flex justify-content-end gap-2 border-top border-secondary pt-2" style="border-color: rgba(255,255,255,0.1) !important;">
+            <button class="btn btn-sm btn-outline-secondary border-0" onclick="navigator.clipboard.writeText(decodeURIComponent('${safeText}')).then(() => { let icon = this.querySelector('i'); icon.className = 'bi bi-check-lg text-success'; setTimeout(() => icon.className = 'bi bi-copy', 2000); })" title="${typeof GartyLang !== 'undefined' && GartyLang.btn_copiar ? GartyLang.btn_copiar : 'Copiar'}"><i class="bi bi-copy"></i></button>
+            <button class="btn btn-sm btn-outline-info border-0" onclick="generateImageFromChatBtn(this, '${safeText}')" title="${typeof GartyLang !== 'undefined' && GartyLang.chat_btn_render_title ? GartyLang.chat_btn_render_title : 'Pintar esto'}"><i class="bi bi-gpu-card"></i> ${typeof GartyLang !== 'undefined' && GartyLang.chat_btn_render_this ? GartyLang.chat_btn_render_this : 'Pintar esto'}</button>
+        </div>`;
     }
 
-    const roleName = role === 'user' ? GartyLang.chat_meta_you : GartyLang.chat_meta_architect;
+    const roleName = role === 'user' ? (typeof GartyLang !== 'undefined' && GartyLang.chat_meta_you ? GartyLang.chat_meta_you : 'Tú') : (typeof GartyLang !== 'undefined' && GartyLang.chat_meta_architect ? GartyLang.chat_meta_architect : 'Arquitecto');
     b.innerHTML = `${contentHtml}<span class="bubble-meta">${roleName} — ${ts}</span>`;
     document.getElementById('chatThreadContainer').appendChild(b);
     document.getElementById('chatThreadContainer').scrollTop = document.getElementById('chatThreadContainer').scrollHeight;
 }
 
+window.chatHistory = []; // Memoria global del chat
 function resetChat() { 
-    document.getElementById('chatThreadContainer').innerHTML = `<div class="chat-bubble bubble-ai">${GartyLang.txt_xat_benv}<span class="bubble-meta">${GartyLang.txt_xat_sist}</span></div>`;
+    document.getElementById('chatThreadContainer').innerHTML = `<div class="chat-bubble bubble-ai">${typeof GartyLang !== 'undefined' && GartyLang.txt_xat_benv ? GartyLang.txt_xat_benv : '¡Hola!'} <span class="bubble-meta">${typeof GartyLang !== 'undefined' && GartyLang.txt_xat_sist ? GartyLang.txt_xat_sist : 'Sistema'}</span></div>`;
+    window.chatHistory = []; // Vaciamos la memoria al reiniciar
 }
 
 // --- ARRANQUE GENERAL AL CARGAR EL DOM ---
