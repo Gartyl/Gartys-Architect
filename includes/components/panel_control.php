@@ -43,6 +43,7 @@
                 <input type="file" id="batchFolderInput" webkitdirectory directory multiple class="d-none">
 				<button type="button" class="btn-tool border-info text-info text-nowrap" id="btnCargarGaleria" onclick="window.destinoGaleriaModal = 'principal'; abrirModalGaleria();"><i class="bi bi-images"></i> <?= __('btn_cargaleria') ?></button>
 				<button type="button" class="btn-tool border-warning text-warning fw-bold text-nowrap" id="btnWildcards" onclick="abrirModalWildcards()" title="<?= __('btn_title_wildcards') ?>"><i class="bi bi-suit-spade-fill"></i> <?= __('btn_wildcards') ?></button>
+				<button type="button" class="btn-tool border-danger text-danger fw-bold text-nowrap" id="btnEmbeddings" onclick="abrirModalEmbeddings()" title="<?= __('btn_title_embeddings') ?? 'Ver Estilos y Modificadores' ?>"><i class="bi bi-gem"></i> <?= __('btn_embeddings') ?? 'Embeddings' ?></button>
 				
 				<input type="file" id="imageInput" accept="image/*,.pdf,.doc,.docx,.txt,.csv,.md,video/mp4" class="d-none">
 				
