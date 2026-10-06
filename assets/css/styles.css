@@ -223,7 +223,8 @@ body {
     display: flex; 
     flex-direction: column; 
     gap: 15px; 
-    scroll-behavior: smooth; 
+    scroll-behavior: smooth;
+	resize: vertical; /* <--- ESTA ES LA MAGIA */
 }
 
 .chat-bubble { 
