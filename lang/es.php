@@ -944,10 +944,17 @@ return [
     'mod_msg_btn_read' => "Marcar como leídos y continuar",
     'mod_msg_title' => "Mensajes de Moderación",
 
-    // --- Wildcards (wild_) ---
+    // --- Wildcards (wild_) y Embeddings ---
     'wild_loading' => "Leyendo la carpeta...",
     'wild_search' => "Buscar comodín (ej. ropa, artistas, luz)...",
     'wild_title' => "Biblioteca de Comodines",
+	'btn_title_embeddings' => "Ver Estilos y Modificadores",
+    'btn_embeddings'       => "Embeddings",
+    'emb_title'            => "Librería de Embeddings",
+    'emb_search'           => "Buscar por nombre o carpeta...",
+    'emb_loading'          => "Cargando embeddings...",
+	'emb_err_conn'         => "Error de conexión",
+    'emb_not_found'        => "No se encontraron embeddings.",
 
     // --- Vídeo (vid_) ---
     'vid_duration_label' => "DURACIÓN",

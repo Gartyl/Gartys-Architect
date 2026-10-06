@@ -947,10 +947,17 @@ return [
     'mod_msg_btn_read' => "Mark as read and continue",
     'mod_msg_title' => "Moderation Messages",
 
-    // --- Wildcards (wild_) ---
+    // --- Wildcards (wild_) & Embeddings ---
     'wild_loading' => "Reading folder...",
     'wild_search' => "Search wildcard (e.g. clothing, artists, light)...",
     'wild_title' => "Wildcards Library",
+	'btn_title_embeddings' => "View Styles and Modifiers",
+    'btn_embeddings'       => "Embeddings",
+    'emb_title'            => "Embeddings Library",
+    'emb_search'           => "Search by name or folder...",
+    'emb_loading'          => "Loading embeddings...",
+	'emb_err_conn'         => "Connection error",
+    'emb_not_found'        => "No embeddings found.",
 
     // --- Vídeo (vid_) ---
     'lbl_fusion_description' => "Fusion of selected videos.",

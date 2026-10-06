@@ -944,10 +944,17 @@ return [
     'mod_msg_btn_read' => "Marcar com a llegits i continuar",
     'mod_msg_title' => "Missatges de Moderació",
 
-    // --- Wildcards (wild_) ---
+    // --- Wildcards (wild_) i Embeddings ---
     'wild_loading' => "Llegint la carpeta...",
     'wild_search' => "Cercar comodí (ex. roba, artistes, llum)...",
     'wild_title' => "Biblioteca de Comodins",
+	'btn_title_embeddings' => "Veure Estils i Modificadors",
+    'btn_embeddings'       => "Embeddings",
+    'emb_title'            => "Llibreria d'Embeddings",
+    'emb_search'           => "Cerca per nom o carpeta...",
+    'emb_loading'          => "Carregant embeddings...",
+	'emb_err_conn'         => "Error de connexió",
+    'emb_not_found'        => "No s'han trobat embeddings.",
 
     // --- Vídeo (vid_) ---
     'lbl_fusion_description' => "Fusió de vídeos seleccionats.",
