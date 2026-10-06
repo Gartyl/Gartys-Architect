@@ -3876,8 +3876,63 @@ if ($action === 'generar_imagen') {
         if (isset($workflow["12_noise"])) unset($workflow["12_noise"]);
         unset($workflow["14"]);
         
-    } else {
+    } else { 
         
+        // ==============================================================================
+        // 🌟 INYECCIÓN DYNAMIC PROMPTS (Soporte YAML y Sintaxis Avanzada ComfyUI)
+        // ==============================================================================
+        
+        // Comprobamos si el prompt positivo o negativo tienen sintaxis de wildcards viva
+        if (strpos($posPrompt, '{') !== false || strpos($posPrompt, '__') !== false || strpos($neg_prompt, '{') !== false || strpos($neg_prompt, '__') !== false) {
+            
+            // Inyectamos el nodo Random Prompts para el Positivo
+            $workflow["9000_dynamic_pos"] = [
+                "inputs" => [
+                    "text" => $posPrompt, 
+                    "seed" => $seed, 
+                    "autorefresh" => "No"
+                ],
+                "class_type" => "DPRandomGenerator"
+            ];
+            
+            // Inyectamos el nodo Random Prompts para el Negativo
+            $workflow["9001_dynamic_neg"] = [
+                "inputs" => [
+                    "text" => $neg_prompt, 
+                    "seed" => $seed, 
+                    "autorefresh" => "No"
+                ],
+                "class_type" => "DPRandomGenerator"
+            ];
+            
+            $nodo_pos = $current_positive[0]; 
+            $nodo_neg = $current_negative[0];
+            
+            // Reconectamos el TextEncode Positivo
+            if (isset($workflow[$nodo_pos])) {
+                if (isset($workflow[$nodo_pos]["inputs"]["text"])) {
+                    unset($workflow[$nodo_pos]["inputs"]["text"]);
+                    $workflow[$nodo_pos]["inputs"]["text"] = ["9000_dynamic_pos", 0];
+                } elseif (isset($workflow[$nodo_pos]["inputs"]["prompt"])) {
+                    unset($workflow[$nodo_pos]["inputs"]["prompt"]);
+                    $workflow[$nodo_pos]["inputs"]["prompt"] = ["9000_dynamic_pos", 0];
+                }
+            }
+            
+            // Reconectamos el TextEncode Negativo
+            if (isset($workflow[$nodo_neg])) {
+                if (isset($workflow[$nodo_neg]["inputs"]["text"])) {
+                    unset($workflow[$nodo_neg]["inputs"]["text"]);
+                    $workflow[$nodo_neg]["inputs"]["text"] = ["9001_dynamic_neg", 0];
+                } elseif (isset($workflow[$nodo_neg]["inputs"]["negative_prompt"])) {
+                    unset($workflow[$nodo_neg]["inputs"]["negative_prompt"]);
+                    $workflow[$nodo_neg]["inputs"]["negative_prompt"] = ["9001_dynamic_neg", 0];
+                }
+            }
+        }
+        
+        // ==============================================================================
+
         // Generación Text2Img o Img2Img NORMAL (Garantiza que el LoRA se aplique antes de escalar)
         $workflow["3"] = [
             "inputs" => [

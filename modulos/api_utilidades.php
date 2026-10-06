@@ -256,16 +256,65 @@ if ($action === 'generar_prompt_sorpresa') {
 }
 
 if ($action === 'get_wildcards') {
-    $wildcards_dir = __DIR__ . '/../wildcards';
     $files = [];
-    if (is_dir($wildcards_dir)) {
-        $items = scandir($wildcards_dir);
+
+    // 1. CARPETA LOCAL (Los .txt clásicos de Garty's Architect)
+    $wildcards_dir_local = __DIR__ . '/../wildcards';
+    if (is_dir($wildcards_dir_local)) {
+        $items = scandir($wildcards_dir_local);
         foreach ($items as $item) {
-            if (pathinfo($item, PATHINFO_EXTENSION) === 'txt') { $files[] = basename($item, '.txt'); }
+            if (pathinfo($item, PATHINFO_EXTENSION) === 'txt') { 
+                $files[] = basename($item, '.txt'); 
+            }
         }
     }
+
+    // 2. CARPETA COMFYUI DYNAMIC PROMPTS (Soporte .txt y .yaml avanzado)
+    // Calculamos la ruta base de ComfyUI (Ej: quitando '/models' a la constante)
+    $comfy_base = defined('COMFY_MODELS_DIR') ? dirname(rtrim(COMFY_MODELS_DIR, '/\\')) : 'C:/ComfyUI';
+    $comfy_wildcards_dir = $comfy_base . '/custom_nodes/comfyui-dynamicprompts/wildcards';
+
+    if (is_dir($comfy_wildcards_dir)) {
+        try {
+            $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($comfy_wildcards_dir));
+            foreach ($iterator as $file) {
+                if ($file->isDir()) continue;
+                
+                $ext = strtolower($file->getExtension());
+                $ruta_relativa = str_replace('\\', '/', str_replace($comfy_wildcards_dir . DIRECTORY_SEPARATOR, '', $file->getPathname()));
+                
+                if ($ext === 'txt') {
+                    // Si el usuario mete un txt en una subcarpeta de ComfyUI (ej: magia/alien.txt), sacamos "magia/alien"
+                    $files[] = preg_replace('/\.txt$/i', '', ltrim($ruta_relativa, '/'));
+                } 
+                elseif ($ext === 'yaml' || $ext === 'yml') {
+                    // Escáner en vivo del YAML: Extrae las ramas para convertirlas en botones
+                    $contenido = file_get_contents($file->getPathname());
+                    $lineas = explode("\n", $contenido);
+                    $raiz_actual = '';
+
+                    foreach ($lineas as $linea) {
+                        // Detecta la raíz principal (Ej: "cf-ancient-egypt:")
+                        if (preg_match('/^([a-zA-Z0-9_\-]+):\s*$/', $linea, $matches)) {
+                            $raiz_actual = $matches[1];
+                        }
+                        // Detecta los sub-nodos (Ej: "  prompt-full:")
+                        elseif (!empty($raiz_actual) && preg_match('/^[ \t]+([a-zA-Z0-9_\-]+):\s*$/', $linea, $matches)) {
+                            $files[] = $raiz_actual . '/' . $matches[1];
+                        }
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            // Silenciamos si hay problemas de permisos al leer la carpeta de ComfyUI
+        }
+    }
+
+    // Limpiamos duplicados, ordenamos alfabéticamente y enviamos al modal
+    $files = array_unique($files);
     sort($files); 
-    echo json_encode(['wildcards' => $files]);
+    
+    echo json_encode(['wildcards' => array_values($files)]);
     exit();
 }
 
