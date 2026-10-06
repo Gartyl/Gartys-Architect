@@ -419,4 +419,55 @@ if ($action === 'get_system_stats') {
     exit();
 }
 
+// ==============================================================================
+// --- ACCIÓN: LIBRERÍA DE EMBEDDINGS ---
+// ==============================================================================
+if ($action === 'get_embeddings') {
+    $comfy_base = defined('COMFY_MODELS_DIR') ? dirname(rtrim(COMFY_MODELS_DIR, '/\\')) : 'C:/ComfyUI';
+    $embeddings_dir = $comfy_base . '/models/embeddings';
+    
+    $files = [];
+
+    if (is_dir($embeddings_dir)) {
+        try {
+            $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($embeddings_dir));
+            foreach ($iterator as $file) {
+                if ($file->isDir()) continue;
+                
+                $ext = strtolower($file->getExtension());
+                // Solo leemos archivos binarios de embeddings, ignoramos los .json
+                if ($ext === 'pt' || $ext === 'safetensors' || $ext === 'ckpt') {
+                    // Extraemos la ruta relativa para saber en qué subcarpeta está
+                    $ruta_relativa = str_replace('\\', '/', str_replace($embeddings_dir . DIRECTORY_SEPARATOR, '', $file->getPathname()));
+                    $ruta_relativa = ltrim($ruta_relativa, '/');
+                    
+                    // Separamos la carpeta (si la hay) del nombre del archivo
+                    $partes = explode('/', $ruta_relativa);
+                    $nombre_archivo = array_pop($partes);
+                    $carpeta = empty($partes) ? 'Raíz' : implode('/', $partes);
+                    
+                    // Quitamos la extensión al nombre para que el botón quede limpio
+                    $nombre_limpio = preg_replace('/\.(pt|safetensors|ckpt)$/i', '', $nombre_archivo);
+                    
+                    if (!isset($files[$carpeta])) {
+                        $files[$carpeta] = [];
+                    }
+                    $files[$carpeta][] = $nombre_limpio;
+                }
+            }
+        } catch (Exception $e) {
+            // Silenciamos posibles errores de permisos
+        }
+    }
+
+    // Ordenamos las carpetas alfabéticamente (dejando "Raíz" al principio si es posible)
+    ksort($files);
+    foreach ($files as $carpeta => &$lista_archivos) {
+        sort($lista_archivos);
+    }
+
+    echo json_encode(['embeddings' => $files]);
+    exit();
+}
+
 ?>
