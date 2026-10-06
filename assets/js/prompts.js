@@ -66,23 +66,9 @@ function filtrarWildcards() {
 }
 
 function insertarWildcard(nombre) {
-    const cajaIdea = document.getElementById('descripcion');
-    const textoInsertar = `__${nombre}__`;
-    
-    const cursorStart = cajaIdea.selectionStart;
-    const textBefore = cajaIdea.value.substring(0, cursorStart);
-    const textAfter  = cajaIdea.value.substring(cajaIdea.selectionEnd, cajaIdea.value.length);
-    
-    const spBefore = (textBefore.length === 0 || textBefore.endsWith(' ')) ? '' : ' ';
-    const spAfter = (textAfter.length === 0 || textAfter.startsWith(' ') || textAfter.startsWith(',')) ? '' : ' ';
-    
-    cajaIdea.value = textBefore + spBefore + textoInsertar + spAfter + textAfter;
-    
-    const modalEl = document.getElementById('modalWildcards');
-    const inst = bootstrap.Modal.getInstance(modalEl);
-    if (inst) inst.hide();
-    
-    cajaIdea.focus();
+    if (typeof window.insertarTagEnPrompt === 'function') {
+        window.insertarTagEnPrompt(`__${nombre}__`);
+    }
 }
 
 // --- MÓDULO: GESTOR DE PROMPTS BBDD ---
@@ -458,22 +444,7 @@ function filtrarEmbeddings() {
 }
 
 function insertarEmbedding(nombre) {
-    const cajaIdea = document.getElementById('descripcion');
-    // Sintaxis estricta de ComfyUI para invocar un Textual Inversion
-    const textoInsertar = `embedding:${nombre}`; 
-    
-    const cursorStart = cajaIdea.selectionStart;
-    const textBefore = cajaIdea.value.substring(0, cursorStart);
-    const textAfter  = cajaIdea.value.substring(cajaIdea.selectionEnd, cajaIdea.value.length);
-    
-    const spBefore = (textBefore.length === 0 || textBefore.endsWith(' ') || textBefore.endsWith(',')) ? '' : ' ';
-    const spAfter = (textAfter.length === 0 || textAfter.startsWith(' ') || textAfter.startsWith(',')) ? '' : ' ';
-    
-    cajaIdea.value = textBefore + spBefore + textoInsertar + spAfter + textAfter;
-    
-    const modalEl = document.getElementById('modalEmbeddings');
-    const inst = bootstrap.Modal.getInstance(modalEl);
-    if (inst) inst.hide();
-    
-    cajaIdea.focus();
+    if (typeof window.insertarTagEnPrompt === 'function') {
+        window.insertarTagEnPrompt(`embedding:${nombre}`);
+    }
 }

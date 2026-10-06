@@ -166,35 +166,71 @@ window.eliminarImagenDeBandeja = function(index) {
     window.renderizarBandeja();
 };
 
-window.insertarTagEnPrompt = function(tag) {
-    const modoDirectoToggle = document.getElementById('modoDirectoToggle');
-    const isDirectMode = modoDirectoToggle && modoDirectoToggle.checked;
+// --- RASTREADOR DE CURSOR (Memoria de posición) ---
+window.gartyCursor = { id: 'descripcion', range: null };
 
-    if (isDirectMode) {
-        // En Modo Directo, lo inyectamos en la caja del Prompt Positivo (contentEditable)
-        const posContent = document.getElementById('posContent');
-        if (posContent) {
-            let currentText = posContent.innerText.trim();
-            posContent.innerText = currentText ? (currentText + ' ' + tag + ' ') : (tag + ' ');
-            posContent.focus();
-            
-            // Truco para mover el cursor justo al final del texto inyectado
-            if (typeof window.getSelection !== "undefined" && typeof document.createRange !== "undefined") {
-                let range = document.createRange();
-                range.selectNodeContents(posContent);
-                range.collapse(false);
-                let sel = window.getSelection();
-                sel.removeAllRanges();
-                sel.addRange(range);
-            }
+document.addEventListener('selectionchange', () => {
+    const active = document.activeElement;
+    if (active && (active.id === 'descripcion' || active.id === 'posContent' || active.id === 'negContent')) {
+        window.gartyCursor.id = active.id;
+        if (active.tagName !== 'TEXTAREA') {
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) window.gartyCursor.range = sel.getRangeAt(0).cloneRange();
         }
+    }
+});
+
+// --- INYECTOR UNIVERSAL INTELIGENTE ---
+window.insertarTagEnPrompt = function(tag) {
+    const isDirectMode = document.getElementById('modoDirectoToggle')?.checked;
+    let objId = window.gartyCursor.id;
+
+    // Autocorrección si el usuario cambió de modo sin hacer clic en ninguna caja aún
+    if (!isDirectMode && objId !== 'descripcion') objId = 'descripcion';
+    if (isDirectMode && objId === 'descripcion') objId = 'posContent';
+
+    const caja = document.getElementById(objId);
+    if (!caja) return;
+
+    // Cierra los modales si están abiertos (Para que no molesten tras clicar)
+    const modales = document.querySelectorAll('.modal.show');
+    modales.forEach(m => {
+        const inst = typeof bootstrap !== 'undefined' ? bootstrap.Modal.getInstance(m) : null;
+        if (inst) inst.hide();
+    });
+
+    if (caja.tagName === 'TEXTAREA') {
+        const start = caja.selectionStart;
+        const before = caja.value.substring(0, start);
+        const after = caja.value.substring(caja.selectionEnd);
+        const spB = (before === '' || before.endsWith(' ') || before.endsWith('\n')) ? '' : ' ';
+        const spA = (after === '' || after.startsWith(' ') || after.startsWith('\n')) ? '' : ' ';
+        
+        caja.value = before + spB + tag + spA + after;
+        caja.focus();
+        caja.selectionStart = caja.selectionEnd = start + spB.length + tag.length;
     } else {
-        // En Modo Normal, lo seguimos inyectando en la Idea Inicial
-        const input = document.getElementById('descripcion');
-        if (input) {
-            input.value = input.value + (input.value.endsWith(' ') ? '' : ' ') + tag + ' ';
-            input.focus();
+        // Cajas del Modo Directo (contentEditable)
+        caja.focus();
+        let sel = window.getSelection();
+        if (window.gartyCursor.range) {
+            sel.removeAllRanges();
+            sel.addRange(window.gartyCursor.range);
         }
+        
+        let range = sel.rangeCount > 0 ? sel.getRangeAt(0) : document.createRange();
+        if (sel.rangeCount === 0) {
+            range.selectNodeContents(caja);
+            range.collapse(false);
+        }
+        
+        const nodo = document.createTextNode(" " + tag + " ");
+        range.insertNode(nodo);
+        range.setStartAfter(nodo);
+        range.setEndAfter(nodo);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        window.gartyCursor.range = range.cloneRange(); // Guardar el nuevo punto
     }
 };
 
