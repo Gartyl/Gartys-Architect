@@ -384,6 +384,7 @@ return [
     'mon_title_uso'  => "Uso del núcleo GPU",
     'mon_lbl_uso'    => "Uso",
 	'btn_clear_txt' => "Borrar Texto",
+	'btn_copiar' => "Copiar",
     
     // ==============================================================================
     // 05. SELECTORES Y DESPLEGABLES (Opciones)

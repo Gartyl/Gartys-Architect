@@ -386,6 +386,7 @@ return [
 	'btn_subir_audio_ref'   => "Upload Reference Audio",
 	'ph_audio_ref_text'     => "Type exactly what the reference audio says...",
 	'btn_clear_txt' => "Delete Text",
+	'btn_copiar' => "Copy",
     
     // ==============================================================================
     // 05. SELECTORES Y DESPLEGABLES (Opciones)
