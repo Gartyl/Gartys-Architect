@@ -190,7 +190,8 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
             "keep_alive" => $keep_alive_val,
             "options" => [
                 "temperature" => $temp_segura,
-                "num_ctx" => 8192
+                "num_ctx" => 8192,
+				"num_predict" => 4096
             ]
         ];
         
@@ -575,6 +576,21 @@ if ($usar_internet && !empty($descripcion)) {
 $messages = [];
 $messages[] = ["role" => "system", "content" => $system_prompt];
 
+// --- NUEVO: INYECTAR HISTORIAL DE CHAT ---
+if ($isChat && !empty($_POST['chat_history'])) {
+    $historial = json_decode($_POST['chat_history'], true);
+    if (is_array($historial)) {
+        // Cogemos solo los últimos 10 mensajes para mantener el contexto sin saturar la VRAM
+        $historial_reciente = array_slice($historial, -10);
+        foreach ($historial_reciente as $msg) {
+            if (isset($msg['role']) && isset($msg['content'])) {
+                $messages[] = ["role" => $msg['role'], "content" => $msg['content']];
+            }
+        }
+    }
+}
+// -----------------------------------------
+
 if ($isChat && !empty($image_data)) {
     $base64_clean = preg_replace('#^data:image/[^;]+;base64,#', '', $image_data);
     $user_content = empty($descripcion) ? __('cmd_analyze_image') : $descripcion;
@@ -660,7 +676,8 @@ $payload = [
     "stream" => true, // <-- Mantenemos la conexión viva con FrankenPHP
     "options" => [
         "temperature" => $temp_final,
-        "num_ctx" => 8192 
+        "num_ctx" => 8192,
+        "num_predict" => 4096
     ],
     "keep_alive" => $keep_alive_val
 ];
