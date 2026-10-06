@@ -1233,7 +1233,7 @@ function stopProgressBar() {
 // ==============================================================================
 const UI_CONFIG = {
     '[SD15]': {
-        modoDirecto: true, formato: true, separador: true, wildcards: true,
+        modoDirecto: true, formato: true, separador: true, wildcards: true, embeddings: true,
         placeholder: 'img', btnAudio: false, uploadType: 'base', gpuDirectMode: 'render',
         translateMode: 'prompt', internet: false, arqBtnMode: 'prompt', llmModel: false,
         modelBlock: true, swapCols: false, resolucion: true, estilos: true, multiInput: true,
@@ -1243,7 +1243,7 @@ const UI_CONFIG = {
         hiresRembgDdcolor: true, icLight: true, showNegativePrompt: true
     },
     '[SDXL]': {
-        modoDirecto: true, formato: true, separador: true, wildcards: true,
+        modoDirecto: true, formato: true, separador: true, wildcards: true, embeddings: true,
         placeholder: 'img', btnAudio: false, uploadType: 'base', gpuDirectMode: 'render',
         translateMode: 'prompt', internet: false, arqBtnMode: 'prompt', llmModel: false,
         modelBlock: true, swapCols: false, resolucion: true, estilos: true, multiInput: true,
@@ -1253,7 +1253,7 @@ const UI_CONFIG = {
         hiresRembgDdcolor: true, icLight: false, showNegativePrompt: true
     },
     '[NATURAL_IMAGE]': {
-        modoDirecto: true, formato: true, separador: true, wildcards: true,
+        modoDirecto: true, formato: true, separador: true, wildcards: true, embeddings: true,
         placeholder: 'img', btnAudio: false, uploadType: 'base', gpuDirectMode: 'render',
         translateMode: 'prompt', internet: false, arqBtnMode: 'prompt', llmModel: false,
         modelBlock: true, swapCols: false, resolucion: true, estilos: true, multiInput: true,
@@ -1263,7 +1263,7 @@ const UI_CONFIG = {
         hiresRembgDdcolor: true, icLight: false, showNegativePrompt: true
     },
     '[VIDEO]': {
-        modoDirecto: true, formato: false, separador: true, wildcards: true,
+        modoDirecto: true, formato: false, separador: true, wildcards: true, embeddings: true,
         placeholder: 'img', btnAudio: true, uploadType: 'base', gpuDirectMode: 'video',
         translateMode: 'video', internet: false, arqBtnMode: 'video', llmModel: false,
         modelBlock: true, swapCols: false, resolucion: false, estilos: true, multiInput: true,
@@ -1273,7 +1273,7 @@ const UI_CONFIG = {
         hiresRembgDdcolor: false, icLight: false, showNegativePrompt: true
     },
     '[CHAT]': {
-        modoDirecto: false, formato: false, separador: false, wildcards: false,
+        modoDirecto: false, formato: false, separador: false, wildcards: false, embeddings: false,
         placeholder: 'chat', btnAudio: false, uploadType: 'chat', gpuDirectMode: 'hidden',
         translateMode: 'hidden', internet: true, arqBtnMode: 'prompt', llmModel: true,
         modelBlock: true, swapCols: true, resolucion: true, estilos: false, multiInput: false,
@@ -1310,12 +1310,20 @@ function updateUIForSelector(sel) {
     // 3. TEXTOS Y WILDCARDS
     const btnUpload = document.getElementById('uploadBtn'); const btnGaleria = document.getElementById('btnCargarGaleria');
     const descInput = document.getElementById('descripcion'); const btnWildcards = document.getElementById('btnWildcards');
+    const btnEmbeddings = document.getElementById('btnEmbeddings'); // El nuevo botón
     const btnAudio = document.getElementById('audioUploadBtn'); const lblIdea = document.getElementById('lblIdea');
 
     if (descInput) { descInput.hidden = false; descInput.classList.remove('d-none'); descInput.style.removeProperty('display'); }
+    
     if (btnWildcards) {
         if (!cfg.wildcards) { btnWildcards.hidden = true; btnWildcards.classList.add('d-none'); } 
         else { btnWildcards.hidden = false; btnWildcards.classList.remove('d-none'); btnWildcards.style.removeProperty('display'); }
+    }
+    
+    // Ahora leemos su propia regla explícita: cfg.embeddings
+    if (btnEmbeddings) {
+        if (!cfg.embeddings) { btnEmbeddings.hidden = true; btnEmbeddings.classList.add('d-none'); } 
+        else { btnEmbeddings.hidden = false; btnEmbeddings.classList.remove('d-none'); btnEmbeddings.style.removeProperty('display'); }
     }
     
     if (lblIdea) lblIdea.innerHTML = typeof GartyLang !== 'undefined' ? GartyLang.tit_idea : 'Idea Inicial';

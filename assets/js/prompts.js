@@ -371,3 +371,109 @@ async function cambiarEstadoPrompt(id, estado) {
         console.error(GartyLang.log_err_toggle_state, e);
     }
 }
+
+// ==============================================================================
+// --- MÓDULO: EMBEDDINGS (TEXTUAL INVERSION) ---
+// ==============================================================================
+let todosLosEmbeddings = {};
+
+async function abrirModalEmbeddings() {
+    const modal = new bootstrap.Modal(document.getElementById('modalEmbeddings'));
+    modal.show();
+    
+    // Solo cargamos del servidor la primera vez, luego usamos la memoria
+    if (Object.keys(todosLosEmbeddings).length === 0) {
+        const fd = new FormData();
+        fd.append('action', 'get_embeddings');
+        try {
+            const res = await fetch('procesar.php', { method: 'POST', body: fd });
+            const data = await res.json();
+            
+            if (data.error) {
+                document.getElementById('listaEmbeddings').innerHTML = `<span class="text-danger"><i class="bi bi-x-circle"></i> ${data.error}</span>`;
+                return;
+            }
+
+            if (data.embeddings) {
+                todosLosEmbeddings = data.embeddings;
+                renderizarEmbeddings(todosLosEmbeddings);
+            }
+        } catch(e) {
+            const txtErrConn = typeof GartyLang !== 'undefined' && GartyLang.emb_err_conn ? GartyLang.emb_err_conn : 'Error de conexión';
+			document.getElementById('listaEmbeddings').innerHTML = `<span class="text-muted"><i class="bi bi-wifi-off"></i> ${txtErrConn}</span>`;
+        }
+    } else {
+        document.getElementById('buscadorEmbeddings').value = "";
+        renderizarEmbeddings(todosLosEmbeddings);
+    }
+    
+    setTimeout(() => document.getElementById('buscadorEmbeddings').focus(), 500);
+}
+
+function renderizarEmbeddings(listaAgrupada) {
+    const contenedor = document.getElementById('listaEmbeddings');
+    
+    if (Object.keys(listaAgrupada).length === 0) {
+        const txtNotFound = typeof GartyLang !== 'undefined' && GartyLang.emb_not_found ? GartyLang.emb_not_found : 'No se encontraron embeddings.';
+		contenedor.innerHTML = `<span class="text-muted w-100 text-center mt-3"><i class="bi bi-search"></i> ${txtNotFound}</span>`;
+        return;
+    }
+
+    let htmlFinal = '';
+
+    for (const [carpeta, archivos] of Object.entries(listaAgrupada)) {
+        if (archivos.length === 0) continue;
+
+        htmlFinal += `
+            <div class="embedding-group mb-2">
+                <h6 class="text-secondary fw-bold border-bottom border-secondary pb-1 mb-2" style="font-size: 0.85rem; text-transform: uppercase;">
+                    <i class="bi bi-folder2-open"></i> ${carpeta}
+                </h6>
+                <div class="d-flex flex-wrap gap-2">
+                    ${archivos.map(e => `
+                        <button class="btn btn-sm btn-outline-danger rounded-pill shadow-sm" onclick="insertarEmbedding('${e}')">
+                            <i class="bi bi-gem"></i> ${e}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    contenedor.innerHTML = htmlFinal;
+}
+
+function filtrarEmbeddings() {
+    const texto = document.getElementById('buscadorEmbeddings').value.toLowerCase();
+    const filtrados = {};
+
+    for (const [carpeta, archivos] of Object.entries(todosLosEmbeddings)) {
+        const archivosFiltrados = archivos.filter(e => e.toLowerCase().includes(texto));
+        if (archivosFiltrados.length > 0) {
+            filtrados[carpeta] = archivosFiltrados;
+        }
+    }
+    
+    renderizarEmbeddings(filtrados);
+}
+
+function insertarEmbedding(nombre) {
+    const cajaIdea = document.getElementById('descripcion');
+    // Sintaxis estricta de ComfyUI para invocar un Textual Inversion
+    const textoInsertar = `embedding:${nombre}`; 
+    
+    const cursorStart = cajaIdea.selectionStart;
+    const textBefore = cajaIdea.value.substring(0, cursorStart);
+    const textAfter  = cajaIdea.value.substring(cajaIdea.selectionEnd, cajaIdea.value.length);
+    
+    const spBefore = (textBefore.length === 0 || textBefore.endsWith(' ') || textBefore.endsWith(',')) ? '' : ' ';
+    const spAfter = (textAfter.length === 0 || textAfter.startsWith(' ') || textAfter.startsWith(',')) ? '' : ' ';
+    
+    cajaIdea.value = textBefore + spBefore + textoInsertar + spAfter + textAfter;
+    
+    const modalEl = document.getElementById('modalEmbeddings');
+    const inst = bootstrap.Modal.getInstance(modalEl);
+    if (inst) inst.hide();
+    
+    cajaIdea.focus();
+}
