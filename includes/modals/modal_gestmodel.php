@@ -1,7 +1,9 @@
 <?php
 // ==============================================================================
-// --- ESCÁNER DE DIRECTORIOS COMFYUI (Para Datalists) ---
+// --- ESCÁNER DE DIRECTORIOS COMFYUI Y OLLAMA (Para Datalists) ---
 // ==============================================================================
+
+// 1. Escáner tradicional de ComfyUI
 function scanComfyFolder($subfolder) {
     if (!defined('COMFY_MODELS_DIR')) return [];
     $dir = rtrim(COMFY_MODELS_DIR, '/\\') . DIRECTORY_SEPARATOR . $subfolder;
@@ -15,7 +17,6 @@ function scanComfyFolder($subfolder) {
                 $ext = strtolower($file->getExtension());
                 if (in_array($ext, ['safetensors', 'ckpt', 'pt', 'pth', 'bin', 'gguf', 'sft'])) {
                     $rel_path = substr($file->getPathname(), strlen($dir) + 1);
-                    // AQUÍ ESTÁ EL CAMBIO: Forzamos la barra invertida para Windows
                     $results[] = str_replace('/', '\\', $rel_path); 
                 }
             }
@@ -25,8 +26,37 @@ function scanComfyFolder($subfolder) {
     return $results;
 }
 
-// Generamos las listas una sola vez al cargar el modal
-$lista_modelos = array_merge(scanComfyFolder('checkpoints'), scanComfyFolder('unet'));
+// 2. Escáner rápido a la API de Ollama
+function scanOllamaModels() {
+    if (!defined('LLM_IP') || !defined('LLM_PORT')) return [];
+    
+    $ch = curl_init("http://" . LLM_IP . ":" . LLM_PORT . "/api/tags");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 2); // 2 segundos máximo para no atascar la carga del panel
+    $res = curl_exec($ch);
+    curl_close($ch);
+    
+    $results = [];
+    if ($res) {
+        $data = json_decode($res, true);
+        if (isset($data['models']) && is_array($data['models'])) {
+            foreach ($data['models'] as $mod) {
+                // Guardamos solo el nombre limpio (ej: llama3:latest)
+                $results[] = $mod['name'];
+            }
+        }
+    }
+    sort($results);
+    return $results;
+}
+
+// Generamos las listas
+$lista_comfy   = array_merge(scanComfyFolder('checkpoints'), scanComfyFolder('unet'));
+$lista_ollama  = scanOllamaModels();
+
+// Fusionamos colocando a Ollama al principio de la lista
+$lista_modelos = array_merge($lista_ollama, $lista_comfy);
+
 $lista_vaes    = scanComfyFolder('vae');
 $lista_clips   = array_unique(array_merge(scanComfyFolder('clip'), scanComfyFolder('text_encoders')));
 ?>
