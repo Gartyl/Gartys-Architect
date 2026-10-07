@@ -229,10 +229,11 @@ if ($action === 'save_modelo_bd') {
     try {
         $es_unbundled = isset($_POST['es_unbundled']) ? intval($_POST['es_unbundled']) : 0;
         
-        $d_steps = (isset($_POST['default_steps']) && is_numeric($_POST['default_steps'])) ? intval($_POST['default_steps']) : 30;
-        $d_cfg = (isset($_POST['default_cfg']) && is_numeric($_POST['default_cfg'])) ? floatval($_POST['default_cfg']) : 5.0;
-        $d_sampler = !empty($_POST['default_sampler']) ? $_POST['default_sampler'] : 'euler_ancestral';
-        $d_scheduler = !empty($_POST['default_scheduler']) ? $_POST['default_scheduler'] : 'beta';
+        // El usuario manda. Si viene vacío, guardamos explícitamente NULL.
+        $d_steps = (isset($_POST['default_steps']) && is_numeric($_POST['default_steps'])) ? intval($_POST['default_steps']) : null;
+        $d_cfg = (isset($_POST['default_cfg']) && is_numeric($_POST['default_cfg'])) ? floatval($_POST['default_cfg']) : null;
+        $d_sampler = !empty($_POST['default_sampler']) ? $_POST['default_sampler'] : null;
+        $d_scheduler = !empty($_POST['default_scheduler']) ? $_POST['default_scheduler'] : null;
         $d_denoise = (isset($_POST['default_denoise']) && $_POST['default_denoise'] !== '') ? floatval($_POST['default_denoise']) : null;
         $keep_alive = (isset($_POST['keep_alive']) && trim($_POST['keep_alive']) !== '') ? trim($_POST['keep_alive']) : null;
         
@@ -324,36 +325,53 @@ if ($action === 'delete_modelo_bd') {
         if ($id > 0) {
             // 1. Si el usuario marcó borrar del disco, lo hacemos ANTES de borrar el registro
             if ($borrar_fisico) {
-                $stmt = $pdo->prepare("SELECT nombre_archivo FROM modelos_ia WHERE id = ?");
+                // ⚠️ IMPORTANTE: Añadimos 'motor' a la consulta SQL para saber a quién llamar
+                $stmt = $pdo->prepare("SELECT nombre_archivo, motor FROM modelos_ia WHERE id = ?");
                 $stmt->execute([$id]);
                 $modelo = $stmt->fetch(PDO::FETCH_ASSOC);
 
                 if ($modelo && !empty($modelo['nombre_archivo'])) {
-                    $base_dir = defined('COMFY_MODELS_DIR') ? rtrim(COMFY_MODELS_DIR, '/\\') : 'C:/ComfyUI/models';
-                    $nombre_archivo = ltrim($modelo['nombre_archivo'], '/\\');
                     
-                    // Escaneamos las rutas probables por si no lleva la subcarpeta incluida en el nombre
-                    $posibles_rutas = [
-                        $base_dir . DIRECTORY_SEPARATOR . 'checkpoints' . DIRECTORY_SEPARATOR . $nombre_archivo,
-                        $base_dir . DIRECTORY_SEPARATOR . 'unet' . DIRECTORY_SEPARATOR . $nombre_archivo,
-                        $base_dir . DIRECTORY_SEPARATOR . 'loras' . DIRECTORY_SEPARATOR . $nombre_archivo,
-                        $base_dir . DIRECTORY_SEPARATOR . $nombre_archivo
-                    ];
+                    // --- A) BORRADO FÍSICO PARA OLLAMA (Vía API) ---
+                    if ($modelo['motor'] === 'ollama') {
+                        $ch = curl_init("http://" . LLM_IP . ":" . LLM_PORT . "/api/delete");
+                        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "DELETE");
+                        // Ollama requiere que le enviemos el nombre del modelo en JSON
+                        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(["name" => $modelo['nombre_archivo']]));
+                        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+                        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                        curl_setopt($ch, CURLOPT_TIMEOUT, 30); // Le damos 30s por si tiene que borrar 20GB de disco
+                        curl_exec($ch);
+                        curl_close($ch);
+                    } 
+                    // --- B) BORRADO FÍSICO PARA COMFYUI (Papelera de Windows) ---
+                    else {
+                        $base_dir = defined('COMFY_MODELS_DIR') ? rtrim(COMFY_MODELS_DIR, '/\\') : 'C:/ComfyUI/models';
+                        $nombre_archivo = ltrim($modelo['nombre_archivo'], '/\\');
+                        
+                        // Escaneamos las rutas probables
+                        $posibles_rutas = [
+                            $base_dir . DIRECTORY_SEPARATOR . 'checkpoints' . DIRECTORY_SEPARATOR . $nombre_archivo,
+                            $base_dir . DIRECTORY_SEPARATOR . 'unet' . DIRECTORY_SEPARATOR . $nombre_archivo,
+                            $base_dir . DIRECTORY_SEPARATOR . 'loras' . DIRECTORY_SEPARATOR . $nombre_archivo,
+                            $base_dir . DIRECTORY_SEPARATOR . $nombre_archivo
+                        ];
 
-                    foreach ($posibles_rutas as $ruta) {
-                        if (file_exists($ruta)) {
-                            // 🌟 MAGIA: Enviamos a la Papelera de Windows vía PowerShell
-                            $ruta_win = str_replace('/', '\\', $ruta);
-                            $ruta_ps = str_replace("'", "''", $ruta_win); // Escapar comillas simples por si el modelo las tiene
-                            
-                            $ps_cmd = "powershell.exe -NoProfile -Command \"Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('{$ruta_ps}', 'OnlyErrorDialogs', 'SendToRecycleBin')\"";
-                            exec($ps_cmd);
-                            
-                            // Paracaídas de emergencia: Si el servidor local tuviera PowerShell bloqueado (rarísimo) y el archivo sigue ahí, usamos el borrado físico de PHP.
+                        foreach ($posibles_rutas as $ruta) {
                             if (file_exists($ruta)) {
-                                @unlink($ruta); 
+                                // MAGIA: Enviamos a la Papelera de Windows vía PowerShell
+                                $ruta_win = str_replace('/', '\\', $ruta);
+                                $ruta_ps = str_replace("'", "''", $ruta_win); 
+                                
+                                $ps_cmd = "powershell.exe -NoProfile -Command \"Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('{$ruta_ps}', 'OnlyErrorDialogs', 'SendToRecycleBin')\"";
+                                exec($ps_cmd);
+                                
+                                // Paracaídas de emergencia por si PowerShell falla
+                                if (file_exists($ruta)) {
+                                    @unlink($ruta); 
+                                }
+                                break;
                             }
-                            break;
                         }
                     }
                 }
