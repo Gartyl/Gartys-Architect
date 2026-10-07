@@ -784,9 +784,11 @@ async function eliminarModeloRostro() {
         if (data.error) throw new Error(data.error);
         
         SwalDark.fire({ toast: true, position: 'top-end', icon: 'success', title: GartyLang.msg_face_deleted || 'Rostro eliminado', showConfirmButton: false, timer: 2000 });
+		
+        // Eliminamos la opción visualmente del desplegable al instante
+        select.options[select.selectedIndex].remove();
         select.value = "";
         handleSavedFaceSelection();
-        cargarRostrosGuardados(); // Recarga la lista para que desaparezca
     } catch (e) {
         SwalDark.fire({ icon: 'error', title: 'Error', text: e.message });
     }
