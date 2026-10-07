@@ -2230,10 +2230,13 @@ async function executeProcess(fd, selValue, retries = 2, loadingId = null, silen
                 let contentHtml = window.formatearMarkdownChat ? window.formatearMarkdownChat(p) : p;
                 
                 if (isAvanzado && p.length > 5 && !p.includes(typeof GartyLang !== 'undefined' && GartyLang.txt_ai_greeting ? GartyLang.txt_ai_greeting : '¡Hola!')) {
-                    const safeText = encodeURIComponent(p);
+                    const payloadId = 'pld_' + Date.now() + Math.floor(Math.random() * 10000);
+                    window.gartyChatPayloads = window.gartyChatPayloads || {};
+                    window.gartyChatPayloads[payloadId] = p;
+
                     contentHtml += `<div class="mt-3 text-end d-flex justify-content-end gap-2 border-top border-secondary pt-2" style="border-color: rgba(255,255,255,0.1) !important;">
-                        <button class="btn btn-sm btn-outline-secondary border-0" onclick="navigator.clipboard.writeText(decodeURIComponent('${safeText}')).then(() => { let icon = this.querySelector('i'); icon.className = 'bi bi-check-lg text-success'; setTimeout(() => icon.className = 'bi bi-copy', 2000); })" title="${typeof GartyLang !== 'undefined' && GartyLang.btn_copiar ? GartyLang.btn_copiar : 'Copiar'}"><i class="bi bi-copy"></i></button>
-                        <button class="btn btn-sm btn-outline-info border-0" onclick="generateImageFromChatBtn(this, '${safeText}')" title="${typeof GartyLang !== 'undefined' && GartyLang.chat_btn_render_title ? GartyLang.chat_btn_render_title : 'Pintar esto'}"><i class="bi bi-gpu-card"></i> ${typeof GartyLang !== 'undefined' && GartyLang.chat_btn_render_this ? GartyLang.chat_btn_render_this : 'Pintar esto'}</button>
+                        <button class="btn btn-sm btn-outline-secondary border-0" onclick="copiarTextoChat(this, '${payloadId}')" title="${typeof GartyLang !== 'undefined' && GartyLang.btn_copiar ? GartyLang.btn_copiar : 'Copiar'}"><i class="bi bi-copy"></i></button>
+                        <button class="btn btn-sm btn-outline-info border-0" onclick="pintarTextoChat(this, '${payloadId}')" title="${typeof GartyLang !== 'undefined' && GartyLang.chat_btn_render_title ? GartyLang.chat_btn_render_title : 'Pintar esto'}"><i class="bi bi-gpu-card"></i> ${typeof GartyLang !== 'undefined' && GartyLang.chat_btn_render_this ? GartyLang.chat_btn_render_this : 'Pintar esto'}</button>
                     </div>`;
                 }
 
@@ -3856,6 +3859,29 @@ window.formatearMarkdownChat = function(texto) {
     return html;
 };
 
+// --- NUEVO: ALMACÉN SEGURO PARA TEXTOS LARGOS DEL CHAT ---
+window.gartyChatPayloads = window.gartyChatPayloads || {};
+
+window.copiarTextoChat = function(btn, payloadId) {
+    const texto = window.gartyChatPayloads[payloadId];
+    if (!texto) return;
+    navigator.clipboard.writeText(texto).then(() => {
+        let icon = btn.querySelector('i');
+        if(icon) {
+            icon.className = 'bi bi-check-lg text-success';
+            setTimeout(() => icon.className = 'bi bi-copy', 2000);
+        }
+    }).catch(err => console.error("Error copiando:", err));
+};
+
+window.pintarTextoChat = function(btn, payloadId) {
+    const texto = window.gartyChatPayloads[payloadId];
+    if (!texto) return;
+    if (typeof generateImageFromChatBtn === 'function') {
+        generateImageFromChatBtn(btn, encodeURIComponent(texto));
+    }
+};
+
 function addMessageToUI(role, text, imgSrc = null, isDoc = false) {
     const b = document.createElement('div'); b.className = `chat-bubble ${role === 'user' ? 'bubble-user' : 'bubble-ai'}`;
     const ts = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -3872,11 +3898,13 @@ function addMessageToUI(role, text, imgSrc = null, isDoc = false) {
         let promptToSend = rawText;
         try { const parsed = JSON.parse(rawText); if (parsed.prompt) promptToSend = parsed.prompt; } catch(e) {}
         
-        const safeText = encodeURIComponent(promptToSend);
+        const payloadId = 'pld_' + Date.now() + Math.floor(Math.random() * 10000);
+        window.gartyChatPayloads = window.gartyChatPayloads || {};
+        window.gartyChatPayloads[payloadId] = promptToSend;
         
         contentHtml += `<div class="mt-3 text-end d-flex justify-content-end gap-2 border-top border-secondary pt-2" style="border-color: rgba(255,255,255,0.1) !important;">
-            <button class="btn btn-sm btn-outline-secondary border-0" onclick="navigator.clipboard.writeText(decodeURIComponent('${safeText}')).then(() => { let icon = this.querySelector('i'); icon.className = 'bi bi-check-lg text-success'; setTimeout(() => icon.className = 'bi bi-copy', 2000); })" title="${typeof GartyLang !== 'undefined' && GartyLang.btn_copiar ? GartyLang.btn_copiar : 'Copiar'}"><i class="bi bi-copy"></i></button>
-            <button class="btn btn-sm btn-outline-info border-0" onclick="generateImageFromChatBtn(this, '${safeText}')" title="${typeof GartyLang !== 'undefined' && GartyLang.chat_btn_render_title ? GartyLang.chat_btn_render_title : 'Pintar esto'}"><i class="bi bi-gpu-card"></i> ${typeof GartyLang !== 'undefined' && GartyLang.chat_btn_render_this ? GartyLang.chat_btn_render_this : 'Pintar esto'}</button>
+            <button class="btn btn-sm btn-outline-secondary border-0" onclick="copiarTextoChat(this, '${payloadId}')" title="${typeof GartyLang !== 'undefined' && GartyLang.btn_copiar ? GartyLang.btn_copiar : 'Copiar'}"><i class="bi bi-copy"></i></button>
+            <button class="btn btn-sm btn-outline-info border-0" onclick="pintarTextoChat(this, '${payloadId}')" title="${typeof GartyLang !== 'undefined' && GartyLang.chat_btn_render_title ? GartyLang.chat_btn_render_title : 'Pintar esto'}"><i class="bi bi-gpu-card"></i> ${typeof GartyLang !== 'undefined' && GartyLang.chat_btn_render_this ? GartyLang.chat_btn_render_this : 'Pintar esto'}</button>
         </div>`;
     }
 
