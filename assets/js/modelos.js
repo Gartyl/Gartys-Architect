@@ -881,13 +881,16 @@ async function borrarModeloBD(id, nombre) {
         confirmButtonText: GartyLang.btn_siborrar, 
         cancelButtonText: GartyLang.btn_cancelar,
         preConfirm: () => {
-            // Capturamos si el interruptor está marcado antes de cerrar la alerta
-            return document.getElementById('swal-borrar-fisico').checked;
+            // 🛑 LA MAGIA ESTÁ AQUÍ: Devolvemos un objeto. 
+            // Para SweetAlert los objetos siempre son "true", así que NUNCA bloqueará el cierre.
+            return { marcado: document.getElementById('swal-borrar-fisico').checked };
         }
     });
 
     if (confirm.isConfirmed) {
-        const borrarFisico = confirm.value ? '1' : '0';
+        // Leemos si el objeto nos dice que estaba marcado o no
+        const borrarFisico = confirm.value.marcado ? '1' : '0';
+        
         let fd = new FormData(); 
         fd.append('action', 'delete_modelo_bd'); 
         fd.append('id', id);
@@ -902,6 +905,7 @@ async function borrarModeloBD(id, nombre) {
                 return;
             }
             
+            cancelarEdicionModelo(); // <-- ESTA ES LA LÍNEA MÁGICA QUE VACÍA EL FORMULARIO
             cargarTablaModelos();
             descargarModelosDisponibles(); 
             SwalDark.fire({icon: 'success', title: GartyLang.swal_deleted_title, timer: 1500, showConfirmButton: false});
