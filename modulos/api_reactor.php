@@ -70,11 +70,12 @@ if ($action === 'guardar_cara_reactor') {
             ],
             "2" => [
                 "inputs" => [
-                    "face_model_name" => $safe_filename, 
-                    "compute_device" => "Auto", # Novedad: Gestión dinámica de GPU
+                    "save_mode" => true,
+                    "face_model_name" => $safe_filename,
+                    "select_face_index" => 0,
                     "image" => ["1", 0]
                 ],
-                "class_type" => "ReActorBuildFaceModel" # Novedad: Nuevo nombre del nodo extractor
+                "class_type" => "ReActorSaveFaceModel"
             ]
         ];
 
@@ -124,23 +125,36 @@ if ($action === 'eliminar_cara_reactor') {
     }
     
     try {
-        // 1. ELIMINAR EL ARCHIVO FÍSICO EN COMFYUI
-        $ruta_checkpoints = defined('COMFY_MODEL_PATH') ? rtrim(COMFY_MODEL_PATH, '/\\') : "";
-        if (!empty($ruta_checkpoints)) {
-            // Asumimos que COMFY_MODEL_PATH apunta a "models/checkpoints", subimos un nivel
-            $base_models_dir = dirname($ruta_checkpoints);
-            $ruta_fisica = $base_models_dir . DIRECTORY_SEPARATOR . 'reactor' . DIRECTORY_SEPARATOR . 'faces' . DIRECTORY_SEPARATOR . basename($filename);
-            
-            if (file_exists($ruta_fisica)) {
-                @unlink($ruta_fisica); // Borra el archivo físico del disco
+        // 1. CONSTRUIR LA RUTA FÍSICA A COMFYUI
+        $base_models_dir = defined('COMFY_MODELS_DIR') ? rtrim(COMFY_MODELS_DIR, '/\\') : 'C:/ComfyUI/models';
+        $ruta_fisica = $base_models_dir . '/reactor/faces/' . basename($filename);
+        
+        // Forzamos barras correctas para Windows (F:\ComfyUI\...)
+        $ruta_fisica = str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $ruta_fisica);
+
+        $mensaje_debug = "";
+
+        // 2. ELIMINAR EL ARCHIVO FÍSICO DIRECTAMENTE
+        if (file_exists($ruta_fisica)) {
+            // Borrado fulminante de disco (sin papelera)
+            if (!@unlink($ruta_fisica)) {
+                $mensaje_debug = " No se ha podido borrar el archivo físico (Windows denegó el permiso o está en uso por ComfyUI): " . $ruta_fisica;
             }
+        } else {
+            $mensaje_debug = " El archivo físico no existía en esta ruta: " . $ruta_fisica;
         }
 
-        // 2. ELIMINAR EL REGISTRO DE LA BASE DE DATOS
+        // 3. ELIMINAR EL REGISTRO DE LA BASE DE DATOS
         $stmt = $pdo->prepare("DELETE FROM reactor_faces WHERE user_id = ? AND filename = ?");
         $stmt->execute([$user_id, $filename]);
 
-        echo json_encode(['success' => true]);
+        // Si hubo algún problema físico, mostramos la alerta para diagnosticar, pero la BD ya está limpia
+        if ($mensaje_debug !== "") {
+            echo json_encode(['error' => 'Registro borrado de la interfaz, pero:' . $mensaje_debug]);
+        } else {
+            echo json_encode(['success' => true]);
+        }
+
     } catch (Exception $e) {
         echo json_encode(['error' => $e->getMessage()]);
     }
