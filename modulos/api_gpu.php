@@ -474,26 +474,49 @@ if ($action === 'generar_imagen') {
     $comfy_audio_filename = "none";
     $tray_comfy_filenames = [];
 
-    // A. Subir imágenes de la Bandeja Multicarga al servidor de ComfyUI
+    // A. Subir imágenes de la Bandeja Multicarga al servidor de ComfyUI (CON CURL_MULTI)
     if (isset($_POST['has_tray_images']) && $_POST['has_tray_images'] === 'true') {
+        $mh = curl_multi_init();
+        $curl_handles = [];
+        $temp_files = [];
+
+        // 1. Preparamos todas las peticiones simultáneas
         for ($i = 1; $i <= 9; $i++) {
             if (!empty($_POST["tray_image_$i"])) {
                 $tmp_tray = sys_get_temp_dir() . '/tray_img_' . $i . '_' . uniqid() . '.png';
                 file_put_contents($tmp_tray, base64_decode($_POST["tray_image_$i"]));
+                $temp_files[$i] = $tmp_tray;
+
                 $cfile_tray = function_exists('curl_file_create') ? curl_file_create($tmp_tray, 'image/png', "tray_ref_$i.png") : '@' . realpath($tmp_tray);
-                
-                $ch_tray = curl_init(COMFY_URL . '/upload/image');
-                curl_setopt($ch_tray, CURLOPT_POST, true);
-                curl_setopt($ch_tray, CURLOPT_POSTFIELDS, ['image' => $cfile_tray]);
-                curl_setopt($ch_tray, CURLOPT_RETURNTRANSFER, true);
-                $res_tray = json_decode(curl_exec($ch_tray), true);
-                @unlink($tmp_tray);
-                
-                if (isset($res_tray['name'])) {
-                    $tray_comfy_filenames[$i] = $res_tray['name']; // Guardamos el nombre que le dio ComfyUI
-                }
+
+                $ch = curl_init(COMFY_URL . '/upload/image');
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, ['image' => $cfile_tray]);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+                curl_multi_add_handle($mh, $ch);
+                $curl_handles[$i] = $ch;
             }
         }
+
+        // 2. Ejecutamos todas las subidas en paralelo
+        $running = null;
+        do {
+            curl_multi_exec($mh, $running);
+            curl_multi_select($mh);
+        } while ($running > 0);
+
+        // 3. Recogemos las respuestas y limpiamos la memoria
+        foreach ($curl_handles as $i => $ch) {
+            $res_tray = json_decode(curl_multi_getcontent($ch), true);
+            if (isset($res_tray['name'])) {
+                $tray_comfy_filenames[$i] = $res_tray['name'];
+            }
+            curl_multi_remove_handle($mh, $ch);
+            curl_close($ch);
+            @unlink($temp_files[$i]); // Borramos el archivo temporal del disco
+        }
+        curl_multi_close($mh);
     }
 
     // B. Subir Imagen Base Clásica o Contexto de Vídeo
