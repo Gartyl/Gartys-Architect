@@ -4381,6 +4381,35 @@ document.addEventListener('DOMContentLoaded', () => {
             const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
             if (files.length === 0) return;
 
+            // 🌟 NUEVO: MODO VOLCADO A BANDEJA (Si Multicarga está activo) 🌟
+            const multiInputToggle = document.getElementById('multiInputToggle');
+            const isMultiInputActive = multiInputToggle && multiInputToggle.checked;
+
+            if (isMultiInputActive) {
+                let disponibles = 9 - window.bandejaArchivos.length;
+                let archivosAProcesar = files.slice(0, disponibles);
+                
+                if (files.length > disponibles) {
+                    SwalDark.fire({ icon: 'info', title: typeof GartyLang !== 'undefined' && GartyLang.swal_limit_tray_title ? GartyLang.swal_limit_tray_title : 'Límite alcanzado', text: 'Solo se han podido cargar las primeras ' + disponibles + ' imágenes en la bandeja.' });
+                }
+
+                // Las procesamos para que entren a la bandeja de UI
+                for (let file of archivosAProcesar) {
+                    await new Promise(resolve => {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => { 
+                            window.agregarImagenABandeja(ev.target.result); 
+                            resolve(); 
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                }
+                
+                batchInput.value = ""; // Vaciamos para no bloquear subidas posteriores
+                return; // 🛑 Cortamos aquí: No inicia el Batch Automático secuencial.
+            }
+            // 🌟 -------------------------------------------------------- 🌟
+
             // --- 1. VALIDACIÓN PREVIA (Escudo anti-atascos) ---
             const ideaInicial = document.getElementById('descripcion') ? document.getElementById('descripcion').value.trim() : '';
             const finalPrompt = document.getElementById('posContent') ? document.getElementById('posContent').innerText.trim() : '';
