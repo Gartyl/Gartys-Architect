@@ -576,16 +576,38 @@ if ($usar_internet && !empty($descripcion)) {
 $messages = [];
 $messages[] = ["role" => "system", "content" => $system_prompt];
 
-// --- NUEVO: INYECTAR HISTORIAL DE CHAT ---
+// --- NUEVO: INYECTAR HISTORIAL DE CHAT (LÍMITE INTELIGENTE DE TOKENS) ---
 if ($isChat && !empty($_POST['chat_history'])) {
     $historial = json_decode($_POST['chat_history'], true);
     if (is_array($historial)) {
-        // Cogemos solo los últimos 10 mensajes para mantener el contexto sin saturar la VRAM
-        $historial_reciente = array_slice($historial, -10);
-        foreach ($historial_reciente as $msg) {
+        // 1. Invertimos el array para evaluar primero los mensajes MÁS RECIENTES
+        $historial = array_reverse($historial);
+        $historial_seguro = [];
+        
+        // 16000 caracteres son aprox 4000 tokens. Dejamos los otros 4000 del num_ctx libres para la respuesta.
+        $max_caracteres = 16000; 
+        $caracteres_actuales = 0;
+
+        foreach ($historial as $msg) {
             if (isset($msg['role']) && isset($msg['content'])) {
-                $messages[] = ["role" => $msg['role'], "content" => $msg['content']];
+                $longitud = mb_strlen($msg['content']);
+                
+                // Si añadir este mensaje no satura la memoria, lo guardamos
+                if ($caracteres_actuales + $longitud <= $max_caracteres) {
+                    $historial_seguro[] = ["role" => $msg['role'], "content" => $msg['content']];
+                    $caracteres_actuales += $longitud;
+                } else {
+                    // Si se llena, ignoramos este mensaje antiguo y paramos de buscar
+                    break;
+                }
             }
+        }
+        
+        // 2. Volvemos a darle la vuelta para recuperar el orden cronológico normal (antiguo -> nuevo)
+        $historial_seguro = array_reverse($historial_seguro);
+        
+        foreach ($historial_seguro as $msg) {
+            $messages[] = $msg;
         }
     }
 }
