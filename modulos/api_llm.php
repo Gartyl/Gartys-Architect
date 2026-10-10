@@ -831,13 +831,25 @@ if (!empty(trim($finalP))) {
     $safe_pos = preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', (string)$finalP);
     $safe_neg = preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', (string)$finalN);
 
-    // Si $user_id no está definido en este scope, usamos $_SESSION
     $uid = $user_id ?? $_SESSION['user_id'] ?? 1;
+    $inserted_id = 0;
 
-    $stmt = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo) VALUES (?, ?, ?, ?, ?)");
-    $stmt->execute([$uid, $selector, $safe_desc, $safe_pos, $safe_neg]);
-    
-    $inserted_id = $pdo->lastInsertId();
+    // --- NUEVA LÓGICA DE FINGERPRINTING DESDE EL FRONTEND ---
+    $force_new_block = isset($_POST['force_new_block']) && $_POST['force_new_block'] === 'true';
+    $parent_id = intval($_POST['parent_id'] ?? 0);
+
+    if ($force_new_block || $parent_id === 0) {
+        // Creamos un bloque nuevo porque la huella cambió o es la primera vez
+        $stmt = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([$uid, $selector, $safe_desc, $safe_pos, $safe_neg]);
+        $inserted_id = $pdo->lastInsertId();
+    } else {
+        // Aprovechamos el bloque existente de la sesión actual
+        $stmt = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ? WHERE id = ?");
+        $stmt->execute([$safe_pos, $safe_neg, $parent_id]);
+        $inserted_id = $parent_id;
+    }
+
     $normalized = ["prompt" => $safe_pos, "negative_prompt" => $safe_neg];
     
     $fake_openai_response = [
@@ -847,7 +859,6 @@ if (!empty(trim($finalP))) {
         'prompt_id' => $inserted_id
     ];
     
-    // Enviamos la respuesta final
     echo json_encode($fake_openai_response, JSON_INVALID_UTF8_SUBSTITUTE) . "\n";
     flush(); 
 } else { 

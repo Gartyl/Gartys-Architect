@@ -1389,7 +1389,15 @@ if ($action === 'generar_imagen') {
             ];
 
             $workflow = cargarWorkflowJSON($ruta_json, $reemplazos);
-
+			
+			// --- FIX: CARGADOR GGUF DINÁMICO PARA MINIMAX ---
+            if (strpos(strtolower($modelo_seguro), '.gguf') !== false) {
+                if (isset($workflow["127"])) {
+                    $workflow["127"]["class_type"] = "UnetLoaderGGUF";
+                    unset($workflow["127"]["inputs"]["weight_dtype"]);
+                }
+            }
+			
             // --- GESTIÓN DEL LORA Y PUENTEO INTELIGENTE ---
             $lora_active = false;
             if (empty($lora_metadata_list) && is_array($lora_names)) {
