@@ -7,6 +7,7 @@ const isAdmin = APP_ENV.isAdmin;
 
 let lastGeneratedPrompt = { pos: "", neg: "" }; 
 let currentPromptId = 0;
+let currentSessionFingerprint = ""; // NUEVO: Huella de sesión inteligente
 let currentDocumentText = "";
 let currentImageBase64 = null;
 window.currentVideoBase64 = null;
@@ -1680,6 +1681,7 @@ function clearResultsUI() {
     const negContent = document.getElementById('negContent'); if(negContent) negContent.innerText = "";
     
     currentPromptId = 0; lastGeneratedPrompt = { pos: "", neg: "" }; 
+    currentSessionFingerprint = ""; // Reset de huella al limpiar la pantalla 
     
     // Solo recarga toda la interfaz si NO estamos en modo directo
     if (!isDirectMode) updateUIForSelector(document.getElementById('selector').value);
@@ -2123,6 +2125,24 @@ async function executeProcess(fd, selValue, retries = 2, loadingId = null, silen
     // Escudo: Verificamos la categoría real del selector DOM antes de decidir el texto del botón
     const currentCategory = document.getElementById('selector') ? document.getElementById('selector').value : selValue;
     const resetText = (currentCategory === '[CHAT]') ? GartyLang.btn_envimensaje : GartyLang.btn_generarprompt;
+	
+	// --- LÓGICA DE FINGERPRINTING INTELIGENTE ---
+    if (currentCategory !== '[CHAT]') {
+        const descText = document.getElementById('descripcion') ? document.getElementById('descripcion').value.trim() : '';
+        const modelSelect = document.getElementById('modelSelector') ? document.getElementById('modelSelector').value : '';
+        const newFingerprint = descText + "|" + modelSelect;
+
+        if (currentSessionFingerprint !== newFingerprint) {
+            // Si la idea inicial o el modelo han cambiado, forzamos un bloque nuevo
+            fd.append('force_new_block', 'true');
+            currentSessionFingerprint = newFingerprint;
+            currentPromptId = 0; // Desvinculamos del historial anterior
+        } else {
+            fd.append('force_new_block', 'false');
+            if (currentPromptId > 0) fd.append('parent_id', currentPromptId);
+        }
+    }
+    // ----------------------------------------------
     
     if (!loadingId && retries === 2 && !silentMainBtn) { 
         const submitBtn = document.getElementById('submitBtn');
@@ -2221,6 +2241,30 @@ async function executeProcess(fd, selValue, retries = 2, loadingId = null, silen
         currentPromptId = data.prompt_id || 0;
         let p = ""; let n = "";
         try { const parsed = JSON.parse(data.choices[0].message.content); p = parsed.prompt || ""; n = parsed.negative_prompt || ""; } catch(e) { p = data.choices[0].message.content; }
+
+        if (selValue !== '[CHAT]') {
+            // Guardamos localmente para los presets
+            lastGeneratedPrompt.pos = p; lastGeneratedPrompt.neg = n;
+            const applied = getPromptsWithPresets(p, n);
+            showGeneratedPromptsInUI(applied.pos, applied.neg, selValue);
+            
+            // --- NUEVO: AUTO-RENDERIZADO BLINDADO ---
+            if (window.autoRenderAfterPrompt) {
+                window.autoRenderAfterPrompt = false; 
+                setTimeout(() => {
+                    // Enviamos explícitamente el ID que acabamos de recibir del servidor,
+                    // evitando que runGpu() se confunda con variables globales desactualizadas.
+                    if (typeof runGpu === 'function') {
+                        // Inyectamos el ID fresco en un atributo data-dbid del botón temporalmente
+                        const gpuBtn = document.getElementById('gpuArquitectoBtn');
+                        if (gpuBtn && !gpuBtn.disabled) {
+                            gpuBtn.dataset.dbid = currentPromptId; 
+                            gpuBtn.click();
+                        }
+                    }
+                }, 800); 
+            }
+        }
 
         if (selValue === '[CHAT]') { 
             // Guardamos la respuesta de la IA en el historial para que lo recuerde luego
@@ -3019,8 +3063,31 @@ async function runGpu(mode = 'directo') {
     fd.append('descripcion_original', ideaInicial || prompts.finalPrompt); 
     fd.append('model_path', currentModelCheck);
     fd.append('async_mode', 'true'); 
-	fd.append('client_id', window.comfyClientId); // <---- ESTA ES LA LÍNEA NUEVA
-    if (currentPromptId > 0) fd.append('historial_id', currentPromptId);
+    fd.append('client_id', window.comfyClientId); 
+    
+    // 🌟 VALIDACIÓN DE HUELLA EN MODO DIRECTO 🌟
+    // Si el usuario renderiza directamente (sin pasar por el Arquitecto),
+    // comprobamos aquí si la idea o el modelo han cambiado respecto a la última generación.
+    const newFingerprint = (ideaInicial || prompts.finalPrompt) + "|" + currentModelCheck;
+    
+    // Captura segura del ID (prioriza el dataset inyectado, luego el global)
+    let safeDbId = currentPromptId;
+    
+    if (buttonUsed && buttonUsed.dataset.dbid) {
+        // Si venimos impulsados por el Arquitecto, confiamos ciegamente en el ID nuevo que nos ha dado
+        safeDbId = parseInt(buttonUsed.dataset.dbid);
+        delete buttonUsed.dataset.dbid; 
+        currentSessionFingerprint = newFingerprint; // Sincronizamos la huella
+    } else if (currentSessionFingerprint !== newFingerprint) {
+        // Si venimos por clic directo del usuario y vemos que ha cambiado el texto o modelo,
+        // CORTAMOS el cable con el historial viejo, forzando un bloque nuevo.
+        safeDbId = 0; 
+        currentPromptId = 0;
+        currentSessionFingerprint = newFingerprint;
+    }
+
+    fd.append('session_fingerprint', currentSessionFingerprint);
+    if (safeDbId > 0) fd.append('historial_id', safeDbId);
     
     fd = appendUIParametersToFormData(fd);
 
