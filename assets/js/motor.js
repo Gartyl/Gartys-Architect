@@ -3518,23 +3518,35 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
                 toast.innerHTML = `<div class="d-flex"><div class="toast-body d-flex align-items-center">${toastMediaHtml}<div><strong class="fs-6">${txtFreeTitle}</strong><br><small>${txtFreeText}</small></div></div><button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentElement.parentElement.remove()"></button></div>`;
                 toastContainer.appendChild(toast); setTimeout(() => { if(toast.parentElement) toast.remove(); }, 10000);
 
-                const pendientes = Object.keys(window.activeRadars).length;
-                if (pendientes === 0) {
+                const pendientesTotales = Object.keys(window.activeRadars).length;
+                // Miramos cuántas tareas pendientes usan EXACTAMENTE este mismo botón
+                const pendientesMismoBoton = Object.values(window.activeRadars).filter(r => r.btnElement === tarea.btnElement).length;
+
+                if (pendientesTotales === 0) {
                     if (typeof stopProgressBar === 'function') stopProgressBar();
                     const statusContainer = document.getElementById('progressContainer');
                     if (statusContainer) statusContainer.classList.add('d-none');
                     localStorage.removeItem('garty_tarea_pendiente');
-                    
-                    if (tarea.btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
+                }
+
+                if (tarea.btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
+                    if (pendientesMismoBoton === 0) {
+                        // Si no hay más tareas en ESTE botón, lo liberamos
                         tarea.btnElement.innerText = typeof GartyLang !== 'undefined' && GartyLang.radar_btn_completed ? GartyLang.radar_btn_completed : '¡Completado!';
                         setTimeout(() => { 
-                            tarea.btnElement.innerHTML = '<i class="bi bi-lightning-fill"></i> ' + (typeof GartyLang !== 'undefined' && GartyLang.btn_renderizar ? GartyLang.btn_renderizar : 'Renderizar'); 
+                            // Restauramos el icono y texto original dependiendo de qué botón era
+                            let icon = '<i class="bi bi-lightning-fill"></i> ';
+                            let text = typeof GartyLang !== 'undefined' && GartyLang.btn_renderizar ? GartyLang.btn_renderizar : 'Renderizar';
+                            if (tarea.btnElement.id === 'gpuArquitectoBtn') {
+                                icon = '<i class="bi bi-gpu-card"></i> ';
+                                text = typeof GartyLang !== 'undefined' && GartyLang.btn_rendprompt ? GartyLang.btn_rendprompt : 'Arquitecto';
+                            }
+                            tarea.btnElement.innerHTML = icon + text; 
                             tarea.btnElement.disabled = false; 
                         }, 3000);
-                    }
-                } else {
-                    if (tarea.btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
-                        tarea.btnElement.innerText = `${typeof GartyLang !== 'undefined' && GartyLang.btn_procesando ? GartyLang.btn_procesando : 'Procesando...'} (quedan ${pendientes})...`;
+                    } else {
+                        // Solo muestra "quedan X" si pulsaste 3 veces seguidas el MISMO botón
+                        tarea.btnElement.innerText = `${typeof GartyLang !== 'undefined' && GartyLang.btn_procesando ? GartyLang.btn_procesando : 'Procesando...'} (quedan ${pendientesMismoBoton})...`;
                     }
                 }
             } else {
