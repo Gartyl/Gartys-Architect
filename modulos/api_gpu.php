@@ -425,7 +425,7 @@ if ($action === 'generar_imagen') {
 	$clip_skip = isset($_POST['clip_skip']) ? intval($_POST['clip_skip']) : 1;
     $user_sampler = $_POST['sampler'] ?? "";
     $user_scheduler = $_POST['scheduler'] ?? "";
-    $user_seed = isset($_POST['seed']) ? intval($_POST['seed']) : -1;
+    $user_seed = (isset($_POST['seed']) && trim($_POST['seed']) !== '') ? intval($_POST['seed']) : -1;
 	// Capturamos el Flow Shift (si el usuario lo ha dejado vacío, valdrá null)
     $user_shift = (isset($_POST['flow_shift']) && $_POST['flow_shift'] !== '') ? floatval($_POST['flow_shift']) : null;
     $dynamic_thresholding = filter_var($_POST['dynamic_thresholding'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
