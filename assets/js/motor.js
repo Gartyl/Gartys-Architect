@@ -3562,6 +3562,12 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
                         tarea.btnElement.disabled = false; 
                     }, 4000);
                 }
+                
+                // 👇 ESTO ES LO QUE FALTABA: Destruir el visor atascado si el servidor devuelve 0 archivos 👇
+                if (tarea.targetDiv) {
+                    const livePrev = tarea.targetDiv.querySelector('#livePreviewContainer');
+                    if (livePrev) { livePrev.style.display = 'none'; livePrev.remove(); }
+                }
             }
         } else if (data.status === 'processing') {
             tarea.isFetching = false; // 🔓 Liberamos el candado para la siguiente consulta
