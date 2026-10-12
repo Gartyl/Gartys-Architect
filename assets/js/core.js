@@ -145,19 +145,19 @@ document.addEventListener('keydown', function(e) {
 // ==============================================================================
 async function cargarDatosImagen(imgId) {
     const fd = new FormData(); 
-    fd.append('action', 'get_single_image_data'); // Usamos tu acción original
+    fd.append('action', 'get_single_image_data');
     fd.append('img_id', imgId);
     
     try {
         const res = await fetch('procesar.php', { method: 'POST', body: fd });
         const data = await res.json();
         
-        // --- NUESTRO ESCUDO SWALDARK ---
+        // --- ESCUDO SWALDARK ---
         if (data.error || !data) {
             SwalDark.fire({
                 icon: 'error',
                 title: typeof GartyLang !== 'undefined' ? GartyLang.swal_rest_err_title : 'Error de Restauración',
-                text: data.error || (typeof GartyLang !== 'undefined' ? GartyLang.err_empty_data : 'Datos vacíos'),
+                 text: data.error || (typeof GartyLang !== 'undefined' ? GartyLang.err_empty_data : 'Datos vacíos'),
                 confirmButtonText: `<i class="bi bi-check2-circle"></i> ${typeof GartyLang !== 'undefined' ? GartyLang.btn_entendido : 'Entendido'}`
             });
             return; 

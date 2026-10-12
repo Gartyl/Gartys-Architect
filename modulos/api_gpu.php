@@ -1049,6 +1049,11 @@ if ($action === 'generar_imagen') {
                     $workflow["451"]["inputs"]["frame_rate"] = $video_fps;
                 }
 
+                // 👇 FORZAR GUARDADO EN LA RAÍZ SIN SUBCARPETAS 👇
+                if (isset($workflow["451"]["inputs"])) {
+                    $workflow["451"]["inputs"]["filename_prefix"] = "byGartyVideo";
+                }
+
                 $current_image_node = "451";
                 goto EJECUTAR_COMFYUI;
             }
@@ -1514,6 +1519,11 @@ if ($action === 'generar_imagen') {
                 $historial_id = $pdo->lastInsertId();
             }
 
+            // 👇 FORZAR GUARDADO EN LA RAÍZ SIN SUBCARPETAS 👇
+            if (isset($workflow["142"]["inputs"])) {
+                $workflow["142"]["inputs"]["filename_prefix"] = "byGartyVideo";
+            }
+
             $current_image_node = "142"; // El nodo VHS_VideoCombine de Minimax
             goto EJECUTAR_COMFYUI;
         }
@@ -1607,6 +1617,11 @@ if ($action === 'generar_imagen') {
                 $historial_id = $pdo->lastInsertId();
             }
 
+            // 👇 FORZAR GUARDADO EN LA RAÍZ SIN SUBCARPETAS 👇
+            if (isset($workflow["102"]["inputs"])) {
+                $workflow["102"]["inputs"]["filename_prefix"] = "byGartyVideo";
+            }
+
             $current_image_node = "102"; // Nodo SaveVideo
             goto EJECUTAR_COMFYUI;
         }
@@ -1677,6 +1692,11 @@ if ($action === 'generar_imagen') {
                 $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata) VALUES (?, ?, ?, ?, ?, ?)");
                 $stmt_ins->execute([$user_id, $selector, $posPrompt, $posPrompt, $neg_prompt, $meta_json]);
                 $historial_id = $pdo->lastInsertId();
+            }
+
+            // 👇 FORZAR GUARDADO EN LA RAÍZ SIN SUBCARPETAS 👇
+            if (isset($workflow["44"]["inputs"])) {
+                $workflow["44"]["inputs"]["filename_prefix"] = "byGartyVideo";
             }
 
             $current_image_node = "44"; 
