@@ -86,28 +86,51 @@ function cargarWorkflowJSON($ruta_archivo, $reemplazos) {
 }
 
 function process_dynamic_prompts($text, $depth = 0) {
-    $wildcards_dir = __DIR__ . '/../wildcards'; // Ajustado porque ahora estamos en /modulos
+    $wildcards_dir = __DIR__ . '/../wildcards'; 
     if ($depth > 10 || empty($text)) return $text; 
 
+    // 1. Procesar opciones en línea {opcion1|opcion2}
     $text = preg_replace_callback('/\{([^{}]*)\}/', function($matches) {
         $options = explode('|', $matches[1]);
         return trim($options[array_rand($options)]);
     }, $text);
 
-    $text = preg_replace_callback('/__([a-zA-Z0-9_\-]+)__/', function($matches) use ($wildcards_dir) {
-        $filename = $matches[1] . '.txt';
-        $filepath = $wildcards_dir . DIRECTORY_SEPARATOR . $filename;
-        if (file_exists($filepath)) {
-            $lines = file($filepath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            if (!empty($lines)) {
-                $valid_lines = array_filter($lines, function($line) { return strpos(trim($line), '#') !== 0; });
-                if (!empty($valid_lines)) return trim($valid_lines[array_rand($valid_lines)]);
+    // 2. Procesar wildcards externos __archivo__
+    // Primero, encontramos todos los wildcards presentes en el texto
+    if (preg_match_all('/__([a-zA-Z0-9_\-]+)__/', $text, $matches)) {
+        
+        // Obtenemos una lista de wildcards ÚNICOS (para no tirar el dado dos veces)
+        $wildcards_unicos = array_unique($matches[1]);
+        
+        foreach ($wildcards_unicos as $wildcard) {
+            $filename = $wildcard . '.txt';
+            $filepath = $wildcards_dir . DIRECTORY_SEPARATOR . $filename;
+            $valor_elegido = "__" . $wildcard . "__"; // Valor por defecto si falla
+            
+            if (file_exists($filepath)) {
+                $lines = file($filepath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+                if (!empty($lines)) {
+                    $valid_lines = array_filter($lines, function($line) { 
+                        return strpos(trim($line), '#') !== 0; 
+                    });
+                    if (!empty($valid_lines)) {
+                        // Elegimos un ÚNICO valor para este wildcard
+                        $valor_elegido = trim($valid_lines[array_rand($valid_lines)]);
+                    }
+                }
             }
+            
+            // Reemplazamos TODAS las apariciones de ese wildcard en el texto
+            // por el ÚNICO valor que acabamos de elegir
+            $text = str_replace("__" . $wildcard . "__", $valor_elegido, $text);
         }
-        return $matches[0];
-    }, $text);
+    }
 
-    if (preg_match('/\{.*?\}/', $text) || preg_match('/__.*?__/', $text)) $text = process_dynamic_prompts($text, $depth + 1);
+    // 3. Recursividad por si un wildcard llamó a otro wildcard
+    if (preg_match('/\{.*?\}/', $text) || preg_match('/__.*?__/', $text)) {
+        $text = process_dynamic_prompts($text, $depth + 1);
+    }
+    
     return preg_replace('/\s+/', ' ', $text);
 }
 
