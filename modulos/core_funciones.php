@@ -86,47 +86,133 @@ function cargarWorkflowJSON($ruta_archivo, $reemplazos) {
 }
 
 function process_dynamic_prompts($text, $depth = 0) {
-    $wildcards_dir = __DIR__ . '/../wildcards'; 
+    // 1. Conectamos ambas rutas: la local de Garty y la de ComfyUI
+    $wildcards_dir_local = __DIR__ . '/../wildcards';
+    $comfy_base = defined('COMFY_MODELS_DIR') ? dirname(rtrim(COMFY_MODELS_DIR, '/\\')) : 'C:/ComfyUI';
+    $comfy_wildcards_dir = $comfy_base . '/custom_nodes/comfyui-dynamicprompts/wildcards';
+
     if ($depth > 10 || empty($text)) return $text; 
 
-    // 1. Procesar opciones en línea {opcion1|opcion2}
+    // Procesar opciones en línea {opcion1|opcion2}
     $text = preg_replace_callback('/\{([^{}]*)\}/', function($matches) {
         $options = explode('|', $matches[1]);
         return trim($options[array_rand($options)]);
     }, $text);
 
-    // 2. Procesar wildcards externos __archivo__
-    // Primero, encontramos todos los wildcards presentes en el texto
-    if (preg_match_all('/__([a-zA-Z0-9_\-]+)__/', $text, $matches)) {
+    // Procesar wildcards externos __archivo__ o __archivo/etiqueta__
+    if (preg_match_all('/__([a-zA-Z0-9_\-\/\\\\ ]+)__/', $text, $matches)) {
         
-        // Obtenemos una lista de wildcards ÚNICOS (para no tirar el dado dos veces)
         $wildcards_unicos = array_unique($matches[1]);
         
         foreach ($wildcards_unicos as $wildcard) {
-            $filename = $wildcard . '.txt';
-            $filepath = $wildcards_dir . DIRECTORY_SEPARATOR . $filename;
             $valor_elegido = "__" . $wildcard . "__"; // Valor por defecto si falla
+            $wildcard_limpio = str_replace('\\', '/', $wildcard);
             
-            if (file_exists($filepath)) {
-                $lines = file($filepath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-                if (!empty($lines)) {
-                    $valid_lines = array_filter($lines, function($line) { 
-                        return strpos(trim($line), '#') !== 0; 
-                    });
-                    if (!empty($valid_lines)) {
-                        // Elegimos un ÚNICO valor para este wildcard
-                        $valor_elegido = trim($valid_lines[array_rand($valid_lines)]);
+            $rutas_busqueda = [];
+            
+            // A) Probar la ruta exacta (Para TXTs o YAMLs sin subetiquetas)
+            $rutas_busqueda[] = $wildcards_dir_local . '/' . $wildcard_limpio . '.txt';
+            $rutas_busqueda[] = $comfy_wildcards_dir . '/' . $wildcard_limpio . '.txt';
+            $rutas_busqueda[] = $comfy_wildcards_dir . '/' . $wildcard_limpio . '.yaml';
+            $rutas_busqueda[] = $comfy_wildcards_dir . '/' . $wildcard_limpio . '.yml';
+            
+            // B) Ingeniería Inversa para YAML: Encontrar el archivo base a partir de las subetiquetas
+            $ruta_actual_busq = $wildcard_limpio;
+            while (strpos($ruta_actual_busq, '/') !== false) {
+                $ruta_actual_busq = substr($ruta_actual_busq, 0, strrpos($ruta_actual_busq, '/'));
+                $rutas_busqueda[] = $comfy_wildcards_dir . '/' . $ruta_actual_busq . '.yaml';
+                $rutas_busqueda[] = $comfy_wildcards_dir . '/' . $ruta_actual_busq . '.yml';
+                $rutas_busqueda[] = $wildcards_dir_local . '/' . $ruta_actual_busq . '.yaml'; 
+                $rutas_busqueda[] = $wildcards_dir_local . '/' . $ruta_actual_busq . '.yml';
+            }
+
+            $filepath_encontrado = '';
+            foreach ($rutas_busqueda as $ruta) {
+                if (file_exists($ruta)) {
+                    $filepath_encontrado = $ruta;
+                    break;
+                }
+            }
+
+            if (!empty($filepath_encontrado)) {
+                $ext = strtolower(pathinfo($filepath_encontrado, PATHINFO_EXTENSION));
+                $contenido = file_get_contents($filepath_encontrado);
+                $opciones = [];
+
+                if ($ext === 'txt') {
+                    $lines = explode("\n", $contenido);
+                    foreach ($lines as $line) {
+                        $line = trim($line);
+                        if (!empty($line) && strpos($line, '#') !== 0) {
+                            $opciones[] = $line;
+                        }
                     }
+                } elseif ($ext === 'yaml' || $ext === 'yml') {
+                    // === PARSER INTELIGENTE DE YAML ===
+                    // Sacamos las etiquetas que nos ha pedido el usuario (ej: de "actrices/influencers" sacamos "influencers")
+                    $partes_pedido = explode('/', $wildcard_limpio);
+                    array_shift($partes_pedido); // Quitamos el nombre del archivo
+                    
+                    $lineas_yaml = explode("\n", $contenido);
+                    $ruta_yaml_actual = [];
+                    $niveles_indent = [];
+
+                    foreach ($lineas_yaml as $linea) {
+                        // Ignorar líneas vacías o comentarios
+                        if (trim($linea) === '' || strpos(trim($linea), '#') === 0) continue;
+
+                        // Medir la sangría (indentación)
+                        preg_match('/^([ \t]*)/', $linea, $match_espacios);
+                        $indent = strlen(str_replace("\t", "    ", $match_espacios[1]));
+
+                        // Si es un nombre de la lista (ej: "- Kim Kardashian")
+                        if (preg_match('/^[ \t]*-\s+(.+)$/', $linea, $match_lista)) {
+                            $valor = trim($match_lista[1], "\"' \t\r");
+                            
+                            // Comprobamos si las etiquetas pedidas están en la ruta de sangría actual
+                            $coincide = true;
+                            if (!empty($partes_pedido)) {
+                                $ruta_str = '/' . implode('/', $ruta_yaml_actual) . '/';
+                                foreach ($partes_pedido as $parte) {
+                                    if (strpos($ruta_str, '/' . $parte . '/') === false) {
+                                        $coincide = false;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            // Si encaja en la categoría solicitada, lo guardamos como opción válida
+                            if ($coincide) {
+                                $opciones[] = $valor;
+                            }
+                        } 
+                        // Si es una nueva etiqueta (ej: "influencers:")
+                        elseif (preg_match('/^[ \t]*([a-zA-Z0-9_\-]+):\s*$/', $linea, $match_clave)) {
+                            $clave = $match_clave[1];
+                            
+                            // Ajustar la ruta actual basándose en los niveles de sangría
+                            while (!empty($niveles_indent) && end($niveles_indent) >= $indent) {
+                                array_pop($niveles_indent);
+                                array_pop($ruta_yaml_actual);
+                            }
+                            
+                            $niveles_indent[] = $indent;
+                            $ruta_yaml_actual[] = $clave;
+                        }
+                    }
+                }
+
+                if (!empty($opciones)) {
+                    $valor_elegido = $opciones[array_rand($opciones)];
                 }
             }
             
-            // Reemplazamos TODAS las apariciones de ese wildcard en el texto
-            // por el ÚNICO valor que acabamos de elegir
+            // Reemplazamos TODAS las apariciones exactas de una sola pasada
             $text = str_replace("__" . $wildcard . "__", $valor_elegido, $text);
         }
     }
 
-    // 3. Recursividad por si un wildcard llamó a otro wildcard
+    // Recursividad por si un wildcard llama a otro
     if (preg_match('/\{.*?\}/', $text) || preg_match('/__.*?__/', $text)) {
         $text = process_dynamic_prompts($text, $depth + 1);
     }
