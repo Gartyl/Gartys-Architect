@@ -216,7 +216,8 @@ $items = groupHistoryItems($all_prompts);
             swal_gpu_saved: <?= json_encode(__('swal_gpu_saved')) ?>,
             swal_gpu_async_done: <?= json_encode(__('swal_gpu_async_done')) ?>,
             tit_gpu_ready: <?= json_encode(__('tit_gpu_ready')) ?>,
-            err_toggle_public: <?= json_encode(__('err_toggle_public')) ?>
+			err_toggle_public: <?= json_encode(__('err_toggle_public')) ?>,
+            log_warn_sync_pag: <?= json_encode(__('log_warn_sync_pag')) ?>
         };
     </script>
 
@@ -231,8 +232,8 @@ $items = groupHistoryItems($all_prompts);
 
 <?php include __DIR__ . '/includes/modals/modal_compare.php'; ?>
 
-    <script src="assets/js/visor.js" defer></script>
-    <script src="assets/js/scripts.js" defer></script>
+    <script src="assets/js/visor.js?v=<?php echo time(); ?>" defer></script>
+    <script src="assets/js/scripts.js?v=<?php echo time(); ?>" defer></script>
 </head>
 <body>
 
@@ -256,7 +257,7 @@ $items = groupHistoryItems($all_prompts);
         <div class="col-lg-12"> <!-- Ampliado a lg-12 para dar más espacio a los filtros -->
             <div class="d-flex justify-content-between align-items-center mb-4 px-3">
                 <h3 class="text-light fw-bold m-0"><?= __('tit_historial') ?></h3>
-                <span class="text-secondary small fw-bold"><?= $total_items ?> Registros encontrados</span>
+                <span id="historialTotalCount" class="text-secondary small fw-bold"><?= $total_items ?> <?= __('hist_reg_encont') ?></span>
             </div>
 
             <form method="GET" action="historial.php" class="card card-historial p-3 mb-4 shadow-sm filter-bar">
@@ -311,6 +312,8 @@ $items = groupHistoryItems($all_prompts);
                 </div>
             </form>
 
+            <!-- CONTENEDOR DINÁMICO PARA AUTORRELLENADO SUAVE -->
+            <div id="historialDynamicContent">
             <?php if (empty($items)): ?>
                 <div class="text-center py-5 opacity-50">
                     <i class="bi bi-search fs-1 mb-3 d-block"></i>
@@ -647,6 +650,7 @@ $items = groupHistoryItems($all_prompts);
                 <?php endif; ?>
 
             <?php endif; ?>
+			</div>
         </div>
     </div>
 </div>

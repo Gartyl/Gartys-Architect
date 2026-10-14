@@ -6,8 +6,13 @@
 if ($action === 'toggle_public') {
     $prompt_id = intval($_POST['prompt_id'] ?? 0);
     $estado = intval($_POST['estado'] ?? 0);
-    $stmt = $pdo->prepare("UPDATE historial_prompts SET is_public = ? WHERE id = ? AND user_id = ?");
-    $success = $stmt->execute([$estado, $prompt_id, $user_id]);
+    if (!empty($is_admin)) {
+        $stmt = $pdo->prepare("UPDATE historial_prompts SET is_public = ? WHERE id = ?");
+        $success = $stmt->execute([$estado, $prompt_id]);
+    } else {
+        $stmt = $pdo->prepare("UPDATE historial_prompts SET is_public = ? WHERE id = ? AND user_id = ?");
+        $success = $stmt->execute([$estado, $prompt_id, $user_id]);
+    }
     echo json_encode(['success' => $success]);
     exit();
 }
@@ -45,6 +50,8 @@ if ($action === 'get_recent_images') {
 
 if ($action === 'eliminar_prompt') {
     $prompt_id = intval($_POST['prompt_id'] ?? 0);
+    $galeria_dir = __DIR__ . '/../galeria/';
+
     // 1. Obtenemos los datos vitales ANTES de borrar
     $stmt = $pdo->prepare("SELECT imagen_path, descripcion_original, fecha_hora FROM historial_prompts WHERE id = ? AND user_id = ?");
     $stmt->execute([$prompt_id, $user_id]);
@@ -54,41 +61,38 @@ if ($action === 'eliminar_prompt') {
         $img_path = $row['imagen_path'];
         $desc = $row['descripcion_original'];
         
-        // 2. Borrar la imagen
+        // 2. Borrar el archivo multimedia y posibles JSON con su nombre
         if (!empty($img_path)) {
-            $filepath = __DIR__ . '/../galeria/' . $img_path;
+            $filepath = $galeria_dir . $img_path;
             if (file_exists($filepath)) { 
                 @unlink($filepath); 
             }
             
-            // CAZAFANTASMAS: Borrar JSONs antiguos (por nombre de archivo)
-            $json_alt = __DIR__ . '/../galeria/' . pathinfo($img_path, PATHINFO_FILENAME) . '.json';
+            $json_alt = $galeria_dir . pathinfo($img_path, PATHINFO_FILENAME) . '.json';
             if (file_exists($json_alt)) { 
                 @unlink($json_alt); 
             }
         }
         
-        // 3. Borrar el JSON por ID directo (por si acaso esta es la imagen padre)
-        $json_file = __DIR__ . '/../galeria/workflow_' . $prompt_id . '.json';
+        // 3. Borrar el JSON vinculado a este ID directo
+        $json_file = $galeria_dir . 'workflow_' . $prompt_id . '.json';
         if (file_exists($json_file)) {
             @unlink($json_file);
         }
 
-        // 4. EL BORRADO INTELIGENTE (JSON FANTASMAS)
-        // Comprobamos si quedan más "variantes" vivas de esta misma sesión 
-        // (mismo usuario, mismo prompt, creadas en la misma hora)
-        $stmt_check = $pdo->prepare("SELECT id FROM historial_prompts WHERE user_id = ? AND descripcion_original = ? AND id != ? AND fecha_hora >= DATE_SUB(?, INTERVAL 1 HOUR)");
-        $stmt_check->execute([$user_id, $desc, $prompt_id, $row['fecha_hora']]);
+        // 4. Comprobar si quedan variantes vivas de esta misma sesión (100% compatible con MySQL y SQLite)
+        $fecha_limite = date('Y-m-d H:i:s', strtotime($row['fecha_hora']) - 3600);
+        $stmt_check = $pdo->prepare("SELECT COUNT(id) FROM historial_prompts WHERE user_id = ? AND descripcion_original = ? AND id != ? AND fecha_hora >= ?");
+        $stmt_check->execute([$user_id, $desc, $prompt_id, $fecha_limite]);
+        $variantes_vivas = (int)$stmt_check->fetchColumn();
         
-        // Si no quedan variantes vivas, fulminamos el JSON padre original
-        if ($stmt_check->rowCount() === 0) {
-            // Buscamos cuál fue la primera imagen generada de este bloque para borrar su JSON
+        if ($variantes_vivas === 0) {
             $stmt_old = $pdo->prepare("SELECT id FROM historial_prompts WHERE user_id = ? AND descripcion_original = ? ORDER BY id ASC LIMIT 1");
             $stmt_old->execute([$user_id, $desc]);
             $row_old = $stmt_old->fetch();
             
             if ($row_old) {
-                $json_padre = __DIR__ . '/../galeria/workflow_' . $row_old['id'] . '.json';
+                $json_padre = $galeria_dir . 'workflow_' . $row_old['id'] . '.json';
                 if (file_exists($json_padre)) {
                     @unlink($json_padre);
                 }
@@ -96,9 +100,31 @@ if ($action === 'eliminar_prompt') {
         }
     }
     
-    // 5. Borrar de BBDD
+    // 5. Borrar el registro de la BBDD
     $stmt = $pdo->prepare("DELETE FROM historial_prompts WHERE id = ? AND user_id = ?");
     $success = $stmt->execute([$prompt_id, $user_id]);
+
+    // 6. 🧹 BARREDORA AUTOMÁTICA DE WORKFLOW_*.JSON HUÉRFANOS
+    // Limpia cualquier .json cuyo ID ya no exista en la tabla historial_prompts
+    try {
+        $archivos_json = glob($galeria_dir . 'workflow_*.json');
+        if (!empty($archivos_json)) {
+            $ids_en_bd = $pdo->query("SELECT id FROM historial_prompts")->fetchAll(PDO::FETCH_COLUMN);
+            $mapa_ids = array_flip($ids_en_bd);
+            $ahora = time();
+
+            foreach ($archivos_json as $ruta_wf) {
+                if (preg_match('/workflow_(\d+)\.json$/', basename($ruta_wf), $matches)) {
+                    $wf_id = (int)$matches[1];
+                    // Si el ID no existe en la BBDD y el archivo tiene más de 15 min (para no tocar renders activos)
+                    if (!isset($mapa_ids[$wf_id]) && ($ahora - @filemtime($ruta_wf) > 900)) {
+                        @unlink($ruta_wf);
+                    }
+                }
+            }
+        }
+    } catch (Exception $e) {}
+
     echo json_encode(['success' => $success]);
     exit();
 }
@@ -196,6 +222,15 @@ if ($action === 'concatenar_videos') {
             if ($borrar_origenes) {
                 $nombres_limpios = array_map('basename', $tramos);
                 $inQuery = implode(',', array_fill(0, count($nombres_limpios), '?'));
+                
+                // Obtenemos los IDs antes de borrarlos para eliminar también sus workflow_X.json
+                $stmt_ids = $pdo->prepare("SELECT id FROM historial_prompts WHERE imagen_path IN ($inQuery)");
+                $stmt_ids->execute($nombres_limpios);
+                $ids_tramos = $stmt_ids->fetchAll(PDO::FETCH_COLUMN);
+                foreach ($ids_tramos as $id_tramo) {
+                    @unlink(__DIR__ . '/../galeria/workflow_' . intval($id_tramo) . '.json');
+                }
+
                 $pdo->prepare("DELETE FROM historial_prompts WHERE imagen_path IN ($inQuery)")->execute($nombres_limpios);
                 foreach ($tramos as $tramo) { @unlink(__DIR__ . '/../galeria/' . basename($tramo)); }
             }

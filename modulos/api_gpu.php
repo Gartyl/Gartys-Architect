@@ -881,20 +881,10 @@ if ($action === 'generar_imagen') {
     }
 	
 	// =========================================================
-    // 🛡️ ESCUDO ANTI-INTERFAZ (Protección FLUX/Chroma) AUTOMATIZA EL CFG Y LOS STEPS🛡️
+    // 🛡️ ESCUDO ANTI-INTERFAZ (Protección FLUX/Chroma)🛡️
     // =========================================================
- /*   if ($is_flux) {
-        if (strpos($sampler, 'ancestral') !== false || strpos($sampler, 'sde') !== false) {
-            $sampler = "euler"; 
-        }
-    }
-    if ($is_turbo) {
-        if ($cfg > 2.0) $cfg = 1.5;
-        if ($steps > 15) $steps = 6;
-    }*/
-    // =========================================================
-
-  // Añadimos excepciones a la lista permitida para no bloquear la carga
+ 
+ // Añadimos excepciones a la lista permitida para no bloquear la carga
     if ($is_unet && !$is_flux && !$is_chroma && !$is_sd35 && !$is_zimage && !$is_qwen && !$is_gguf && !$is_krea2 && !$is_hunyuan && !$is_hidream && !$is_anima && strpos($model_lower, 'video') === false) {
         echo json_encode(['error' => __('err_pure_unet_load')]); 
         exit();
@@ -1008,30 +998,6 @@ if ($action === 'generar_imagen') {
                     unset($workflow["432"]); // Destruimos el cargador de LoRAs
                 }
 
-                $meta_json_array = [
-                    'Model' => basename($model_path), 
-                    'Resolution' => $width . 'x' . $height, 
-                    'Seed' => $seed, 
-                    'Steps' => $steps, 
-                    'CFG Scale' => $cfg, 
-                    'Sampler' => ucfirst($sampler) . ' (' . ucfirst($scheduler) . ')', 
-                    'Batch Size' => 1, 
-                    'LoRAs' => empty($lora_metadata_list) ? __('lbl_none') : implode(', ', $lora_metadata_list)
-                ];
-                if (isset($user_shift) && $user_shift !== null) {
-					$meta_json_array['Flow Shift'] = $user_shift;
-				}
-				$meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
-
-                if ($historial_id > 0) {
-                    $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ?, metadata = ? WHERE id = ?");
-                    $stmt_upd->execute([$posPrompt, $neg_prompt, $meta_json, $historial_id]);
-                } else {
-                    $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata) VALUES (?, ?, ?, ?, ?, ?)");
-                    $stmt_ins->execute([$user_id, $selector, $posPrompt, $posPrompt, $neg_prompt, $meta_json]);
-                    $historial_id = $pdo->lastInsertId();
-                }
-
                 // --- ESCUDO TEXT-TO-VIDEO ---
                 $tiene_imagen = ($comfy_image_filename !== "none" && !empty($comfy_image_filename));
                 if (!$tiene_imagen) {
@@ -1093,30 +1059,6 @@ if ($action === 'generar_imagen') {
                         $lora_metadata_list[] = basename($lname, '.safetensors') . " ($lstr)";
                     }
                 }
-            }
-
-            $meta_json_array = [
-                'Model' => basename($model_path), 
-                'Resolution' => $width . 'x' . $height, 
-                'Seed' => $seed, 
-                'Steps' => $steps, 
-                'CFG Scale' => $cfg, 
-                'Sampler' => ucfirst($sampler) . ' (' . ucfirst($scheduler) . ')', 
-                'Batch Size' => $batch_size, 
-                'LoRAs' => empty($lora_metadata_list) ? __('lbl_none') : implode(', ', $lora_metadata_list)
-            ];
-            if (isset($user_shift) && $user_shift !== null) {
-				$meta_json_array['Flow Shift'] = $user_shift;
-			}
-			$meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
-
-            if ($historial_id > 0) {
-                $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ?, metadata = ? WHERE id = ?");
-                $stmt_upd->execute([$posPrompt, $neg_prompt, $meta_json, $historial_id]);
-            } else {
-                $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt_ins->execute([$user_id, $selector, $posPrompt, $posPrompt, $neg_prompt, $meta_json]);
-                $historial_id = $pdo->lastInsertId();
             }
             // -----------------------------------------------------------------
 
@@ -1495,30 +1437,6 @@ if ($action === 'generar_imagen') {
                 }
             }
 
-            // --- HISTORIAL Y METADATOS (Base de datos) ---
-            $meta_json_array = [
-                'Model' => basename($model_path),
-                'Resolution' => $width . 'x' . $height,
-                'Seed' => $seed,
-                'Steps' => $steps,
-                'Sampler' => ucfirst($sampler) . ' (' . ucfirst($scheduler) . ')',
-                'Duration' => $segundos . 's',
-                'LoRAs' => empty($lora_metadata_list) ? __('lbl_none') : implode(', ', $lora_metadata_list)
-            ];
-            if (isset($user_shift) && $user_shift !== null) {
-				$meta_json_array['Flow Shift'] = $user_shift;
-			}
-			$meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
-
-            if ($historial_id > 0) {
-                $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ?, metadata = ? WHERE id = ?");
-                $stmt_upd->execute([$posPrompt, $neg_prompt, $meta_json, $historial_id]);
-            } else {
-                $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt_ins->execute([$user_id, $selector, $posPrompt, $posPrompt, $neg_prompt, $meta_json]);
-                $historial_id = $pdo->lastInsertId();
-            }
-
             // 👇 FORZAR GUARDADO EN LA RAÍZ SIN SUBCARPETAS 👇
             if (isset($workflow["142"]["inputs"])) {
                 $workflow["142"]["inputs"]["filename_prefix"] = "byGartyVideo";
@@ -1595,28 +1513,6 @@ if ($action === 'generar_imagen') {
             $workflow[$target_sampler_node]["inputs"]["model"] = [$current_model_node, 0];
             $workflow[$target_scheduler_node]["inputs"]["model"] = [$current_model_node, 0];
 
-            // --- HISTORIAL Y METADATOS ---
-            $meta_json_array = [
-                'Model' => basename($model_path),
-                'Resolution' => $width . 'x' . $height,
-                'Seed' => $seed,
-                'Steps' => $steps,
-                'CFG Scale' => $cfg,
-                'Sampler' => ucfirst($sampler) . ' (' . ucfirst($scheduler) . ')',
-                'Duration' => $video_frames . ' frames',
-                'LoRAs' => empty($lora_metadata_list) ? __('lbl_none') : implode(', ', $lora_metadata_list)
-            ];
-            $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
-
-            if ($historial_id > 0) {
-                $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ?, metadata = ? WHERE id = ?");
-                $stmt_upd->execute([$posPrompt, $neg_prompt, $meta_json, $historial_id]);
-            } else {
-                $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt_ins->execute([$user_id, $selector, $posPrompt, $posPrompt, $neg_prompt, $meta_json]);
-                $historial_id = $pdo->lastInsertId();
-            }
-
             // 👇 FORZAR GUARDADO EN LA RAÍZ SIN SUBCARPETAS 👇
             if (isset($workflow["102"]["inputs"])) {
                 $workflow["102"]["inputs"]["filename_prefix"] = "byGartyVideo";
@@ -1673,26 +1569,6 @@ if ($action === 'generar_imagen') {
             ];
 
             $workflow = cargarWorkflowJSON($ruta_json, $reemplazos);
-
-            // --- HISTORIAL Y METADATOS ---
-            $meta_json_array = [
-                'Model' => $nombre_modelo_puro,
-                'Resolution' => $width . 'x' . $height,
-                'Seed' => $seed,
-                'Steps' => $steps,
-                'CFG Scale' => $cfg,
-                'Duration' => $video_frames_cog . ' frames'
-            ];
-            $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
-
-            if ($historial_id > 0) {
-                $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ?, metadata = ? WHERE id = ?");
-                $stmt_upd->execute([$posPrompt, $neg_prompt, $meta_json, $historial_id]);
-            } else {
-                $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt_ins->execute([$user_id, $selector, $posPrompt, $posPrompt, $neg_prompt, $meta_json]);
-                $historial_id = $pdo->lastInsertId();
-            }
 
             // 👇 FORZAR GUARDADO EN LA RAÍZ SIN SUBCARPETAS 👇
             if (isset($workflow["44"]["inputs"])) {
@@ -3692,11 +3568,12 @@ if ($action === 'generar_imagen') {
         
         $current_model_node = "55";
         
-        // Si el usuario seleccionó un LoRA en la web, lo aplicamos
-        if (!empty($lora_krea)) {
-            $workflow["127"] = [ "class_type" => "LoraLoaderModelOnly", "inputs" => [ "lora_name" => $lora_krea, "strength_model" => $lora_fuerza, "model" => ["55", 0] ] ];
-            $current_model_node = "127";
-        }
+       // Si el usuario seleccionó un LoRA en la web, lo aplicamos
+		if (!empty($lora_krea)) {
+			$workflow["127"] = [ "class_type" => "LoraLoaderModelOnly", "inputs" => [ "lora_name" => $lora_krea, "strength_model" => $lora_fuerza, "model" => ["55", 0] ] ];
+			$current_model_node = "127";
+			$lora_metadata_list[] = basename($lora_krea, '.safetensors') . " ($lora_fuerza)";
+		}
         
         // Preparación Imagen Principal (Sirve para ambos modos)
         $workflow["72"]  = [ "class_type" => "LoadImage", "inputs" => [ "image" => $comfy_image_filename ] ];
@@ -3749,30 +3626,6 @@ if ($action === 'generar_imagen') {
         
         $workflow["54"] = [ "class_type" => "VAEDecode", "inputs" => [ "samples" => ["53", 0], "vae" => ["57", 0] ] ];
         $workflow["9"]  = [ "class_type" => "PreviewImage", "inputs" => [ "images" => ["54", 0] ] ];
-
-        // 4. Metadatos y Base de Datos
-        $meta_json_array = [
-            'Model' => basename($model_path), 
-            'Resolution' => $width . 'x' . $height, 
-            'Seed' => $seed, 
-            'Steps' => $steps, 
-            'CFG Scale' => $cfg, 
-            'Sampler' => ucfirst($sampler) . ' (' . ucfirst($scheduler) . ')', 
-            'Denoise' => $slider_denoise_final,
-            'LoRAs' => empty($lora_krea) ? __('lbl_none') : basename($lora_krea),
-            'Modo' => $meta_modo
-        ];
-        
-        $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
-
-        if ($historial_id > 0) {
-            $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ?, metadata = ? WHERE id = ?");
-            $stmt_upd->execute([$posPrompt, $neg_prompt, $meta_json, $historial_id]);
-        } else {
-            $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt_ins->execute([$user_id, $selector, $posPrompt, $posPrompt, $neg_prompt, $meta_json]);
-            $historial_id = $pdo->lastInsertId();
-        }
 
         $current_image_node = "9";
         goto EJECUTAR_COMFYUI;
@@ -4448,6 +4301,13 @@ if ($action === 'generar_imagen') {
         'LoRAs' => empty($lora_metadata_list) ? __('lbl_none') : implode(', ', $lora_metadata_list)
     ];
 
+    if ($is_video_mode) {
+        $meta_json_array['Duration'] = isset($segundos) ? ($segundos . 's') : (($video_frames_ltx ?? $video_frames_cog ?? $video_frames) . ' frames');
+    }
+    if (!empty($meta_modo)) {
+        $meta_json_array['Modo'] = $meta_modo;
+    }
+
     if ($flux_guidance !== null) {
         $meta_json_array['Guidance (Flux)'] = $flux_guidance;
     }
@@ -4486,11 +4346,14 @@ if ($action === 'generar_imagen') {
 
     if (isset($user_shift) && $user_shift !== null) {
         $meta_json_array['Flow Shift'] = $user_shift;
-		}
+    }
     $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
 
+    $user_id = $_SESSION['user_id'] ?? 1;
     $desc_original = $_POST['descripcion_original'] ?? __('lbl_direct_gen_edit');
-    $safe_desc_direct = preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', $desc_original);
+    $safe_desc_direct = preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', (string)$desc_original);
+    $safe_pos_db      = preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', (string)$posPrompt);
+    $safe_neg_db      = preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', (string)$neg_prompt);
 
     if ($historial_id > 0) {
         $stmt_check = $pdo->prepare("SELECT imagen_path, descripcion_original FROM historial_prompts WHERE id = ?");
@@ -4499,22 +4362,24 @@ if ($action === 'generar_imagen') {
 
         if ($row_hist) {
             if (!empty($row_hist['imagen_path'])) {
-                $safe_desc = $row_hist['descripcion_original'] ?? $safe_desc_direct;
+                $safe_desc = !empty($row_hist['descripcion_original'])
+                    ? preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', (string)$row_hist['descripcion_original'])
+                    : $safe_desc_direct;
                 $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt_ins->execute([$user_id, $selector, $safe_desc, $posPrompt, $neg_prompt, $meta_json]);
+                $stmt_ins->execute([$user_id, $selector, $safe_desc, $safe_pos_db, $safe_neg_db, $meta_json]);
                 $historial_id = $pdo->lastInsertId();
             } else {
                 $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ?, metadata = ? WHERE id = ?");
-                $stmt_upd->execute([$posPrompt, $neg_prompt, $meta_json, $historial_id]);
+                $stmt_upd->execute([$safe_pos_db, $safe_neg_db, $meta_json, $historial_id]);
             }
         } else {
             $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt_ins->execute([$user_id, $selector, $safe_desc_direct, $posPrompt, $neg_prompt, $meta_json]);
+            $stmt_ins->execute([$user_id, $selector, $safe_desc_direct, $safe_pos_db, $safe_neg_db, $meta_json]);
             $historial_id = $pdo->lastInsertId();
         }
     } else {
         $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt_ins->execute([$user_id, $selector, $safe_desc_direct, $posPrompt, $neg_prompt, $meta_json]);
+        $stmt_ins->execute([$user_id, $selector, $safe_desc_direct, $safe_pos_db, $safe_neg_db, $meta_json]);
         $historial_id = $pdo->lastInsertId();
     }
 
@@ -4712,6 +4577,13 @@ if ($action === 'generar_imagen') {
             'Batch Index' => ($index + 1) . ' / ' . $batch_size, 
             'LoRAs' => empty($lora_metadata_list) ? __('lbl_none') : implode(', ', $lora_metadata_list)
         ];
+
+        if ($is_video_mode) {
+            $meta_json_array['Duration'] = isset($segundos) ? ($segundos . 's') : (($video_frames_ltx ?? $video_frames_cog ?? $video_frames) . ' frames');
+        }
+        if (!empty($meta_modo)) {
+            $meta_json_array['Modo'] = $meta_modo;
+        }
 
         if ($flux_guidance !== null) {
             $meta_json_array['Guidance (Flux)'] = $flux_guidance;

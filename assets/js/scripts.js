@@ -74,17 +74,25 @@ window.quitarGaleria = async function(promptId, btn) {
     fd.append('estado', 0);
     
     try {
-        await fetch('procesar.php', { method: 'POST', body: fd });
-        const item = btn.closest('.masonry-item');
-        if (item) {
-            item.style.transform = 'scale(0.9)';
-            item.style.opacity = '0';
-            setTimeout(() => item.remove(), 300);
+        const res = await fetch('procesar.php', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.success) {
+            const item = btn.closest('.masonry-item');
+            if (item) {
+                item.style.transition = 'all 0.3s ease';
+                item.style.transform = 'scale(0.9)';
+                item.style.opacity = '0';
+            }
+            setTimeout(async () => {
+                if (item) item.remove();
+                await window.sincronizarPaginaHistorial();
+            }, 300);
+
+            SwalDark.fire({
+                toast: true, position: 'top-end', icon: 'success', 
+                title: _lang('swal_img_removed', 'Imagen retirada'), showConfirmButton: false, timer: 2000
+            });
         }
-        SwalDark.fire({
-            toast: true, position: 'top-end', icon: 'success', 
-            title: _lang('swal_img_removed', 'Imagen retirada'), showConfirmButton: false, timer: 2000
-        });
     } catch(e) {
         SwalDark.fire({ icon: 'error', title: 'Error', text: _lang('err_hide_img', 'Error al ocultar la imagen.') });
     }
@@ -134,10 +142,16 @@ window.borrarRegistro = async function(id) {
         try {
             const res = await fetch('procesar.php', { method: 'POST', body: fd });
             const data = await res.json();
-            if (data.success && row) {
-                row.style.opacity = '0';
-                row.style.transform = 'scale(0.95)';
-                setTimeout(() => row.remove(), 300);
+            if (data.success) {
+                if (row) {
+                    row.style.transition = 'all 0.25s ease';
+                    row.style.opacity = '0';
+                    row.style.transform = 'scale(0.95)';
+                }
+                setTimeout(async () => {
+                    if (row) row.remove();
+                    await window.sincronizarPaginaHistorial();
+                }, 250);
             }
         } catch (e) { console.error("Error al borrar", e); }
     }
@@ -175,10 +189,86 @@ window.borrarHilo = async function(ids, cardId) {
         
         Swal.close();
         if (card) {
+            card.style.transition = 'all 0.25s ease';
             card.style.opacity = '0';
             card.style.transform = 'translateX(20px)';
-            setTimeout(() => card.remove(), 300);
         }
+        setTimeout(async () => {
+            if (card) card.remove();
+            await window.sincronizarPaginaHistorial();
+        }, 250);
+    }
+};
+
+// 7.5. Sincronización silenciosa de paginación (Universal: Historial y Galería)
+window.sincronizarPaginaHistorial = async function() {
+    const dynamicContainer = document.getElementById('historialDynamicContent') 
+                          || document.querySelector('.col-lg-12') 
+                          || document.querySelector('.container.py-4');
+    if (!dynamicContainer) return;
+
+    try {
+        const scrollActual = window.scrollY;
+        const selectorTarjetas = '.card-historial[id], .masonry-item';
+        const idsPrevios = new Set(
+            Array.from(dynamicContainer.querySelectorAll('.card-historial[id], .masonry-item[id]')).map(el => el.id)
+        );
+
+        // Añadimos marca de tiempo en cabecera para evitar que Firefox cachee el GET
+        const res = await fetch(window.location.href, {
+            cache: 'no-store',
+            credentials: 'same-origin',
+            headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
+        });
+        const html = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        // 1. Actualizamos el contador superior (si está fuera del contenedor dinámico)
+        const nuevoContador = doc.getElementById('historialTotalCount');
+        const actualContador = document.getElementById('historialTotalCount');
+        if (nuevoContador && actualContador) {
+            actualContador.innerHTML = nuevoContador.innerHTML;
+        }
+
+        // 2. Localizamos el contenedor equivalente en el HTML recién descargado
+        const nuevoContenedor = doc.getElementById('historialDynamicContent') 
+                             || doc.querySelector('.col-lg-12') 
+                             || doc.querySelector('.container.py-4');
+        if (!nuevoContenedor) return;
+
+        // Filtramos el formulario de búsqueda (.filter-bar) para contar solo tarjetas reales
+        const nuevasTarjetas = Array.from(nuevoContenedor.querySelectorAll(selectorTarjetas))
+                                    .filter(el => !el.classList.contains('filter-bar'));
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentPage = parseInt(urlParams.get('page') || '1', 10);
+
+        // Si hemos vaciado por completo una página superior a la 1, retrocedemos a la anterior
+        if (nuevasTarjetas.length === 0 && currentPage > 1) {
+            urlParams.set('page', currentPage - 1);
+            window.location.search = urlParams.toString();
+            return;
+        }
+
+        // 3. Reemplazamos el contenido y fijamos el scroll exacto en Firefox
+        dynamicContainer.innerHTML = nuevoContenedor.innerHTML;
+        window.scrollTo(0, scrollActual);
+
+        // 4. Animamos suavemente las tarjetas nuevas que han subido desde la página siguiente
+        dynamicContainer.querySelectorAll('.card-historial[id], .masonry-item[id]').forEach(card => {
+            if (idsPrevios.size > 0 && !idsPrevios.has(card.id)) {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(12px)';
+                requestAnimationFrame(() => {
+                    card.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                });
+            }
+        });
+    } catch (e) {
+        console.warn(_lang('log_warn_sync_pag'), e);
     }
 };
 

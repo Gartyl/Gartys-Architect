@@ -944,6 +944,8 @@ return [
     'mod_gal_use_title' => "Utilitzar Imatge de la Galeria",
     'mod_msg_btn_read' => "Marcar com a llegits i continuar",
     'mod_msg_title' => "Missatges de Moderació",
+	'hist_reg_encont' => "Registres trobats",
+	'log_warn_sync_pag' => "No s'ha pogut sincronitzar la paginació en segon pla:",
 
     // --- Wildcards (wild_) i Embeddings ---
     'wild_loading' => "Llegint la carpeta...",

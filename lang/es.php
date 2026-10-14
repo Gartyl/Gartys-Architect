@@ -944,6 +944,8 @@ return [
     'mod_gal_use_title' => "Usar Imagen de la Galería",
     'mod_msg_btn_read' => "Marcar como leídos y continuar",
     'mod_msg_title' => "Mensajes de Moderación",
+	'hist_reg_encont' => "Registros encontrados",
+	'log_warn_sync_pag' => "No se pudo sincronizar la paginación en segundo plano:",
 
     // --- Wildcards (wild_) y Embeddings ---
     'wild_loading' => "Leyendo la carpeta...",

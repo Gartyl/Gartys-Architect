@@ -108,7 +108,8 @@ function getIconoModelo($modelo) {
             btn_cancelar: <?= json_encode(__('btn_cancelar')) ?>,
             swal_img_removed: <?= json_encode(__('swal_img_removed')) ?>,
             err_hide_img: <?= json_encode(__('err_hide_img')) ?>,
-            err_toggle_public: <?= json_encode(__('err_toggle_public')) ?>
+            err_toggle_public: <?= json_encode(__('err_toggle_public')) ?>,
+			log_warn_sync_pag: <?= json_encode(__('log_warn_sync_pag')) ?>
         };
     </script>
     
@@ -164,6 +165,8 @@ function getIconoModelo($modelo) {
         </div>
     </div>
 
+    <!-- CONTENEDOR DINÁMICO PARA AUTORRELLENADO SUAVE -->
+    <div id="historialDynamicContent">
     <?php if (empty($imagenes_publicas)): ?>
         <div class="text-center py-5 opacity-50">
             <i class="bi bi-images fs-1 mb-3 d-block"></i>
@@ -172,7 +175,7 @@ function getIconoModelo($modelo) {
     <?php else: ?>
         <div class="masonry-grid">
             <?php foreach ($imagenes_publicas as $img): ?>
-               <div class="masonry-item">
+               <div class="masonry-item" id="gallery-item-<?php echo $img['id']; ?>">
                     <?php 
                     $ext = strtolower(pathinfo($img['imagen_path'], PATHINFO_EXTENSION));
                     if ($ext === 'mp4' || $ext === 'webm' || $ext === 'mov'): ?>
@@ -214,7 +217,7 @@ function getIconoModelo($modelo) {
                             <i class="bi bi-magic"></i>
                         </a>
                         
-                        <?php if ($user_id === $img['user_id'] || $is_admin): ?>
+                        <?php if ((int)$user_id === (int)$img['user_id'] || $is_admin): ?>
                             <button class="btn-fab btn-remove-fab" onclick="quitarGaleria(<?php echo $img['id']; ?>, this)" title="<?= __('btn_retirar') ?>">
                                 <i class="bi bi-eye-slash-fill"></i>
                             </button>
@@ -251,6 +254,7 @@ function getIconoModelo($modelo) {
         <?php endif; ?>
 
     <?php endif; ?>
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

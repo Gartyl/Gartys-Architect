@@ -3134,7 +3134,9 @@ async function runGpu(mode = 'directo') {
             fd.forEach((v, k) => fdSingle.append(k, v));
             fdSingle.set('batch_size', 1); 
             fdSingle.set('seed', (seedVal === -1 || isNaN(seedVal)) ? Math.floor(Math.random() * 9007199254740991) : (seedVal + i));
-            enviarTareaIndividualGpu(fdSingle, resDiv, buttonUsed, currentPromptId, originalCategory, i + 1, total);
+            // A partir de la 2ª imagen del lote, forzamos ID nuevo para que no colisionen en la BBDD
+            if (i > 0) fdSingle.delete('historial_id');
+            enviarTareaIndividualGpu(fdSingle, resDiv, buttonUsed, (i === 0 ? currentPromptId : 0), originalCategory, i + 1, total);
         }
         return;
     }
@@ -3152,7 +3154,8 @@ async function runGpu(mode = 'directo') {
             let fdSingle = new FormData();
             fd.forEach((v, k) => fdSingle.append(k, v));
             fdSingle.set('batch_size', 1); fdSingle.set('model_path', opciones[i].value); fdSingle.set('seed', semillaFija); fdSingle.set('is_benchmark', 'true');
-            enviarTareaIndividualGpu(fdSingle, resDiv, buttonUsed, currentPromptId, originalCategory, i + 1, opciones.length);
+            if (i > 0) fdSingle.delete('historial_id');
+            enviarTareaIndividualGpu(fdSingle, resDiv, buttonUsed, (i === 0 ? currentPromptId : 0), originalCategory, i + 1, opciones.length);
         }
         return;
     }
@@ -3317,6 +3320,7 @@ window.dispararTareaInfinita = async function() {
     cfg.fd.forEach((value, key) => fdSingle.append(key, value));
     fdSingle.set('batch_size', 1);
     fdSingle.set('seed', Math.floor(Math.random() * 9007199254740991));
+    fdSingle.delete('historial_id'); // Cada vuelta del bucle infinito crea su propio registro y JSON
     
     try {
         const res = await fetch('procesar.php', { method: 'POST', body: fdSingle }); 

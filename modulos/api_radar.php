@@ -9,28 +9,71 @@ if ($action === 'angel_guardia') {
     
     $prompt_id = $_POST['prompt_id'] ?? '';
     $historial_id = intval($_POST['historial_id'] ?? 0);
-    $user_id_angel = intval($_POST['user_id'] ?? 0);
+    $user_id_angel = intval($_POST['user_id'] ?? ($_SESSION['user_id'] ?? 1));
     
     if (empty($prompt_id) || $historial_id <= 0 || $user_id_angel <= 0) exit();
     
     for ($i = 0; $i < 120; $i++) {
-        sleep(5);
+        // Damos ventaja a check_ticket (WebSocket) cuando el navegador está abierto
+        sleep($i === 0 ? 7 : 5);
         
         // 🌟 ESCUDO ANTI-DUPLICADOS: Si el radar de la web ya guardó la imagen, el ángel se retira.
         $stmt_check_done = $pdo->prepare("SELECT imagen_path FROM historial_prompts WHERE id = ?");
         $stmt_check_done->execute([$historial_id]);
-        if (($row_done = $stmt_check_done->fetch()) && !empty($row_done['imagen_path'])) {
+        $row_done = $stmt_check_done->fetch();
+        if (!$row_done || !empty($row_done['imagen_path'])) {
             exit(); 
         }
         
+        // 1. Consultamos PRIMERO la cola (/queue) antes que /history
+        $ch_q = curl_init(COMFY_URL . '/queue');
+        curl_setopt($ch_q, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch_q, CURLOPT_TIMEOUT, 8);
+        $res_q = curl_exec($ch_q);
+        $err_q = curl_errno($ch_q);
+        curl_close($ch_q);
+
+        if ($err_q == 28 || $err_q == 7 || $res_q === false) {
+            continue; // Sigue trabajando a tope, esperamos al siguiente ciclo
+        }
+        
+        $queue = json_decode($res_q, true);
+        $is_in_queue = false;
+        if (is_array($queue)) {
+            foreach (['queue_running', 'queue_pending'] as $q_type) {
+                if (isset($queue[$q_type])) {
+                    foreach ($queue[$q_type] as $item) {
+                        if (isset($item[1]) && (string)$item[1] === (string)$prompt_id) {
+                            $is_in_queue = true;
+                            break 2;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Si sigue en cola o ejecutándose, esperamos al siguiente ciclo
+        if ($is_in_queue) {
+            continue;
+        }
+
+        // 2. Si YA NO está en la cola, consultamos /history (así nunca perdemos el milisegundo final)
         $ch = curl_init(COMFY_URL . '/history/' . $prompt_id);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 10);
         $res_hist = curl_exec($ch);
+        curl_close($ch);
         
         $history = json_decode($res_hist, true);
         
         if (isset($history[$prompt_id])) {
+            // Volvemos a verificar si check_ticket se nos adelantó mientras descargábamos /history
+            $stmt_check_done->execute([$historial_id]);
+            $row_done_2 = $stmt_check_done->fetch();
+            if ($row_done_2 && !empty($row_done_2['imagen_path'])) {
+                exit();
+            }
+
             $filenames_for_db = [];
             $outputs = isset($history[$prompt_id]['outputs']) ? $history[$prompt_id]['outputs'] : [];
             
@@ -38,7 +81,6 @@ if ($action === 'angel_guardia') {
                 foreach ($outputs as $node_id => $output) {
                     $files = [];
                     
-                    // ESCÁNER UNIVERSAL: Detecta imágenes, audios o vídeos sin importar cómo llame el nodo a la clave
                     if (is_array($output)) {
                         if (!empty($output['filename'])) {
                             $files[] = $output;
@@ -83,44 +125,33 @@ if ($action === 'angel_guardia') {
                             $ext = pathinfo($filename, PATHINFO_EXTENSION);
                             if (empty($ext)) $ext = 'png';
                             
-                            // =======================================================
-                            // 🌟 INYECCIÓN: MOTOR DE COMPRESIÓN AL VUELO (WEBP/JPG)
-                            // =======================================================
                             $formato_salida = $_POST['image_format'] ?? 'png';
-                            
-                            // Solo intentamos convertir si es una imagen y pidieron algo distinto a PNG
                             if ($formato_salida !== 'png' && in_array(strtolower($ext), ['png', 'jpg', 'jpeg', 'webp'])) {
                                 $im = @imagecreatefromstring($file_data);
                                 if ($im !== false) {
                                     ob_start();
-                                    
                                     if ($formato_salida === 'webp') {
                                         imagesavealpha($im, true);
-                                        imagewebp($im, null, 90); // 90% calidad
+                                        imagewebp($im, null, 90);
                                     } elseif ($formato_salida === 'jpg') {
                                         $bg = imagecreatetruecolor(imagesx($im), imagesy($im));
                                         $blanco = imagecolorallocate($bg, 255, 255, 255);
                                         imagefill($bg, 0, 0, $blanco);
                                         imagecopy($bg, $im, 0, 0, 0, 0, imagesx($im), imagesy($im));
-                                        imagejpeg($bg, null, 90); // 90% calidad
+                                        imagejpeg($bg, null, 90);
                                         imagedestroy($bg);
                                         $im = $bg;
                                     }
-                                    
                                     $file_data_convertida = ob_get_clean();
                                     imagedestroy($im);
-                                    
                                     if (!empty($file_data_convertida)) {
-                                        $file_data = $file_data_convertida; // Reemplazamos los datos pesados por los ligeros
-                                        $ext = $formato_salida;             // Cambiamos la extensión final
+                                        $file_data = $file_data_convertida;
+                                        $ext = $formato_salida;
                                     }
                                 }
                             }
-                            // =======================================================
                             
-                            // ÚNICO GUARDADO
                             $new_name = 'byGarty_' . md5($prompt_id . $filename) . '.' . $ext;
-                            
                             @file_put_contents(__DIR__ . '/../galeria/' . $new_name, $file_data);
                             if (!in_array($new_name, $filenames_for_db)) {
                                 $filenames_for_db[] = $new_name;
@@ -137,10 +168,11 @@ if ($action === 'angel_guardia') {
                     $row = $stmt_check->fetch();
                     $stmt_check->closeCursor(); 
 
+                    $json_origen = __DIR__ . '/../galeria/workflow_' . $historial_id . '.json';
+
                     if ($row) {
                         $is_first = true;
                         foreach ($filenames_for_db as $fn) {
-                            
                             $stmt_dup = $pdo->prepare("SELECT COUNT(id) FROM historial_prompts WHERE imagen_path = ?");
                             $stmt_dup->execute([$fn]);
                             $existe = $stmt_dup->fetchColumn() > 0;
@@ -153,6 +185,10 @@ if ($action === 'angel_guardia') {
                                 } else {
                                     $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, imagen_path, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)");
                                     $stmt_ins->execute([$user_id_angel, $row['modelo'], $row['descripcion_original'], $row['prompt_positivo'], $row['prompt_negativo'], $fn, $row['metadata']]);
+                                    $new_id = $pdo->lastInsertId();
+                                    if ($new_id > 0 && file_exists($json_origen)) {
+                                        @copy($json_origen, __DIR__ . '/../galeria/workflow_' . $new_id . '.json');
+                                    }
                                 }
                             }
                             $is_first = false;
@@ -163,40 +199,36 @@ if ($action === 'angel_guardia') {
                 try {
                     $stmt_del = $pdo->prepare("DELETE FROM historial_prompts WHERE id = ? AND imagen_path IS NULL");
                     $stmt_del->execute([$historial_id]);
+                    if ($stmt_del->rowCount() > 0) {
+                        @unlink(__DIR__ . '/../galeria/workflow_' . $historial_id . '.json');
+                    }
                 } catch (Exception $e) {}
             }
             exit(); 
         }
         
-        $ch_q = curl_init(COMFY_URL . '/queue');
-		curl_setopt($ch_q, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($ch_q, CURLOPT_TIMEOUT, 8); // Subimos a 8 segundos
-		$res_q = curl_exec($ch_q);
-		$err_q = curl_errno($ch_q); // Capturamos el error
-		curl_close($ch_q); // Cerramos la conexión limpiamente
+        // Si no estaba ni en /queue ni en /history, damos 1 segundo y hacemos una doble comprobación
+        // antes de declarar la tarea como muerta/cancelada.
+        sleep(2);
+        $ch_retry = curl_init(COMFY_URL . '/history/' . $prompt_id);
+        curl_setopt($ch_retry, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch_retry, CURLOPT_TIMEOUT, 5);
+        $res_retry = curl_exec($ch_retry);
+        curl_close($ch_retry);
+        $hist_retry = json_decode($res_retry, true);
 
-		// Si da Timeout (28), rechazo por colapso (7) o directamente no hay respuesta
-		if ($err_q == 28 || $err_q == 7 || $res_q === false) {
-			// Asumimos que está trabajando a tope, NO cancelamos
-			echo json_encode(['status' => 'processing']);
-			exit();
-		}
-        
-        $queue = json_decode($res_q, true);
-        $is_in_queue = false;
-        if (is_array($queue)) {
-            foreach (['queue_running', 'queue_pending'] as $q_type) {
-                if (isset($queue[$q_type])) {
-                    foreach ($queue[$q_type] as $item) {
-                        if (isset($item[1]) && (string)$item[1] === (string)$prompt_id) { $is_in_queue = true; break 2; }
-                    }
-                }
+        if (isset($hist_retry[$prompt_id])) {
+            continue; // Acaba de entrar en history, la procesamos en la siguiente vuelta
+        }
+
+        try {
+            $stmt_del = $pdo->prepare("DELETE FROM historial_prompts WHERE id = ? AND imagen_path IS NULL");
+            $stmt_del->execute([$historial_id]);
+            if ($stmt_del->rowCount() > 0) {
+                @unlink(__DIR__ . '/../galeria/workflow_' . $historial_id . '.json');
             }
-        }
-        if (!$is_in_queue && $res_q) {
-            try { $pdo->prepare("DELETE FROM historial_prompts WHERE id = ? AND imagen_path IS NULL")->execute([$historial_id]); } catch (Exception $e) {}
-            exit();
-        }
+        } catch (Exception $e) {}
+        exit();
     }
     exit(); 
 }
@@ -210,31 +242,25 @@ if ($action === 'check_ticket') {
         exit();
     }
 
+    // 1. Miramos primero si el Ángel de la Guardia ya la guardó en este registro exacto
     $stmt = $pdo->prepare("SELECT imagen_path, user_id, descripcion_original FROM historial_prompts WHERE id = ?");
     $stmt->execute([$historial_id]);
     $row = $stmt->fetch();
 
     if ($row && !empty($row['imagen_path'])) {
-        $stmt_lote = $pdo->prepare("SELECT imagen_path FROM historial_prompts WHERE user_id = ? AND descripcion_original = ? AND id >= ? AND imagen_path IS NOT NULL LIMIT 10");
-        $stmt_lote->execute([$row['user_id'], $row['descripcion_original'], $historial_id]);
-        $lote = $stmt_lote->fetchAll(PDO::FETCH_COLUMN);
-        
-        $filenames = !empty($lote) ? $lote : [$row['imagen_path']];
-        
-        echo json_encode(['status' => 'completed', 'images' => $filenames, 'filenames' => $filenames]);
+        echo json_encode(['status' => 'completed', 'images' => [$row['imagen_path']], 'filenames' => [$row['imagen_path']]]);
         exit();
     }
 
+    // 2. Comprobamos si sigue en la cola de ComfyUI (/queue)
     $ch_q = curl_init(COMFY_URL . '/queue');
     curl_setopt($ch_q, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch_q, CURLOPT_TIMEOUT, 8); // Subimos a 8 segundos
+    curl_setopt($ch_q, CURLOPT_TIMEOUT, 8);
     $res_q = curl_exec($ch_q);
-    $err_q = curl_errno($ch_q); // Capturamos el error
-    curl_close($ch_q); // Cerramos la conexión limpiamente
+    $err_q = curl_errno($ch_q);
+    curl_close($ch_q);
 
-    // Si da Timeout (28), rechazo por colapso (7) o directamente no hay respuesta
     if ($err_q == 28 || $err_q == 7 || $res_q === false) {
-        // Asumimos que está trabajando a tope, NO cancelamos
         echo json_encode(['status' => 'processing']);
         exit();
     }
@@ -257,9 +283,10 @@ if ($action === 'check_ticket') {
         exit();
     }
     
+    // 3. Consultamos el historial de ComfyUI (/history)
     $ch_h = curl_init(COMFY_URL . '/history/' . $prompt_id);
     curl_setopt($ch_h, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch_h, CURLOPT_TIMEOUT, 8); // Subimos a 8 segundos
+    curl_setopt($ch_h, CURLOPT_TIMEOUT, 8);
     $res_h = curl_exec($ch_h);
     $err_h = curl_errno($ch_h);
     curl_close($ch_h);
@@ -283,7 +310,13 @@ if ($action === 'check_ticket') {
                 $node_fail = "ControlNet";
             }
             
-            try { $pdo->prepare("DELETE FROM historial_prompts WHERE id = ? AND imagen_path IS NULL")->execute([$historial_id]); } catch (Exception $e) {}
+            try {
+                $stmt_del = $pdo->prepare("DELETE FROM historial_prompts WHERE id = ? AND imagen_path IS NULL");
+                $stmt_del->execute([$historial_id]);
+                if ($stmt_del->rowCount() > 0) {
+                    @unlink(__DIR__ . '/../galeria/workflow_' . $historial_id . '.json');
+                }
+            } catch (Exception $e) {}
             
             echo json_encode(['error' => __('err_engine_aborted') . " [$node_fail]: $exception"]);
             exit();
@@ -291,7 +324,13 @@ if ($action === 'check_ticket') {
 
         $outputs = $history[$prompt_id]['outputs'] ?? [];
         if (empty($outputs)) {
-            try { $pdo->prepare("DELETE FROM historial_prompts WHERE id = ? AND imagen_path IS NULL")->execute([$historial_id]); } catch (Exception $e) {}
+            try {
+                $stmt_del = $pdo->prepare("DELETE FROM historial_prompts WHERE id = ? AND imagen_path IS NULL");
+                $stmt_del->execute([$historial_id]);
+                if ($stmt_del->rowCount() > 0) {
+                    @unlink(__DIR__ . '/../galeria/workflow_' . $historial_id . '.json');
+                }
+            } catch (Exception $e) {}
             echo json_encode(['error' => __('err_ghost_task') ?? 'ComfyUI descartó la tarea silenciosamente. Tarea cancelada.']);
             exit();
         }
@@ -300,7 +339,6 @@ if ($action === 'check_ticket') {
         foreach ($outputs as $node_id => $output) {
             $files = [];
             
-            // ESCÁNER UNIVERSAL: Detecta imágenes, audios o vídeos sin importar cómo llame el nodo a la clave
             if (is_array($output)) {
                 if (!empty($output['filename'])) {
                     $files[] = $output;
@@ -345,44 +383,33 @@ if ($action === 'check_ticket') {
                     $ext = pathinfo($filename, PATHINFO_EXTENSION);
                     if (empty($ext)) $ext = 'png';
                     
-                    // =======================================================
-                    // 🌟 INYECCIÓN: MOTOR DE COMPRESIÓN AL VUELO (WEBP/JPG)
-                    // =======================================================
                     $formato_salida = $_POST['image_format'] ?? 'png';
-                    
-                    // Solo intentamos convertir si es una imagen y pidieron algo distinto a PNG
                     if ($formato_salida !== 'png' && in_array(strtolower($ext), ['png', 'jpg', 'jpeg', 'webp'])) {
                         $im = @imagecreatefromstring($file_data);
                         if ($im !== false) {
                             ob_start();
-                            
                             if ($formato_salida === 'webp') {
                                 imagesavealpha($im, true);
-                                imagewebp($im, null, 90); // 90% calidad
+                                imagewebp($im, null, 90);
                             } elseif ($formato_salida === 'jpg') {
                                 $bg = imagecreatetruecolor(imagesx($im), imagesy($im));
                                 $blanco = imagecolorallocate($bg, 255, 255, 255);
                                 imagefill($bg, 0, 0, $blanco);
                                 imagecopy($bg, $im, 0, 0, 0, 0, imagesx($im), imagesy($im));
-                                imagejpeg($bg, null, 90); // 90% calidad
+                                imagejpeg($bg, null, 90);
                                 imagedestroy($bg);
                                 $im = $bg;
                             }
-                            
                             $file_data_convertida = ob_get_clean();
                             imagedestroy($im);
-                            
                             if (!empty($file_data_convertida)) {
-                                $file_data = $file_data_convertida; // Reemplazamos los datos pesados por los ligeros
-                                $ext = $formato_salida;             // Cambiamos la extensión final
+                                $file_data = $file_data_convertida;
+                                $ext = $formato_salida;
                             }
                         }
                     }
-                    // =======================================================
                     
-                    // ÚNICO GUARDADO
                     $new_name = 'byGarty_' . md5($prompt_id . $filename) . '.' . $ext;
-                    
                     @file_put_contents(__DIR__ . '/../galeria/' . $new_name, $file_data);
                     if (!in_array($new_name, $filenames_for_db)) {
                         $filenames_for_db[] = $new_name;
@@ -392,10 +419,12 @@ if ($action === 'check_ticket') {
         }
 
         if (!empty($filenames_for_db)) {
-            $stmt_check = $pdo->prepare("SELECT user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata FROM historial_prompts WHERE id = ?");
+            $stmt_check = $pdo->prepare("SELECT user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata, imagen_path FROM historial_prompts WHERE id = ?");
             $stmt_check->execute([$historial_id]);
             $row_meta = $stmt_check->fetch();
             
+            $json_origen = __DIR__ . '/../galeria/workflow_' . $historial_id . '.json';
+
             if ($row_meta) {
                 $is_first = true;
                 foreach ($filenames_for_db as $fn) {
@@ -403,13 +432,34 @@ if ($action === 'check_ticket') {
                     $stmt_dup->execute([$fn]);
                     
                     if (!$stmt_dup->fetch()) {
-                        if ($is_first) {
-                            $pdo->prepare("UPDATE historial_prompts SET imagen_path = ? WHERE id = ? AND imagen_path IS NULL")->execute([$fn, $historial_id]);
+                        if ($is_first && empty($row_meta['imagen_path'])) {
+                            $pdo->prepare("UPDATE historial_prompts SET imagen_path = ? WHERE id = ?")->execute([$fn, $historial_id]);
+                            $row_meta['imagen_path'] = $fn;
                         } else {
-                            $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, imagen_path, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)")->execute([$row_meta['user_id'], $row_meta['modelo'], $row_meta['descripcion_original'], $row_meta['prompt_positivo'], $row_meta['prompt_negativo'], $fn, $row_meta['metadata']]);
+                            $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, imagen_path, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)")
+                                ->execute([$row_meta['user_id'], $row_meta['modelo'], $row_meta['descripcion_original'], $row_meta['prompt_positivo'], $row_meta['prompt_negativo'], $fn, $row_meta['metadata']]);
+                            $new_id = $pdo->lastInsertId();
+                            if ($new_id > 0 && file_exists($json_origen)) {
+                                @copy($json_origen, __DIR__ . '/../galeria/workflow_' . $new_id . '.json');
+                            }
                         }
                     }
                     $is_first = false;
+                }
+            } else {
+                // 🛡️ PARACAÍDAS DE RESCATE: Si la fila no existía en BBDD, la insertamos para que nunca quede huérfana en /galeria
+                $uid_rescue = $_SESSION['user_id'] ?? 1;
+                foreach ($filenames_for_db as $fn) {
+                    $stmt_dup = $pdo->prepare("SELECT id FROM historial_prompts WHERE imagen_path = ?");
+                    $stmt_dup->execute([$fn]);
+                    if (!$stmt_dup->fetch()) {
+                        $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, imagen_path, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)")
+                            ->execute([$uid_rescue, '[RECUPERADO]', 'Generación recuperada', '', '', $fn, '{}']);
+                        $new_id = $pdo->lastInsertId();
+                        if ($new_id > 0 && file_exists($json_origen)) {
+                            @rename($json_origen, __DIR__ . '/../galeria/workflow_' . $new_id . '.json');
+                        }
+                    }
                 }
             }
             echo json_encode(['status' => 'completed', 'images' => $filenames_for_db, 'filenames' => $filenames_for_db]);
@@ -419,7 +469,13 @@ if ($action === 'check_ticket') {
         exit();
     } 
     
-    try { $pdo->prepare("DELETE FROM historial_prompts WHERE id = ? AND imagen_path IS NULL")->execute([$historial_id]); } catch (Exception $e) {}
+    try {
+        $stmt_del = $pdo->prepare("DELETE FROM historial_prompts WHERE id = ? AND imagen_path IS NULL");
+        $stmt_del->execute([$historial_id]);
+        if ($stmt_del->rowCount() > 0) {
+            @unlink(__DIR__ . '/../galeria/workflow_' . $historial_id . '.json');
+        }
+    } catch (Exception $e) {}
     echo json_encode(['error' => __('err_ghost_task') ?? 'ComfyUI ha reiniciado o descartado la tarea por completo.']);
     exit(); 
 }
@@ -444,7 +500,6 @@ if ($action === 'check_queue') {
 }
 
 if ($action === 'cancelar_tarea') {
-    // 1. ORDEN DE INTERRUPCIÓN: Detiene físicamente lo que está procesando la tarjeta gráfica
     $ch1 = curl_init(COMFY_URL . '/interrupt');
     curl_setopt($ch1, CURLOPT_POST, true);
     curl_setopt($ch1, CURLOPT_RETURNTRANSFER, true);
@@ -452,7 +507,6 @@ if ($action === 'cancelar_tarea') {
     curl_exec($ch1);
     curl_close($ch1);
 
-    // 2. ORDEN DE LIMPIEZA: Borra todas las imágenes o frames pendientes en la cola
     $ch2 = curl_init(COMFY_URL . '/queue');
     curl_setopt($ch2, CURLOPT_POST, true);
     curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
@@ -462,7 +516,6 @@ if ($action === 'cancelar_tarea') {
     curl_exec($ch2);
     curl_close($ch2);
 
-    // 3. Devolvemos respuesta en formato JSON usando el diccionario de idiomas
     echo json_encode(['status' => 'cancelled', 'message' => __('msg_task_cancelled')]);
     exit();
 }

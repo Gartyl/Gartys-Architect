@@ -947,6 +947,8 @@ return [
     'mod_gal_use_title' => "Use Image from Gallery",
     'mod_msg_btn_read' => "Mark as read and continue",
     'mod_msg_title' => "Moderation Messages",
+	'hist_reg_encont' => "Records found",
+	'log_warn_sync_pag' => "Could not synchronize pagination in the background:",
 
     // --- Wildcards (wild_) & Embeddings ---
     'wild_loading' => "Reading folder...",
