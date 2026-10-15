@@ -451,6 +451,13 @@ return [
 	'tit_pan_te3'    => "TE 3 (Opcional)",
 	'tit_pan_te4'    => "TE 4 (Opcional)",
 	'adm_ph_auto'    => "Auto (Por defecto)",
+	'opt_grp_xylab' => "Laboratorio X/Y (Misma Semilla)",
+	'sel_xy_lora' => "Test LoRA (0.50 / 0.75 / 1.00)",
+	'sel_xy_denoise' => "Test Denoise (0.40 / 0.60 / 0.80)",
+	'sel_xy_cfg' => "Test CFG / Guidance (Bajo / Medio / Alto)",
+	'swal_xy_title' => "Laboratorio X/Y",
+	'swal_xy_no_lora' => "Activa y selecciona al menos un LoRA en el panel antes de lanzar el Test de LoRA.",
+	'swal_xy_no_img' => "Sube o carga una imagen base en el lienzo antes de lanzar el Test de Denoise.",
 
     // ==============================================================================
     // 06. MENSAJES Y NOTIFICACIONES DE ESTADO (No Modales)

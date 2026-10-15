@@ -3157,8 +3157,83 @@ async function runGpu(mode = 'directo') {
         }
         return;
     }
+	
+	if (batchVal === 'xy_lora' || batchVal === 'xy_denoise' || batchVal === 'xy_cfg') {
+        const semillaFija = (seedVal === -1 || isNaN(seedVal)) ? Math.floor(Math.random() * 9007199254740991) : seedVal;
+        let pasosXY = [];
 
-    // --- 3.5 Disparo Estándar (La tarea principal) ---
+        if (batchVal === 'xy_lora') {
+            const lorasActivos = fd.getAll('lora_names[]');
+            if (lorasActivos.length === 0) {
+                SwalDark.fire({ icon: 'warning', title: GartyLang.swal_xy_title, text: GartyLang.swal_xy_no_lora });
+                _actualizarBotonRender(buttonUsed, 'restaurar', originalBtnText);
+                return;
+            }
+            [0.50, 0.75, 1.00].forEach(val => {
+                pasosXY.push({
+                    label: `LoRA: ${val.toFixed(2)}`,
+                    apply: (f) => {
+                        f.delete('lora_strengths_high[]');
+                        f.delete('lora_strengths_low[]');
+                        lorasActivos.forEach(() => {
+                            f.append('lora_strengths_high[]', val);
+                            f.append('lora_strengths_low[]', val);
+                        });
+                    }
+                });
+            });
+        } else if (batchVal === 'xy_denoise') {
+            if (!fd.has('init_image') && !fd.has('has_tray_images')) {
+                SwalDark.fire({ icon: 'warning', title: GartyLang.swal_xy_title, text: GartyLang.swal_xy_no_img });
+                _actualizarBotonRender(buttonUsed, 'restaurar', originalBtnText);
+                return;
+            }
+            [0.40, 0.60, 0.80].forEach(val => {
+                pasosXY.push({
+                    label: `Denoise: ${val.toFixed(2)}`,
+                    apply: (f) => {
+                        f.set('denoise', val);
+                        f.set('edit_tools_active', '1');
+                    }
+                });
+            });
+        } else if (batchVal === 'xy_cfg') {
+            const modelSelEl = document.getElementById('modelSelector');
+            const modelOpt = (modelSelEl && modelSelEl.selectedIndex >= 0) ? modelSelEl.options[modelSelEl.selectedIndex] : null;
+            const modFullStr = modelOpt ? (modelOpt.text + ' ' + (modelOpt.dataset.archivo || '')).toLowerCase() : '';
+            const esFlux = modFullStr.includes('flux') && !modFullStr.includes('chroma');
+
+            if (esFlux) {
+                [2.0, 3.5, 5.0].forEach(val => {
+                    pasosXY.push({
+                        label: `Guidance: ${val.toFixed(1)}`,
+                        apply: (f) => f.set('flux_guidance', val)
+                    });
+                });
+            } else {
+                [3.5, 6.0, 8.5].forEach(val => {
+                    pasosXY.push({
+                        label: `CFG: ${val.toFixed(1)}`,
+                        apply: (f) => f.set('cfg', val)
+                    });
+                });
+            }
+        }
+
+        for (let i = 0; i < pasosXY.length; i++) {
+            let fdSingle = new FormData();
+            fd.forEach((v, k) => fdSingle.append(k, v));
+            fdSingle.set('batch_size', 1);
+            fdSingle.set('seed', semillaFija);
+            if (i > 0) fdSingle.delete('historial_id');
+            pasosXY[i].apply(fdSingle);
+			// Usamos await para que los 3 tickets salgan en orden limpio y no choquen en la BD
+            await enviarTareaIndividualGpu(fdSingle, resDiv, buttonUsed, (i === 0 ? currentPromptId : 0), originalCategory, i + 1, pasosXY.length, pasosXY[i].label);
+        }
+        return; // <-- IMPRESCINDIBLE PARA QUE NO LANCE UNA 4ª IMAGEN SIN ETIQUETA
+    }
+			
+	// --- 3.5 Disparo Estándar (La tarea principal) ---
     try {
         const res = await fetch('procesar.php', { method: 'POST', body: fd }); 
         const data = await res.json();
@@ -3284,7 +3359,7 @@ window.forzarCancelacionTarea = function() {
 };
 
 // --- DISPARADOR DE TAREAS INDIVIDUALES (Blindado contra fallos de red) ---
-async function enviarTareaIndividualGpu(fd, resDiv, buttonUsed, dbId, originalCategory, numActual, total) {
+async function enviarTareaIndividualGpu(fd, resDiv, buttonUsed, dbId, originalCategory, numActual, total, xyLabel = null) {
     try {
         const res = await fetch('procesar.php', { method: 'POST', body: fd }); 
         const data = await res.json();
@@ -3298,7 +3373,7 @@ async function enviarTareaIndividualGpu(fd, resDiv, buttonUsed, dbId, originalCa
         }
         if (data.status === 'ticket_issued' && data.prompt_id) {
             if (buttonUsed && numActual === 1) buttonUsed.innerText = `${GartyLang.btn_procesando} (1/${total})...`;
-            iniciarRadarGpu(data.prompt_id, resDiv, buttonUsed, data.historial_id || dbId, originalCategory); 
+            iniciarRadarGpu(data.prompt_id, resDiv, buttonUsed, data.historial_id || dbId, originalCategory, xyLabel); 
         }
     } catch (e) { 
         console.error(GartyLang.log_err_single_task, e); 
@@ -3420,11 +3495,10 @@ window.abortarRadarPorAtasco = function(promptId, tarea, isPolling, errorMsg = n
     }
 };
 
-function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory) {
+function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory, xyLabel = null) {
     const pText = document.getElementById('progressText');
     if(pText) pText.innerHTML = `<span style="color: #0dcaf0 !important; font-weight: bold;">${typeof GartyLang !== 'undefined' && GartyLang.radar_msg_rendering ? GartyLang.radar_msg_rendering : 'Renderizando...'} (${promptId})</span>`;
 
-    // Registramos el ticket en la cola persistente (cubre disparo simple, audio, lotes y benchmark)
     window.registrarTicketPendiente(promptId, dbId, originalCategory);
 
     window.activeRadars = window.activeRadars || {};
@@ -3434,6 +3508,7 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
         btnElement: btnElement,
         dbId: dbId,
         originalCategory: originalCategory,
+        xyLabel: xyLabel,
         intentosRadar: 0,
         ultimaActividad: Date.now() 
     };
@@ -3460,12 +3535,10 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
 }
 
 window.recolectarImagenGpu = async function(promptId, isPolling = false) {
-    const tarea = window.activeRadars[promptId];
-    if (!tarea) return; 
+    const tarea = window.activeRadars ? window.activeRadars[promptId] : null;
+    if (!tarea || tarea.isFetching || tarea.completed) return; 
 
-    if (tarea.isFetching) return;
     tarea.isFetching = true;
-
     tarea.ultimaActividad = Date.now();
 
     let fd = new FormData(); 
@@ -3485,6 +3558,8 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
         }
 
         if (data.status === 'completed') {
+            if (tarea.completed) return; // Evita doble pintado si WebSocket y Polling llegan a la vez
+            tarea.completed = true;
             delete window.activeRadars[promptId];
             window.eliminarTicketPendiente(promptId);
             
@@ -3499,7 +3574,7 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
                 const currentCategory = document.getElementById('selector').value; let htmlElements = '';
                 salidas.forEach(img => {
                     const isChatMode = (tarea.originalCategory === '[CHAT]');
-                    htmlElements += construirTarjetaImagen(img, tarea.dbId, isChatMode, false);
+                    htmlElements += construirTarjetaImagen(img, tarea.dbId, isChatMode, false, null, tarea.xyLabel);
                 });
 
                 if (currentCategory === tarea.originalCategory || tarea.originalCategory === '[AUDIO]') {
@@ -3642,7 +3717,7 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
 };
 
 // --- CONSTRUCTOR DE IMÁGENES ---
-function construirTarjetaImagen(imgData, dbId = 0, isChat = false, isVision = false, serverFilename = null) {
+function construirTarjetaImagen(imgData, dbId = 0, isChat = false, isVision = false, serverFilename = null, xyLabel = null) {	
     if (!imgData) {
         console.error(GartyLang.log_err_img_null);
         return `<div class="alert alert-danger m-3 shadow"><i class="bi bi-exclamation-triangle-fill"></i> ${GartyLang.err_empty_result_ffmpeg}</div>`;
@@ -3709,7 +3784,7 @@ function construirTarjetaImagen(imgData, dbId = 0, isChat = false, isVision = fa
     return `
     <div class="${isChat ? 'col-6' : 'col-12 col-md-6'}">
         <div class="img-container shadow m-0 ${!isChat ? 'border border-info rounded' : ''}" style="position: relative;">
-            ${mediaTag}
+            ${mediaTag}${xyLabel ? `<div style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 55; pointer-events: none;"><span class="badge bg-dark border border-warning text-warning shadow px-3 py-1" style="font-size: 0.8rem;">🧪 ${xyLabel}</span></div>` : ''}
             ${showMergeCheckbox ? `<div style="position: absolute; top: 10px; left: 10px; z-index: 50;"><input type="checkbox" class="form-check-input shadow border border-dark merge-checkbox" style="width: 25px; height: 25px; cursor: pointer; border: 2px solid #0dcaf0;" value="${imgData}" onchange="if(typeof toggleVideoFusion === 'function') toggleVideoFusion(this.value, this.checked)" title="${GartyLang.gal_title_select_merge}"></div>` : ''}
             <a href="javascript:void(0)" onclick="if(typeof togglePublic === 'function') togglePublic(${dbId}, this)" class="btn-pub-img" title="${GartyLang.btn_pub_gallery}"><i class="bi bi-globe"></i></a>
             <a href="javascript:void(0)" onclick="if(typeof toggleFavorito === 'function') toggleFavorito(${dbId}, this)" class="btn-fav-img" title="${GartyLang.btn_fav_img}"><i class="bi bi-heart"></i></a>

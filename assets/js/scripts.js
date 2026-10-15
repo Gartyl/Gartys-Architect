@@ -274,6 +274,8 @@ window.sincronizarPaginaHistorial = async function() {
 
 // 8. Radar Asíncrono de Cola Global (Soporte Multi-Ticket)
 document.addEventListener('DOMContentLoaded', () => {
+	// Si estamos en index.php (donde ya está cargado motor.js con su propio radar y WebSocket), no duplicamos peticiones
+    if (document.getElementById('gpuDirectBtn') || typeof window.recolectarImagenGpu === 'function') return;
     const leerCola = () => {
         try {
             const raw = localStorage.getItem('garty_tarea_pendiente');

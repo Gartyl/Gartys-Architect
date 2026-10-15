@@ -41,6 +41,11 @@
             <option value="4"><?= __('sel_cimag_4') ?></option>
             <option value="all"><?= __('sel_cimag_all') ?></option>
             <option value="inf" class="text-warning fw-bold"><?= __('sel_cimag_inf') ?></option>
+            <optgroup label="🧪 <?= __('opt_grp_xylab') ?>">
+                <option value="xy_lora" <?= !$is_pro ? 'disabled' : '' ?>>🧪 <?= __('sel_xy_lora') ?><?= !$is_pro ? ' 🔒 (Pro)' : '' ?></option>
+                <option value="xy_denoise" <?= !$is_pro ? 'disabled' : '' ?>>🧪 <?= __('sel_xy_denoise') ?><?= !$is_pro ? ' 🔒 (Pro)' : '' ?></option>
+                <option value="xy_cfg" <?= !$is_pro ? 'disabled' : '' ?>>🧪 <?= __('sel_xy_cfg') ?><?= !$is_pro ? ' 🔒 (Pro)' : '' ?></option>
+            </optgroup>
         </select>
     </div>
 </div>
