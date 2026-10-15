@@ -3,6 +3,7 @@
  * galeria.php - Showcase Público Paginado con Búsqueda e Iconos
  */
 require_once __DIR__ . '/includes/core/init.php';
+require_once __DIR__ . '/modulos/core_funciones.php';
 
 // Recuperamos la ID del usuario de la sesión
 $user_id = $_SESSION['user_id'];
@@ -17,15 +18,22 @@ $offset = ($page - 1) * $limit;
 $where_clauses = ["h.is_public = 1", "h.imagen_path IS NOT NULL"];
 $params = [];
 
+$is_semantic_active = ($is_pro && function_exists('obtenerModeloEmbeddingActivo') && obtenerModeloEmbeddingActivo($pdo) !== null);
+
 if (!empty($search)) {
-    // =========================================================================================
-    // [PREPARACIÓN PARA BÚSQUEDA SEMÁNTICA]
-    // =========================================================================================
-    $is_semantic_active = false; 
-    
-    if ($is_semantic_active) {
-        // Lógica futura: $vector = generarEmbeddingVision($search);
-        // $where_clauses[] = "VECTOR_SIMILARITY(h.embedding, ?) > 0.8";
+    $ids_semanticos = null;
+    if ($is_semantic_active && function_exists('ejecutarBusquedaSemantica')) {
+        $ids_semanticos = ejecutarBusquedaSemantica($search, $pdo, $where_clauses, $params, true);
+    }
+
+    if (is_array($ids_semanticos)) {
+        if (empty($ids_semanticos)) {
+            $where_clauses[] = "1 = 0";
+        } else {
+            $placeholders = implode(',', array_fill(0, count($ids_semanticos), '?'));
+            $where_clauses[] = "h.id IN ($placeholders)";
+            $params = array_merge($params, $ids_semanticos);
+        }
     } else {
         $where_clauses[] = "(h.prompt_positivo LIKE ? OR h.prompt_negativo LIKE ? OR u.nick LIKE ? OR h.modelo LIKE ?)";
         $like_search = "%$search%";

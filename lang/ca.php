@@ -1413,6 +1413,8 @@ return [
     'btn_fav_img' => "Afegir a Preferits",
     'swal_sys_err_title' => "Error del Sistema",
     'btn_apply_iclight' => "💡 Il·luminar Directe",
+	'adm_cat_hid_emb' => "Sistema: Motor Semàntic (Embeddings)",
+	'lbl_sem_active' => "Cerca Semàntica IA Activa",
     
     // ==============================================================================
     // 15. FILTROS DE TABLAS (flt_)

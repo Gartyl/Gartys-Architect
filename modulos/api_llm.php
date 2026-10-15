@@ -290,6 +290,10 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
                     $stmt_ins->execute([$_SESSION['user_id'], '[LLM]', $safe_desc, $safe_pos, '', $meta_json, $final_text]);
                     $new_prompt_id = $pdo->lastInsertId();
                 }
+
+                if (function_exists('guardarEmbeddingHistorial') && $new_prompt_id > 0) {
+                    guardarEmbeddingHistorial($new_prompt_id, $pdo);
+                }
             }
             
             // Le mandamos el ID final al navegador como último paquete
@@ -342,6 +346,10 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
                     $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata, texto_generado) VALUES (?, ?, ?, ?, ?, ?, ?)");
                     $stmt_ins->execute([$_SESSION['user_id'], '[LLM]', $safe_desc, $safe_pos, '', $meta_json, $final_text]);
                     $res['new_prompt_id'] = $pdo->lastInsertId();
+                }
+
+                if (function_exists('guardarEmbeddingHistorial') && !empty($res['new_prompt_id'])) {
+                    guardarEmbeddingHistorial($res['new_prompt_id'], $pdo);
                 }
 
                 echo json_encode($res, JSON_INVALID_UTF8_SUBSTITUTE);
@@ -852,6 +860,10 @@ if (!empty(trim($finalP))) {
         $stmt = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ? WHERE id = ?");
         $stmt->execute([$safe_pos, $safe_neg, $parent_id]);
         $inserted_id = $parent_id;
+    }
+
+    if (function_exists('guardarEmbeddingHistorial') && $inserted_id > 0) {
+        guardarEmbeddingHistorial($inserted_id, $pdo);
     }
 
     $normalized = ["prompt" => $safe_pos, "negative_prompt" => $safe_neg];

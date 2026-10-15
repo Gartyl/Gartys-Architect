@@ -270,4 +270,200 @@ try {
         titulo VARCHAR(100) NOT NULL, prompt_texto TEXT NOT NULL, parametros TEXT DEFAULT NULL, activo TINYINT(1) DEFAULT 1, fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 } catch (Throwable $e) { error_log(__('log_err_patch_personas') . ": " . $e->getMessage()); }
+
+// ==============================================================================
+// --- MOTOR DE BÚSQUEDA SEMÁNTICA VECTORIAL (100% COMPATIBLE MYSQL + SQLITE) ---
+// ==============================================================================
+
+if (!function_exists('obtenerModeloEmbeddingActivo')) {
+    function obtenerModeloEmbeddingActivo($pdo) {
+        static $cached = false;
+        static $modelo = null;
+        if ($cached) return $modelo;
+        $cached = true;
+        try {
+            $stmt = $pdo->query("SELECT nombre_archivo, keep_alive FROM modelos_ia WHERE motor = 'ollama' AND LOWER(categoria) = 'sys_embed' AND activo = 1 LIMIT 1");
+            $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
+            if ($row && !empty($row['nombre_archivo'])) {
+                $modelo = $row;
+            }
+        } catch (Throwable $e) {}
+        return $modelo;
+    }
+}
+
+if (!function_exists('generarEmbeddingOllama')) {
+    function generarEmbeddingOllama($texto, $pdo) {
+        $mod = obtenerModeloEmbeddingActivo($pdo);
+        if (!$mod || !defined('LLM_IP') || !defined('LLM_PORT')) return null;
+
+        $texto = trim(preg_replace('/\s+/', ' ', (string)$texto));
+        if ($texto === '') return null;
+        $texto = mb_substr($texto, 0, 2500);
+
+        $ka_raw = isset($mod['keep_alive']) && trim($mod['keep_alive']) !== '' ? trim($mod['keep_alive']) : '2m';
+        if ($ka_raw === '0' || $ka_raw === 0) $ka_val = 0;
+        elseif ($ka_raw === '-1' || $ka_raw === -1) $ka_val = -1;
+        elseif (is_numeric($ka_raw)) $ka_val = $ka_raw . 'm';
+        else $ka_val = $ka_raw;
+
+        $payload = json_encode([
+            'model' => $mod['nombre_archivo'],
+            'prompt' => $texto,
+            'keep_alive' => $ka_val
+        ], JSON_INVALID_UTF8_SUBSTITUTE);
+
+        $ch = curl_init("http://" . LLM_IP . ":" . LLM_PORT . "/api/embeddings");
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+        $res = curl_exec($ch);
+        curl_close($ch);
+
+        if (!$res) return null;
+        $data = json_decode($res, true);
+        $vec = $data['embedding'] ?? ($data['embeddings'][0] ?? null);
+        if (!is_array($vec) || empty($vec)) return null;
+
+        // Normalizamos el vector (norma L2 = 1) para que la Similitud del Coseno sea un producto escalar directo
+        $norm = 0.0;
+        foreach ($vec as $v) {
+            $norm += $v * $v;
+        }
+        $norm = sqrt($norm);
+        if ($norm <= 0) return null;
+
+        $normalized = [];
+        foreach ($vec as $v) {
+            $normalized[] = (float)($v / $norm);
+        }
+
+        return pack('f*', ...$normalized);
+    }
+}
+
+if (!function_exists('guardarEmbeddingHistorial')) {
+    function guardarEmbeddingHistorial($id_historial, $pdo) {
+        $id_historial = (int)$id_historial;
+        if ($id_historial <= 0 || !obtenerModeloEmbeddingActivo($pdo)) return false;
+
+        try {
+            $stmt = $pdo->prepare("SELECT descripcion_original, prompt_positivo, texto_generado FROM historial_prompts WHERE id = ? LIMIT 1");
+            $stmt->execute([$id_historial]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) return false;
+
+            $partes = [];
+            if (!empty($row['descripcion_original'])) $partes[] = trim($row['descripcion_original']);
+            if (!empty($row['prompt_positivo']) && $row['prompt_positivo'] !== $row['descripcion_original']) {
+                $partes[] = trim($row['prompt_positivo']);
+            }
+            if (!empty($row['texto_generado'])) {
+                $partes[] = mb_substr(trim($row['texto_generado']), 0, 600);
+            }
+
+            $texto_combinado = implode(" | ", $partes);
+            $blob = generarEmbeddingOllama($texto_combinado, $pdo);
+            if ($blob !== null) {
+                $upd = $pdo->prepare("UPDATE historial_prompts SET embedding = ? WHERE id = ?");
+                $upd->execute([$blob, $id_historial]);
+                return true;
+            }
+        } catch (Throwable $e) {}
+        return false;
+    }
+}
+
+if (!function_exists('ejecutarBusquedaSemantica')) {
+    function ejecutarBusquedaSemantica($search, $pdo, $where_clauses, $params, $es_galeria = false) {
+        // 1. Auto-indexado progresivo de registros antiguos sin vector (máx. 25 por búsqueda)
+        try {
+            $stmt_null = $pdo->query("SELECT id FROM historial_prompts WHERE embedding IS NULL ORDER BY id DESC LIMIT 25");
+            if ($stmt_null) {
+                foreach ($stmt_null->fetchAll(PDO::FETCH_COLUMN) as $id_pend) {
+                    guardarEmbeddingHistorial($id_pend, $pdo);
+                }
+            }
+        } catch (Throwable $e) {}
+
+        // 2. Vectorizamos la consulta del usuario
+        $query_blob = generarEmbeddingOllama($search, $pdo);
+        if (!$query_blob) return null; // Si Ollama está apagado, fará fallback al LIKE tradicional
+
+        $q_vec = array_values(unpack('f*', $query_blob));
+        $dim = count($q_vec);
+        if ($dim === 0) return null;
+
+        // 3. Traemos los candidatos que cumplen el resto de filtros (usuario, fechas, categoría, favoritos...)
+        $where_sql = implode(" AND ", $where_clauses);
+        $sql = $es_galeria
+            ? "SELECT h.id, h.descripcion_original, h.prompt_positivo, h.prompt_negativo, h.modelo, h.embedding, u.nick FROM historial_prompts h JOIN usuarios u ON h.user_id = u.id WHERE $where_sql"
+            : "SELECT id, descripcion_original, prompt_positivo, prompt_negativo, modelo, embedding FROM historial_prompts WHERE $where_sql";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (empty($rows)) return [];
+
+        $scores = [];
+        $exact_matches = [];
+        $sem_values = [];
+
+        foreach ($rows as $r) {
+            $id = (int)$r['id'];
+            // A) Coincidencia léxica directa (por si busca una semilla, nick o palabra literal)
+            $hay_exacto = (
+                (!empty($r['descripcion_original']) && mb_stripos($r['descripcion_original'], $search) !== false) ||
+                (!empty($r['prompt_positivo']) && mb_stripos($r['prompt_positivo'], $search) !== false) ||
+                (!empty($r['prompt_negativo']) && mb_stripos($r['prompt_negativo'], $search) !== false) ||
+                (!empty($r['nick']) && mb_stripos($r['nick'], $search) !== false)
+            );
+            if ($hay_exacto) {
+                $exact_matches[$id] = 1.0;
+            }
+
+            // B) Similitud del Coseno Vectorial
+            if (!empty($r['embedding'])) {
+                $doc_vec = array_values(unpack('f*', $r['embedding']));
+                if (count($doc_vec) === $dim) {
+                    $dot = 0.0;
+                    for ($i = 0; $i < $dim; $i++) {
+                        $dot += $q_vec[$i] * $doc_vec[$i];
+                    }
+                    $scores[$id] = $dot;
+                    $sem_values[] = $dot;
+                }
+            }
+        }
+
+        // 4. Umbral adaptativo (se ajusta automáticamente a bge-m3, nomic-embed-text, mxbai, etc.)
+        $umbral = 0.50;
+        $n = count($sem_values);
+        if ($n > 3) {
+            $media = array_sum($sem_values) / $n;
+            $var = 0.0;
+            foreach ($sem_values as $val) {
+                $var += ($val - $media) * ($val - $media);
+            }
+            $std = sqrt($var / $n);
+            $umbral = min(0.62, max(0.48, $media + (1.25 * $std)));
+        }
+
+        $matched_ids = [];
+        foreach ($exact_matches as $id => $sc) {
+            $matched_ids[$id] = $sc;
+        }
+        foreach ($scores as $id => $sim) {
+            if ($sim >= $umbral && !isset($matched_ids[$id])) {
+                $matched_ids[$id] = $sim;
+            }
+        }
+
+        arsort($matched_ids);
+        return array_keys($matched_ids);
+    }
+}
+
 ?>

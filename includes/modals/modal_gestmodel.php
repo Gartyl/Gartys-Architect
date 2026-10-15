@@ -156,6 +156,7 @@ $lista_clips   = array_unique(array_merge(scanComfyFolder('clip'), scanComfyFold
                                             <option value="sys_llm">⚙️ <?= __('adm_cat_hid_txt') ?></option>
                                             <option value="sys_vision">👁️‍🗨️ <?= __('adm_cat_hid_vis') ?></option>
                                             <option value="sys_refiner">🛠️ <?= __('adm_cat_hid_ref') ?? 'Refinador / Rostros (DiT)' ?></option>
+											<option value="sys_embed" <?= !$is_pro ? 'disabled' : '' ?>>🧲 <?= __('adm_cat_hid_emb') ?? 'Motor Semántico (Embeddings)' ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?></option>
                                         </select>
                                     </div>
                                     <div class="col-md-2">

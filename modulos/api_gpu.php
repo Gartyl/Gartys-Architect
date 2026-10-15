@@ -4424,7 +4424,12 @@ if ($action === 'generar_imagen') {
         $historial_id = $pdo->lastInsertId();
     }
 
-    // ====================================================================
+    // 🧲 VECTORIZACIÓN SEMÁNTICA AL VUELO
+    if (function_exists('guardarEmbeddingHistorial') && $historial_id > 0) {
+        guardarEmbeddingHistorial($historial_id, $pdo);
+    }
+	
+	// ====================================================================
     // --- NUEVO: GUARDAR WORKFLOW JSON (Infalible para Asíncrono) ---
     // ====================================================================
     if ($historial_id > 0) {

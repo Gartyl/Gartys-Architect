@@ -3,19 +3,10 @@
  * historial.php - Versión Paginada, Filtros Visuales y Búsqueda Semántica (Preparada)
  */
 require_once __DIR__ . '/includes/core/init.php';
+require_once __DIR__ . '/modulos/core_funciones.php';
 
 // Recuperamos la ID del usuario de la sesión
 $user_id = $_SESSION['user_id'];
-
-// --- AUTO-PARCHES DE BASE DE DATOS ---
-try { $pdo->query("SELECT favorito FROM historial_prompts LIMIT 1"); } 
-catch (Exception $e) { $pdo->exec("ALTER TABLE historial_prompts ADD COLUMN favorito TINYINT(1) DEFAULT 0"); }
-
-try { $pdo->query("SELECT anotacion_admin FROM historial_prompts LIMIT 1"); } 
-catch (Exception $e) { $pdo->exec("ALTER TABLE historial_prompts ADD COLUMN anotacion_admin TEXT DEFAULT NULL"); }
-
-try { $pdo->query("SELECT is_public FROM historial_prompts LIMIT 1"); } 
-catch (Exception $e) { $pdo->exec("ALTER TABLE historial_prompts ADD COLUMN is_public TINYINT(1) DEFAULT 0"); }
 
 // --- FUNCIONES AUXILIARES (Movidas arriba para poder usarlas en los filtros) ---
 function getIconoHistorial($modelo) {
@@ -79,15 +70,22 @@ if (!empty($date_to)) {
     $where_clauses[] = "DATE(fecha_hora) <= ?";
     $params[] = $date_to;
 }
+$is_semantic_active = ($is_pro && function_exists('obtenerModeloEmbeddingActivo') && obtenerModeloEmbeddingActivo($pdo) !== null);
+
 if (!empty($search)) {
-    // =========================================================================================
-    // [PREPARACIÓN PARA BÚSQUEDA SEMÁNTICA]
-    // =========================================================================================
-    $is_semantic_active = false; 
-    
-    if ($is_semantic_active) {
-        // Lógica futura: $vector = generarEmbeddingVision($search);
-        // $where_clauses[] = "VECTOR_SIMILARITY(embedding, ?) > 0.8";
+    $ids_semanticos = null;
+    if ($is_semantic_active && function_exists('ejecutarBusquedaSemantica')) {
+        $ids_semanticos = ejecutarBusquedaSemantica($search, $pdo, $where_clauses, $params, false);
+    }
+
+    if (is_array($ids_semanticos)) {
+        if (empty($ids_semanticos)) {
+            $where_clauses[] = "1 = 0"; // Sin coincidencias
+        } else {
+            $placeholders = implode(',', array_fill(0, count($ids_semanticos), '?'));
+            $where_clauses[] = "id IN ($placeholders)";
+            $params = array_merge($params, $ids_semanticos);
+        }
     } else {
         $where_clauses[] = "(descripcion_original LIKE ? OR prompt_positivo LIKE ? OR prompt_negativo LIKE ?)";
         $like_search = "%$search%";
@@ -264,7 +262,12 @@ $items = groupHistoryItems($all_prompts);
                 <div class="row g-2 align-items-end">
                     <!-- Búsqueda -->
                     <div class="col-md-2">
-                        <label class="form-label small text-secondary fw-bold mb-1"><i class="bi bi-search"></i> <?= __('tit_hist_bus') ?></label>
+                        <label class="form-label small text-secondary fw-bold mb-1">
+                            <i class="bi bi-search"></i> <?= __('tit_hist_bus') ?>
+                            <?php if ($is_semantic_active): ?>
+                                <span class="text-info ms-1" title="<?= __('lbl_sem_active') ?? 'Búsqueda Semántica IA Activa' ?>">🧠</span>
+                            <?php endif; ?>
+                        </label>
                         <input type="text" name="search" class="form-control form-control-sm bg-dark text-light" value="<?php echo htmlspecialchars($search); ?>" placeholder="<?= __('tit_hist_ph_bus') ?? 'Palabra clave...' ?>">
                     </div>
                     <!-- Categoría (Ahora con iconos dinámicos) -->

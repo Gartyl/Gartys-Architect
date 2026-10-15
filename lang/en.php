@@ -1413,6 +1413,8 @@ return [
     'btn_fav_img' => "Add to Favorites",
     'swal_sys_err_title' => "System Error",
     'btn_apply_iclight' => "💡 Direct Relight",
+	'adm_cat_hid_emb' => "System: Semantic Engine (Embeddings)",
+	'lbl_sem_active' => "AI Semantic Search Active",
     
     // ==============================================================================
     // 15. FILTROS DE TABLAS (flt_)
