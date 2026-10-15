@@ -1,15 +1,20 @@
 <?php
-// --- DEFINICIÓN DE SEGURIDAD PARA $action ---
-// Si llamamos directamente al archivo, recogemos la acción por GET o POST para evitar errores.
+// --- DEFINICIONES DE SEGURIDAD (Y TIPADO PARA VSC / INTELEPHENSE) ---
+// Si llamamos directamente al archivo o el editor lo analiza aislado, aseguramos las variables base:
 if (!isset($action)) {
     $action = $_GET['action'] ?? $_POST['action'] ?? '';
+}
+if (!isset($is_admin)) {
+    $is_admin = isset($_SESSION['rol']) && $_SESSION['rol'] === 'admin';
+}
+if (!isset($is_pro)) {
+    $is_pro = $is_admin || (isset($_SESSION['rol']) && in_array($_SESSION['rol'], ['pro', 'avanzado']));
 }
 
 // Y por si acaso no estuviera cargada la configuración local (para poder leer APP_VERSION):
 if (!defined('APP_VERSION')) {
     require_once __DIR__ . '/../config.php';
 }
-
 // ==============================================================================
 // --- MÓDULO ADMIN: GESTIÓN BBDD, DESCARGAS, LICENCIA E IDIOMAS ---
 // ==============================================================================
