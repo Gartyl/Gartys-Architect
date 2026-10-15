@@ -24,46 +24,258 @@ function extractComfyUIPNG(file) {
     const reader = new FileReader();
     reader.onload = function(e) {
         const view = new DataView(e.target.result);
-        let offset = 8; let metadata = {};
+        let offset = 8;
+        let metadata = {};
+
         try {
             while (offset < view.byteLength) {
                 const length = view.getUint32(offset);
-                const type = String.fromCharCode(view.getUint8(offset+4), view.getUint8(offset+5), view.getUint8(offset+6), view.getUint8(offset+7));
-                if (type === 'tEXt') {
-                    const data = new Uint8Array(view.buffer, offset+8, length);
+                const type = String.fromCharCode(
+                    view.getUint8(offset + 4),
+                    view.getUint8(offset + 5),
+                    view.getUint8(offset + 6),
+                    view.getUint8(offset + 7)
+                );
+
+                if (type === 'tEXt' || type === 'iTXt') {
+                    const data = new Uint8Array(view.buffer, offset + 8, length);
                     const text = new TextDecoder('utf-8').decode(data);
                     const nullIdx = text.indexOf('\0');
-                    const keyword = text.substring(0, nullIdx);
-                    metadata[keyword] = text.substring(nullIdx + 1);
+                    if (nullIdx !== -1) {
+                        const keyword = text.substring(0, nullIdx);
+                        let rawVal = text.substring(nullIdx + 1);
+                        if (type === 'iTXt') rawVal = rawVal.replace(/^\x00+/, '');
+                        metadata[keyword] = rawVal;
+                    }
                 }
                 offset += 12 + length;
             }
+
+            let foundPos = "";
+            let foundNeg = "";
+            let foundModel = "";
+            let foundLoras = [];
+            let extractedParams = {};
+            let extracted = false;
+
+            // =========================================================================
+            // RUTA A: METADATOS NATIVOS DE COMFYUI (JSON)
+            // =========================================================================
             if (metadata.prompt) {
                 const promptData = JSON.parse(metadata.prompt);
-                let foundPos = "", foundNeg = "";
+
+                const resolvePromptNode = (link, isNegative = false, depth = 0) => {
+                    if (!link || !Array.isArray(link) || depth > 8) return "";
+                    const node = promptData[String(link[0])];
+                    if (!node || !node.inputs) return "";
+
+                    if (isNegative && typeof node.inputs.negative_prompt === 'string') return node.inputs.negative_prompt;
+                    if (typeof node.inputs.text === 'string') return node.inputs.text;
+                    if (typeof node.inputs.prompt === 'string') return node.inputs.prompt;
+                    if (typeof node.inputs.value === 'string') return node.inputs.value;
+                    if (typeof node.inputs.speech === 'string') return node.inputs.speech;
+
+                    if (Array.isArray(node.inputs.text)) return resolvePromptNode(node.inputs.text, isNegative, depth + 1);
+                    if (Array.isArray(node.inputs.prompt)) return resolvePromptNode(node.inputs.prompt, isNegative, depth + 1);
+
+                    if (Array.isArray(node.inputs.conditioning)) return resolvePromptNode(node.inputs.conditioning, isNegative, depth + 1);
+                    if (!isNegative && Array.isArray(node.inputs.positive)) return resolvePromptNode(node.inputs.positive, false, depth + 1);
+                    if (isNegative && Array.isArray(node.inputs.negative)) return resolvePromptNode(node.inputs.negative, true, depth + 1);
+
+                    return "";
+                };
+
                 for (const key in promptData) {
                     const node = promptData[key];
-                    if (node.class_type === "KSampler" || node.class_type === "KSamplerAdvanced") {
-                        if(document.getElementById('stepsInput')) document.getElementById('stepsInput').value = node.inputs.steps || 30;
-                        if(document.getElementById('cfgInput')) document.getElementById('cfgInput').value = node.inputs.cfg || 5.0;
-                        if(document.getElementById('samplerInput')) document.getElementById('samplerInput').value = node.inputs.sampler_name || "euler";
-                        if(document.getElementById('schedulerInput')) document.getElementById('schedulerInput').value = node.inputs.scheduler || "normal";
-                        if(document.getElementById('seedInput')) document.getElementById('seedInput').value = node.inputs.seed || node.inputs.noise_seed || -1;
+                    if (!node || !node.inputs) continue;
+
+                    // 1. Detectar Modelo Base (Checkpoint / UNET / GGUF)
+                    if (["CheckpointLoaderSimple", "UNETLoader", "UnetLoaderGGUF"].includes(node.class_type)) {
+                        const mName = node.inputs.ckpt_name || node.inputs.unet_name;
+                        if (mName && !foundModel) foundModel = mName;
                     }
-                    if (node.class_type === "CLIPTextEncode" && node.inputs.text) {
-                        if (foundPos === "") foundPos = node.inputs.text;
-                        else if (node.inputs.text.length > foundPos.length) { foundNeg = foundPos; foundPos = node.inputs.text; }
-                        else { foundNeg = node.inputs.text; }
+
+                    // 2. Detectar LoRAs
+                    if (["LoraLoader", "LoraLoaderModelOnly"].includes(node.class_type) && node.inputs.lora_name) {
+                        const lName = node.inputs.lora_name;
+                        const lWeight = node.inputs.strength_model ?? 0.8;
+                        if (lWeight !== 0) {
+                            foundLoras.push({ name: lName, high: lWeight, low: lWeight });
+                        }
+                    }
+
+                    // 3. Detectar KSampler y Prompts
+                    if (node.class_type === "KSampler" || node.class_type === "KSamplerAdvanced") {
+                        if (node.inputs.steps) extractedParams.steps = node.inputs.steps;
+                        if (node.inputs.cfg !== undefined) extractedParams.cfg = node.inputs.cfg;
+                        if (node.inputs.sampler_name) extractedParams.sampler = node.inputs.sampler_name;
+                        if (node.inputs.scheduler) extractedParams.scheduler = node.inputs.scheduler;
+                        const seedVal = node.inputs.seed ?? node.inputs.noise_seed;
+                        if (seedVal !== undefined) extractedParams.seed = seedVal;
+
+                        if (!foundPos && node.inputs.positive) foundPos = resolvePromptNode(node.inputs.positive, false);
+                        if (!foundNeg && node.inputs.negative) foundNeg = resolvePromptNode(node.inputs.negative, true);
+                    }
+
+                    // 4. Detectar Resolución
+                    if (["EmptyLatentImage", "EmptySD3LatentImage", "WanImageToVideo"].includes(node.class_type)) {
+                        if (typeof node.inputs.width === 'number' && typeof node.inputs.height === 'number') {
+                            extractedParams.width = node.inputs.width;
+                            extractedParams.height = node.inputs.height;
+                        }
+                    }
+
+                    // 5. Detectar Flux Guidance y Clip Skip
+                    if (node.class_type === "FluxGuidance" && node.inputs.guidance) {
+                        extractedParams.guidance = node.inputs.guidance;
+                    }
+                    if (node.class_type === "CLIPSetLastLayer" && node.inputs.stop_at_clip_layer) {
+                        extractedParams.clipSkip = Math.abs(parseInt(node.inputs.stop_at_clip_layer));
                     }
                 }
-                let desc = foundPos;
-                if(foundNeg) desc += "\n\nNEGATIVO:\n" + foundNeg;
-                document.getElementById('descripcion').value = desc;
-                if(typeof savePreferences === 'function') savePreferences();
+
+                if (!foundPos) {
+                    for (const key in promptData) {
+                        const node = promptData[key];
+                        if (node && node.inputs && typeof node.inputs.text === 'string' && node.inputs.text.trim() !== '') {
+                            if (!foundPos) foundPos = node.inputs.text;
+                            else if (!foundNeg) foundNeg = node.inputs.text;
+                        }
+                    }
+                }
+                extracted = true;
+            }
+            // =========================================================================
+            // RUTA B: METADATOS DE CIVITAI / FORGE / AUTOMATIC1111 ('parameters')
+            // =========================================================================
+            else if (metadata.parameters) {
+                const rawParams = metadata.parameters.trim();
+                const negSplit = rawParams.split(/\nNegative prompt:\s*/i);
+                let beforeNeg = negSplit[0] || "";
+                let afterNeg = negSplit[1] || "";
+
+                if (negSplit.length > 1) {
+                    foundPos = beforeNeg.trim();
+                    const stepsSplit = afterNeg.split(/\n(?=Steps:\s*\d+)/i);
+                    foundNeg = (stepsSplit[0] || "").trim();
+                    afterNeg = stepsSplit.slice(1).join("\n");
+                } else {
+                    const stepsSplit = beforeNeg.split(/\n(?=Steps:\s*\d+)/i);
+                    foundPos = (stepsSplit[0] || "").trim();
+                    afterNeg = stepsSplit.slice(1).join("\n");
+                }
+
+                // Extraer etiquetas <lora:nombre:peso> del prompt de Civitai/A1111 y limpiarlas del texto
+                const loraRegex = /<lora:([^:>]+):([\d.-]+)(?::[\d.-]+)?>/gi;
+                let loraMatch;
+                while ((loraMatch = loraRegex.exec(foundPos)) !== null) {
+                    foundLoras.push({ name: loraMatch[1], high: parseFloat(loraMatch[2]), low: parseFloat(loraMatch[2]) });
+                }
+                foundPos = foundPos.replace(loraRegex, '').replace(/\s+,/g, ',').replace(/,\s*,/g, ',').trim();
+
+                const getParam = (regex) => {
+                    const m = afterNeg.match(regex);
+                    return m ? m[1].trim() : null;
+                };
+
+                foundModel = getParam(/Model:\s*([^,\n]+)/i) || "";
+                extractedParams.steps = getParam(/Steps:\s*(\d+)/i);
+                extractedParams.cfg = getParam(/CFG scale:\s*([\d.]+)/i);
+                extractedParams.seed = getParam(/Seed:\s*(\d+)/i);
+                extractedParams.clipSkip = getParam(/Clip skip:\s*(\d+)/i);
+
+                const size = getParam(/Size:\s*(\d+x\d+)/i);
+                if (size) {
+                    const [w, h] = size.split('x').map(Number);
+                    if (w && h) { extractedParams.width = w; extractedParams.height = h; }
+                }
+
+                const samplerRaw = getParam(/Sampler:\s*([^,\n]+)/i);
+                const schedRaw = getParam(/Schedule type:\s*([^,\n]+)/i);
+
+                if (samplerRaw) {
+                    const sLow = samplerRaw.toLowerCase();
+                    if (sLow.includes('euler a')) extractedParams.sampler = 'euler_ancestral';
+                    else if (sLow.includes('dpm++ 2m sde')) extractedParams.sampler = 'dpmpp_2m_sde_gpu';
+                    else if (sLow.includes('dpm++ 3m sde')) extractedParams.sampler = 'dpmpp_3m_sde_gpu';
+                    else if (sLow.includes('dpm++ 2m')) extractedParams.sampler = 'dpmpp_2m';
+                    else if (sLow.includes('euler')) extractedParams.sampler = 'euler';
+                    else if (sLow.includes('ddim')) extractedParams.sampler = 'ddim';
+                    else if (sLow.includes('lcm')) extractedParams.sampler = 'lcm';
+                    if (sLow.includes('karras')) extractedParams.scheduler = 'karras';
+                }
+
+                if (schedRaw) {
+                    const scLow = schedRaw.toLowerCase();
+                    if (scLow.includes('karras')) extractedParams.scheduler = 'karras';
+                    else if (scLow.includes('exponential')) extractedParams.scheduler = 'exponential';
+                    else if (scLow.includes('sgm') || scLow.includes('uniform')) extractedParams.scheduler = 'sgm_uniform';
+                    else if (scLow.includes('simple')) extractedParams.scheduler = 'simple';
+                    else if (scLow.includes('beta')) extractedParams.scheduler = 'beta';
+                    else if (scLow.includes('normal') || scLow.includes('automatic')) extractedParams.scheduler = 'normal';
+                }
+
+                extracted = true;
+            }
+
+            // =========================================================================
+            // VOLCADO LIMPIO A LA INTERFAZ
+            // =========================================================================
+            if (extracted && (foundPos || foundNeg)) {
+                if (foundNeg === "low quality, blurry, text, watermark" || foundNeg === "N/A (Audio Standalone)") {
+                    foundNeg = "";
+                }
+
+                const aplicarParametrosExtraidos = () => {
+                    if (extractedParams.steps && document.getElementById('stepsInput')) document.getElementById('stepsInput').value = extractedParams.steps;
+                    if (extractedParams.cfg !== undefined && extractedParams.cfg !== null && document.getElementById('cfgInput')) document.getElementById('cfgInput').value = extractedParams.cfg;
+                    if (extractedParams.sampler && document.getElementById('samplerInput')) document.getElementById('samplerInput').value = extractedParams.sampler;
+                    if (extractedParams.scheduler && document.getElementById('schedulerInput')) document.getElementById('schedulerInput').value = extractedParams.scheduler;
+                    if (extractedParams.seed !== undefined && extractedParams.seed !== null && document.getElementById('seedInput')) document.getElementById('seedInput').value = extractedParams.seed;
+                    if (extractedParams.guidance && document.getElementById('fluxGuidanceInput')) document.getElementById('fluxGuidanceInput').value = extractedParams.guidance;
+                    if (extractedParams.clipSkip && document.getElementById('clipSkipInput')) document.getElementById('clipSkipInput').value = extractedParams.clipSkip;
+                    if (extractedParams.width && extractedParams.height) {
+                        if (document.getElementById('imgWidth')) document.getElementById('imgWidth').value = extractedParams.width;
+                        if (document.getElementById('imgHeight')) document.getElementById('imgHeight').value = extractedParams.height;
+                        if (typeof window.desmarcarProp === 'function') window.desmarcarProp();
+                    }
+                };
+
+                if (typeof window.aplicarModeloYLoras === 'function') {
+                    window.aplicarModeloYLoras(foundModel, foundLoras, aplicarParametrosExtraidos).then(() => {
+                        const descEl = document.getElementById('descripcion');
+                        if (descEl) descEl.value = foundPos;
+
+                        const selVal = document.getElementById('selector') ? document.getElementById('selector').value : '[SDXL]';
+                        if (typeof lastGeneratedPrompt !== 'undefined') {
+                            lastGeneratedPrompt.pos = foundPos;
+                            lastGeneratedPrompt.neg = foundNeg;
+                        }
+                        if (typeof showGeneratedPromptsInUI === 'function') {
+                            showGeneratedPromptsInUI(foundPos, foundNeg, selVal);
+                        }
+                        if (typeof savePreferences === 'function') savePreferences();
+                    });
+                } else {
+                    aplicarParametrosExtraidos();
+                }
+
+                SwalDark.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: GartyLang.swal_xray_ok_title,
+                    text: GartyLang.swal_xray_ok_text,
+                    showConfirmButton: false,
+                    timer: 2800
+                });
             } else {
                 SwalDark.fire({ icon: 'warning', title: GartyLang.swal_no_meta_title, text: GartyLang.swal_no_meta_text });
             }
-        } catch(err) { console.error(err); }
+        } catch (err) {
+            console.error(err);
+            SwalDark.fire({ icon: 'warning', title: GartyLang.swal_no_meta_title, text: GartyLang.swal_no_meta_text });
+        }
     };
     reader.readAsArrayBuffer(file);
 }
@@ -325,7 +537,10 @@ async function usarImagenDeGaleria(url) {
 }
 
 async function cargarDatosImagen(imgId) {
-    const fd = new FormData(); fd.append('action', 'get_single_image_data'); fd.append('img_id', imgId);
+    const fd = new FormData();
+    fd.append('action', 'get_single_image_data');
+    fd.append('img_id', imgId);
+
     try {
         const res = await fetch('procesar.php', { method: 'POST', body: fd });
         const data = await res.json();
@@ -338,90 +553,126 @@ async function cargarDatosImagen(imgId) {
             if (!modeloFinal.startsWith('[')) modeloFinal = '[' + modeloFinal + ']';
             const selectorEl = document.getElementById('selector');
             if (selectorEl) selectorEl.value = modeloFinal;
-            
+
             if (typeof updateUIForSelector === 'function') updateUIForSelector(modeloFinal);
             if (APP_ENV.isAvanzado) {
                 if (typeof updateModelFilter === 'function') updateModelFilter(modeloFinal);
                 if (typeof updateLoraFilter === 'function') updateLoraFilter(modeloFinal);
             }
-            
+
             const cajaPrincipal = document.getElementById('descripcion');
-            if (cajaPrincipal) cajaPrincipal.value = data.descripcion_original || ""; 
+            if (cajaPrincipal) cajaPrincipal.value = data.descripcion_original || "";
 
             const resultsDiv = document.getElementById('results');
             if (resultsDiv) { resultsDiv.style.display = 'block'; resultsDiv.classList.remove('d-none', 'collapse'); }
 
-            const posCode = document.getElementById('posContent'); const promptArea = document.getElementById('promptArea');
+            const posCode = document.getElementById('posContent');
+            const promptArea = document.getElementById('promptArea');
             if (posCode) posCode.innerText = data.prompt_positivo || "";
             if (promptArea) { promptArea.style.display = 'block'; promptArea.classList.remove('collapse', 'd-none'); }
 
-            const negCode = document.getElementById('negContent'); const negativeArea = document.getElementById('negativeArea');
+            const negCode = document.getElementById('negContent');
+            const negativeArea = document.getElementById('negativeArea');
             if (negCode) negCode.innerText = data.prompt_negativo || "";
-            if (negativeArea) { negativeArea.style.display = 'block'; negativeArea.classList.remove('collapse', 'd-none'); }
-            
+            if (negativeArea) {
+                if (data.prompt_negativo && data.prompt_negativo.trim() !== "") {
+                    negativeArea.style.display = 'block';
+                    negativeArea.classList.remove('collapse', 'd-none');
+                }
+            }
+
+            if (typeof lastGeneratedPrompt !== 'undefined') {
+                lastGeneratedPrompt.pos = data.prompt_positivo || "";
+                lastGeneratedPrompt.neg = data.prompt_negativo || "";
+            }
+
             if (data.metadata) {
                 const meta = JSON.parse(data.metadata);
-                if (document.getElementById('stepsInput')) document.getElementById('stepsInput').value = meta.Steps || meta.steps || 30;
-                if (document.getElementById('cfgInput')) document.getElementById('cfgInput').value = meta['CFG Scale'] || meta.cfg || 5.0;
-                if (document.getElementById('seedInput')) document.getElementById('seedInput').value = meta.Seed || meta.seed || -1;
-                
-                setTimeout(() => {
-                    const modelDropdown = document.querySelector('select[name="model_path"]') || document.getElementById('model_path');
-                    const savedModel = meta.Model || meta.model || data.model_path || data.modelo_grafico;
-                    if (modelDropdown && savedModel) {
-                        for (let i = 0; i < modelDropdown.options.length; i++) {
-                            if (modelDropdown.options[i].value.includes(savedModel) || savedModel.includes(modelDropdown.options[i].value)) {
-                                modelDropdown.selectedIndex = i; break;
+                const savedModel = meta.Model || meta.model || data.model_path || data.modelo_grafico || "";
+
+                // Parseador de todos los formatos de LoRA guardados en metadata
+                let parsedLoras = [];
+                const lorasGuardados = meta.LoRAs || meta.loras || meta.Loras;
+                if (lorasGuardados && typeof lorasGuardados === 'string') {
+                    lorasGuardados.split(',').forEach(part => {
+                        const s = part.trim();
+                        // Caso 1: Wan Dual "loraH (0.8) + loraL (0.6)"
+                        let mDual = s.match(/^(.+?)\s*\(([\d.-]+)\)\s*\+\s*(.+?)\s*\(([\d.-]+)\)$/);
+                        if (mDual) {
+                            parsedLoras.push({ name: mDual[1].trim(), high: parseFloat(mDual[2]), low: parseFloat(mDual[4]) });
+                            return;
+                        }
+                        // Caso 2: Wan High/Low "lora (High: 0.8 / Low: 0.6)"
+                        let mHL = s.match(/^(.+?)\s*\(High:\s*([\d.-]+)\s*\/\s*Low:\s*([\d.-]+)\)$/i);
+                        if (mHL) {
+                            parsedLoras.push({ name: mHL[1].trim(), high: parseFloat(mHL[2]), low: parseFloat(mHL[3]) });
+                            return;
+                        }
+                        // Caso 3: Estándar "lora_name (0.8)"
+                        let mStd = s.match(/^(.+?)\s*\(([\d.-]+)\)$/);
+                        if (mStd) {
+                            parsedLoras.push({ name: mStd[1].trim(), high: parseFloat(mStd[2]), low: parseFloat(mStd[2]) });
+                        }
+                    });
+                }
+
+                // Función que aplica los parámetros exactos de la imagen tras seleccionar el modelo
+                const aplicarAjustesHistorial = () => {
+                    if (document.getElementById('stepsInput')) document.getElementById('stepsInput').value = meta.Steps || meta.steps || 30;
+                    if (document.getElementById('cfgInput')) document.getElementById('cfgInput').value = meta['CFG Scale'] ?? meta.cfg ?? 5.0;
+                    if (document.getElementById('seedInput')) document.getElementById('seedInput').value = meta.Seed || meta.seed || -1;
+
+                    if (meta.Sampler) {
+                        const mSamp = String(meta.Sampler).match(/^([^\s(]+)(?:\s*\(([^)]+)\))?/);
+                        if (mSamp) {
+                            if (mSamp[1] && document.getElementById('samplerInput')) document.getElementById('samplerInput').value = mSamp[1].toLowerCase();
+                            if (mSamp[2] && document.getElementById('schedulerInput')) document.getElementById('schedulerInput').value = mSamp[2].toLowerCase();
+                        }
+                    }
+
+                    if (meta.Resolution && String(meta.Resolution).includes('x')) {
+                        const [w, h] = String(meta.Resolution).split('x').map(Number);
+                        if (w && h) {
+                            if (modeloFinal === '[VIDEO]') {
+                                if (document.getElementById('vidWidth')) document.getElementById('vidWidth').value = w;
+                                if (document.getElementById('vidHeight')) document.getElementById('vidHeight').value = h;
+                                if (typeof window.desmarcarPropVid === 'function') window.desmarcarPropVid();
+                            } else {
+                                if (document.getElementById('imgWidth')) document.getElementById('imgWidth').value = w;
+                                if (document.getElementById('imgHeight')) document.getElementById('imgHeight').value = h;
+                                if (typeof window.desmarcarProp === 'function') window.desmarcarProp();
                             }
                         }
                     }
-                    
-                    const lorasGuardados = meta.LoRAs || meta.loras || meta.Loras;
-                    const switchLoras = document.getElementById('loraToggle'); 
-                    let lorasValidos = [];
-                    if (lorasGuardados) {
-                        const textoLoras = String(lorasGuardados).trim();
-                        if (textoLoras.length > 2) lorasValidos = textoLoras.split(',').filter(lora => lora.match(/(.+?)\s*\(([\d.]+)\)/));
-                    }
 
-                    if (switchLoras) {
-                        if (lorasValidos.length > 0) {
-                            if (!switchLoras.checked) { switchLoras.checked = true; switchLoras.dispatchEvent(new Event('change')); }
-                            setTimeout(() => {
-                                const btnAñadir = document.getElementById('addLoraBtn') || document.querySelector('button[onclick="addLoraRow()"]');
-                                lorasValidos.forEach((loraStr, index) => {
-                                    const match = loraStr.match(/(.+?)\s*\(([\d.]+)\)/);
-                                    if (match) {
-                                        const nombreLora = match[1].trim(); const pesoLora = match[2];
-                                        let filas = document.querySelectorAll('.lora-row');
-                                        if (index >= filas.length && btnAñadir) { btnAñadir.click(); filas = document.querySelectorAll('.lora-row'); }
-                                        const filaActual = filas[index];
-                                        if (filaActual) {
-                                            const select = filaActual.querySelector('.lora-selector');
-                                            if (select) {
-                                                let searchLora = nombreLora.toLowerCase().replace('.safetensors', '').trim();
-                                                for (let i = 0; i < select.options.length; i++) {
-                                                    let optText = select.options[i].text.toLowerCase();
-                                                    if (optText.includes(searchLora) || searchLora.includes(optText)) {
-                                                        select.selectedIndex = i; select.dispatchEvent(new Event('change')); break;
-                                                    }
-                                                }
-                                            }
-                                            if (filaActual.querySelector('.lora-strength-high')) filaActual.querySelector('.lora-strength-high').value = pesoLora;
-                                            if (filaActual.querySelector('.lora-strength-low')) filaActual.querySelector('.lora-strength-low').value = pesoLora;
-                                        }
-                                    }
-                                });
-                            }, 300);
-                        } else {
-                            if (switchLoras.checked) { switchLoras.checked = false; switchLoras.dispatchEvent(new Event('change')); }
-                        }
+                    if (meta['Guidance (Flux)'] && document.getElementById('fluxGuidanceInput')) {
+                        document.getElementById('fluxGuidanceInput').value = meta['Guidance (Flux)'];
                     }
-                }, 100);
+                    if (meta['CLIP Skip'] && document.getElementById('clipSkipInput')) {
+                        document.getElementById('clipSkipInput').value = meta['CLIP Skip'];
+                    }
+                    if (meta['Flow Shift'] && document.getElementById('shiftInput')) {
+                        document.getElementById('shiftInput').value = meta['Flow Shift'];
+                    }
+                    const denVal = meta['Denoise (I2I)'] ?? meta.Denoise;
+                    if (denVal !== undefined) {
+                        if (document.getElementById('globalDenoiseSlider')) document.getElementById('globalDenoiseSlider').value = denVal;
+                        if (document.getElementById('denoiseSlider')) document.getElementById('denoiseSlider').value = denVal;
+                        if (document.getElementById('denoiseVal')) document.getElementById('denoiseVal').innerText = denVal;
+                    }
+                };
+
+                if (typeof window.aplicarModeloYLoras === 'function') {
+                    await window.aplicarModeloYLoras(savedModel, parsedLoras, aplicarAjustesHistorial);
+                } else {
+                    aplicarAjustesHistorial();
+                }
             }
             if (typeof savePreferences === 'function') savePreferences();
         }
-    } catch(e) { SwalDark.fire({ icon: 'error', title: GartyLang.swal_net_err_title, text: GartyLang.swal_rest_err_net }); }
+    } catch(e) {
+        SwalDark.fire({ icon: 'error', title: GartyLang.swal_net_err_title, text: GartyLang.swal_rest_err_net });
+    }
 }
 
 // --- BOTÓN SORPRÉNDEME ---

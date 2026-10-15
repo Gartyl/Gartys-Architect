@@ -254,6 +254,7 @@ function updateModelFilter(category) {
                     const opt = document.createElement('option');
                     opt.value = m.id; 
                     if (m.categoria) opt.dataset.categoria = m.categoria;
+                    if (m.nombre_archivo) opt.dataset.archivo = m.nombre_archivo;
                     
                     let esPro = (m.nivel_acceso === 'avanzado' || m.nivel_acceso === 'pro');
                     if (typeof currentUserRole !== 'undefined' && currentUserRole === 'free' && esPro) {
@@ -272,6 +273,7 @@ function updateModelFilter(category) {
                 const opt = document.createElement('option');
                 opt.value = m.id; 
                 if (m.categoria) opt.dataset.categoria = m.categoria;
+                if (m.nombre_archivo) opt.dataset.archivo = m.nombre_archivo;
                 
                 let esPro = (m.nivel_acceso === 'avanzado' || m.nivel_acceso === 'pro');
                 if (typeof currentUserRole !== 'undefined' && currentUserRole === 'free' && esPro) {
@@ -330,8 +332,8 @@ function updateLoraFilter(category) {
         if (opcion.disabled || opcion.value === "" || opcion.text.includes('⚠️')) {
             esModeloValido = false;
         } else {
-            // TRUCO: Juntamos el nombre del menú y el nombre del archivo
-            modeloSeleccionado = (opcion.text + " " + opcion.value).toLowerCase();
+            // Juntamos nombre visual, ID y nombre de archivo físico para detectar la familia sin fallos
+            modeloSeleccionado = (opcion.text + " " + opcion.value + " " + (opcion.dataset.archivo || "")).toLowerCase();
         }
     } else {
         esModeloValido = false;
@@ -1597,3 +1599,123 @@ async function actualizarDatosMonitor() {
         console.warn(lblErrUpdate, e);
     }
 }
+
+// ==============================================================================
+// --- RESTAURADOR UNIVERSAL DE MODELO Y LORAS (HISTORIAL, GALERÍA Y RAYOS X) ---
+// ==============================================================================
+window.aplicarModeloYLoras = async function(targetModelName, lorasArray = [], onAfterModelSelect = null) {
+    // 1. Esperamos hasta 4 segundos a que descargarModelosDisponibles() y loadModelsAndLoras() terminen de cargar
+    let intentos = 0;
+    while (intentos < 40 && (!window.modelosDBSistema || window.modelosDBSistema.length === 0)) {
+        await new Promise(r => setTimeout(r, 100));
+        intentos++;
+    }
+    // Si tiene permisos avanzados, damos margen también a que cargue la lista de LoRAs
+    if (APP_ENV.isAvanzado && lorasArray.length > 0) {
+        let intentosLora = 0;
+        while (intentosLora < 30 && (!loadedLoras || loadedLoras.length === 0)) {
+            await new Promise(r => setTimeout(r, 100));
+            intentosLora++;
+        }
+    }
+
+    const norm = (str) => String(str || '').split(/[\\/]/).pop().toLowerCase().replace(/\.(safetensors|ckpt|gguf|pt|pth|bin|sft)$/i, '').trim();
+    const targetClean = norm(targetModelName);
+
+    // 2. BUSCAR Y SELECCIONAR EL MODELO EN LA BASE DE DATOS DEL USUARIO
+    if (targetClean && window.modelosDBSistema && window.modelosDBSistema.length > 0) {
+        let matchedModel = window.modelosDBSistema.find(m => {
+            if (m.motor !== 'comfyui') return false;
+            const archClean = norm(m.nombre_archivo);
+            const visClean = norm(m.nombre_visual);
+            return (archClean && (archClean === targetClean || archClean.includes(targetClean) || targetClean.includes(archClean))) ||
+                   (visClean && (visClean === targetClean || visClean.includes(targetClean) || targetClean.includes(visClean)));
+        });
+
+        if (matchedModel) {
+            const mapaCat = { 'sd15': '[SD15]', 'sdxl': '[SDXL]', 'flux': '[NATURAL_IMAGE]', 'video': '[VIDEO]' };
+            const catUI = mapaCat[(matchedModel.categoria || '').toLowerCase()];
+            const selectorEl = document.getElementById('selector');
+
+            // Si el modelo pertenece a otra categoría gráfica, cambiamos la pestaña automáticamente
+            if (catUI && selectorEl && selectorEl.value !== catUI && selectorEl.value !== '[CHAT]') {
+                selectorEl.value = catUI;
+                if (typeof updateUIForSelector === 'function') updateUIForSelector(catUI);
+                updateModelFilter(catUI);
+            }
+
+            const modelSel = document.getElementById('modelSelector');
+            if (modelSel) {
+                modelSel.value = matchedModel.id;
+                syncLorasWithSelectedModel();
+            }
+        }
+    }
+
+    // 3. APLICAMOS LOS PARÁMETROS TÉCNICOS DE LA IMAGEN (DESPUÉS del modelo para que no se pisen)
+    if (typeof onAfterModelSelect === 'function') {
+        onAfterModelSelect();
+    }
+
+    // 4. BUSCAR Y SELECCIONAR LOS LORAS (SI EL USUARIO LOS TIENE EN SU CARPETA)
+    const switchLoras = document.getElementById('loraToggle');
+    const loraUI = document.getElementById('loraUI');
+    const wrapper = document.getElementById('lorasWrapper');
+    if (!switchLoras || !wrapper) return;
+
+    wrapper.innerHTML = '';
+
+    if (lorasArray && lorasArray.length > 0) {
+        let algunoEncontrado = false;
+
+        lorasArray.forEach(item => {
+            const buscadoClean = norm(item.name);
+            if (!buscadoClean) return;
+
+            // Buscamos primero en los LoRAs filtrados de la categoría, y como respaldo en toda la carpeta loras/ del usuario
+            let matchPath = filteredLoras.find(l => norm(l) === buscadoClean)
+                         || filteredLoras.find(l => norm(l).includes(buscadoClean) || buscadoClean.includes(norm(l)))
+                         || loadedLoras.find(l => norm(l) === buscadoClean)
+                         || loadedLoras.find(l => norm(l).includes(buscadoClean) || buscadoClean.includes(norm(l)));
+
+            if (matchPath) {
+                algunoEncontrado = true;
+                addLoraRow();
+                const filas = wrapper.querySelectorAll('.lora-row');
+                const filaActual = filas[filas.length - 1];
+
+                if (filaActual) {
+                    const select = filaActual.querySelector('.lora-selector');
+                    if (select) {
+                        // Si el LoRA existe en el disco del usuario pero estaba en otra subcarpeta no listada en filteredLoras, lo añadimos al select
+                        if (!Array.from(select.options).some(o => o.value === matchPath)) {
+                            const optExtra = document.createElement('option');
+                            optExtra.value = matchPath;
+                            optExtra.textContent = matchPath.split(/[\\/]/).pop();
+                            select.appendChild(optExtra);
+                        }
+                        select.value = matchPath;
+                        select.dispatchEvent(new Event('change'));
+                    }
+                    const inputH = filaActual.querySelector('.lora-strength-high');
+                    const inputL = filaActual.querySelector('.lora-strength-low');
+                    if (inputH && item.high !== undefined) inputH.value = item.high;
+                    if (inputL && item.low !== undefined) inputL.value = item.low;
+                }
+            }
+        });
+
+        if (algunoEncontrado) {
+            switchLoras.checked = true;
+            if (loraUI) loraUI.classList.remove('d-none');
+        } else {
+            switchLoras.checked = false;
+            if (loraUI) loraUI.classList.add('d-none');
+            addLoraRow();
+        }
+    } else {
+        switchLoras.checked = false;
+        if (loraUI) loraUI.classList.add('d-none');
+        addLoraRow();
+    }
+};

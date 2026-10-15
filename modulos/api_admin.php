@@ -217,9 +217,9 @@ if ($action === 'get_modelos_bd') {
 
 if ($action === 'get_active_models') {
     try {
-        if ($is_admin) $stmt = $pdo->query("SELECT id, nombre_visual, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, default_negative FROM modelos_ia WHERE activo = 1 ORDER BY nombre_visual ASC");
-        elseif ($is_pro) $stmt = $pdo->query("SELECT id, nombre_visual, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, default_negative FROM modelos_ia WHERE activo = 1 AND nivel_acceso IN ('usuario', 'avanzado') ORDER BY nombre_visual ASC");
-        else $stmt = $pdo->query("SELECT id, nombre_visual, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, default_negative FROM modelos_ia WHERE activo = 1 AND nivel_acceso = 'usuario' ORDER BY nombre_visual ASC");
+        if ($is_admin) $stmt = $pdo->query("SELECT id, nombre_visual, nombre_archivo, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, default_negative FROM modelos_ia WHERE activo = 1 ORDER BY nombre_visual ASC");
+        elseif ($is_pro) $stmt = $pdo->query("SELECT id, nombre_visual, nombre_archivo, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, default_negative FROM modelos_ia WHERE activo = 1 AND nivel_acceso IN ('usuario', 'avanzado') ORDER BY nombre_visual ASC");
+        else $stmt = $pdo->query("SELECT id, nombre_visual, nombre_archivo, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, default_negative FROM modelos_ia WHERE activo = 1 AND nivel_acceso = 'usuario' ORDER BY nombre_visual ASC");
         echo json_encode(['modelos' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
     } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
     exit();
