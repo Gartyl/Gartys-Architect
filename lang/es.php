@@ -236,6 +236,8 @@ return [
 	'swal_batch_stop_msg' => "El procesamiento de la carpeta se detendrá tras la imagen actual.",
 	'notif_batch_done_tit' => "Lote Completado",
 	'notif_batch_done_msg' => "Todas las imágenes han sido procesadas.",
+	'swal_xray_ok_title' => "⚡ Rayos X completado",
+	'swal_xray_ok_text' => "Prompt y parámetros técnicos extraídos del PNG.",
     
     // ==============================================================================
     // 04. BOTONES, CONTROLES E INTERRUPTORES

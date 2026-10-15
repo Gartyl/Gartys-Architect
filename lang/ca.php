@@ -236,6 +236,8 @@ return [
 	'swal_batch_stop_msg' => "El processament de la carpeta s'aturarà després de la imatge actual.",
 	'notif_batch_done_tit' => "Lot Completat",
 	'notif_batch_done_msg' => "Totes les imatges han estat processades.",
+	'swal_xray_ok_title' => "⚡ Raigs X completat",
+	'swal_xray_ok_text' => "Prompt i paràmetres tècnics extrets del PNG.",
     
     // ==============================================================================
     // 04. BOTONES, CONTROLES E INTERRUPTORES

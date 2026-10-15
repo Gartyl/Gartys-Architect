@@ -236,6 +236,8 @@ return [
 	'swal_batch_stop_msg' => "Folder processing will stop after the current image.",
 	'notif_batch_done_tit' => "Batch Completed",
 	'notif_batch_done_msg' => "All images have been processed.",
+	'swal_xray_ok_title' => "⚡ X-Ray completed",
+	'swal_xray_ok_text' => "Prompt and technical parameters extracted from PNG.",
     
     // ==============================================================================
     // 04. BOTONES, CONTROLES E INTERRUPTORES
