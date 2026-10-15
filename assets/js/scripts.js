@@ -272,63 +272,103 @@ window.sincronizarPaginaHistorial = async function() {
     }
 };
 
-// 8. Radar Asíncrono de Cola Global
+// 8. Radar Asíncrono de Cola Global (Soporte Multi-Ticket)
 document.addEventListener('DOMContentLoaded', () => {
-    const tareaGuardada = localStorage.getItem('garty_tarea_pendiente');
-    if (tareaGuardada) {
-        const tarea = JSON.parse(tareaGuardada);
-        
+    const leerCola = () => {
+        try {
+            const raw = localStorage.getItem('garty_tarea_pendiente');
+            if (!raw) return [];
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : (parsed && parsed.prompt_id ? [parsed] : []);
+        } catch (e) { return []; }
+    };
+
+    const quitarDeCola = (promptId) => {
+        const restantes = leerCola().filter(t => t.prompt_id !== promptId);
+        if (restantes.length > 0) {
+            localStorage.setItem('garty_tarea_pendiente', JSON.stringify(restantes));
+        } else {
+            localStorage.removeItem('garty_tarea_pendiente');
+        }
+        return restantes.length;
+    };
+
+    if (leerCola().length > 0) {
+        const enConsulta = new Set();
+
         const radarGlobal = setInterval(async () => {
-            const fd = new FormData();
-            fd.append('action', 'check_ticket');
-            fd.append('prompt_id', tarea.prompt_id);
-            fd.append('historial_id', tarea.db_id);
-            
-            try {
-                const res = await fetch('procesar.php', { method: 'POST', body: fd });
-                const data = await res.json();
-                
-                if (data.status === 'completed') {
-                    clearInterval(radarGlobal);
-                    localStorage.removeItem('garty_tarea_pendiente');
-                    
-                    // Sonido de campana
-                    try {
-                        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                        const osc = audioCtx.createOscillator();
-                        const gain = audioCtx.createGain();
-                        osc.connect(gain); gain.connect(audioCtx.destination);
-                        osc.type = 'sine'; osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-                        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-                        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
-                        osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.6);
-                    } catch(e) {}
+            const colaActual = leerCola();
+            if (colaActual.length === 0) {
+                clearInterval(radarGlobal);
+                return;
+            }
 
-                    // Aviso visual SweetAlert
-                    if (typeof Swal !== 'undefined') {
-                        SwalDark.fire({
-                            toast: true, position: 'top-end', icon: 'success', 
-                            title: _lang('swal_gpu_free', '¡GPU Libre!'), 
-                            text: _lang('swal_gpu_saved', 'Generación guardada.'),
-                            showConfirmButton: false, timer: 5000
-                        });
-                    }
+            for (const tarea of colaActual) {
+                if (!tarea.prompt_id || enConsulta.has(tarea.prompt_id)) continue;
+                enConsulta.add(tarea.prompt_id);
 
-                    // Notificación nativa de sistema operativo
-                    if ("Notification" in window && Notification.permission === "granted") {
-                        const iconUrl = (data.filenames && data.filenames[0]) 
-                            ? new URL('galeria/' + data.filenames[0], window.location.href).href : '';
-                            
-                        const osNoti = new Notification(_lang('tit_gpu_ready', '¡GPU LISTA!'), { 
-                            body: _lang('swal_gpu_async_done', 'El trabajo asíncrono ha terminado.'), 
-                            icon: iconUrl, silent: true 
-                        });
-                        osNoti.onclick = () => { window.focus(); osNoti.close(); };
+                const fd = new FormData();
+                fd.append('action', 'check_ticket');
+                fd.append('prompt_id', tarea.prompt_id);
+                fd.append('historial_id', tarea.db_id || 0);
+
+                try {
+                    const res = await fetch('procesar.php', { method: 'POST', body: fd });
+                    const data = await res.json();
+
+                    if (data.error) {
+                        quitarDeCola(tarea.prompt_id);
+                    } else if (data.status === 'completed') {
+                        const quedan = quitarDeCola(tarea.prompt_id);
+
+                        // 1. Sonido de campana
+                        try {
+                            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                            const osc = audioCtx.createOscillator();
+                            const gain = audioCtx.createGain();
+                            osc.connect(gain); gain.connect(audioCtx.destination);
+                            osc.type = 'sine'; osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
+                            osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.6);
+                        } catch (e) {}
+
+                        // 2. Aviso visual SweetAlert
+                        if (typeof Swal !== 'undefined') {
+                            SwalDark.fire({
+                                toast: true, position: 'top-end', icon: 'success',
+                                title: _lang('swal_gpu_free', '¡GPU Libre!'),
+                                text: _lang('swal_gpu_saved', 'Generación guardada.'),
+                                showConfirmButton: false, timer: 4500
+                            });
+                        }
+
+                        // 3. Notificación nativa de sistema operativo
+                        if ("Notification" in window && Notification.permission === "granted") {
+                            const iconUrl = (data.filenames && data.filenames[0])
+                                ? new URL('galeria/' + data.filenames[0], window.location.href).href : '';
+
+                            const osNoti = new Notification(_lang('tit_gpu_ready', '¡GPU LISTA!'), {
+                                body: _lang('swal_gpu_async_done', 'El trabajo asíncrono ha terminado.'),
+                                icon: iconUrl, silent: true
+                            });
+                            osNoti.onclick = () => { window.focus(); osNoti.close(); };
+                        }
+
+                        if (quedan === 0) {
+                            document.title = _lang('tit_gpu_ready', '¡GPU LISTA!');
+                        }
+
+                        // 4. Si estamos viendo historial.php, inyectamos la nueva tarjeta suavemente sin pulsar F5
+                        if (typeof window.sincronizarPaginaHistorial === 'function') {
+                            await window.sincronizarPaginaHistorial();
+                        }
                     }
-                    
-                    document.title = _lang('tit_gpu_ready', '¡GPU LISTA!');
+                } catch (e) {
+                } finally {
+                    enConsulta.delete(tarea.prompt_id);
                 }
-            } catch(e) { }
+            }
         }, 3000);
     }
 });

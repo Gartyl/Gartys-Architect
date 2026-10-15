@@ -2799,8 +2799,6 @@ async function ejecutarAudioAutonomo(config, targetDiv, btnElement, originalCate
         
         if (data.success && data.prompt_id) {
             if (btnElement) btnElement.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> ${GartyLang.msg_gpu_processing || 'Procesando en GPU...'}`;
-            localStorage.setItem('garty_tarea_pendiente', JSON.stringify({ prompt_id: data.prompt_id, db_id: data.historial_id || 0, categoria: '[AUDIO]' }));
-            
             iniciarRadarGpu(data.prompt_id, targetDiv, btnElement, data.historial_id || 0, '[AUDIO]');
         } else {
             throw new Error(data.error || GartyLang.err_audio_no_ticket || 'No se recibió un ticket válido del servidor de audio.');
@@ -3186,7 +3184,6 @@ async function runGpu(mode = 'directo') {
                 buttonUsed.innerText = GartyLang.btn_procesando || 'Procesando...';
             }
             
-            localStorage.setItem('garty_tarea_pendiente', JSON.stringify({ prompt_id: data.prompt_id, db_id: localDbId, categoria: originalCategory }));
             iniciarRadarGpu(data.prompt_id, resDiv, buttonUsed, localDbId, originalCategory); 
         } else {
             if (typeof stopProgressBar === 'function') stopProgressBar();
@@ -3332,11 +3329,64 @@ window.dispararTareaInfinita = async function() {
 };
 
 // ==============================================================================
+// 🎟️ GESTOR DE COLA MULTI-TICKET EN LOCALSTORAGE
+// ==============================================================================
+window.obtenerTicketsPendientes = function() {
+    try {
+        const raw = localStorage.getItem('garty_tarea_pendiente');
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : (parsed && parsed.prompt_id ? [parsed] : []);
+    } catch (e) {
+        return [];
+    }
+};
+
+window.registrarTicketPendiente = function(promptId, dbId, categoria) {
+    if (!promptId) return;
+    const lista = window.obtenerTicketsPendientes();
+    if (!lista.some(t => t.prompt_id === promptId)) {
+        lista.push({ prompt_id: promptId, db_id: dbId || 0, categoria: categoria || '[SDXL]' });
+        localStorage.setItem('garty_tarea_pendiente', JSON.stringify(lista));
+    }
+};
+
+window.eliminarTicketPendiente = function(promptId) {
+    const lista = window.obtenerTicketsPendientes().filter(t => t.prompt_id !== promptId);
+    if (lista.length > 0) {
+        localStorage.setItem('garty_tarea_pendiente', JSON.stringify(lista));
+    } else {
+        localStorage.removeItem('garty_tarea_pendiente');
+    }
+};
+
+// Resurrección automática de tickets si el usuario recarga index.php o vuelve desde el Historial
+document.addEventListener('DOMContentLoaded', () => {
+    const pendientes = window.obtenerTicketsPendientes();
+    if (pendientes.length > 0) {
+        const resDiv = document.getElementById('imageResult');
+        const resultsArea = document.getElementById('results');
+        const btnDirecto = document.getElementById('gpuDirectBtn');
+        if (resultsArea) resultsArea.classList.remove('d-none');
+        if (typeof startProgressBar === 'function') startProgressBar(15);
+
+        pendientes.forEach(t => {
+            if (!window.activeRadars || !window.activeRadars[t.prompt_id]) {
+                iniciarRadarGpu(t.prompt_id, resDiv, btnDirecto, t.db_id || 0, t.categoria || '[SDXL]');
+                window.recolectarImagenGpu(t.prompt_id, true);
+            }
+        });
+    }
+});
+
+// ==============================================================================
 // 🛡️ SISTEMA DE RECUPERACIÓN DE ATASCOS (WATCHDOG PACIENTE)
 // ==============================================================================
 
 window.abortarRadarPorAtasco = function(promptId, tarea, isPolling, errorMsg = null) {
     delete window.activeRadars[promptId];
+    window.eliminarTicketPendiente(promptId);
+
     if (Object.keys(window.activeRadars).length === 0) {
         if (typeof stopProgressBar === 'function') stopProgressBar();
         const statusContainer = document.getElementById('progressContainer');
@@ -3345,7 +3395,6 @@ window.abortarRadarPorAtasco = function(promptId, tarea, isPolling, errorMsg = n
         const orphanPreview = document.getElementById('livePreviewContainer');
         if (orphanPreview) orphanPreview.remove();
         
-        localStorage.removeItem('garty_tarea_pendiente');
         if (tarea.btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
             const txtAtasco = typeof GartyLang !== 'undefined' && GartyLang.radar_btn_timeout ? GartyLang.radar_btn_timeout : 'Atasco detectado';
             tarea.btnElement.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${txtAtasco}`; 
@@ -3375,6 +3424,9 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
     const pText = document.getElementById('progressText');
     if(pText) pText.innerHTML = `<span style="color: #0dcaf0 !important; font-weight: bold;">${typeof GartyLang !== 'undefined' && GartyLang.radar_msg_rendering ? GartyLang.radar_msg_rendering : 'Renderizando...'} (${promptId})</span>`;
 
+    // Registramos el ticket en la cola persistente (cubre disparo simple, audio, lotes y benchmark)
+    window.registrarTicketPendiente(promptId, dbId, originalCategory);
+
     window.activeRadars = window.activeRadars || {};
 
     window.activeRadars[promptId] = {
@@ -3391,7 +3443,6 @@ function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory
         window.radarWatchdog = setInterval(() => {
             const now = Date.now();
             for (const [pId, tarea] of Object.entries(window.activeRadars)) {
-                // Margen de 1 minuto de silencio absoluto antes de forzar el rastreo
                 if (now - tarea.ultimaActividad > 60000) {
                     tarea.ultimaActividad = now; 
                     window.recolectarImagenGpu(pId, true);
@@ -3412,7 +3463,6 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
     const tarea = window.activeRadars[promptId];
     if (!tarea) return; 
 
-    // 👇 ESCUDO ANTI-DUPLICADOS: Evita colisiones entre el WebSocket y el Bucle
     if (tarea.isFetching) return;
     tarea.isFetching = true;
 
@@ -3436,6 +3486,7 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
 
         if (data.status === 'completed') {
             delete window.activeRadars[promptId];
+            window.eliminarTicketPendiente(promptId);
             
             if (window.bucleInfinitoActivo && typeof window.dispararTareaInfinita === 'function') {
                 window.dispararTareaInfinita();
@@ -3523,22 +3574,18 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
                 toastContainer.appendChild(toast); setTimeout(() => { if(toast.parentElement) toast.remove(); }, 10000);
 
                 const pendientesTotales = Object.keys(window.activeRadars).length;
-                // Miramos cuántas tareas pendientes usan EXACTAMENTE este mismo botón
                 const pendientesMismoBoton = Object.values(window.activeRadars).filter(r => r.btnElement === tarea.btnElement).length;
 
                 if (pendientesTotales === 0) {
                     if (typeof stopProgressBar === 'function') stopProgressBar();
                     const statusContainer = document.getElementById('progressContainer');
                     if (statusContainer) statusContainer.classList.add('d-none');
-                    localStorage.removeItem('garty_tarea_pendiente');
                 }
 
                 if (tarea.btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
                     if (pendientesMismoBoton === 0) {
-                        // Si no hay más tareas en ESTE botón, lo liberamos
                         tarea.btnElement.innerText = typeof GartyLang !== 'undefined' && GartyLang.radar_btn_completed ? GartyLang.radar_btn_completed : '¡Completado!';
                         setTimeout(() => { 
-                            // Restauramos el icono y texto original dependiendo de qué botón era
                             let icon = '<i class="bi bi-lightning-fill"></i> ';
                             let text = typeof GartyLang !== 'undefined' && GartyLang.btn_renderizar ? GartyLang.btn_renderizar : 'Renderizar';
                             if (tarea.btnElement.id === 'gpuArquitectoBtn') {
@@ -3549,7 +3596,6 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
                             tarea.btnElement.disabled = false; 
                         }, 3000);
                     } else {
-                        // Solo muestra "quedan X" si pulsaste 3 veces seguidas el MISMO botón
                         tarea.btnElement.innerText = `${typeof GartyLang !== 'undefined' && GartyLang.btn_procesando ? GartyLang.btn_procesando : 'Procesando...'} (quedan ${pendientesMismoBoton})...`;
                     }
                 }
@@ -3567,14 +3613,13 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
                     }, 4000);
                 }
                 
-                // 👇 ESTO ES LO QUE FALTABA: Destruir el visor atascado si el servidor devuelve 0 archivos 👇
                 if (tarea.targetDiv) {
                     const livePrev = tarea.targetDiv.querySelector('#livePreviewContainer');
                     if (livePrev) { livePrev.style.display = 'none'; livePrev.remove(); }
                 }
             }
         } else if (data.status === 'processing') {
-            tarea.isFetching = false; // 🔓 Liberamos el candado para la siguiente consulta
+            tarea.isFetching = false;
             tarea.intentosRadar = (tarea.intentosRadar || 0) + 1;
             
             if (tarea.intentosRadar > 300) {
@@ -3584,7 +3629,7 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
             }
         }
     } catch (e) {
-        tarea.isFetching = false; // 🔓 Liberamos el candado si hay error de red
+        tarea.isFetching = false;
         console.warn(typeof GartyLang !== 'undefined' && GartyLang.log_radar_net_crit ? GartyLang.log_radar_net_crit : 'Radar de GPU cortó conexión:', e); 
         tarea.intentosRadar = (tarea.intentosRadar || 0) + 1;
         
