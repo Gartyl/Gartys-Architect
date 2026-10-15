@@ -178,10 +178,12 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
         $is_stream = isset($_POST['stream']) && $_POST['stream'] === 'true';
 
         // --- CONTROL INTELIGENTE DE MEMORIA (VRAM) ---
-        // FALLBACK: Mantenemos el modelo vivo 10m en chat directo.
         $keep_alive_fallback = "10m";
-        // Buscamos si la Base de Datos tiene una regla estricta definida
-        $keep_alive_val = (isset($info_modelo['keep_alive']) && trim($info_modelo['keep_alive']) !== '') ? trim($info_modelo['keep_alive']) : $keep_alive_fallback;
+        $ka_raw = (isset($info_modelo['keep_alive']) && trim($info_modelo['keep_alive']) !== '') ? trim($info_modelo['keep_alive']) : $keep_alive_fallback;
+        if ($ka_raw === '0' || $ka_raw === 0) $keep_alive_val = 0;
+        elseif ($ka_raw === '-1' || $ka_raw === -1) $keep_alive_val = -1;
+        elseif (is_numeric($ka_raw)) $keep_alive_val = $ka_raw . 'm';
+        else $keep_alive_val = $ka_raw;
 
         $payload = [
             "model" => $llm_model_selected,
@@ -686,11 +688,13 @@ if (empty($selected_model)) {
 }
 
 // --- CONTROL INTELIGENTE DE MEMORIA (VRAM) ---
-// FALLBACK: 10m para Chat/Redacción, 0 para gráficos (libera VRAM al instante)
 $keep_alive_fallback = ($isChat || $selector === '[LLM]') ? "10m" : 0;
+$ka_raw = (isset($ka_from_db) && trim($ka_from_db) !== '') ? trim($ka_from_db) : $keep_alive_fallback;
 
-// Si el usuario/administrador definió un valor en la base de datos, este prevalece
-$keep_alive_val = (isset($ka_from_db) && trim($ka_from_db) !== '') ? trim($ka_from_db) : $keep_alive_fallback;
+if ($ka_raw === '0' || $ka_raw === 0) $keep_alive_val = 0;
+elseif ($ka_raw === '-1' || $ka_raw === -1) $keep_alive_val = -1;
+elseif (is_numeric($ka_raw)) $keep_alive_val = $ka_raw . 'm';
+else $keep_alive_val = $ka_raw;
 
 $payload = [
     "model" => $selected_model, 

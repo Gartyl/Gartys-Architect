@@ -45,6 +45,44 @@ function modeloTieneClipIntegrado($nombre_archivo) {
 }
 
 // ==============================================================================
+// --- HELPER: DESALOJO AUTOMÁTICO DE OLLAMA EN VRAM ANTES DE USAR COMFYUI ---
+// ==============================================================================
+function liberarOllamaSiOcupaVram() {
+    if (!defined('LLM_IP') || !defined('LLM_PORT')) return;
+    $base_ollama = "http://" . LLM_IP . ":" . LLM_PORT;
+
+    // 1. Preguntamos a Ollama qué modelos están cargados AHORA MISMO en VRAM (2ms)
+    $ch_ps = curl_init($base_ollama . "/api/ps");
+    curl_setopt($ch_ps, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch_ps, CURLOPT_TIMEOUT, 2);
+    $res_ps = curl_exec($ch_ps);
+    curl_close($ch_ps);
+
+    if (!$res_ps) return;
+
+    $data_ps = json_decode($res_ps, true);
+    if (empty($data_ps['models']) || !is_array($data_ps['models'])) return;
+
+    // 2. Si hay algún modelo ocupando VRAM (ej. del Chat con 10m), lo descargamos en el acto
+    foreach ($data_ps['models'] as $mod_activo) {
+        $nombre_activo = $mod_activo['name'] ?? ($mod_activo['model'] ?? '');
+        if (!empty($nombre_activo)) {
+            $ch_free = curl_init($base_ollama . "/api/generate");
+            curl_setopt($ch_free, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch_free, CURLOPT_POST, true);
+            curl_setopt($ch_free, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            curl_setopt($ch_free, CURLOPT_POSTFIELDS, json_encode([
+                "model" => $nombre_activo,
+                "keep_alive" => 0
+            ]));
+            curl_setopt($ch_free, CURLOPT_TIMEOUT, 5);
+            curl_exec($ch_free);
+            curl_close($ch_free);
+        }
+    }
+}
+
+// ==============================================================================
 // --- MÓDULO GPU: GENERACIÓN, EDICIÓN, VÍDEO Y ENSAMBLAJE DE WORKFLOWS ---
 // ==============================================================================
 
@@ -3949,7 +3987,10 @@ if ($action === 'generar_imagen') {
     } // 🚨 <--- CIERRE DEL IF (PRUEBA_JSON_ACTIVADA)
 
     EJECUTAR_COMFYUI:
-    
+	
+	// 🛡️ PING-PONG VRAM: Si quedó algún modelo de Ollama vivo (ej. del Chat), lo sacamos de la GPU
+    liberarOllamaSiOcupaVram();
+	
     // ==============================================================================
     // 🌟 INYECCIÓN AUTOREGRESIVA: VIDEO-TO-VIDEO UNIVERSAL (LTX / WAN)
     // ==============================================================================
