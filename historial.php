@@ -404,9 +404,11 @@ $items = groupHistoryItems($all_prompts);
                                                                 <a href="index.php?reutilizar=<?php echo $msg['id']; ?>" class="btn-fab btn-reutilizar-fab" title="<?= __('btn_reutilizar') ?>">
                                                                     <i class="bi bi-magic"></i>
                                                                 </a>
+																<?php if (!in_array($ext, ['wav', 'mp3', 'flac', 'ogg'])): ?>
                                                                 <a href="javascript:void(0)" onclick="prepararComparacion('galeria/<?php echo htmlspecialchars($msg['imagen_path']); ?>', this)" class="btn-fab btn-compare-fab" title="<?= __('tit_compare') ?>">
                                                                     <i class="bi bi-symmetry-vertical"></i>
                                                                 </a>
+																<?php endif; ?>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -559,9 +561,11 @@ $items = groupHistoryItems($all_prompts);
                                                                 <a href="index.php?reutilizar=<?php echo $subItem['id']; ?>" class="btn-fab btn-reutilizar-fab" title="<?= __('btn_reutilizar') ?>">
                                                                     <i class="bi bi-magic"></i>
                                                                 </a>
-                                                                <a href="javascript:void(0)" onclick="prepararComparacion('galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>', this)" class="btn-fab btn-compare-fab" title="<?= __('tit_compare') ?>">
+                                                                <?php if (!in_array($ext, ['wav', 'mp3', 'flac', 'ogg'])): ?>
+																<a href="javascript:void(0)" onclick="prepararComparacion('galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>', this)" class="btn-fab btn-compare-fab" title="<?= __('tit_compare') ?>">
                                                                     <i class="bi bi-symmetry-vertical"></i>
                                                                 </a>
+																<?php endif; ?>
                                                             </div>
                                                         </div>
                                                     </div>

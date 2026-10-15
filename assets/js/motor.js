@@ -3805,8 +3805,8 @@ function construirTarjetaImagen(imgData, dbId = 0, isChat = false, isVision = fa
                 <a href="javascript:void(0)" onclick="enviarImagenA('${mediaSrc}', 'ipadapter')" class="btn btn-sm btn-info rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_use_style || 'Usar en IP-Adapter'}"><i class="bi bi-images text-dark"></i></a>
                 <a href="javascript:void(0)" onclick="enviarImagenA('${mediaSrc}', 'controlnet')" class="btn btn-sm btn-success rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_use_cn || 'Usar en ControlNet'}"><i class="bi bi-magnet text-light"></i></a>
                 ` : ''}
-                <a href="javascript:void(0)" onclick="if(typeof prepararComparacion === 'function') prepararComparacion('${mediaSrc}', this)" class="btn btn-sm btn-secondary rounded-circle shadow btn-compare-ab" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_compare_ab}"><i class="bi bi-symmetry-vertical"></i></a>
-            </div>
+                ${!isAudio ? `<a href="javascript:void(0)" onclick="if(typeof prepararComparacion === 'function') prepararComparacion('${mediaSrc}', this)" class="btn btn-sm btn-secondary rounded-circle shadow btn-compare-ab" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_compare_ab}"><i class="bi bi-symmetry-vertical"></i></a>` : ''}
+			</div>
             ` : ''}
         </div>
     </div>`;
