@@ -208,11 +208,13 @@ function getActiveAudioConfig() {
         const ttsLanguageEl = document.getElementById('ttsLanguage') || document.querySelector('[name="tts_language"]');
         const ttsGenderEl = document.getElementById('ttsGender');
         const ttsAgeEl = document.getElementById('ttsAge');
+        const ttsMinimaxEl = document.getElementById('ttsMinimaxModel');
 
         return {
             engine: 'tts',
             prompt_text: ttsSpeech,
             tts_engine: currentEngine,
+            minimax_model: ttsMinimaxEl ? ttsMinimaxEl.value : '',
             tts_emotion: ttsEmotionEl ? ttsEmotionEl.value : 'calm',
             tts_language: ttsLanguageEl ? ttsLanguageEl.value : 'Spanish',
             tts_gender: ttsGenderEl ? ttsGenderEl.value : 'male',

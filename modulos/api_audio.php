@@ -153,7 +153,76 @@ case 'generar_audio':
             ];
             $output_node = '47';
 
-       } else {
+        } elseif ($tts_engine === 'minimax') {
+            // --- MOTOR ESTRELLA: MINIMAX H3 VOICE CLONE (20B) ---
+            $modelo_mm = trim($_POST['minimax_model'] ?? '');
+            if (empty($modelo_mm)) {
+                $stmt_mm = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE activo = 1 AND LOWER(nombre_archivo) LIKE '%minimax%' ORDER BY (LOWER(nombre_archivo) LIKE '%ref%') DESC LIMIT 1");
+                $modelo_mm = $stmt_mm ? (string)$stmt_mm->fetchColumn() : '';
+            }
+            if (empty($modelo_mm)) {
+                echo json_encode(['error' => __('err_no_minimax_active')]);
+                exit();
+            }
+
+            // Calculamos la duración en segundos automáticamente según la longitud del texto (~13 caracteres/seg + margen)
+            $num_chars = mb_strlen($prompt_text, 'UTF-8');
+            $segundos_auto = max(3.0, min(15.0, round(($num_chars / 13.0) + 1.5, 1)));
+
+            $emocion = $_POST['tts_emotion'] ?? 'calm';
+            $prompt_mm = "<Voice 1> speaking in {$idioma_tts} ({$emocion} tone): \"{$prompt_text}\"";
+
+            $ruta_json = __DIR__ . '/../workflows/minimax_h3.json';
+            if (!function_exists('cargarWorkflowJSON')) {
+                require_once __DIR__ . '/core_funciones.php';
+            }
+
+            // Resolución mínima (256x256) para no gastar VRAM en vídeo al generar solo voz
+            $reemplazos = [
+                '__SEED__' => mt_rand(1, 2147483647),
+                '__WIDTH__' => 256,
+                '__HEIGHT__' => 256,
+                '__TIEMPO_SEGUNDOS__' => $segundos_auto,
+                '__STEPS__' => 20,
+                '__SAMPLER__' => 'euler',
+                '__SCHEDULER__' => 'simple',
+                '__MODELO__' => $modelo_mm,
+                '__PROMPT_POSITIVO__' => $prompt_mm
+            ];
+
+            $workflow = cargarWorkflowJSON($ruta_json, $reemplazos);
+
+            // Soporte dinámico para modelos MiniMax en formato .gguf
+            if (strpos(strtolower($modelo_mm), '.gguf') !== false && isset($workflow["127"])) {
+                $workflow["127"]["class_type"] = "UnetLoaderGGUF";
+                unset($workflow["127"]["inputs"]["weight_dtype"]);
+            }
+
+            // Puenteamos el nodo LoRA (137) igual que en api_gpu.php
+            if (isset($workflow["149"]["inputs"]["model"])) {
+                $workflow["149"]["inputs"]["model"][0] = "146";
+            }
+            unset($workflow["137"], $workflow["130"]);
+
+            // Transformamos el nodo 131 a MiniMaxH3ReferenceToVideo y le inyectamos el Audio de Referencia
+            $workflow["131"]["class_type"] = "MiniMaxH3ReferenceToVideo";
+            unset($workflow["131"]["inputs"]["image"], $workflow["131"]["inputs"]["images"], $workflow["131"]["inputs"]["first_frame"]);
+            $workflow["131"]["inputs"]["audio_vae"] = ["120", 0];
+            $workflow["131"]["inputs"]["ref_image_size"] = "max";
+
+            $workflow["131_audio_load"] = [
+                "inputs" => ["audio" => $ref_file],
+                "class_type" => "LoadAudio"
+            ];
+            $workflow["131"]["inputs"]["ref_audios.ref_audio_0"] = ["131_audio_load", 0];
+
+            // ⚡ MODO SOLO AUDIO: Eliminamos el decodificador de vídeo (122) y el combinador MP4 (142)
+            unset($workflow["122"], $workflow["142"]);
+
+            $output_node = '121';
+            $output_port = 0;
+
+        } else {
             // --- MOTOR 3: OMNIVOICE (Híbrido: Clonación con Referencia o Diseño Zero-Shot) ---
             $emocion = $_POST['tts_emotion'] ?? 'normal';
             $genero = $_POST['tts_gender'] ?? 'male';

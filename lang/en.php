@@ -1046,6 +1046,8 @@ return [
 	'msg_voice_deleted' => "Voice deleted",
 	'tit_delete_voice' => "Delete voice?",
 	'msg_delete_voice_confirm' => "You are about to permanently delete \"{name}\". Are you sure?",
+	'err_no_minimax_active' => "There is no active MiniMax H3 model in the Model Manager.",
+	'lbl_tts_minimax_model' => "MiniMax H3 Model",
 
     // --- IP Adapter (ipa_) ---
     'ipa_mod_flux' => "Flux / Next-Gen (Style + Composition)",

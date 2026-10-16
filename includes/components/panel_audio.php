@@ -1,7 +1,14 @@
 <?php
 // ==============================================================================
-// --- PANEL AUDIO: GENERACIÓN Y CLONACIÓN PRO (F5-TTS / INDEX-TTS / STABLE AUDIO / FOLEY) ---
+// --- PANEL AUDIO: GENERACIÓN Y CLONACIÓN PRO (MINIMAX H3 / INDEXTTS / OMNIVOICE / F5 / FOLEY) ---
 // ==============================================================================
+$modelos_minimax_audio = [];
+try {
+    $stmt_mm = $pdo->query("SELECT nombre_visual, nombre_archivo FROM modelos_ia WHERE activo = 1 AND LOWER(nombre_archivo) LIKE '%minimax%' ORDER BY nombre_visual ASC");
+    if ($stmt_mm) {
+        $modelos_minimax_audio = $stmt_mm->fetchAll(PDO::FETCH_ASSOC);
+    }
+} catch (Throwable $e) {}
 ?>
 <div class="param-group shadow-sm border-info mb-3" id="audioBlock" style="border-color: rgba(13, 202, 240, 0.4) !important; background: rgba(13, 202, 240, 0.05);">
     <div class="d-flex justify-content-between align-items-center">
@@ -46,8 +53,9 @@
                     <div class="col-md-4">
                         <label class="small text-secondary fw-bold"><?= __('lbl_tts_engine') ?? 'Motor' ?></label>
                         <select id="ttsEngine" name="tts_engine" class="form-select form-select-sm bg-dark text-light border-info pref-track" onchange="toggleTTSOptions()">
-                            <option value="indextts" selected><?= __('opt_indextts') ?? 'IndexTTS-2 (Clonación)' ?></option>
+                            <option value="minimax" selected>🌟 MiniMax H3 (Native Cloning)</option>
                             <option value="omnivoice">OmniVoice (Cloning + Zero-Shot)</option>
+                            <option value="indextts"><?= __('opt_indextts') ?? 'IndexTTS-2 (Clonación)' ?></option>
                             <option value="f5"><?= __('opt_f5_tts') ?? 'F5-TTS (Legacy)' ?></option>
                         </select>
                     </div>
@@ -90,6 +98,28 @@
                             <option value="young adult"><?= __('opt_age_young') ?? 'Joven adulto' ?></option>
                             <option value="middle-aged"><?= __('opt_age_middle') ?? 'Mediana edad' ?></option>
                             <option value="elderly"><?= __('opt_age_elderly') ?? 'Anciano/a' ?></option>
+                        </select>
+                    </div>
+                </div>
+				
+				<div class="row g-2 mb-2 d-none" id="minimaxOptionsBlock">
+                    <div class="col-md-12">
+                        <label class="small text-info fw-bold"><i class="bi bi-cpu me-1"></i> <?= __('lbl_tts_minimax_model') ?? 'Modelo MiniMax H3' ?></label>
+                        <select id="ttsMinimaxModel" name="tts_minimax_model" class="form-select form-select-sm bg-dark text-light border-info pref-track">
+                            <?php if (empty($modelos_minimax_audio)): ?>
+                                <option value=""><?= __('opt_no_minimax') ?? '-- Registra un modelo MiniMax en el Gestor --' ?></option>
+                            <?php else: ?>
+                                <?php 
+                                $preselected = false;
+                                foreach ($modelos_minimax_audio as $mm): 
+                                    $is_ref = (!$preselected && stripos($mm['nombre_archivo'], 'ref') !== false);
+                                    if ($is_ref) $preselected = true;
+                                ?>
+                                    <option value="<?= htmlspecialchars($mm['nombre_archivo']) ?>" <?= $is_ref ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($mm['nombre_visual']) ?> (<?= htmlspecialchars($mm['nombre_archivo']) ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </select>
                     </div>
                 </div>
@@ -150,25 +180,19 @@
                 </div>
 
                 <script>
-                    ffunction toggleTTSOptions() {
+                    function toggleTTSOptions() {
                         const engine = document.getElementById('ttsEngine').value;
                         const cloneBlock = document.getElementById('cloneOptionsBlock');
                         const omniBlock = document.getElementById('omnivoiceOptionsBlock');
                         const f5Block = document.getElementById('f5OptionsBlock');
+                        const mmBlock = document.getElementById('minimaxOptionsBlock');
 
-                        // El bloque de clonación ahora está disponible en los 3 motores (incluido OmniVoice)
+                        // El bloque de clonación está disponible en todos los motores
                         if (cloneBlock) cloneBlock.classList.remove('d-none');
 
-                        if (engine === 'omnivoice') {
-                            if (omniBlock) omniBlock.classList.remove('d-none');
-                            if (f5Block) f5Block.classList.add('d-none');
-                        } else if (engine === 'f5') {
-                            if (omniBlock) omniBlock.classList.add('d-none');
-                            if (f5Block) f5Block.classList.remove('d-none');
-                        } else {
-                            if (omniBlock) omniBlock.classList.add('d-none');
-                            if (f5Block) f5Block.classList.add('d-none');
-                        }
+                        if (mmBlock) mmBlock.classList.toggle('d-none', engine !== 'minimax');
+                        if (omniBlock) omniBlock.classList.toggle('d-none', engine !== 'omnivoice');
+                        if (f5Block) f5Block.classList.toggle('d-none', engine !== 'f5');
                     }
                     document.addEventListener('DOMContentLoaded', toggleTTSOptions);
                 </script>

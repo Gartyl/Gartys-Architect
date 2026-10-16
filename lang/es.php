@@ -1039,6 +1039,8 @@ return [
     'ph_sfx_prompt' => "Ej: Cinematic heavy rain, thunder rumbles, dark synth ambient...",
     'lbl_sfx_seconds' => "Duración (segundos)",
     'lbl_sfx_steps' => "Pasos de calidad (Steps)",
+	'err_no_minimax_active' => "No hay ningún modelo MiniMax H3 activo en el Gestor de Modelos.",
+	'lbl_tts_minimax_model' => "Modelo MiniMax H3",
 
     // --- IP Adapter (ipa_) ---
     'ipa_mod_flux' => "Flux / Next-Gen (Estilo + Composición)",

@@ -1046,6 +1046,8 @@ return [
 	'msg_voice_deleted' => "Veu eliminada",
 	'tit_delete_voice' => "¿Eliminar veu?",
 	'msg_delete_voice_confirm' => "Esborraràs permanentment a \"{name}\". N'estàs segur?",
+	'err_no_minimax_active' => "No hi ha cap model MiniMax H3 actiu al Gestor de Models.",
+	'lbl_tts_minimax_model' => "Model MiniMax H3",
 
     // --- IP Adapter (ipa_) ---
     'ipa_mod_flux' => "Flux / Next-Gen (Estil + Composició)",
