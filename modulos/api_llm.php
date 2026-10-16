@@ -484,7 +484,7 @@ if ($isChat) {
 $modelo_grafico_recibido = $_POST['modelo_grafico_id'] ?? '';
 $default_negativo_bd = ''; // <--- NUEVA VARIABLE DE RESCATE
 
-if (!empty($modelo_grafico_recibido) && $selector !== '[LLM]') {
+if (!empty($modelo_grafico_recibido) && $selector !== '[LLM]' && !$isChat) {
     try {
         $stmtReglas = $pdo->prepare("SELECT reglas_arquitecto, default_negative FROM modelos_ia WHERE id = ? LIMIT 1");
         $stmtReglas->execute([$modelo_grafico_recibido]);
