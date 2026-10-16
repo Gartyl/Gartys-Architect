@@ -28,6 +28,9 @@ case 'subir_audio_referencia':
     $file_tmp  = $_FILES['audio_ref']['tmp_name'];
     $file_name = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', $_FILES['audio_ref']['name']);
     $file_type = $_FILES['audio_ref']['type'];
+	
+	// Guardamos copia temporal local por si MiniMax H3 necesita recortar muestras largas (>4.5s)
+    @copy($file_tmp, sys_get_temp_dir() . '/garty_ref_' . $file_name);
 
     // ComfyUI usa el endpoint /upload/image también para archivos de audio y vídeo
     $target_url = rtrim($comfy_server, '/') . '/upload/image';
@@ -165,11 +168,46 @@ case 'generar_audio':
                 exit();
             }
 
-            // Calculamos la duración en segundos automáticamente según la longitud del texto (~13 caracteres/seg + margen)
+            // ✂️ RECORTE AUTOMÁTICO A 4.5s (Elimina silencios iniciales y evita que audios de 10s se dupliquen)
+            $ref_file_minimax = $ref_file;
+            $ruta_origen_voz = __DIR__ . '/../voces/' . basename($ref_file);
+            if (!file_exists($ruta_origen_voz)) {
+                $ruta_origen_voz = sys_get_temp_dir() . '/garty_ref_' . basename($ref_file);
+            }
+
+            if (file_exists($ruta_origen_voz)) {
+                $tmp_trim = sys_get_temp_dir() . '/mm_trim_' . uniqid() . '.wav';
+                shell_exec("ffmpeg -y -i " . escapeshellarg($ruta_origen_voz) . " -af silenceremove=start_periods=1:start_silence=0.1:start_threshold=-45dB -t 4.5 -acodec pcm_s16le -ar 24000 " . escapeshellarg($tmp_trim));
+                
+                if (file_exists($tmp_trim) && filesize($tmp_trim) > 1000) {
+                    $cfile_trim = function_exists('curl_file_create') 
+                        ? curl_file_create($tmp_trim, 'audio/wav', 'mm_voice_sample.wav') 
+                        : '@' . realpath($tmp_trim);
+                    
+                    $ch_trim = curl_init(rtrim($comfy_server, '/') . '/upload/image');
+                    curl_setopt($ch_trim, CURLOPT_POST, true);
+                    curl_setopt($ch_trim, CURLOPT_POSTFIELDS, [
+                        'image' => $cfile_trim,
+                        'type' => 'input',
+                        'overwrite' => 'true'
+                    ]);
+                    curl_setopt($ch_trim, CURLOPT_RETURNTRANSFER, true);
+                    $res_trim = json_decode(curl_exec($ch_trim), true);
+                    curl_close($ch_trim);
+                    @unlink($tmp_trim);
+
+                    if (!empty($res_trim['name'])) {
+                        $ref_file_minimax = $res_trim['name'];
+                    }
+                }
+            }
+
+            // ⏱️ Duración ajustada a velocidad de locución real (~14.5 caracteres/seg) para no dejar cola de balbuceos
             $num_chars = mb_strlen($prompt_text, 'UTF-8');
-            $segundos_auto = max(3.0, min(15.0, round(($num_chars / 13.0) + 1.5, 1)));
+            $segundos_auto = max(2.5, min(15.0, round(($num_chars / 14.5) + 0.6, 1)));
 
             $emocion = $_POST['tts_emotion'] ?? 'calm';
+            // Volvemos al formato directo sin texto extra detrás de las comillas
             $prompt_mm = "<Voice 1> speaking in {$idioma_tts} ({$emocion} tone): \"{$prompt_text}\"";
 
             $ruta_json = __DIR__ . '/../workflows/minimax_h3.json';
@@ -177,7 +215,6 @@ case 'generar_audio':
                 require_once __DIR__ . '/core_funciones.php';
             }
 
-            // Resolución mínima (256x256) para no gastar VRAM en vídeo al generar solo voz
             $reemplazos = [
                 '__SEED__' => mt_rand(1, 2147483647),
                 '__WIDTH__' => 256,
@@ -187,10 +224,13 @@ case 'generar_audio':
                 '__SAMPLER__' => 'euler',
                 '__SCHEDULER__' => 'simple',
                 '__MODELO__' => $modelo_mm,
-                '__PROMPT_POSITIVO__' => $prompt_mm
+                '__PROMPT_POSITIVO__' => ''
             ];
 
             $workflow = cargarWorkflowJSON($ruta_json, $reemplazos);
+
+            // Inyectamos el prompt directamente en el array para evitar problemas con comillas
+            $workflow["131"]["inputs"]["prompt"] = $prompt_mm;
 
             // Soporte dinámico para modelos MiniMax en formato .gguf
             if (strpos(strtolower($modelo_mm), '.gguf') !== false && isset($workflow["127"])) {
@@ -204,14 +244,14 @@ case 'generar_audio':
             }
             unset($workflow["137"], $workflow["130"]);
 
-            // Transformamos el nodo 131 a MiniMaxH3ReferenceToVideo y le inyectamos el Audio de Referencia
+            // Transformamos el nodo 131 a MiniMaxH3ReferenceToVideo y le inyectamos el Audio de Referencia recortado
             $workflow["131"]["class_type"] = "MiniMaxH3ReferenceToVideo";
             unset($workflow["131"]["inputs"]["image"], $workflow["131"]["inputs"]["images"], $workflow["131"]["inputs"]["first_frame"]);
             $workflow["131"]["inputs"]["audio_vae"] = ["120", 0];
             $workflow["131"]["inputs"]["ref_image_size"] = "max";
 
             $workflow["131_audio_load"] = [
-                "inputs" => ["audio" => $ref_file],
+                "inputs" => ["audio" => $ref_file_minimax],
                 "class_type" => "LoadAudio"
             ];
             $workflow["131"]["inputs"]["ref_audios.ref_audio_0"] = ["131_audio_load", 0];
