@@ -146,6 +146,10 @@ return [
 	'opt_gal_todas'      => "All",
 	'opt_gal_pub'        => "🌐 Published",
 	'opt_gal_priv'       => "🔒 Private",
+	'btn_sfx_ai_helper' => "AI Music Maestro",
+	'tit_sfx_ai_helper' => "Convert simple idea into technical music prompt (English)",
+	'msg_write_music_idea' => "First write a brief idea (e.g., 'sad piano with rain' or '80s synthwave') in the music box.",
+	'btn_send_foley' => "Add Foley Sound to Video (Hunyuan)",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS

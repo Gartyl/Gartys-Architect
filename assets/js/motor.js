@@ -3800,7 +3800,10 @@ function construirTarjetaImagen(imgData, dbId = 0, isChat = false, isVision = fa
                 ${!isVision ? `
                 <a href="javascript:void(0)" onclick="enviarImagenA('${mediaSrc}', 'principal')" class="btn btn-sm btn-danger rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_edit_inpaint}"><i class="bi bi-brush"></i></a>
                 ` : ''}
-               ${!isVision && !showMergeCheckbox ? `
+			    ${!isVision && isVideo ? `
+                <a href="javascript:void(0)" onclick="if(typeof enviarVideoAFoley === 'function') enviarVideoAFoley('${mediaSrc}')" class="btn btn-sm btn-info rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_send_foley || 'Sonorizar Vídeo con Foley (Hunyuan)'}"><i class="bi bi-volume-up-fill text-dark"></i></a>
+                ` : ''}
+				${!isVision && !showMergeCheckbox ? `
                 <a href="javascript:void(0)" onclick="enviarImagenA('${mediaSrc}', 'reactor')" class="btn btn-sm btn-warning rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_use_face || 'Usar como Rostro'}"><i class="bi bi-person-bounding-box text-dark"></i></a>
                 <a href="javascript:void(0)" onclick="enviarImagenA('${mediaSrc}', 'ipadapter')" class="btn btn-sm btn-info rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_use_style || 'Usar en IP-Adapter'}"><i class="bi bi-images text-dark"></i></a>
                 <a href="javascript:void(0)" onclick="enviarImagenA('${mediaSrc}', 'controlnet')" class="btn btn-sm btn-success rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_use_cn || 'Usar en ControlNet'}"><i class="bi bi-magnet text-light"></i></a>

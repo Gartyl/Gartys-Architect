@@ -47,7 +47,7 @@
                         <label class="small text-secondary fw-bold"><?= __('lbl_tts_engine') ?? 'Motor' ?></label>
                         <select id="ttsEngine" name="tts_engine" class="form-select form-select-sm bg-dark text-light border-info pref-track" onchange="toggleTTSOptions()">
                             <option value="indextts" selected><?= __('opt_indextts') ?? 'IndexTTS-2 (Clonación)' ?></option>
-                            <option value="omnivoice">OmniVoice (Zero-Shot)</option>
+                            <option value="omnivoice">OmniVoice (Cloning + Zero-Shot)</option>
                             <option value="f5"><?= __('opt_f5_tts') ?? 'F5-TTS (Legacy)' ?></option>
                         </select>
                     </div>
@@ -150,24 +150,24 @@
                 </div>
 
                 <script>
-                    function toggleTTSOptions() {
+                    ffunction toggleTTSOptions() {
                         const engine = document.getElementById('ttsEngine').value;
                         const cloneBlock = document.getElementById('cloneOptionsBlock');
                         const omniBlock = document.getElementById('omnivoiceOptionsBlock');
                         const f5Block = document.getElementById('f5OptionsBlock');
 
+                        // El bloque de clonación ahora está disponible en los 3 motores (incluido OmniVoice)
+                        if (cloneBlock) cloneBlock.classList.remove('d-none');
+
                         if (engine === 'omnivoice') {
-                            if(cloneBlock) cloneBlock.classList.add('d-none');
-                            if(omniBlock) omniBlock.classList.remove('d-none');
-                            if(f5Block) f5Block.classList.add('d-none');
+                            if (omniBlock) omniBlock.classList.remove('d-none');
+                            if (f5Block) f5Block.classList.add('d-none');
                         } else if (engine === 'f5') {
-                            if(cloneBlock) cloneBlock.classList.remove('d-none');
-                            if(omniBlock) omniBlock.classList.add('d-none');
-                            if(f5Block) f5Block.classList.remove('d-none');
+                            if (omniBlock) omniBlock.classList.add('d-none');
+                            if (f5Block) f5Block.classList.remove('d-none');
                         } else {
-                            if(cloneBlock) cloneBlock.classList.remove('d-none');
-                            if(omniBlock) omniBlock.classList.add('d-none');
-                            if(f5Block) f5Block.classList.add('d-none');
+                            if (omniBlock) omniBlock.classList.add('d-none');
+                            if (f5Block) f5Block.classList.add('d-none');
                         }
                     }
                     document.addEventListener('DOMContentLoaded', toggleTTSOptions);
@@ -177,13 +177,18 @@
             <!-- PESTAÑA 2: STABLE AUDIO (SFX y Música ambiental) -->
             <div class="tab-pane fade" id="sfx-panel" role="tabpanel">
                 <div class="mb-2">
-                    <label class="small text-secondary fw-bold"><?= __('lbl_sfx_prompt') ?></label>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="small text-secondary fw-bold mb-0"><?= __('lbl_sfx_prompt') ?></label>
+                        <button type="button" class="btn btn-sm btn-outline-info py-0 px-2" style="font-size: 0.75rem;" id="btnExpandSfxPrompt" onclick="optimizarPromptMusicalIA()" title="<?= __('tit_sfx_ai_helper') ?? 'Convertir idea simple en prompt musical técnico (Inglés)' ?>">
+                            <i class="bi bi-stars"></i> <?= __('btn_sfx_ai_helper') ?? 'Maestro Musical IA' ?>
+                        </button>
+                    </div>
                     <textarea class="form-control form-control-sm bg-dark text-light border-info pref-track" id="sfxPrompt" rows="2" placeholder="<?= __('ph_sfx_prompt') ?>"></textarea>
                 </div>
                 <div class="row g-2">
                     <div class="col-md-6">
                         <label class="text-secondary small fw-bold"><?= __('lbl_sfx_seconds') ?>: <span id="sfxSecondsLabel" class="text-light">5.0</span>s</label>
-                        <input type="range" class="form-range pref-track" id="sfxSeconds" min="1.0" max="30.0" step="0.5" value="5.0" oninput="document.getElementById('sfxSecondsLabel').innerText = this.value;">
+                        <input type="range" class="form-range pref-track" id="sfxSeconds" min="1.0" max="45.0" step="0.5" value="5.0" oninput="document.getElementById('sfxSecondsLabel').innerText = this.value;">
                     </div>
                     <div class="col-md-6">
                         <label class="text-secondary small fw-bold"><?= __('lbl_sfx_steps') ?>: <span id="sfxStepsLabel" class="text-light">100</span></label>

@@ -85,6 +85,7 @@ function handleAudioRefUpload(input) {
 
 function clearAudioModule() {
     currentAudioRefFile = null;
+    uploadedAudioRefName = null; // <-- IMPORTANTE: Limpiamos también la referencia en ComfyUI
     document.getElementById('audioRefInput').value = '';
     document.getElementById('audioRefName').innerText = '';
     document.getElementById('audioRefText').value = '';
@@ -495,4 +496,76 @@ window.eliminarVozGuardada = async function() {
 document.addEventListener('DOMContentLoaded', () => {
     cargarVocesGuardadas();
 });
+
+// ============================================================================
+// --- MAESTRO MUSICAL IA (OPTIMIZADOR DE PROMPTS PARA STABLE AUDIO) ---
+// ============================================================================
+window.optimizarPromptMusicalIA = async function() {
+    const sfxInput = document.getElementById('sfxPrompt');
+    const mainIdea = document.getElementById('descripcion');
+    const btn = document.getElementById('btnExpandSfxPrompt');
+    if (!sfxInput) return;
+
+    let ideaBase = sfxInput.value.trim();
+    if (!ideaBase && mainIdea) ideaBase = mainIdea.value.trim();
+
+    if (!ideaBase) {
+        SwalDark.fire({
+            icon: 'info',
+            title: GartyLang.audio_attn_title || 'Atención',
+            text: GartyLang.msg_write_music_idea || 'Escribe primero una idea breve (ej: "piano triste con lluvia" o "synthwave ochentero") en la caja de música.'
+        });
+        return;
+    }
+
+    const originalHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span>`;
+    }
+
+    try {
+        const fd = new FormData();
+        fd.append('action', 'optimizar_prompt_sfx');
+        fd.append('prompt_text', ideaBase);
+
+        const res = await fetch('procesar.php', { method: 'POST', body: fd });
+        const data = await res.json();
+
+        if (data.success && data.respuesta) {
+            sfxInput.value = data.respuesta.replace(/^["']|["']$/g, '').trim();
+        } else if (data.error) {
+            SwalDark.fire({ icon: 'error', title: 'Error IA', text: data.error });
+        }
+    } catch (e) {
+        console.error("Error optimizando prompt musical:", e);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }
+};
+
+// ============================================================================
+// --- PUENTE DIRECTO: ENVIAR VÍDEO GENERADO A HUNYUAN FOLEY EN 1 CLIC ---
+// ============================================================================
+window.enviarVideoAFoley = async function(mediaSrc) {
+    if (!mediaSrc) return;
+    if (typeof enviarImagenA === 'function') {
+        await enviarImagenA(mediaSrc, 'principal');
+    }
+    const audioToggle = document.getElementById('audioToggle');
+    if (audioToggle && !audioToggle.checked) {
+        audioToggle.checked = true;
+        if (typeof toggleAudioUI === 'function') toggleAudioUI();
+    }
+    const foleyTab = document.getElementById('foley-tab');
+    if (foleyTab) foleyTab.click();
+
+    if (typeof window.actualizarUxAudio === 'function') window.actualizarUxAudio();
+
+    const audioBlock = document.getElementById('audioBlock');
+    if (audioBlock) audioBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
 

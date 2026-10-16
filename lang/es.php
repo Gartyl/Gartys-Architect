@@ -146,6 +146,10 @@ return [
 	'opt_gal_todas'      => "Todas",
 	'opt_gal_pub'        => "🌐 Publicadas",
 	'opt_gal_priv'       => "🔒 Privadas",
+	'btn_sfx_ai_helper' => "Maestro Musical IA",
+	'tit_sfx_ai_helper' => "Convertir idea simple en prompt musical técnico (Inglés)",
+	'msg_write_music_idea' => "Escribe primero una idea breve (ej: 'piano triste con lluvia' o 'synthwave ochentero') en la caja de música.",
+	'btn_send_foley' => "Sonorizar Vídeo con Foley (Hunyuan)",
 	
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
@@ -1002,8 +1006,10 @@ return [
 	'lbl_audio_ref_text'    => "Transcripción de la muestra (opcional, mejora fidelidad)",
 	'lbl_audio_ref_file'    => "Muestra de voz (WAV/MP3 de 3 a 10 seg.)",
 	'lbl_tts_engine' 		=> "Motor de Voz",
+	'lbl_tts_gender' => "Género (OmniVoice)",
 	'lbl_tts_emotion' 		=> "Emoción (IndexTTS)",
 	'lbl_tts_language' 	=> "Idioma de voz",
+	'lbl_tts_age' => "Edad (OmniVoice)",
 	'lbl_foley_prompt' => "Ambient Prompt (Optional)",
     'ph_foley_prompt' => "Ex: Footsteps crunching on dry leaves, gentle wind...",
     'lbl_foley_steps' => "Steps",

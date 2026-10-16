@@ -75,12 +75,13 @@ case 'generar_audio':
     $engine = $_POST['engine'] ?? 'tts'; // 'tts', 'sfx' o 'foley'
     $prompt_text = trim($_POST['prompt_text'] ?? '');
     
-    // --- NUEVO: CAPTURA DE IDIOMA Y FILTRO BPE ---
+    // --- CAPTURA DE IDIOMA Y FILTRO BPE (TEXTO Y REFERENCIA) ---
     $idioma_tts = $_POST['tts_language'] ?? 'Spanish';
     $acentos_mayus = ['Á', 'É', 'Í', 'Ó', 'Ú', 'Ñ', 'Ä', 'Ë', 'Ï', 'Ö', 'Ü'];
     $acentos_minus = ['á', 'é', 'í', 'ó', 'ú', 'ñ', 'ä', 'ë', 'ï', 'ö', 'ü'];
     $prompt_text = str_replace($acentos_mayus, $acentos_minus, $prompt_text);
-    // ---------------------------------------------
+    $ref_text_clean = str_replace($acentos_mayus, $acentos_minus, trim($_POST['ref_text'] ?? ''));
+    // -----------------------------------------------------------
 
     // Permitimos prompt vacío SOLAMENTE si es Foley (puede inferir el sonido solo con el vídeo)
     if (empty($prompt_text) && $engine !== 'foley') {
@@ -110,7 +111,7 @@ case 'generar_audio':
             $workflow['10'] = ['inputs' => ['audio' => $ref_file], 'class_type' => 'LoadAudio'];
             $workflow['11'] = [
                 'inputs' => [
-                    'sample_audio' => ['10', 0], 'sample_text' => $_POST['ref_text'] ?? '', 'speech' => $prompt_text,
+                    'sample_audio' => ['10', 0], 'sample_text' => $ref_text_clean, 'speech' => $prompt_text,
                     'speed' => $speed_real, 'seed' => mt_rand(1, 2147483647), 'model' => 'F5v1',
                     'vocoder' => 'auto', 'model_type' => 'F5TTS_v1_Base', 'remove_silence' => $silence
                 ], 'class_type' => 'F5TTSAudioInputs'
@@ -130,7 +131,7 @@ case 'generar_audio':
             $workflow['65'] = ['inputs' => ['value' => $prompt_text], 'class_type' => 'PrimitiveStringMultiline'];
             
             $workflow['134'] = ['inputs' => ['audio' => $ref_file], 'class_type' => 'LoadAudio'];
-            $workflow['130'] = ['inputs' => ['voice_name' => 'none', 'reference_text' => $_POST['ref_text'] ?? '', 'trim_start' => 0, 'trim_end' => 0, 'customized' => true, 'opt_audio_input' => ['134', 0]], 'class_type' => 'CharacterVoicesNode'];
+            $workflow['130'] = ['inputs' => ['voice_name' => 'none', 'reference_text' => $ref_text_clean, 'trim_start' => 0, 'trim_end' => 0, 'customized' => true, 'opt_audio_input' => ['134', 0]], 'class_type' => 'CharacterVoicesNode'];
             
             $workflow['123'] = [
                 'inputs' => [
@@ -152,43 +153,91 @@ case 'generar_audio':
             ];
             $output_node = '47';
 
-        } else {
-            // --- MOTOR 3: OMNIVOICE (Diseño Zero-Shot) ---
+       } else {
+            // --- MOTOR 3: OMNIVOICE (Híbrido: Clonación con Referencia o Diseño Zero-Shot) ---
             $emocion = $_POST['tts_emotion'] ?? 'normal';
             $genero = $_POST['tts_gender'] ?? 'male';
             $edad = $_POST['tts_age'] ?? 'None';
 
             $omni_style = ($emocion === 'whisper') ? 'whisper' : 'None';
-            $omni_lang  = ($idioma_tts === 'Chinese') ? 'Chinese' : 'English';
-
-            $workflow['25'] = [
-                'inputs' => [
-                    'gender' => $genero, 'age' => $edad, 'pitch' => 'None',
-                    'style' => $omni_style, 'accent' => 'None', 'dialect' => 'None',
-                    'output_language' => $omni_lang, 'instruct_text' => ''
-                ], 'class_type' => 'OmniVoiceInstructionBuilderNode'
-            ];
-
-            $workflow['20'] = [
-                'inputs' => [
-                    'model_variant' => 'OmniVoice', 'device' => 'auto', 'language' => 'Auto',
-                    'num_step' => 32, 'guidance_scale' => 2, 't_shift' => 0.1, 'speed' => 1.0,
-                    'duration' => 0, 'dtype' => 'auto', 'instruct' => '', 'layer_penalty_factor' => 5,
-                    'position_temperature' => 5, 'class_temperature' => 0, 'denoise' => true,
-                    'preprocess_prompt' => true, 'postprocess_output' => true, 'audio_chunk_duration' => 15,
-                    'audio_chunk_threshold' => 30, 'mode' => 'Voice Design'
-                ], 'class_type' => 'OmniVoiceEngineNode'
-            ];
-
-            $workflow['17'] = [
-                'inputs' => [
-                    'reference_text' => $prompt_text, 'seed' => mt_rand(1, 2147483647),
-                    'voice_instruction' => ['25', 0], 'TTS_engine' => ['20', 0]
-                ], 'class_type' => 'UnifiedVoiceDesignerNode'
-            ];
+            $omni_instruct_lang = ($idioma_tts === 'Chinese') ? 'Chinese' : 'English';
             
-            $output_node = '17';
-            $output_port = 1; 
+            $idiomas_validos = ['Spanish', 'English', 'French', 'German', 'Russian', 'Chinese'];
+            $omni_spoken_lang = in_array($idioma_tts, $idiomas_validos) ? $idioma_tts : 'Auto';
+
+            if (!empty($ref_file)) {
+                // A) MODO CLONACIÓN DE VOZ CON OMNIVOICE (Con audio de referencia)
+                $workflow['65'] = ['inputs' => ['value' => $prompt_text], 'class_type' => 'PrimitiveStringMultiline'];
+                $workflow['134'] = ['inputs' => ['audio' => $ref_file], 'class_type' => 'LoadAudio'];
+                $workflow['130'] = [
+                    'inputs' => [
+                        'voice_name' => 'none',
+                        'reference_text' => $ref_text_clean,
+                        'trim_start' => 0,
+                        'trim_end' => 0,
+                        'customized' => true,
+                        'opt_audio_input' => ['134', 0]
+                    ],
+                    'class_type' => 'CharacterVoicesNode'
+                ];
+
+                $workflow['20'] = [
+                    'inputs' => [
+                        'model_variant' => 'OmniVoice', 'device' => 'auto', 'language' => $omni_spoken_lang,
+                        'num_step' => 32, 'guidance_scale' => 2.5, 't_shift' => 0.1, 'speed' => 1.0,
+                        'duration' => 0, 'dtype' => 'auto', 'instruct' => '', 'layer_penalty_factor' => 5,
+                        'position_temperature' => 5, 'class_temperature' => 0, 'denoise' => true,
+                        'preprocess_prompt' => true, 'postprocess_output' => true, 'audio_chunk_duration' => 15,
+                        'audio_chunk_threshold' => 30, 'mode' => 'Text to Speech'
+                    ],
+                    'class_type' => 'OmniVoiceEngineNode'
+                ];
+
+                $workflow['47'] = [
+                    'inputs' => [
+                        'text' => ['65', 0], 'narrator_voice' => 'none', 'seed' => mt_rand(1, 2147483647),
+                        'enable_chunking' => true, 'max_chars_per_chunk' => 400,
+                        'chunk_combination_method' => 'auto', 'silence_between_chunks_ms' => 100,
+                        'enable_audio_cache' => true, 'batch_size' => 0,
+                        'TTS_engine' => ['20', 0], 'opt_narrator' => ['130', 0]
+                    ],
+                    'class_type' => 'UnifiedTTSTextNode'
+                ];
+
+                $output_node = '47';
+                $output_port = 0; // UnifiedTTSTextNode devuelve el audio en el puerto 0
+
+            } else {
+                // B) MODO DISEÑO ZERO-SHOT (Sin audio de referencia, usa Género y Edad)
+                $workflow['25'] = [
+                    'inputs' => [
+                        'gender' => $genero, 'age' => $edad, 'pitch' => 'None',
+                        'style' => $omni_style, 'accent' => 'None', 'dialect' => 'None',
+                        'output_language' => $omni_instruct_lang, 'instruct_text' => ''
+                    ], 'class_type' => 'OmniVoiceInstructionBuilderNode'
+                ];
+
+                $workflow['20'] = [
+                    'inputs' => [
+                        'model_variant' => 'OmniVoice', 'device' => 'auto', 'language' => $omni_spoken_lang,
+                        'num_step' => 32, 'guidance_scale' => 2.5, 't_shift' => 0.1, 'speed' => 1.0,
+                        'duration' => 0, 'dtype' => 'auto', 'instruct' => '', 'layer_penalty_factor' => 5,
+                        'position_temperature' => 5, 'class_temperature' => 0, 'denoise' => true,
+                        'preprocess_prompt' => true, 'postprocess_output' => true, 'audio_chunk_duration' => 15,
+                        'audio_chunk_threshold' => 30, 'mode' => 'Voice Design'
+                    ], 'class_type' => 'OmniVoiceEngineNode'
+                ];
+
+                $workflow['17'] = [
+                    'inputs' => [
+                        'reference_text' => $prompt_text, 'seed' => mt_rand(1, 2147483647),
+                        'voice_instruction' => ['25', 0], 'TTS_engine' => ['20', 0]
+                    ], 'class_type' => 'UnifiedVoiceDesignerNode'
+                ];
+                
+                $output_node = '17';
+                $output_port = 1;
+            }
         }
 
     } elseif ($engine === 'foley') {
@@ -281,7 +330,7 @@ case 'generar_audio':
         $workflow['20_clip'] = ['inputs' => ['clip_name' => 't5-base.safetensors', 'type' => 'stable_audio'], 'class_type' => 'CLIPLoader'];
         $workflow['21'] = ['inputs' => ['seconds' => $seconds, 'batch_size' => 1], 'class_type' => 'EmptyLatentAudio'];
         $workflow['22_pos'] = ['inputs' => ['text' => $prompt_text, 'clip' => ['20_clip', 0]], 'class_type' => 'CLIPTextEncode'];
-        $workflow['22_neg'] = ['inputs' => ['text' => '', 'clip' => ['20_clip', 0]], 'class_type' => 'CLIPTextEncode'];
+        $workflow['22_neg'] = ['inputs' => ['text' => 'low quality, noise, distortion, artifacts, muddy, clipping, muffled, amateur', 'clip' => ['20_clip', 0]], 'class_type' => 'CLIPTextEncode'];
         $workflow['23'] = [
             'inputs' => [
                 'seed' => mt_rand(1, 2147483647), 'steps' => $steps, 'cfg' => $cfg, 'sampler_name' => 'euler', 'scheduler' => 'normal',
@@ -365,6 +414,11 @@ case 'generar_audio':
             ]);
             
             $historial_id = $pdo->lastInsertId();
+			
+			$historial_id = $pdo->lastInsertId();
+            if (function_exists('guardarEmbeddingHistorial') && $historial_id > 0) {
+                guardarEmbeddingHistorial($historial_id, $pdo);
+            }
 
             // 2. Devolvemos el JSON enriquecido para que el frontend tenga su ID
             echo json_encode([
@@ -447,6 +501,71 @@ case 'eliminar_voz':
         echo json_encode(['error' => __('err_voice_not_found')]);
     }
     exit();
+	
+// --------------------------------------------------------------------------
+// 4. MAESTRO MUSICAL IA (OPTIMIZADOR DE PROMPTS CON SYS_LLM)
+// --------------------------------------------------------------------------
+case 'optimizar_prompt_sfx':
+    $prompt_text = trim($_POST['prompt_text'] ?? '');
+    if (empty($prompt_text)) {
+        echo json_encode(['error' => __('err_empty_prompt') ?? 'El prompt está vacío.']);
+        exit();
+    }
+
+    // Buscamos el modelo SYS_LLM activo (o cualquier Ollama activo como respaldo)
+    $mod_llm = null;
+    try {
+        $stmt_llm = $pdo->query("SELECT nombre_archivo, keep_alive FROM modelos_ia WHERE motor = 'ollama' AND LOWER(categoria) = 'sys_llm' AND activo = 1 LIMIT 1");
+        $mod_llm = $stmt_llm ? $stmt_llm->fetch(PDO::FETCH_ASSOC) : null;
+        if (!$mod_llm) {
+            $stmt_llm = $pdo->query("SELECT nombre_archivo, keep_alive FROM modelos_ia WHERE motor = 'ollama' AND activo = 1 LIMIT 1");
+            $mod_llm = $stmt_llm ? $stmt_llm->fetch(PDO::FETCH_ASSOC) : null;
+        }
+    } catch (Throwable $e) {}
+
+    if (!$mod_llm || empty($mod_llm['nombre_archivo'])) {
+        echo json_encode(['error' => 'No hay ningún modelo SYS_LLM activo en el Gestor de Modelos.']);
+        exit();
+    }
+
+    $ka_raw = isset($mod_llm['keep_alive']) && trim($mod_llm['keep_alive']) !== '' ? trim($mod_llm['keep_alive']) : '2m';
+    if ($ka_raw === '0' || $ka_raw === 0) $ka_val = 0;
+    elseif ($ka_raw === '-1' || $ka_raw === -1) $ka_val = -1;
+    elseif (is_numeric($ka_raw)) $ka_val = $ka_raw . 'm';
+    else $ka_val = $ka_raw;
+
+    $sys_music = "You are an expert audio and music prompt engineer for Stable Audio Open 1.0. Convert the user's musical or sound effect idea into a concise, high-quality English prompt using technical descriptors (genre, instruments, BPM/tempo, mood, atmosphere, recording quality like 'stereo, high fidelity, warm reverb'). Output ONLY the final English prompt, without quotes, introductions, or explanations.";
+
+    $ollama_url = "http://" . (defined('LLM_IP') ? LLM_IP : '127.0.0.1') . ":" . (defined('LLM_PORT') ? LLM_PORT : '11434') . "/api/generate";
+    $payload_llm = json_encode([
+        'model' => $mod_llm['nombre_archivo'],
+        'system' => $sys_music,
+        'prompt' => $prompt_text,
+        'stream' => false,
+        'keep_alive' => $ka_val
+    ], JSON_INVALID_UTF8_SUBSTITUTE);
+
+    $ch_llm = curl_init($ollama_url);
+    curl_setopt($ch_llm, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch_llm, CURLOPT_POST, true);
+    curl_setopt($ch_llm, CURLOPT_POSTFIELDS, $payload_llm);
+    curl_setopt($ch_llm, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    curl_setopt($ch_llm, CURLOPT_TIMEOUT, 30);
+    $res_llm = curl_exec($ch_llm);
+    $err_llm = curl_error($ch_llm);
+    curl_close($ch_llm);
+
+    if ($err_llm || !$res_llm) {
+        echo json_encode(['error' => 'Error conectando con Ollama: ' . $err_llm]);
+        exit();
+    }
+
+    $data_llm = json_decode($res_llm, true);
+    $texto_optimizado = trim($data_llm['response'] ?? '');
+    $texto_optimizado = trim(preg_replace('/<think>.*?<\/think>/is', '', $texto_optimizado));
+
+    echo json_encode(['success' => true, 'respuesta' => $texto_optimizado]);
+exit();
 
 default:
     echo json_encode(['error' => __('err_unknown_audio_action') ?? 'Acción de audio no reconocida.']);

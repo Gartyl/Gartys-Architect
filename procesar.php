@@ -93,9 +93,10 @@ try {
         case 'generar_audio':
         case 'clonar_audio':
         case 'subir_audio_referencia':
-		case 'obtener_voces':  // <-- AÑADIDO
-        case 'guardar_voz':    // <-- AÑADIDO
-        case 'eliminar_voz':   // <-- AÑADIDO
+        case 'obtener_voces':        // <-- AÑADIDO
+        case 'guardar_voz':          // <-- AÑADIDO
+        case 'eliminar_voz':         // <-- AÑADIDO
+        case 'optimizar_prompt_sfx': // <-- NUEVO: Maestro Musical IA
             require_once __DIR__ . '/modulos/api_audio.php';
             break;
 
