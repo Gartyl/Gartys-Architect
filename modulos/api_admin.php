@@ -166,44 +166,113 @@ if ($action === 'descargar_civitai') {
 
 if ($action === 'ping_servicios') {
     $ch_ollama = curl_init("http://" . LLM_IP . ":" . LLM_PORT . "/api/tags");
-    curl_setopt($ch_ollama, CURLOPT_RETURNTRANSFER, true); curl_setopt($ch_ollama, CURLOPT_TIMEOUT, 2);
-    $res_ollama = curl_exec($ch_ollama); $ollama_ok = ($res_ollama !== false);
+    curl_setopt($ch_ollama, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch_ollama, CURLOPT_TIMEOUT, 2);
+    $res_ollama = curl_exec($ch_ollama);
+    $http_ollama = curl_getinfo($ch_ollama, CURLINFO_HTTP_CODE);
+    curl_close($ch_ollama);
+    $ollama_ok = ($res_ollama !== false && $http_ollama === 200);
 
     $ch_comfy = curl_init(COMFY_URL . "/system_stats");
-    curl_setopt($ch_comfy, CURLOPT_RETURNTRANSFER, true); curl_setopt($ch_comfy, CURLOPT_TIMEOUT, 2);
-    $res_comfy = curl_exec($ch_comfy); $comfy_ok = ($res_comfy !== false);
+    curl_setopt($ch_comfy, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch_comfy, CURLOPT_TIMEOUT, 2);
+    $res_comfy = curl_exec($ch_comfy);
+    $http_comfy = curl_getinfo($ch_comfy, CURLINFO_HTTP_CODE);
+    curl_close($ch_comfy);
+    $comfy_ok = ($res_comfy !== false && $http_comfy === 200);
 
     echo json_encode(['ollama' => $ollama_ok, 'comfy' => $comfy_ok]);
     exit();
 }
 
 if ($action === 'instalar_basico') {
+    // Evitamos que PHP corte la descarga por tiempo o bloquee la sesión
+    session_write_close();
+    @set_time_limit(0);
+
     $tipo = $_POST['tipo'] ?? '';
     if ($tipo === 'llama3') {
-        $data = ["name" => "llama3"];
+        // 1. Descargamos Llama 3 (con stream: false para respuesta limpia)
+        $data = ["name" => "llama3:latest", "stream" => false];
         $ch = curl_init("http://" . LLM_IP . ":" . LLM_PORT . "/api/pull");
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data)); curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 600);
-        $res = curl_exec($ch); $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 1200);
+        $res = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        // 2. Descargamos también el motor ligero de Embeddings (nomic-embed-text) para la búsqueda semántica
+        $ch_emb = curl_init("http://" . LLM_IP . ":" . LLM_PORT . "/api/pull");
+        curl_setopt($ch_emb, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch_emb, CURLOPT_POST, true);
+        curl_setopt($ch_emb, CURLOPT_POSTFIELDS, json_encode(["name" => "nomic-embed-text:latest", "stream" => false]));
+        curl_setopt($ch_emb, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch_emb, CURLOPT_TIMEOUT, 300);
+        curl_exec($ch_emb);
+        curl_close($ch_emb);
+
         if ($http_code === 200) {
-            $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso) VALUES (?, ?, ?, ?, ?)")->execute(['Cerebro Llama 3', 'llama3:latest', 'ollama', 'SYS_LLM', 'usuario']);
+            // Evitamos duplicados si el usuario pulsa dos veces
+            $stmt_chk = $pdo->prepare("SELECT COUNT(*) FROM modelos_ia WHERE nombre_archivo = 'llama3:latest' AND motor = 'ollama'");
+            $stmt_chk->execute();
+            if ($stmt_chk->fetchColumn() == 0) {
+                $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, activo) VALUES (?, ?, ?, ?, ?, 1)")
+                    ->execute(['Cerebro Llama 3', 'llama3:latest', 'ollama', 'SYS_LLM', 'usuario']);
+            }
             echo json_encode(['success' => true]);
-        } else { echo json_encode(['error' => __('err_ollama_download')]); }
+        } else {
+            echo json_encode(['error' => __('err_ollama_download')]);
+        }
         exit();
     }
+
     if ($tipo === 'sdxl') {
-        $url_civitai = "https://civitai.com/api/download/models/782002";
+        // Usamos espejo directo de HuggingFace como respaldo si no hay API_KEY de Civitai configurada aún
+        $tiene_api_key = defined('API_KEY') && strlen(trim(API_KEY)) > 5;
+        $url_descarga = $tiene_api_key 
+            ? "https://civitai.com/api/download/models/782002" 
+            : "https://huggingface.co/RunDiffusion/Juggernaut-X-v10/resolve/main/Juggernaut-X-RunDiffusion-NSFW.safetensors";
+
         $base_dir = defined('COMFY_MODELS_DIR') ? rtrim(COMFY_MODELS_DIR, '/\\') : 'C:/ComfyUI/models';
-        $ruta_destino = $base_dir . '/checkpoints/Juggernaut_X_SDXL.safetensors';
-        $fp = fopen($ruta_destino, 'w+');
-        $ch = curl_init($url_civitai); curl_setopt($ch, CURLOPT_FILE, $fp); curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . API_KEY]); curl_setopt($ch, CURLOPT_TIMEOUT, 1800);
-        $success = curl_exec($ch); curl_close($ch); fclose($fp);
-        if ($success) {
-            $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso) VALUES (?, ?, ?, ?, ?)")->execute(['Juggernaut X (SDXL)', 'Juggernaut_X_SDXL.safetensors', 'comfyui', 'Checkpoints', 'usuario']);
+        $ckpt_dir = $base_dir . '/checkpoints';
+        if (!is_dir($ckpt_dir)) { @mkdir($ckpt_dir, 0777, true); }
+
+        $ruta_destino = $ckpt_dir . '/Juggernaut_X_SDXL.safetensors';
+        $fp = @fopen($ruta_destino, 'w+');
+        if (!$fp) {
+            echo json_encode(['error' => (__('err_file_creation') ?? 'No se pudo escribir en: ') . $ckpt_dir]);
+            exit();
+        }
+
+        $ch = curl_init($url_descarga);
+        curl_setopt($ch, CURLOPT_FILE, $fp);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0');
+        if ($tiene_api_key) {
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . API_KEY]);
+        }
+        curl_setopt($ch, CURLOPT_TIMEOUT, 3600);
+        $success = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        fclose($fp);
+
+        // Verificamos que sea HTTP 200 y que el archivo pese al menos 100MB (evita guardar páginas HTML de error)
+        if ($success && $http_code === 200 && file_exists($ruta_destino) && filesize($ruta_destino) > 104857600) {
+            $stmt_chk = $pdo->prepare("SELECT COUNT(*) FROM modelos_ia WHERE nombre_archivo = 'Juggernaut_X_SDXL.safetensors'");
+            $stmt_chk->execute();
+            if ($stmt_chk->fetchColumn() == 0) {
+                $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, activo) VALUES (?, ?, ?, ?, ?, 1)")
+                    ->execute(['Juggernaut X (SDXL)', 'Juggernaut_X_SDXL.safetensors', 'comfyui', 'Checkpoints', 'usuario']);
+            }
             echo json_encode(['success' => true]);
-        } else { @unlink($ruta_destino); echo json_encode(['error' => __('err_civitai_download')]); }
+        } else {
+            @unlink($ruta_destino);
+            echo json_encode(['error' => __('err_civitai_download') . " (HTTP $http_code)"]);
+        }
         exit();
     }
 }
@@ -628,10 +697,11 @@ if ($action === 'instalar_actualizacion_zip') {
             // Evaluamos el nombre del archivo
             $nombre_archivo = basename($ruta_relativa);
             
-            // PROTECCIÓN: Si está en la lista negra o dentro de carpetas de usuario (/data/, /galeria/), LO SALTAMOS
+            // PROTECCIÓN: Si está en la lista negra o dentro de carpetas de usuario (/data/, /galeria/, /voces/), LO SALTAMOS
             if (in_array($nombre_archivo, $protegidos) || 
                 strpos($ruta_relativa, 'data/') === 0 || 
-                strpos($ruta_relativa, 'galeria/') === 0) {
+                strpos($ruta_relativa, 'galeria/') === 0 ||
+                strpos($ruta_relativa, 'voces/') === 0) {
                 continue; 
             }
             

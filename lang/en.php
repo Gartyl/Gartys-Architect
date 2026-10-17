@@ -1176,6 +1176,8 @@ return [
     'bien_024' => "Unknown failure",
     'bien_025' => "Network error",
     'bien_026' => "Garty's Architect is a professional, unrestricted tool. We assume you have basic knowledge of how ComfyUI works, how to download a .safetensors file, and how to use Ollama. If you are unsure, please read the included Quick Guide before continuing.",
+	'btn_retry' => "Retry",
+	'btn_skip_onboarding' => "Skip and enter",
 
     // ==============================================================================
     // 12. ERRORES (err_)

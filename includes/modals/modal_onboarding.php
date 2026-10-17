@@ -59,9 +59,17 @@
                     </div>
                 </div>
 
-                <div id="onboardingError" class="d-none mt-4 alert alert-danger border-danger text-start">
+                <<div id="onboardingError" class="d-none mt-4 alert alert-danger border-danger text-start">
                     <h6 class="fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> <?= __('bien_015') ?></h6>
-                    <p class="mb-1 small"><?= __('bien_016') ?></p>
+                    <p class="mb-3 small"><?= __('bien_016') ?></p>
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-light" onclick="escanearServiciosOnboarding()">
+                            <i class="bi bi-arrow-clockwise"></i> <?= __('btn_retry') ?? 'Reintentar' ?>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-warning" onclick="cerrarOnboarding()">
+                            <?= __('btn_skip_onboarding') ?? 'Omitir y entrar' ?> <i class="bi bi-arrow-right"></i>
+                        </button>
+                    </div>
                 </div>
                 
             </div>
@@ -70,8 +78,18 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    // Escaneo silencioso al backend para saltarnos las restricciones de CORS del navegador
+function escanearServiciosOnboarding() {
+    let uiOllama = document.getElementById('statusOllama');
+    let uiComfy = document.getElementById('statusComfy');
+    let boxAcciones = document.getElementById('onboardingAcciones');
+    let boxError = document.getElementById('onboardingError');
+
+    boxError.classList.add('d-none');
+    uiOllama.className = 'fw-bold text-warning';
+    uiOllama.innerHTML = `<i class="bi bi-arrow-repeat spin"></i> <?= __('bien_005') ?>`;
+    uiComfy.className = 'fw-bold text-warning';
+    uiComfy.innerHTML = `<i class="bi bi-arrow-repeat spin"></i> <?= __('bien_008') ?>`;
+
     let formData = new FormData();
     formData.append('action', 'ping_servicios');
 
@@ -80,9 +98,6 @@ document.addEventListener('DOMContentLoaded', () => {
     .then(data => {
         let ollamaOK = data.ollama;
         let comfyOK = data.comfy;
-
-        let uiOllama = document.getElementById('statusOllama');
-        let uiComfy = document.getElementById('statusComfy');
 
         if (ollamaOK) {
             uiOllama.className = 'fw-bold text-success';
@@ -100,17 +115,33 @@ document.addEventListener('DOMContentLoaded', () => {
             uiComfy.innerHTML = `<i class="bi bi-x-circle-fill"></i> <?= __('bien_020') ?? 'ComfyUI No Detectado' ?>`;
         }
 
+        // Desactivamos individualmente el botón del motor que no esté encendido
+        const btnLlama = document.getElementById('btnInstalarLlama');
+        const btnSDXL = document.getElementById('btnInstalarSDXL');
+        if (btnLlama) btnLlama.disabled = !ollamaOK;
+        if (btnSDXL) btnSDXL.disabled = !comfyOK;
+
         if (ollamaOK && comfyOK) {
-            document.getElementById('onboardingAcciones').classList.remove('d-none');
+            boxAcciones.classList.remove('d-none');
         } else {
-            document.getElementById('onboardingError').classList.remove('d-none');
+            boxError.classList.remove('d-none');
+            // Si al menos uno de los dos está activo, mostramos también las acciones para que pueda usarlo
+            if (ollamaOK || comfyOK) {
+                boxAcciones.classList.remove('d-none');
+            }
         }
     })
-    .catch(e => console.error(`<?= __('bien_021') ?? 'Error de escaneo' ?>:`, e));
-});
+    .catch(e => {
+        console.error(`<?= __('bien_021') ?? 'Error de escaneo' ?>:`, e);
+        boxError.classList.remove('d-none');
+    });
+}
+
+document.addEventListener('DOMContentLoaded', escanearServiciosOnboarding);
 
 function instalarModeloBasico(tipo, btnElement) {
     let originalHtml = btnElement.innerHTML;
+    let originalClass = btnElement.className;
     btnElement.innerHTML = `<i class="bi bi-arrow-repeat spin"></i> <?= __('bien_022') ?? 'Instalando...' ?>`;
     btnElement.disabled = true;
 
@@ -121,27 +152,24 @@ function instalarModeloBasico(tipo, btnElement) {
     fetch('procesar.php', { method: 'POST', body: formData })
     .then(r => r.json())
     .then(data => {
-        if(data.success) {
+        if (data.success) {
             btnElement.className = "btn btn-success fw-bold";
             btnElement.innerHTML = `<i class="bi bi-check-circle-fill"></i> <?= __('bien_023') ?? 'Instalado' ?>`;
         } else {
             btnElement.className = "btn btn-danger fw-bold";
-            // Aquí sumamos la variable segura con el error del servidor
             btnElement.innerHTML = `<i class="bi bi-x-circle-fill"></i> Error: ` + (data.error || `<?= __('bien_024') ?? 'Fallo desconocido' ?>`);
-            setTimeout(() => { btnElement.disabled = false; btnElement.innerHTML = originalHtml; btnElement.className = "btn btn-outline-info fw-bold"; }, 3000);
+            setTimeout(() => { btnElement.disabled = false; btnElement.innerHTML = originalHtml; btnElement.className = originalClass; }, 3500);
         }
     })
     .catch(e => {
+        btnElement.className = "btn btn-danger fw-bold";
         btnElement.innerHTML = `<i class="bi bi-x-circle-fill"></i> <?= __('bien_025') ?? 'Error de red' ?>`;
+        setTimeout(() => { btnElement.disabled = false; btnElement.innerHTML = originalHtml; btnElement.className = originalClass; }, 3500);
     });
 }
 
 function cerrarOnboarding() {
-    // 1. Creamos una cookie que caduca en 1 año
     document.cookie = "garty_onboarding_done=1; path=/; max-age=31536000";
-    
-    // 2. Recargamos la página. Ahora PHP verá la cookie y no volverá a inyectar el Modal.
     location.reload();
 }
-
 </script>

@@ -1176,6 +1176,8 @@ return [
     'bien_024' => "Fallada desconeguda",
     'bien_025' => "Error de xarxa",
     'bien_026' => "Garty's Architect és una eina professional sense restriccions. Assumim que tens coneixements bàsics sobre com funciona ComfyUI, com descarregar un arxiu .safetensors i com usar Ollama. Si no n'estàs segur, si us plau, llegeix la Guia Ràpida inclosa abans de continuar.",
+	'btn_retry' => "Reintentar",
+	'btn_skip_onboarding' => "Ometre i entrar",
 
     // ==============================================================================
     // 12. ERRORES (err_)
