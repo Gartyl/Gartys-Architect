@@ -2,7 +2,6 @@
   <img src="banner.png" alt="Garty's Architect AI Studio" width="100%">
 </div>
 <br>
-
 # 🏛️ Garty's Architect — Integrated Local AI Studio
 
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11%20(x64)-0078D6?style=for-the-badge&logo=windows)](https://github.com/Gartyl/Gartys-Architect/releases)
