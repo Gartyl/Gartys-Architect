@@ -99,7 +99,8 @@ if ($action === 'generar_imagen') {
         if ($selector_solicitado === '[NATURAL_IMAGE]' || $selector_solicitado === '[VIDEO]' || 
             strpos($modelo_solicitado, 'FLUX') !== false || strpos($modelo_solicitado, 'SD3.5') !== false || 
             strpos($modelo_solicitado, 'QWEN') !== false || strpos($modelo_solicitado, 'WAN') !== false || 
-            strpos($modelo_solicitado, 'LTX') !== false || strpos($modelo_solicitado, 'KREA') !== false) {
+            strpos($modelo_solicitado, 'LTX') !== false || strpos($modelo_solicitado, 'KREA') !== false ||
+            strpos($modelo_solicitado, 'MOSS') !== false) {
             echo json_encode(['success' => false, 'error' => __('err_pro_heavy_models')]);
             exit;
         }
@@ -784,12 +785,13 @@ if ($action === 'generar_imagen') {
     $is_hunyuan = (strpos($model_lower, 'hunyuan') !== false && strpos($model_lower, 'video') === false);
     $is_hidream = (strpos($model_lower, 'hidream') !== false);
     $is_anima = (strpos($model_lower, 'anima') !== false);
+    $is_moss = (strpos($model_lower, 'moss') !== false);
     
     // 2. Bandera exclusiva para Z-Image
     $is_zimage = (strpos($model_lower, 'z-image') !== false || strpos($model_lower, 'z_image') !== false || strpos($model_lower, 'zimage') !== false);
     
     // 3. Añadimos a la familia UNETs
-    $is_unet = (stripos($model_path, 'unet/') !== false || stripos($model_path, 'unet\\') !== false || $is_flux || $is_chroma || $is_sd35 || $is_zimage || $is_qwen || $is_gguf || $is_krea2 || $is_hunyuan || $is_hidream || $is_anima);
+    $is_unet = (stripos($model_path, 'unet/') !== false || stripos($model_path, 'unet\\') !== false || $is_flux || $is_chroma || $is_sd35 || $is_zimage || $is_qwen || $is_gguf || $is_krea2 || $is_hunyuan || $is_hidream || $is_anima || $is_moss);
     
     // 4. Turbo (Añadida también la versión sin guion)
     $is_turbo = (strpos($model_lower, 'turbo') !== false || strpos($model_lower, 'schnell') !== false);
@@ -797,7 +799,7 @@ if ($action === 'generar_imagen') {
     // --- SELECCIÓN INTELIGENTE DE VAE ---
     $vae_name = "ae.safetensors"; 
     
-    if (strpos($model_lower, 'flux2') !== false) {
+    if (strpos($model_lower, 'flux2') !== false || $is_moss) {
         $vae_name = "flux2_vae.safetensors";
     } elseif ($is_flux) {
         $vae_name = "flux_vae.safetensors";
@@ -864,6 +866,11 @@ if ($action === 'generar_imagen') {
         $cfg = 5.0; 
         $sampler = "euler"; 
         $scheduler = "normal"; 
+    } elseif ($is_moss) {
+        $steps = 35; 
+        $cfg = 3.0; 
+        $sampler = "euler"; 
+        $scheduler = "simple"; 
     } elseif ($is_flux || $is_sd35 || $is_zimage) {
         $steps = 25; 
         $cfg = 4.0; 
@@ -923,7 +930,7 @@ if ($action === 'generar_imagen') {
     // =========================================================
  
  // Añadimos excepciones a la lista permitida para no bloquear la carga
-    if ($is_unet && !$is_flux && !$is_chroma && !$is_sd35 && !$is_zimage && !$is_qwen && !$is_gguf && !$is_krea2 && !$is_hunyuan && !$is_hidream && !$is_anima && strpos($model_lower, 'video') === false) {
+    if ($is_unet && !$is_flux && !$is_chroma && !$is_sd35 && !$is_zimage && !$is_qwen && !$is_gguf && !$is_krea2 && !$is_hunyuan && !$is_hidream && !$is_anima && !$is_moss && strpos($model_lower, 'video') === false) {
         echo json_encode(['error' => __('err_pure_unet_load')]); 
         exit();
     }
@@ -2486,7 +2493,7 @@ if ($action === 'generar_imagen') {
             
             // Si el modelo activo es un DiT avanzado o carece de CLIP integrado (como Krea-2),
             // delegamos la restauración facial a un modelo rápido y robusto (SD1.5 / SDXL)
-            if ($is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima || !modeloTieneClipIntegrado($model_path)) {
+            if ($is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima || $is_moss || !modeloTieneClipIntegrado($model_path)) {
                 $stmt_ref = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE categoria = 'sys_refiner' LIMIT 1");
                 $row_ref = $stmt_ref->fetch();
                 
@@ -2677,7 +2684,9 @@ if ($action === 'generar_imagen') {
         $workflow = cargarWorkflowJSON($ruta_json, $reemplazos);
 
     } else { 
-        if ($is_chroma) {
+        if ($is_moss || strpos($model_lower, 'flux2') !== false) {
+            $workflow["5"] = [ "inputs" => ["width" => $width, "height" => $height, "batch_size" => $batch_size], "class_type" => "EmptyFlux2LatentImage" ];
+        } elseif ($is_chroma) {
             $workflow["5"] = [ "inputs" => ["width" => $width, "height" => $height, "batch_size" => $batch_size], "class_type" => "EmptySD3LatentImage" ];
         } else {
             $workflow["5"] = [ "inputs" => ["width" => $width, "height" => $height, "batch_size" => $batch_size], "class_type" => "EmptyLatentImage" ];
@@ -2715,7 +2724,7 @@ if ($action === 'generar_imagen') {
     
     // El control absoluto lo tiene la BD ($es_unbundled_db). 
     // Pero MANTENEMOS las heurísticas como salvavidas automático
-    $es_arquitectura_nueva = ($es_unbundled_db || $esta_en_carpeta_unet || $is_flux || $is_chroma || $is_zimage || $is_gguf || $is_qwen || $is_krea2 || $is_hunyuan || $is_hidream || $is_anima);
+    $es_arquitectura_nueva = ($es_unbundled_db || $esta_en_carpeta_unet || $is_flux || $is_chroma || $is_zimage || $is_gguf || $is_qwen || $is_krea2 || $is_hunyuan || $is_hidream || $is_anima || $is_moss);
 
     if ($es_arquitectura_nueva) {
         // Dejamos la ruta absolutamente intacta para que coincida 100% con Windows/ComfyUI
@@ -2779,6 +2788,8 @@ if ($action === 'generar_imagen') {
             ];
         } elseif ($is_anima) {
             $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "qwen_3_06b_base.safetensors", "type" => "stable_diffusion"], "class_type" => "CLIPLoader" ];
+        } elseif ($is_moss) {
+            $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "qwen3.5_9b_int8_convrot.safetensors", "type" => "moss_image", "device" => "default"], "class_type" => "CLIPLoader" ];
         } elseif (strpos($model_lower, 'flux2') !== false) {
             $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "qwen_3_8b.safetensors", "type" => "flux2"], "class_type" => "CLIPLoader" ];
         } elseif ($is_chroma) {
@@ -2852,7 +2863,7 @@ if ($action === 'generar_imagen') {
 	// ==============================================================================
     // ✂️ CLIP SKIP (Aplicado de forma segura solo a arquitecturas clásicas SD1.5/SDXL)
     // ==============================================================================
-    $is_classic_architecture = !$is_flux && !$is_chroma && !$is_sd35 && !$is_qwen && !$is_krea2 && !$is_hunyuan && !$is_hidream && !$is_anima && !$is_video_mode && !$is_zimage;
+    $is_classic_architecture = !$is_flux && !$is_chroma && !$is_sd35 && !$is_qwen && !$is_krea2 && !$is_hunyuan && !$is_hidream && !$is_anima && !$is_video_mode && !$is_zimage && !$is_moss;
 
     if ($clip_skip > 1 && $is_classic_architecture) {
         $workflow["200_clip_skip"] = [
@@ -3016,7 +3027,7 @@ if ($action === 'generar_imagen') {
         // 3. ESCUDO 3: Z-Image y otros DiTs Next-Gen Incompatibles
         // No soportan las matrices del IP-Adapter clásico ni los pesos visuales de Flux Redux
         $is_ideogram = (strpos($temp_mod_lower, 'ideogram') !== false);
-        if ((isset($is_zimage) && $is_zimage) || (isset($is_sd35) && $is_sd35) || (isset($is_hunyuan) && $is_hunyuan) || (isset($is_hidream) && $is_hidream) || (isset($is_anima) && $is_anima) || $is_ideogram) {
+        if ((isset($is_zimage) && $is_zimage) || (isset($is_sd35) && $is_sd35) || (isset($is_hunyuan) && $is_hunyuan) || (isset($is_hidream) && $is_hidream) || (isset($is_anima) && $is_anima) || (isset($is_moss) && $is_moss) || $is_ideogram) {
             echo json_encode(['error' => __('err_ipa_incompatible_dit') ?? 'La herramienta IP-Adapter / Referencia de Estilo no es compatible con la arquitectura de este modelo. Por favor, desactívala en el panel para poder renderizar.']);
             exit();
         }
@@ -3557,6 +3568,38 @@ if ($action === 'generar_imagen') {
         ];
         // Actualizamos el puntero para que el KSampler reciba este nodo automáticamente
         $current_model_node = "850_hidream_shift"; 
+    }
+    // =========================================================================
+	
+	// =========================================================================
+    // --- NUEVO: SKIP LAYER GUIDANCE PARA MOSS-IMAGE (Capa 22 Oficial) ---
+    // =========================================================================
+    if ($is_moss) {
+        if ($user_shift !== null) {
+            $workflow["849_moss_shift"] = [
+                "inputs" => [
+                    "shift" => $user_shift,
+                    "model" => [$current_model_node, 0]
+                ],
+                "class_type" => "ModelSamplingAuraFlow"
+            ];
+            $current_model_node = "849_moss_shift";
+        }
+
+        // Si usamos CFG > 1.0 (modelo base/SFT), activamos el SkipLayerGuidance en la capa 22
+        if ($cfg > 1.2) {
+            $workflow["850_moss_slg"] = [
+                "inputs" => [
+                    "double_layers" => "",
+                    "single_layers" => "22",
+                    "start_percent" => 0.0,
+                    "end_percent" => 1.0,
+                    "model" => [$current_model_node, 0]
+                ],
+                "class_type" => "SkipLayerGuidanceDiTSimple"
+            ];
+            $current_model_node = "850_moss_slg";
+        }
     }
     // =========================================================================
 
@@ -4133,7 +4176,7 @@ if ($action === 'generar_imagen') {
             $adetailer_steps   = $steps;
 
             // 🛡️ ESTRATEGIA ANTI-COLLISION PARA DiT O MODO PURO
-            if (!empty($es_modo_puro_activo) || $is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima) {
+            if (!empty($es_modo_puro_activo) || $is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima || $is_moss) {
                 $modelo_rostros = "";
 
                 $stmt_ref = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE categoria = 'sys_refiner' LIMIT 1");
