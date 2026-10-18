@@ -3,123 +3,158 @@
 </div>
 <br>
 
-# 🏢 Garty's Architect - Integrated AI Studio
+# 🏛️ Garty's Architect — Integrated Local AI Studio
 
-Welcome to the official repository for **Garty's Architect**, your ultimate local desktop interface for orchestrating AI models. Built to bridge the gap between the raw, limitless power of ComfyUI / Ollama and the clean, focused experience of a professional design studio.
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11%20(x64)-0078D6?style=for-the-badge&logo=windows)](https://github.com/Gartyl/Gartys-Architect/releases)
+[![Engine](https://img.shields.io/badge/Powered%20By-FrankenPHP%20%2B%20SQLite3-777BB4?style=for-the-badge&logo=php)](https://frankenphp.dev/)
+[![AI Cores](https://img.shields.io/badge/AI%20Cores-Ollama%20%2B%20ComfyUI-FF6F00?style=for-the-badge)](https://github.com/Gartyl/Gartys-Architect/wiki)
+[![License](https://img.shields.io/badge/Edition-Free%20%26%20PRO-FFC107?style=for-the-badge)](https://github.com/Gartyl/Gartys-Architect)
 
-Garty's Architect is distributed as a standalone, portable application powered by FrankenPHP. No complex web server installations, Docker containers, or environment configurations required. Just launch and create.
+<p align="center">
+  <b>🌐 Language / Idioma:</b> &nbsp; 🇬🇧 <b>English</b> &nbsp;|&nbsp; <a href="README.es.md">🇪🇸 <b>Español</b></a>
+</p>
 
-*Note: Garty's Architect is a UI framework and **does not distribute, host, or bundle any AI models or checkpoints**. You must provide your own locally hosted models.*
+Welcome to the official repository for **Garty's Architect**, your ultimate local desktop command center for orchestrating generative AI models. Built to bridge the gap between the raw, limitless power of **ComfyUI + Ollama** and the clean, focused experience of a professional creative studio.
+
+**Garty's Architect** is distributed as a **100% standalone, portable application** powered by an embedded **FrankenPHP** server and **SQLite3**. No Python environment conflicts, no Apache/XAMPP setups, and no Docker containers required. Just launch and create.
+
+> ⚠️ **Important Note:** Garty's Architect is an advanced orchestration framework and UI. It does **not** distribute, host, or bundle any AI models or checkpoints. You retain full control over your own locally hosted models.
 
 ---
 
 ## ⚡ Core Features
-* **Unified Super-Chat Dashboard:** Control ComfyUI and Ollama from a single, responsive dark-mode interface. Generate prompts, analyze images, and send render commands (`/img`, `/gpu`) directly from a unified conversational hub. Say goodbye to spaghetti nodes and terminal windows.
-* **Styles & Presets:** Save your perfect combinations of prompts, negative prompts, LoRAs, and engine settings to recreate your signature look instantly.
-* **Zero-Configuration Portable Executable:** Runs locally out of a single folder using an embedded FrankenPHP binary.
-* **Deterministic Asynchronous Generation:** Fire off your prompts and close the tab. The system processes everything in the background and safely stores the images with zero duplicates.
-* **Lightweight SQLite Storage:** Every prompt, seed, model, and metadata is automatically saved to a local, zero-config SQLite database.
-* **Multilingual UI:** Native support for English, Spanish and Catalan.
-* **100% Local & Private:** Your data, your hardware, your rules.
+
+* 💬 **Unified Multimodal Super-Chat & RAG:** Control ComfyUI and Ollama from a single responsive dark-mode interface. Analyze PDFs/DOCX, perform high-precision OCR on images, query real-time internet data via the built-in **Sniper RAG Engine** (Wikipedia API + DuckDuckGo Lite), and trigger GPU renders directly using slash commands (`/img`, `/gpu`). Say goodbye to spaghetti nodes!
+* 🤖 **The Auto-Architect (1-Click Semantic Routing):** Not sure which checkpoint, resolution, or CFG to use? Type your idea in plain language and hit the Magic Wand. Your local LLM analyzes your request, reads the semantic tags of your installed models, selects the best engine, adjusts the aspect ratio, writes the technical prompt, and fires the GPU automatically.
+* 🎬 **Next-Gen Cinematic Video Studio:** Native orchestration for **Wan 2.1/2.2, LTX-Video, Hunyuan Video 2.1, and MiniMax H3** (including automatic `.safetensors` / `.gguf` switching, dynamic LoRA bypassing, and Multi-Tray reference injection of up to 9 images in a single shot).
+* 🔊 **Pro Audio, Voice Cloning & Foley Studio:** Clone voices with **MiniMax H3 (20B)** (featuring ultra-fast audio-only decoding and automatic FFmpeg silence/sample trimming), **OmniVoice** (Dual-Mode: Zero-Shot Voice Design + Reference Cloning), **IndexTTS-2**, and **F5-TTS**. Generate video-synced sound effects with **HunyuanVideo-Foley**, music with **Stable Audio**, and craft acoustic prompts with the **AI Music Maestro**.
+* 🧠 **Semantic Vector History & YAML Wildcards:** Every prompt and chat response is automatically indexed using local embeddings (`nomic-embed-text`), letting you search your history by *meaning and concept*, not just keywords. Supports inline `{a|b|c}` dynamic syntax and `.yaml` wildcard trees.
+* 🔋 **Smart VRAM Arbitrator & Safe Model Manager:** Configure per-model `keep_alive` policies so Ollama instantly flushes VRAM (`0s`) before ComfyUI starts heavy rendering. Includes a built-in Civitai Downloader, an OTA GitHub Auto-Updater that protects user files, and safe physical deletion (sending obsolete ComfyUI models to the **Windows Recycle Bin**).
+* 🌍 **Multilingual & 100% Private:** Native support for **English, Spanish, and Catalan** (with a live in-app translation editor). Your data, your hardware, your rules.
 
 ---
 
 ## 💻 Hardware Requirements
-Since Garty's Architect communicates directly with your local AI instances, performance depends entirely on your machine.
 
-* **Minimum Setup (SDXL / Basic Workflows):**
-    * CPU: Modern quad-core processor.
-    * GPU: NVIDIA GPU with 8GB VRAM.
-    * RAM: 16GB system memory.
-* **Recommended Setup (Flux / LTX Video Generation):**
-    * CPU: Modern multi-core processor (e.g., Intel Core i7 or equivalent).
-    * GPU: NVIDIA RTX series with 16GB VRAM (e.g., RTX 2080 or higher).
-    * RAM: 32GB system memory.
+Since Garty's Architect communicates directly with your local AI instances, performance depends entirely on your hardware:
 
----
-
-## 🧠 Prerequisites: The Logic Core (Ollama)
-Garty's Architect relies on local LLMs to act as the "brains" behind the scenes (prompt generation, image analysis, and UI intelligence). Ensure you have **[Ollama](https://ollama.com/)** running locally. 
-
-Because Garty's Architect is model-agnostic, you are completely free to use any model you prefer by registering it in the Admin Panel. However, for the app to work at its full potential right out of the box, **we highly recommend** pulling these specific baseline models:
-
-1.  **SYS_LLM (The Prompt Engineer):** `llama3.1:8b` (or your preferred fast LLM)
-    * *Required internally to generate, structure, and amplify prompts.*
-2.  **SYS_VISION (The Shadow Analyst):** `granite3.2-vision` (or any fast vision model)
-    * *A lightweight vision model used internally to extract quick structural tags and faces for tools like ReActor and IP-Adapter.*
-3.  **Multimodal Chat Model:** `qwen2.5-vl` (or Qwen 3.5 Vision)
-    * *Highly recommended to be kept active in your Chat category for deep, conversational analysis of your uploaded images.*
-
-> **Quick Install (Baseline Recommendation):** Open your terminal and run: 
-> `ollama run llama3.1:8b` | `ollama run granite3.2-vision` | `ollama run qwen2.5-vl`
+* **Minimum Setup (SD 1.5 / SDXL / 8B LLMs):**
+  * **CPU:** Modern quad-core processor.
+  * **GPU:** NVIDIA GPU with **8 GB VRAM**.
+  * **RAM:** 16 GB system memory.
+* **Recommended Setup (Flux / DiT / Video Generation / 14B–27B LLMs):**
+  * **CPU:** Modern multi-core processor (e.g., Intel Core i7-14700KF / AMD Ryzen 7 or higher).
+  * **GPU:** NVIDIA RTX series with **16 GB+ VRAM** (e.g., RTX 4060 Ti 16GB, RTX 5060 16GB, RTX 4080, RTX 3090/4090).
+  * **RAM:** 32 GB+ system memory.
 
 ---
 
-## 🎨 Prerequisites: The Graphic Core (ComfyUI)
-Ensure you have **[ComfyUI](https://github.com/comfyanonymous/ComfyUI)** running locally. To use the advanced PRO features, your ComfyUI installation must have the following Custom Nodes installed (we highly recommend using the *ComfyUI Manager* to install them):
+## 🧠 Prerequisites 1: The Logic Core (Ollama)
 
+Garty's Architect relies on local LLMs to act as the "brains" behind the scenes (prompt engineering, optical analysis, audio direction, and semantic indexing). Ensure you have **[Ollama](https://ollama.com)** running locally on port `11434`.
+
+Because Garty's Architect is **100% model-agnostic**, you can register any model you prefer in the Admin Panel. For the best out-of-the-box experience, we recommend pulling these baseline roles:
+
+1. **`SYS_LLM` (The Prompt Engineer):** `llama3.1:8b` *(or `gemma3:12b` / `deepseek-r1:14b`)*
+   * Works silently in the background to structure prompts, power the Auto-Architect, and write acoustic scores for the AI Music Maestro.
+2. **`SYS_VISION` (The Shadow Optical Analyst):** `granite3.2-vision`
+   * A fast vision model used internally to extract structural tags for tools like IP-Adapter and ControlNet.
+3. **Multimodal Chat Model:** `qwen2.5-vl:7b` *(or `gemma3:27b`)*
+   * Used in the Super-Chat for deep conversational analysis, coding, and 100% faithful OCR document transcription.
+4. **Semantic Search Engine (Automatic):** `nomic-embed-text:latest`
+   * Ultra-lightweight model (274 MB) used to index your prompt history for conceptual vector searches.
+
+### ⚡ Quick Terminal Install (Baseline Kit)
+Open your terminal (`CMD` or `PowerShell`) and run:
+
+```powershell
+ollama pull llama3.1:8b
+ollama pull granite3.2-vision
+ollama pull qwen2.5-vl:7b
+ollama pull nomic-embed-text:latest
+```
+
+*(Note: New users can also install the baseline LLM and Embeddings with **1-Click** directly from the in-app Onboarding screen!)*
+
+---
+
+## 🎨 Prerequisites 2: The Render Core (ComfyUI & FFmpeg)
+
+Ensure you have **ComfyUI** running locally on port `8188` and **FFmpeg** installed on your system `PATH` (required for video merging and automatic voice sample trimming).
+
+To unlock all **PRO Studio** workflows, install the following Custom Nodes via **ComfyUI Manager**:
+
+* **Video & Audio Packaging:** `ComfyUI-VideoHelperSuite` *(Mandatory for MP4/Audio merging)*
+* **Quantized Model Loader (.gguf):** `ComfyUI-GGUF`
 * **Face Swapping:** `ComfyUI-ReActor`
-* **Style Transfer:** `ComfyUI_IPAdapter_plus`
+* **Style & Composition Transfer:** `ComfyUI_IPAdapter_plus`
+* **Structure Control (Canny/Depth/DWPose):** `ComfyUI-Advanced-ControlNet` & `comfyui_controlnet_aux`
+* **Face Repair (ADetailer) & Inpainting:** `ComfyUI-Impact-Pack`
+* **High-Res Tiled Upscaling:** `ComfyUI_UltimateSDUpscale`
 * **Background Removal:** `ComfyUI-Rembg`
-* **Structure Control:** `ComfyUI-Advanced-ControlNet`
-* **Face Repair (ADetailer):** `ComfyUI-Impact-Pack`
-* **High-Res Upscaling:** `ComfyUI_UltimateSDUpscale`
-* **Image Relighting:** `ComfyUI-IC-Light`
-* **Image Colorization:** `ComfyUI-DDColor`
-* **Lip-Sync (Wav2Lip):** `ComfyUI-Wav2Lip`
-* **Flux 2 Klein Image Editing:** `ComfyUI-Flux2KontextConditioner`
-* **Qwen Image Editing:** `ComfyUI-Qwen-Image-Edit`
-* **Voice Generation (OmniVoice):** `ComfyUI-OmniVoice`
-* **Voice Generation (F5-TTS):** `ComfyUI-F5-TTS`
-* **Voice Generation (IndexTTS-2):** `ComfyUI-IndexTTS`
-* ...
+* **Image Relighting & Colorization:** `ComfyUI-IC-Light` & `ComfyUI-DDColor`
+* **Advanced Image Editing:** `ComfyUI-Flux2KontextConditioner` & `ComfyUI-Qwen-Image-Edit`
+* **Voice Cloning & TTS Engines:** `ComfyUI-MiniMax-H3`, `ComfyUI-OmniVoice`, `ComfyUI-IndexTTS`, `ComfyUI-F5-TTS`
+* **Video Foley & Lip-Sync:** `ComfyUI-HunyuanVideo-Foley` & `ComfyUI-Wav2Lip`
 
 ---
 
 ## 🛠️ Quick Start & Installation
+
 Getting started takes less than a minute:
 
-1.  Download the latest Garty's Architect .zip from the Releases tab.
-2.  Unzip the contents into any folder on your local machine.
-3.  ⚙️ **IMPORTANT - The config.php file:** Open the `config.php` file with any text editor. You **must** set the absolute path to your ComfyUI models folder. 
-    * *Example:* `define('COMFY_MODELS_PATH', 'G:\ComfyUI\models');`
-    * *(Optional)* Add your Civitai API key if you want to use the integrated model downloader.
-4.  Run `GartysArchitect.exe` (this will automatically initialize the local environment).
-5.  Ensure you have **ComfyUI (port 8188)** and **Ollama (port 11434)** running in the background.
-6.  Open your browser and navigate to `http://localhost:8000`.
-7.  **(PRO Users):** Enter your License Key in the UI panel to unlock advanced features.
+1. Download the latest **Garty's Architect `.zip`** from the **[Releases](../../releases)** tab.
+2. Extract the contents into a non-protected folder on your drive (e.g., `C:\GartysArchitect\`). *Avoid `C:\Program Files\` to ensure write permissions for SQLite and gallery files.*
+3. ⚙️ **CRITICAL STEP — Configure `config.php`:**
+   * Locate the file named **`config.sample.php`** in the root folder and rename it to **`config.php`**.
+   * Open `config.php` with any text editor and set the absolute path to your ComfyUI `models` directory:
+     ```php
+     define('COMFY_MODELS_DIR', 'C:/ComfyUI/models');
+     ```
+   * *(Optional)* Paste your **Civitai API Key** into `define('API_KEY', '...');` to enable the built-in model downloader.
+4. Make sure **Ollama** (`11434`) and **ComfyUI** (`8188`) are running in the background.
+5. Double-click **`GartysArchitect.exe`**. A console window will boot the internal FrankenPHP engine and **automatically launch your browser** at `http://localhost:8000` (keep the console window open while using the app).
+6. Complete the **Smart Onboarding** check (and optionally enter your **★ PRO License Key** in the top bar to unlock all studio modules).
 
 ---
 
-## 📖 Official Documentation & Wiki
-Ditch the PDFs! All instructions, from basic setup to advanced PRO tools configuration (like IP-Adapter, ReActor, and F5-TTS), are now fully documented and constantly updated in our Wiki.
+## 📖 Official Documentation & Advanced Wiki
 
-👉 **[Read the Full Documentation / Lee el Manual Completo en la Wiki](https://github.com/Gartyl/Gartys-Architect/wiki)**
+Ditch the outdated PDFs! Every single feature—from setting up custom Chat Personalities with dynamic JSON temperatures, configuring Unbundled DiT/UNET architectures, mastering the 4 Voice Cloning engines, to VRAM optimization and Troubleshooting—is thoroughly documented in our official Wiki:
+
+👉 **[Read the Full Technical Manual in the Official Wiki](../../wiki)**
 
 ---
 
-## 🚀 Editions: How to Get It
+## 🚀 Editions: Free vs. PRO
 
-**1. The Core Experience (Free)**
+### 1. The Core Experience (Free)
+Perfect for getting started with local AI orchestration:
+* Unified Multimodal Super-Chat, Sniper RAG web search, Document/OCR analysis, and Prompt Architect.
+* Standard Image Generation for classic architectures (**SD 1.5 & SDXL**).
+* 1-Click Onboarding, SQLite semantic history, Dynamic Prompts/Wildcards, and Multilingual UI.
+* 👉 **[Download the latest `.zip` from Releases](../../releases)**
 
-Perfect for getting started. Includes the core unified dashboard, asynchronous generation, zero-config SQLite history, and multilingual support.<br>
-👉 *Download the .zip directly from the Releases tab on the right.*
-
-**2. PRO License**
-For power users. Unlocks the true potential of the integrated studio:
-* **Advanced Workflows:** Access to heavy architectures like Flux, Flux 2 Klein, SD3.5, Krea-2, Chroma, Z-Image, Qwen-Image, Qwen-Edit, Hunyuan Image, Hidream, Ideogram, LTX-Video, Minimax H3, Hunyuan Video and Wan.
-* **The Graphic Studio:** Unlocks Native ReActor, IP-Adapter, Rembg, High-Res Fix, IC-Light, Upscale, DDColor, Inpainting/Outpainting...
-👉 *[Unlock the PRO License here](https://garty.lemonsqueezy.com/checkout/buy/70636e1a-0dde-49c5-bf97-d4d852dceee8)*
+### 2. ★ PRO Studio License
+Built for power creators and filmmakers. Unlocks the full arsenal of Garty's Architect:
+* **Heavyweight & Unbundled Architectures:** Full support for **Flux, Flux 2 Klein, Chroma, Z-Image, Anima, SD 3.5, Krea-2, Qwen-Image, Qwen-Edit, Hunyuan Image, HiDream, and Ideogram**.
+* **Cinematic Video Generation:** Unlocks **Wan 2.1/2.2, LTX-Video, Hunyuan Video 2.1, and MiniMax H3** (with Multi-Image Reference injection and GGUF support).
+* **Full Audio & Voice Cloning Suite:** Unlocks **MiniMax H3 (20B) Voice Clone, OmniVoice Dual-Mode, IndexTTS-2, F5-TTS, HunyuanVideo-Foley, Stable Audio, AI Music Maestro, and Wav2Lip**.
+* **Advanced Graphic Studio:** Unlocks **ControlNet Studio, IP-Adapter (Multi-Tray), ReActor (FaceSwap), ADetailer, Inpainting/Outpainting Canvas, IC-Light, DDColor, Rembg, and Tiled Upscaling**.
+* **Custom AI Personas & Video Seeds:** Create and edit custom Chat Personalities and Video motion presets.
+* 👉 **[Unlock the PRO License here](YOUR_LEMON_SQUEEZY_LINK_HERE)**
 
 ---
 
 ## 🔮 The Roadmap
-This project is an actively developed Swiss Army knife for AI enthusiasts. Coming soon:
-* **Continuous Evolution:** Ongoing integration of next-generation image and video solutions, as well as advanced workflow tools.
-* **The Server Edition:** A future standalone release designed for remote network access, complete with secure multi-user logins (MySQL/MariaDB), role management, and audit logs.
+
+Garty's Architect is an actively developed Swiss Army knife for local AI enthusiasts. Coming soon:
+* **Continuous Engine Evolution:** Day-one integration of upcoming open-weights image, video, and audio architectures.
+* **The Server Edition:** A dedicated multi-user release designed for studio networks, featuring MySQL/MariaDB backends, granular role-based permissions, shared galleries, and audit logs.
 
 ---
 
 ## 🐛 Bug Reports & Feature Requests
-Have an idea for a new feature? Found a bug? 
-Please use the **Issues** tab at the top of this repository. Be sure to check that your ComfyUI nodes and Ollama models are correctly installed before reporting an engine failure.
+
+Have an idea for a new feature or found a bug?
+Please open a ticket in the **[Issues](../../issues)** tab. Before reporting a rendering failure, please verify in the [Troubleshooting Wiki](../../wiki) that your ComfyUI Custom Nodes, `COMFY_MODELS_DIR` path, and Ollama models are properly installed.
