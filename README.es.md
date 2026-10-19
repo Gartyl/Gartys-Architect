@@ -137,7 +137,7 @@ Perfecta para iniciarse en la orquestación de IA local:
 
 ### 2. ★ Licencia PRO Studio
 Diseñada para creadores avanzados y cineastas. Desbloquea todo el arsenal de Garty's Architect:
-* **Arquitecturas Pesadas y Desmembradas (Unbundled):** Soporte completo para **Flux, Flux 2 Klein, Chroma, Z-Image, Anima, SD 3.5, Krea-2, Qwen-Image, Qwen-Edit, Hunyuan Image, HiDream, Moss e Ideogram**.
+* **Arquitecturas Pesadas y Desmembradas (Unbundled):** Soporte completo para **Flux, Flux 2 Klein, Flux 3 Klein, Chroma, Z-Image, Anima, SD 3.5, Krea-2, Qwen-Image, Qwen-Edit, Hunyuan Image, HiDream, Moss e Ideogram**.
 * **Generación de Vídeo Cinemático:** Desbloquea **Wan 2.1/2.2, LTX-Video, Hunyuan Video 2.1 y MiniMax H3** (con inyección de múltiples imágenes de referencia y soporte GGUF).
 * **Suite Completa de Audio y Clonación de Voz:** Desbloquea **Clonación Vocal MiniMax H3 (20B), OmniVoice Modo Dual, IndexTTS-2, F5-TTS, HunyuanVideo-Foley, Stable Audio, Maestro Musical IA y Wav2Lip**.
 * **Estudio Gráfico Avanzado:** Desbloquea **ControlNet Studio, IP-Adapter (Bandeja Multicarga), ReActor (FaceSwap), ADetailer, Lienzo de Inpainting/Outpainting, IC-Light, DDColor, Rembg y Upscaling por bloques**.
