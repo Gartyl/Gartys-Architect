@@ -3488,7 +3488,7 @@ window.abortarRadarPorAtasco = function(promptId, tarea, isPolling, errorMsg = n
     if (!isPolling) {
         const tit = typeof GartyLang !== 'undefined' && GartyLang.swal_timeout_title ? GartyLang.swal_timeout_title : 'Atasco en ComfyUI';
         let txt = typeof GartyLang !== 'undefined' && GartyLang.swal_timeout_text ? GartyLang.swal_timeout_text : 'La GPU se ha quedado colgada o está tardando demasiado. Se ha liberado la interfaz.';
-        if (errorMsg && errorMsg !== "Timeout extremo") txt += `<br><br><small class="text-muted">${errorMsg}</small>`;
+        if (errorMsg && errorMsg !== "Timeout extremo") txt += `<br><br><small class="swal2-html-container" style="opacity: 0.5;">${errorMsg}</small>`;
         
         const btnOk = typeof GartyLang !== 'undefined' && GartyLang.btn_entendido ? GartyLang.btn_entendido : 'Entendido';
         SwalDark.fire({ icon: 'warning', title: tit, html: txt, confirmButtonText: `<i class="bi bi-check2-circle"></i> ${btnOk}` });
