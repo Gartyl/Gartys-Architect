@@ -137,7 +137,7 @@ Perfect for getting started with local AI orchestration:
 
 ### 2. ★ PRO Studio License
 Built for power creators and filmmakers. Unlocks the full arsenal of Garty's Architect:
-* **Heavyweight & Unbundled Architectures:** Full support for **Flux, Flux 2 Klein, Chroma, Z-Image, Anima, SD 3.5, Krea-2, Qwen-Image, Qwen-Edit, Hunyuan Image, HiDream, Moss and Ideogram**.
+* **Heavyweight & Unbundled Architectures:** Full support for **Flux, Flux 2 Klein, Flux 3 Klein, Chroma, Z-Image, Anima, SD 3.5, Krea-2, Qwen-Image, Qwen-Edit, Hunyuan Image, HiDream, Moss and Ideogram**.
 * **Cinematic Video Generation:** Unlocks **Wan 2.1/2.2, LTX-Video, Hunyuan Video 2.1, and MiniMax H3** (with Multi-Image Reference injection and GGUF support).
 * **Full Audio & Voice Cloning Suite:** Unlocks **MiniMax H3 (20B) Voice Clone, OmniVoice Dual-Mode, IndexTTS-2, F5-TTS, HunyuanVideo-Foley, Stable Audio, AI Music Maestro, and Wav2Lip**.
 * **Advanced Graphic Studio:** Unlocks **ControlNet Studio, IP-Adapter (Multi-Tray), ReActor (FaceSwap), ADetailer, Inpainting/Outpainting Canvas, IC-Light, DDColor, Rembg, and Tiled Upscaling**.
