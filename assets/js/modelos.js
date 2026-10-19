@@ -371,17 +371,23 @@ function updateLoraFilter(category) {
                     let low = m.toLowerCase();
                     return low.includes('ideogram4');
                 });
+            } else if (modeloSeleccionado.includes('flux3') || modeloSeleccionado.includes('flux-3') || modeloSeleccionado.includes('flux_3') || modeloSeleccionado.includes('flux.3')) {
+                // FLUX 3 y FLUX 3 KLEIN: Exclusivo para subcarpeta flux3 (o archivos que empiecen por f3_ / contengan flux3)
+                tempLoras = loadedLoras.filter(m => {
+                    let low = m.toLowerCase();
+                    return low.includes('flux3\\') || low.includes('flux3/') || low.startsWith('f3_') || low.includes('flux3');
+                });
             } else if (modeloSeleccionado.includes('flux2') || modeloSeleccionado.includes('klein')) {
                 // FLUX 2 y KLEIN: Exclusivo para la subcarpeta flux2 (o archivos que empiecen por f2_)
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
-                    return low.includes('flux2\\') || low.includes('flux2/') || low.startsWith('f2_');
+                    return (low.includes('flux2\\') || low.includes('flux2/') || low.startsWith('f2_')) && !low.includes('flux3');
                 });
             } else if (modeloSeleccionado.includes('flux') || modeloSeleccionado.includes('kontext')) {
-                // FLUX 1 y KONTEXT: Exclusivo para subcarpeta flux original, excluyendo explícitamente a flux2
+                // FLUX 1 y KONTEXT: Exclusivo para subcarpeta flux original, excluyendo explícitamente a flux2 y flux3
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
-                    return (low.includes('flux\\') || low.includes('flux/') || low.startsWith('f1_')) && !low.includes('flux2');
+                    return (low.includes('flux\\') || low.includes('flux/') || low.startsWith('f1_')) && !low.includes('flux2') && !low.includes('flux3');
                 });
             } else if (modeloSeleccionado.includes('z-image') || modeloSeleccionado.includes('zimage') || modeloSeleccionado.includes('z_image')) {
                 tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('zimage'));
@@ -1175,7 +1181,7 @@ function sugerirAjustesMotor() {
 
     const opcionEl = modelSel.options[modelSel.selectedIndex];
     const modeloId = opcionEl.value;
-    const opcion = opcionEl.text.toLowerCase();
+    const opcion = (opcionEl.text + " " + (opcionEl.dataset.archivo || "")).toLowerCase();
 
     // Buscamos si el modelo tiene parámetros personalizados en la Base de Datos
     const modeloBD = window.modelosDBSistema ? window.modelosDBSistema.find(m => m.id == modeloId) : null;
@@ -1218,6 +1224,15 @@ function sugerirAjustesMotor() {
             'krea 2':  { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
             'qwen':    { steps: 20, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
             'chroma':  { steps: 10, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'flux3-image-klein-base': { steps: 28, cfg: 3.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+            'flux3_base':             { steps: 28, cfg: 3.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+            'flux3 base':             { steps: 28, cfg: 3.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+            'flux 3 base':            { steps: 28, cfg: 3.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+            'flux 3 klein base':      { steps: 28, cfg: 3.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+            'flux3':                  { steps: 16, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+            'flux-3':                 { steps: 16, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+            'flux.3':                 { steps: 16, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+            'flux 3':                 { steps: 16, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
             'flux':    { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
             'klein':   { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
             'kontext': { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },

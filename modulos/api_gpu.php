@@ -775,6 +775,9 @@ if ($action === 'generar_imagen') {
     $model_lower = strtolower($model_path);
     
     // 1. Separamos Arquitecturas
+    $is_flux3 = (strpos($model_lower, 'flux3') !== false || strpos($model_lower, 'flux-3') !== false || strpos($model_lower, 'flux_3') !== false || strpos($model_lower, 'flux.3') !== false);
+    // En Flux 3 Klein, el archivo oficial sin la palabra "base" (ej. flux3-image-klein-int8-convrot) es el Destilado (16 steps, CFG 1.0)
+    $is_flux3_distilled = ($is_flux3 && strpos($model_lower, 'base') === false);
     $is_flux = (strpos($model_lower, 'flux') !== false);
     $is_sd35 = (strpos($model_lower, 'sd35') !== false || strpos($model_lower, 'sd3.5') !== false);
     $is_qwen21 = (strpos($model_lower, 'qwen') !== false && (strpos($model_lower, '2.1') !== false || strpos($model_lower, '21') !== false));
@@ -799,7 +802,7 @@ if ($action === 'generar_imagen') {
     // --- SELECCIÓN INTELIGENTE DE VAE ---
     $vae_name = "ae.safetensors"; 
     
-    if (strpos($model_lower, 'flux2') !== false || $is_moss) {
+   if (strpos($model_lower, 'flux2') !== false || $is_flux3 || $is_moss) {
         $vae_name = "flux2_vae.safetensors";
     } elseif ($is_flux) {
         $vae_name = "flux_vae.safetensors";
@@ -869,6 +872,16 @@ if ($action === 'generar_imagen') {
     } elseif ($is_moss) {
         $steps = 35; 
         $cfg = 3.0; 
+        $sampler = "euler"; 
+        $scheduler = "simple"; 
+    } elseif ($is_flux3_distilled) {
+        $steps = 16; 
+        $cfg = 1.0; 
+        $sampler = "euler"; 
+        $scheduler = "simple"; 
+    } elseif ($is_flux3) {
+        $steps = 28; 
+        $cfg = 3.5; 
         $sampler = "euler"; 
         $scheduler = "simple"; 
     } elseif ($is_flux || $is_sd35 || $is_zimage) {
@@ -2684,7 +2697,7 @@ if ($action === 'generar_imagen') {
         $workflow = cargarWorkflowJSON($ruta_json, $reemplazos);
 
     } else { 
-        if ($is_moss || strpos($model_lower, 'flux2') !== false) {
+        if ($is_moss || $is_flux3 || strpos($model_lower, 'flux2') !== false) {
             $workflow["5"] = [ "inputs" => ["width" => $width, "height" => $height, "batch_size" => $batch_size], "class_type" => "EmptyFlux2LatentImage" ];
         } elseif ($is_chroma) {
             $workflow["5"] = [ "inputs" => ["width" => $width, "height" => $height, "batch_size" => $batch_size], "class_type" => "EmptySD3LatentImage" ];
@@ -2790,6 +2803,8 @@ if ($action === 'generar_imagen') {
             $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "qwen_3_06b_base.safetensors", "type" => "stable_diffusion"], "class_type" => "CLIPLoader" ];
         } elseif ($is_moss) {
             $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "qwen3.5_9b_int8_convrot.safetensors", "type" => "moss_image", "device" => "default"], "class_type" => "CLIPLoader" ];
+        } elseif ($is_flux3) {
+            $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "qwen3vl_4b_int8_convrot.safetensors", "type" => "flux3", "device" => "default"], "class_type" => "CLIPLoader" ];
         } elseif (strpos($model_lower, 'flux2') !== false) {
             $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "qwen_3_8b.safetensors", "type" => "flux2"], "class_type" => "CLIPLoader" ];
         } elseif ($is_chroma) {
@@ -2881,17 +2896,14 @@ if ($action === 'generar_imagen') {
         if (isset($workflow["7"]["inputs"]["clip"])) $workflow["7"]["inputs"]["clip"] = [$base_clip_node, $base_clip_index];
     }
 	
-    // --- FIX GUIDANCE FLUX ---
+    // --- FIX GUIDANCE FLUX (Excluimos Flux 3 porque usa CFG nativo y ConditioningZeroOut) ---
     $flux_guidance = null;
-    if ($is_flux && !$is_chroma) { 
+    if ($is_flux && !$is_chroma && !$is_flux3) { 
         if (isset($_POST['flux_guidance']) && floatval($_POST['flux_guidance']) > 0) {
             $flux_guidance = floatval($_POST['flux_guidance']);
         } else {
             $flux_guidance = 3.5;
         }
-        
-        // ¡LIBERTAD TOTAL! Hemos eliminado la línea que forzaba el $cfg = 1.0;
-        // Ahora si el usuario mete CFG 5.0 en la web, el nodo procesará 5.0.
         
         $workflow["600"] = [
             "inputs" => [
@@ -2901,6 +2913,13 @@ if ($action === 'generar_imagen') {
             "class_type" => "FluxGuidance"
         ];
         $current_positive = ["600", 0]; 
+    } elseif ($is_flux3 && (empty($neg_prompt_post) || $cfg <= 1.0)) {
+        // En Flux 3 sin negativo explícito o en versión Distilled (CFG 1.0), usamos ConditioningZeroOut
+        $workflow["600_flux3_zero"] = [
+            "inputs" => ["conditioning" => ["6", 0]],
+            "class_type" => "ConditioningZeroOut"
+        ];
+        $current_negative = ["600_flux3_zero", 0];
     }
     
     // ==============================================================================
@@ -3017,10 +3036,10 @@ if ($action === 'generar_imagen') {
             exit();
         }
 
-        // 2. ESCUDO 2: Flux Kontext (Klein)
+        // 2. ESCUDO 2: Flux Kontext (Klein) y Flux 3
         $temp_mod_lower = strtolower($model_path);
-        if (strpos($temp_mod_lower, 'klein') !== false || strpos($temp_mod_lower, 'kontext') !== false) {
-            echo json_encode(['error' => __('err_ipa_flux_kontext') ?? 'Flux Kontext utiliza su propio Conditioner nativo. Apaga IP-Adapter y sube las fotos a la bandeja multicarga.']);
+        if ($is_flux3 || strpos($temp_mod_lower, 'klein') !== false || strpos($temp_mod_lower, 'kontext') !== false) {
+            echo json_encode(['error' => __('err_ipa_flux_kontext') ?? 'Flux 3 / Klein utiliza su propio sistema multicarga nativo. Apaga IP-Adapter y sube las fotos a la bandeja multicarga.']);
             exit();
         }
 
@@ -3393,7 +3412,7 @@ if ($action === 'generar_imagen') {
 	// ==============================================================================
     // 🌟 INYECCIÓN FLUX 2 KLEIN EDIT & MULTICARGA (Kontext Conditioner)
     // ==============================================================================
-    $is_flux2 = (strpos($model_lower, 'flux2') !== false || strpos($model_lower, 'klein') !== false || strpos($model_lower, 'kontext') !== false);
+    $is_flux2 = !$is_flux3 && (strpos($model_lower, 'flux2') !== false || strpos($model_lower, 'klein') !== false || strpos($model_lower, 'kontext') !== false);
 
     if ($is_flux2 && (!empty($init_image_base64) || !empty($tray_comfy_filenames)) && !$is_outpainting) {
         
@@ -3469,6 +3488,92 @@ if ($action === 'generar_imagen') {
         $is_edit_panel_active = !empty($_POST['edit_tools_active']) || !empty($mask_base64);
         $panel_denoise = isset($_POST['denoise']) ? (float)$_POST['denoise'] : 0.65;
         $sampler_denoise = $is_edit_panel_active ? $panel_denoise : 1.0; 
+    }
+	
+	// ==============================================================================
+    // 🌟 INYECCIÓN NATIVA FLUX 3 & FLUX 3 KLEIN (SINGLE & MULTI-IMAGE EDIT HASTA 9 FOTOS)
+    // ==============================================================================
+    if ($is_flux3 && (!empty($init_image_base64) || !empty($tray_comfy_filenames)) && empty($mask_data_base64) && !$is_outpainting) {
+        
+        // 1. Recolectamos todas las imágenes (Visor Principal y/o Bandeja Multicarga en orden image_1, image_2...)
+        $flux3_ref_nodes = [];
+
+        if (!empty($tray_comfy_filenames)) {
+            // Si hay fotos en la Bandeja Multicarga, las cargamos todas en orden numérico (hasta 9)
+            foreach ($tray_comfy_filenames as $index => $filename) {
+                $node_load = "11_f3_tray_" . $index;
+                $workflow[$node_load] = [
+                    "inputs" => ["image" => $filename, "upload" => "image"],
+                    "class_type" => "LoadImage"
+                ];
+                $flux3_ref_nodes[] = [$node_load, 0];
+            }
+        } elseif (isset($workflow["11"])) {
+            // Modo Visor Principal (1 sola imagen subida)
+            $flux3_ref_nodes[] = ["11", 0];
+        }
+
+        // 2. Codificamos cada referencia con el VAE y la encadenamos con ReferenceLatent (100% Nativo ComfyUI)
+        foreach ($flux3_ref_nodes as $idx => $img_source) {
+            $num = $idx + 1;
+            $scale_id = "610_f3_scale_" . $num;
+            $vae_id   = "611_f3_vae_" . $num;
+            $ref_pos  = "612_f3_refpos_" . $num;
+            $ref_neg  = "613_f3_refneg_" . $num;
+
+            // Escalamos suavemente la referencia a ~1MP conservando su aspecto mediante FluxKontextImageScale
+            $workflow[$scale_id] = [
+                "inputs" => ["image" => $img_source],
+                "class_type" => "FluxKontextImageScale"
+            ];
+
+            $workflow[$vae_id] = [
+                "inputs" => [
+                    "pixels" => [$scale_id, 0],
+                    "vae" => [$base_vae_node, $base_vae_index]
+                ],
+                "class_type" => "VAEEncode"
+            ];
+
+            $workflow[$ref_pos] = [
+                "inputs" => [
+                    "conditioning" => $current_positive,
+                    "latent" => [$vae_id, 0]
+                ],
+                "class_type" => "ReferenceLatent"
+            ];
+            $current_positive = [$ref_pos, 0];
+
+            $workflow[$ref_neg] = [
+                "inputs" => [
+                    "conditioning" => $current_negative,
+                    "latent" => [$vae_id, 0]
+                ],
+                "class_type" => "ReferenceLatent"
+            ];
+            $current_negative = [$ref_neg, 0];
+        }
+
+        // 3. LIBERTAD TOTAL: Respetamos el CFG y el Denoise que mande el usuario desde la interfaz
+        $is_edit_panel_active = !empty($_POST['edit_tools_active']) || !empty($mask_data_base64);
+        $sampler_denoise = $is_edit_panel_active ? $denoise_slider : 1.0;
+
+        // Si el usuario deja el Denoise en 1.0 (valor recomendado por defecto en modelos.js), 
+        // usamos el lienzo limpio EmptyFlux2LatentImage.
+        // Si decide bajar el Denoise (< 1.0) a propósito para conservar píxeles de su imagen base, 
+        // respetamos el latente VAEEncode de su foto original (nodos 12/14).
+        if ($sampler_denoise >= 1.0 || !isset($workflow["14"])) {
+            unset($workflow["12"], $workflow["13"], $workflow["14"]);
+            if (isset($workflow["12_noise"])) unset($workflow["12_noise"]);
+
+            $workflow["5"] = [
+                "inputs" => ["width" => $width, "height" => $height, "batch_size" => $batch_size],
+                "class_type" => "EmptyFlux2LatentImage"
+            ];
+            $current_latent = ["5", 0];
+        }
+
+        $meta_modo = 'Flux 3 Multi-Ref Edit (' . count($flux3_ref_nodes) . ' img)';
     }
 
     // ==============================================================================
