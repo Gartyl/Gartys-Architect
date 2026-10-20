@@ -1371,13 +1371,26 @@ if ($action === 'generar_imagen') {
         } // 🚨 ¡AQUÍ ESTABA EL ERROR MORTAL! Faltaba esta llave de cierre de LTX.
 		
 		// ====================================================================
-        // --- 1.5. BLOQUE MINIMAX H3 VIDEO ---
+        // --- 1.5. BLOQUE MINIMAX H3 VIDEO (CON AUDIO NATIVO Y MULTIMODAL) ---
         // ====================================================================
         if (strpos(strtolower($modelo_seguro), 'minimax') !== false) {
 
-            // Minimax razona en segundos, no en frames absolutos. 
+            // Detectamos si el usuario ha activado el Panel de Audio Pro sincronizado con el vídeo
+            $tiene_audio_pro_mm = (!empty($audioConfigPro) && !empty($audioConfigPro['sync_with_video']));
+            $es_voz_nativa_mm   = ($tiene_audio_pro_mm && ($audioConfigPro['engine'] ?? 'tts') === 'tts' && ($tts_engine_pro === 'minimax'));
+
             // Calculamos los segundos a partir de los frames que manda la web (Asumiendo 24fps)
             $segundos = max(1.0, round($video_frames / 24, 1));
+
+            // Si usa la clonación nativa de MiniMax y el texto es más largo que los frames elegidos,
+            // garantizamos que el vídeo dure lo suficiente para que no corte la frase a la mitad
+            if ($es_voz_nativa_mm && !empty($prompt_audio)) {
+                $num_chars_mm = mb_strlen($prompt_audio, 'UTF-8');
+                $segundos_voz = max(2.5, min(15.0, round(($num_chars_mm / 14.5) + 0.6, 1)));
+                if ($segundos < $segundos_voz) {
+                    $segundos = $segundos_voz;
+                }
+            }
 
             $ruta_json = __DIR__ . '/../workflows/minimax_h3.json';
 
@@ -1394,15 +1407,15 @@ if ($action === 'generar_imagen') {
             ];
 
             $workflow = cargarWorkflowJSON($ruta_json, $reemplazos);
-			
-			// --- FIX: CARGADOR GGUF DINÁMICO PARA MINIMAX ---
+            
+            // --- FIX: CARGADOR GGUF DINÁMICO PARA MINIMAX ---
             if (strpos(strtolower($modelo_seguro), '.gguf') !== false) {
                 if (isset($workflow["127"])) {
                     $workflow["127"]["class_type"] = "UnetLoaderGGUF";
                     unset($workflow["127"]["inputs"]["weight_dtype"]);
                 }
             }
-			
+            
             // --- GESTIÓN DEL LORA Y PUENTEO INTELIGENTE ---
             $lora_active = false;
             if (empty($lora_metadata_list) && is_array($lora_names)) {
@@ -1411,16 +1424,11 @@ if ($action === 'generar_imagen') {
                         $lstr = floatval($lora_strengths_high[$index] ?? 1.0);
                         $lora_metadata_list[] = basename($lname, '.safetensors') . " ($lstr)";
 
-                        // Minimax base solo soporta 1 LoRA encadenado en este nodo
                         if ($index === 0) { 
                             $ruta_lora = $lname;
-                            
-                            // Solo añadimos la carpeta si el texto viene sin rutas previas
                             if (strpos($ruta_lora, '\\') === false && strpos($ruta_lora, '/') === false) {
                                 $ruta_lora = "minimax_h3/" . $ruta_lora;
                             }
-                            
-                            // Aseguramos extensión
                             if (!str_ends_with(strtolower($ruta_lora), '.safetensors')) {
                                 $ruta_lora .= '.safetensors';
                             }
@@ -1436,10 +1444,10 @@ if ($action === 'generar_imagen') {
             if (!$lora_active) {
                 // PUENTEO: Si no hay LoRA, conectamos SigmaShift(149) directo a SageAttention(146)
                 $workflow["149"]["inputs"]["model"][0] = "146";
-                unset($workflow["137"]); // Destruimos el nodo LoRA para que ComfyUI no crashee
+                unset($workflow["137"]);
             }
 
-            // --- INYECCIÓN MULTIMODAL MINIMAX H3 (ReferenceToVideo) ---
+            // --- INYECCIÓN MULTIMODAL MINIMAX H3 (Imágenes + Voz Clonada Nativa) ---
             $tiene_multimodal = false;
 
             // 1. ¿Hay imagen principal que NO provenga de la bandeja? (Image-to-Video clásico)
@@ -1456,42 +1464,220 @@ if ($action === 'generar_imagen') {
                 $tiene_multimodal = true;
             }
 
+            // 3. ¿Hay clonación de voz nativa con MiniMax H3 en el panel de Audio Pro?
+            $ref_file_minimax_vid = '';
+            if ($es_voz_nativa_mm && !empty($ref_file_pro)) {
+                $tiene_multimodal = true;
+                $ref_file_minimax_vid = $ref_file_pro;
+
+                // ✂️ Recorte automático FFmpeg a 4.5s igual que en api_audio.php para clonar limpio y sin silencios
+                $ruta_origen_voz = __DIR__ . '/../voces/' . basename($ref_file_pro);
+                if (!file_exists($ruta_origen_voz)) {
+                    $ruta_origen_voz = sys_get_temp_dir() . '/garty_ref_' . basename($ref_file_pro);
+                }
+
+                if (file_exists($ruta_origen_voz)) {
+                    $tmp_trim = sys_get_temp_dir() . '/mm_vid_trim_' . uniqid() . '.wav';
+                    shell_exec("ffmpeg -y -i " . escapeshellarg($ruta_origen_voz) . " -af silenceremove=start_periods=1:start_silence=0.1:start_threshold=-45dB -t 4.5 -acodec pcm_s16le -ar 24000 " . escapeshellarg($tmp_trim));
+                    
+                    if (file_exists($tmp_trim) && filesize($tmp_trim) > 1000) {
+                        $cfile_trim = function_exists('curl_file_create') 
+                            ? curl_file_create($tmp_trim, 'audio/wav', 'mm_voice_sample.wav') 
+                            : '@' . realpath($tmp_trim);
+                        
+                        $ch_trim = curl_init(COMFY_URL . '/upload/image');
+                        curl_setopt($ch_trim, CURLOPT_POST, true);
+                        curl_setopt($ch_trim, CURLOPT_POSTFIELDS, [
+                            'image' => $cfile_trim,
+                            'type' => 'input',
+                            'overwrite' => 'true'
+                        ]);
+                        curl_setopt($ch_trim, CURLOPT_RETURNTRANSFER, true);
+                        $res_trim = json_decode(curl_exec($ch_trim), true);
+                        curl_close($ch_trim);
+                        @unlink($tmp_trim);
+
+                        if (!empty($res_trim['name'])) {
+                            $ref_file_minimax_vid = $res_trim['name'];
+                        }
+                    }
+                }
+            }
+
             if ($tiene_multimodal) {
-                // Modificamos el Nodo Base a la nueva arquitectura ReferenceToVideo
+                // Modificamos el Nodo Base a la arquitectura ReferenceToVideo (soporta ref_images y ref_audios)
                 $workflow["131"]["class_type"] = "MiniMaxH3ReferenceToVideo";
                 
-                // Limpiamos la basura de la arquitectura antigua
                 unset($workflow["131"]["inputs"]["image"]);
                 unset($workflow["131"]["inputs"]["images"]);
                 unset($workflow["131"]["inputs"]["first_frame"]);
 
-                // 🌟 FIX: PARÁMETROS OBLIGATORIOS DEL NUEVO NODO 🌟
-                // El VAE de audio ya está en el nodo 120 de tu plantilla original
                 $workflow["131"]["inputs"]["audio_vae"] = ["120", 0];
                 $workflow["131"]["inputs"]["ref_image_size"] = "max"; 
 
-                $indice_conector = 0; // El enrutador empieza a contar desde el 0
+                $indice_conector = 0;
 
                 // A) Conectamos la foto principal DIRECTAMENTE al nodo de vídeo
                 if ($foto_principal) {
                     $node_img_prin = "131_prin_load";
                     $workflow[$node_img_prin] = ["inputs" => ["image" => $foto_principal, "upload" => "image"], "class_type" => "LoadImage"];
-                    
-                    // ¡Enchufe quirúrgico!
                     $workflow["131"]["inputs"]["ref_images.ref_image_" . $indice_conector] = [$node_img_prin, 0];
                     $indice_conector++;
                 }
 
                 // B) Conectamos el resto de fotos de la bandeja DIRECTAMENTE
                 foreach ($fotos_bandeja as $tray_filename) {
-                    if ($indice_conector > 8) break; // Máximo 9 imágenes según Kijai
-
+                    if ($indice_conector > 8) break;
                     $node_img_tray = "131_tray_load_" . $indice_conector;
                     $workflow[$node_img_tray] = ["inputs" => ["image" => $tray_filename, "upload" => "image"], "class_type" => "LoadImage"];
-                    
-                    // ¡Enchufe quirúrgico!
                     $workflow["131"]["inputs"]["ref_images.ref_image_" . $indice_conector] = [$node_img_tray, 0];
                     $indice_conector++;
+                }
+
+                // C) Conectamos la Muestra de Voz Clonada DIRECTAMENTE a ref_audios.ref_audio_0
+                if (!empty($ref_file_minimax_vid)) {
+                    $workflow["131_audio_load"] = [
+                        "inputs" => ["audio" => $ref_file_minimax_vid],
+                        "class_type" => "LoadAudio"
+                    ];
+                    $workflow["131"]["inputs"]["ref_audios.ref_audio_0"] = ["131_audio_load", 0];
+                }
+            }
+
+            // 🗣️ INYECCIÓN DEL GUION HABLADO EN EL PROMPT DE MINIMAX (Lip-Sync 3D Nativo)
+            if ($es_voz_nativa_mm && !empty($prompt_audio)) {
+                $emocion_mm = $tts_emotion_pro ?: 'calm';
+                $etiqueta_voz = !empty($ref_file_minimax_vid) ? "<Voice 1>" : "The character";
+                $instruccion_habla = "{$etiqueta_voz} speaking in {$idioma_tts} ({$emocion_mm} tone): \"{$prompt_audio}\"";
+                
+                // Unimos la descripción visual de la escena con el diálogo exacto que debe pronunciar
+                $prompt_combinado = trim($posPrompt);
+                if (!empty($prompt_combinado)) {
+                    $prompt_combinado = rtrim($prompt_combinado, '. ') . ". " . $instruccion_habla;
+                } else {
+                    $prompt_combinado = $instruccion_habla;
+                }
+                $workflow["131"]["inputs"]["prompt"] = $prompt_combinado;
+            }
+
+            // 🎵 SOPORTE PARA OTROS MOTORES DE AUDIO (F5, IndexTTS, OmniVoice, SFX o MP3 subido) EN MINIMAX
+            $tiene_mp3_subido = ($comfy_audio_filename !== "none" && !empty($comfy_audio_filename));
+            if (($tiene_audio_pro_mm && !$es_voz_nativa_mm) || (!$tiene_audio_pro_mm && $tiene_mp3_subido)) {
+                $audio_ext_node = null;
+                $guion_locutar = !empty($prompt_audio) ? $prompt_audio : $posPrompt;
+
+                if ($tiene_audio_pro_mm) {
+                    if ($engine_pro === 'tts') {
+                        if ($tts_engine_pro === 'f5') {
+                            $workflow["1010"] = ["inputs" => ["audio" => $ref_file_pro], "class_type" => "LoadAudio"];
+                            $workflow["1011"] = [
+                                "inputs" => [
+                                    "sample_audio" => ["1010", 0], "sample_text" => $ref_text_pro,
+                                    "speech" => $guion_locutar, "speed" => $speed_pro, "seed" => mt_rand(1, 2147483647),
+                                    "model" => 'F5v1', "vocoder" => 'auto', "model_type" => 'F5TTS_v1_Base',
+                                    "remove_silence" => $silence_pro
+                                ], "class_type" => "F5TTSAudioInputs"
+                            ];
+                            $audio_ext_node = ["1011", 0];
+                        } elseif ($tts_engine_pro === 'indextts') {
+                            $workflow['1125'] = [
+                                'inputs' => [
+                                    'Happy' => ($tts_emotion_pro === 'happy') ? 0.85 : 0.1, 'Angry' => ($tts_emotion_pro === 'angry') ? 0.85 : 0.1,
+                                    'Sad' => ($tts_emotion_pro === 'sad') ? 0.85 : 0.1, 'Calm' => ($tts_emotion_pro === 'calm') ? 0.85 : 0.1,
+                                    'Surprised' => 0.1, 'Afraid' => 0.1, 'Disgusted' => 0.1, 'Melancholic' => 0.1, 'emotion_radar_canvas' => ""
+                                ], 'class_type' => 'IndexTTSEmotionOptionsNode'
+                            ];
+                            $workflow['1065'] = ['inputs' => ['value' => $guion_locutar], 'class_type' => 'PrimitiveStringMultiline'];
+                            $workflow['1134'] = ['inputs' => ['audio' => $ref_file_pro], 'class_type' => 'LoadAudio'];
+                            $workflow['1130'] = ['inputs' => ['voice_name' => 'none', 'reference_text' => $ref_text_pro, 'trim_start' => 0, 'trim_end' => 0, 'customized' => true, 'opt_audio_input' => ['1134', 0]], 'class_type' => 'CharacterVoicesNode'];
+                            $workflow['1123'] = [
+                                'inputs' => [
+                                    'language' => $idioma_tts, 'model_path' => 'IndexTTS-2', 'device' => 'auto', 'emotion_alpha' => 0.7, 'use_random' => false,
+                                    'max_text_tokens_per_segment' => 120, 'interval_silence' => 200, 'temperature' => 0.8, 'top_p' => 0.8,
+                                    'top_k' => 30, 'do_sample' => true, 'length_penalty' => 0, 'num_beams' => 3, 'repetition_penalty' => 9.5,
+                                    'max_mel_tokens' => 1500, 'use_fp16' => true, 'use_deepspeed' => true, 'use_cuda_kernel' => 'auto',
+                                    'use_torch_compile' => false, 'use_accel' => false, 'stream_return' => false, 'more_segment_before' => 0,
+                                    'low_vram' => false, 'emotion_control' => ['1125', 0]
+                                ], 'class_type' => 'IndexTTSEngineNode'
+                            ];
+                            $workflow['1047'] = [
+                                'inputs' => [
+                                    'text' => ['1065', 0], 'narrator_voice' => 'none', 'seed' => mt_rand(1, 2147483647), 'enable_chunking' => true,
+                                    'max_chars_per_chunk' => 400, 'chunk_combination_method' => 'auto', 'silence_between_chunks_ms' => 100,
+                                    'enable_audio_cache' => true, 'batch_size' => 0, 'TTS_engine' => ['1123', 0], 'opt_narrator' => ['1130', 0]
+                                ], 'class_type' => 'UnifiedTTSTextNode'
+                            ];
+                            $audio_ext_node = ["1047", 0];
+                        } else {
+                            // OmniVoice
+                            $omni_style = ($tts_emotion_pro === 'whisper') ? 'whisper' : 'None';
+                            $omni_lang  = ($idioma_tts === 'Chinese') ? 'Chinese' : 'English';
+                            $workflow['1025'] = [
+                                'inputs' => [
+                                    'gender' => $genero_pro, 'age' => $edad_pro, 'pitch' => 'None',
+                                    'style' => $omni_style, 'accent' => 'None', 'dialect' => 'None',
+                                    'output_language' => $omni_lang, 'instruct_text' => ''
+                                ], 'class_type' => 'OmniVoiceInstructionBuilderNode'
+                            ];
+                            $workflow['1020'] = [
+                                'inputs' => [
+                                    'model_variant' => 'OmniVoice', 'device' => 'auto', 'language' => 'Auto',
+                                    'num_step' => 32, 'guidance_scale' => 2, 't_shift' => 0.1, 'speed' => 1.0,
+                                    'duration' => 0, 'dtype' => 'auto', 'instruct' => '', 'layer_penalty_factor' => 5,
+                                    'position_temperature' => 5, 'class_temperature' => 0, 'denoise' => true,
+                                    'preprocess_prompt' => true, 'postprocess_output' => true, 'audio_chunk_duration' => 15,
+                                    'audio_chunk_threshold' => 30, 'mode' => 'Voice Design'
+                                ], 'class_type' => 'OmniVoiceEngineNode'
+                            ];
+                            $workflow['1017'] = [
+                                'inputs' => [
+                                    'reference_text' => $guion_locutar, 'seed' => mt_rand(1, 2147483647),
+                                    'voice_instruction' => ['1025', 0], 'TTS_engine' => ['1020', 0]
+                                ], 'class_type' => 'UnifiedVoiceDesignerNode'
+                            ];
+                            $audio_ext_node = ["1017", 1];
+                        }
+                    } elseif ($engine_pro === 'sfx') {
+                        $workflow["2020"] = ["inputs" => ["ckpt_name" => "stable-audio-open-1.0.safetensors"], "class_type" => "CheckpointLoaderSimple"];
+                        $workflow["2021"] = ["inputs" => ["clip_name" => "t5-base.safetensors", "type" => "stable_audio"], "class_type" => "CLIPLoader"];
+                        $workflow["2022"] = ["inputs" => ["seconds" => $seconds_pro, "batch_size" => 1], "class_type" => "EmptyLatentAudio"];
+                        $workflow["2023"] = ["inputs" => ["text" => $guion_locutar, "clip" => ["2021", 0]], "class_type" => "CLIPTextEncode"];
+                        $workflow["2024"] = ["inputs" => ["text" => "", "clip" => ["2021", 0]], "class_type" => "CLIPTextEncode"];
+                        $workflow["2025"] = [
+                            "inputs" => [
+                                "seed" => mt_rand(1, 2147483647), "steps" => 20, "cfg" => 4.0, "sampler_name" => "euler",
+                                "scheduler" => "normal", "denoise" => 1.0, "model" => ["2020", 0], "positive" => ["2023", 0],
+                                "negative" => ["2024", 0], "latent_image" => ["2022", 0]
+                            ], "class_type" => "KSampler"
+                        ];
+                        $workflow["2026"] = ["inputs" => ["samples" => ["2025", 0], "vae" => ["2020", 2]], "class_type" => "VAEDecodeAudio"];
+                        $audio_ext_node = ["2026", 0];
+                    }
+                } elseif ($tiene_mp3_subido) {
+                    $workflow["1001_audio"] = ["inputs" => ["audio" => $comfy_audio_filename], "class_type" => "LoadAudio"];
+                    $audio_ext_node = ["1001_audio", 0];
+                }
+
+                if ($audio_ext_node !== null && isset($workflow["142"]["inputs"])) {
+                    $workflow["142"]["inputs"]["audio"] = $audio_ext_node;
+                    unset($workflow["121"]); // Desconectamos el decodificador de audio interno de MiniMax
+
+                    $usar_wav2lip = filter_var($_POST['wav2lip'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+                    $es_sfx_mm = ($tiene_audio_pro_mm && in_array(strtolower($engine_pro), ['sfx', 'foley']));
+
+                    if ($usar_wav2lip && !$es_sfx_mm) {
+                        $workflow["1002_wav2lip"] = [
+                            "inputs" => [
+                                "mode" => "sequential",
+                                "face_detect_batch" => 8,
+                                "images" => ["122", 0],
+                                "audio" => $audio_ext_node
+                            ],
+                            "class_type" => "Wav2Lip"
+                        ];
+                        $workflow["142"]["inputs"]["images"] = ["1002_wav2lip", 0];
+                        $workflow["142"]["inputs"]["frame_rate"] = 30;
+                    }
                 }
             }
 
@@ -1501,82 +1687,6 @@ if ($action === 'generar_imagen') {
             }
 
             $current_image_node = "142"; // El nodo VHS_VideoCombine de Minimax
-            goto EJECUTAR_COMFYUI;
-        }
-		
-		// ====================================================================
-        // --- 1.6. BLOQUE HUNYUAN VIDEO ---
-        // ====================================================================
-        if (strpos(strtolower($modelo_seguro), 'hunyuan') !== false && strpos(strtolower($modelo_seguro), 'video') !== false) {
-
-            $tiene_imagen = (!empty($init_image_base64) && $comfy_image_filename !== "none" && $init_image_base64 !== "TRAY_IMAGE_USED");
-
-            if ($tiene_imagen) {
-                $ruta_json = __DIR__ . '/../workflows/Hunyuan_I2V.json';
-            } else {
-                $ruta_json = __DIR__ . '/../workflows/Hunyuan_T2V.json';
-            }
-
-            $reemplazos = [
-                '__SEED__' => $seed,
-                '__WIDTH__' => $width,
-                '__HEIGHT__' => $height,
-                '__VIDEO_FRAMES__' => $video_frames,
-                '__STEPS__' => $steps,
-                '__CFG__' => $cfg,
-                '__SAMPLER__' => $sampler,
-                '__SCHEDULER__' => $scheduler,
-                '__MODELO__' => $modelo_seguro,
-                '__PROMPT_POSITIVO__' => $posPrompt,
-                '__PROMPT_NEGATIVO__' => $neg_prompt,
-                '__INIT_IMAGE__' => $comfy_image_filename
-            ];
-
-            $workflow = cargarWorkflowJSON($ruta_json, $reemplazos);
-
-            // --- GESTIÓN DINÁMICA DEL LORA ---
-            $lora_active = false;
-            $current_model_node = "12"; // Nodo original UNETLoader
-
-            // Detectamos las IDs de los nodos de Sampling de acuerdo a si es I2V o T2V
-            $target_sampler_node = $tiene_imagen ? "130" : "132"; // ModelSamplingSD3
-            $target_scheduler_node = $tiene_imagen ? "126" : "128"; // BasicScheduler
-
-            if (empty($lora_metadata_list) && is_array($lora_names)) {
-                foreach ($lora_names as $index => $lname) {
-                    if (!empty(trim($lname)) && strtolower($lname) !== 'ninguno') {
-                        $lstr = floatval($lora_strengths_high[$index] ?? 1.0);
-                        $lora_metadata_list[] = basename($lname, '.safetensors') . " ($lstr)";
-
-                        // Hunyuan soporta 1 LoRA encadenado mediante esta ruta
-                        if ($index === 0) {
-                            $ruta_lora = $lname;
-                            if (strpos($ruta_lora, '\\') === false && strpos($ruta_lora, '/') === false) {
-                                $ruta_lora = "Hunyuan\\" . $ruta_lora;
-                            }
-                            if (!str_ends_with(strtolower($ruta_lora), '.safetensors')) $ruta_lora .= '.safetensors';
-
-                            $workflow["142_lora"] = [
-                                "inputs" => ["lora_name" => $ruta_lora, "strength_model" => $lstr, "model" => [$current_model_node, 0]],
-                                "class_type" => "LoraLoaderModelOnly"
-                            ];
-                            $current_model_node = "142_lora";
-                            $lora_active = true;
-                        }
-                    }
-                }
-            }
-
-            // Conectamos quirúrgicamente el modelo (con o sin LoRA) a los nodos que lo necesitan
-            $workflow[$target_sampler_node]["inputs"]["model"] = [$current_model_node, 0];
-            $workflow[$target_scheduler_node]["inputs"]["model"] = [$current_model_node, 0];
-
-            // 👇 FORZAR GUARDADO EN LA RAÍZ SIN SUBCARPETAS 👇
-            if (isset($workflow["102"]["inputs"])) {
-                $workflow["102"]["inputs"]["filename_prefix"] = "byGartyVideo";
-            }
-
-            $current_image_node = "102"; // Nodo SaveVideo
             goto EJECUTAR_COMFYUI;
         }
 		

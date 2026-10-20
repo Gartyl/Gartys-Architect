@@ -451,8 +451,17 @@ case 'generar_audio':
         $output_node = '24';
     }
 
-// Si es una generación de audio autónoma (sin vídeo), añadimos el nodo de guardado
+// Si es una generación lanzada desde el panel de Audio Pro, decidimos si devuelve Audio (.wav) o Vídeo Doblado (.mp4)
     if (($_POST['standalone'] ?? '0') === '1') {
+        
+        // Detectamos si el usuario quiere DOBLAR el vídeo que tiene cargado actualmente en el visor principal
+        $media_base64_dub = $_POST['image_data'] ?? null;
+        $hay_video_en_visor = (!empty($media_base64_dub) && strpos($media_base64_dub, 'data:video/') === 0);
+        $sync_video_check = filter_var($_POST['sync_with_video'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+        $wav2lip_check    = filter_var($_POST['wav2lip'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+
+        $es_modo_doblaje = ($engine !== 'foley' && $hay_video_en_visor && ($sync_video_check || $wav2lip_check));
+
         if ($engine === 'foley') {
             // Foley genera: [0] STRING (ruta), [1] IMAGE (fotogramas), [2] AUDIO (sonido)
             $workflow['99'] = [
@@ -472,8 +481,83 @@ case 'generar_audio':
                 'class_type' => 'VHS_VideoCombine',
                 '_meta' => ['title' => 'Guardar Foley MP4']
             ];
+        } elseif ($es_modo_doblaje) {
+            // =========================================================================
+            // 🎬 NUEVO: MODO DOBLAJE DIRECTO DE VÍDEO EXISTENTE (VOICE DUBBING + WAV2LIP)
+            // =========================================================================
+            $vidDataDub = strpos($media_base64_dub, 'base64,') !== false ? explode('base64,', $media_base64_dub)[1] : $media_base64_dub;
+            $tmp_dub = sys_get_temp_dir() . '/dub_input_' . uniqid() . '.mp4';
+            file_put_contents($tmp_dub, base64_decode($vidDataDub));
+
+            $cfile_dub = function_exists('curl_file_create') ? curl_file_create($tmp_dub, 'video/mp4', 'dub_source.mp4') : '@' . realpath($tmp_dub);
+            $ch_dub = curl_init(rtrim($comfy_server, '/') . '/upload/image');
+            curl_setopt($ch_dub, CURLOPT_POST, true);
+            curl_setopt($ch_dub, CURLOPT_POSTFIELDS, ['image' => $cfile_dub, 'type' => 'input', 'overwrite' => 'true']);
+            curl_setopt($ch_dub, CURLOPT_RETURNTRANSFER, true);
+            $res_dub = json_decode(curl_exec($ch_dub), true);
+            curl_close($ch_dub);
+            @unlink($tmp_dub);
+
+            $dub_video_name = $res_dub['name'] ?? '';
+            if (empty($dub_video_name)) {
+                echo json_encode(['error' => 'Error al subir el vídeo original a ComfyUI para el doblaje.']);
+                exit();
+            }
+
+            // 1. Cargamos los fotogramas del vídeo original intacto
+            $workflow['900_load_vid'] = [
+                'inputs' => [
+                    'video' => $dub_video_name,
+                    'force_rate' => ($wav2lip_check && $engine === 'tts') ? 30 : 0,
+                    'force_size' => 'Disabled',
+                    'custom_width' => 0,
+                    'custom_height' => 0,
+                    'frame_load_cap' => 0,
+                    'skip_first_frames' => 0,
+                    'select_every_nth' => 1
+                ],
+                'class_type' => 'VHS_LoadVideo'
+            ];
+
+            $images_for_combine = ['900_load_vid', 0];
+            $fps_combine = 24;
+
+            // 2. Si el usuario marcó Sincronizar Labios (Wav2Lip) y es voz (TTS), pasamos los fotogramas por Wav2Lip
+            if ($wav2lip_check && $engine === 'tts') {
+                $workflow['901_wav2lip'] = [
+                    'inputs' => [
+                        'mode' => 'sequential',
+                        'face_detect_batch' => 8,
+                        'images' => ['900_load_vid', 0],
+                        'audio' => [$output_node, $output_port]
+                    ],
+                    'class_type' => 'Wav2Lip'
+                ];
+                $images_for_combine = ['901_wav2lip', 0];
+                $fps_combine = 30;
+            }
+
+            // 3. Empaquetamos el vídeo doblado en MP4
+            $workflow['99'] = [
+                'inputs' => [
+                    'frame_rate' => $fps_combine,
+                    'loop_count' => 0,
+                    'filename_prefix' => 'byGarty_Dubbed',
+                    'format' => 'video/h264-mp4',
+                    'pix_fmt' => 'yuv420p',
+                    'crf' => 19,
+                    'save_metadata' => true,
+                    'trim_to_audio' => false,
+                    'pingpong' => false,
+                    'save_output' => true,
+                    'images' => $images_for_combine,
+                    'audio' => [$output_node, $output_port]
+                ],
+                'class_type' => 'VHS_VideoCombine',
+                '_meta' => ['title' => 'Guardar Vídeo Doblado MP4']
+            ];
         } else {
-            // Motores de voz TTS y efectos SFX mantienen su guardado estándar
+            // Motores de voz TTS y efectos SFX en modo solo audio mantienen su guardado estándar (.wav/.flac)
             $workflow['99'] = [
                 'inputs' => [
                     'filename_prefix' => 'Garty_Audio_' . strtoupper($engine),

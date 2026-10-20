@@ -2718,7 +2718,7 @@ async function runLlm() {
 }
 
 // ==============================================================================
-// --- PUENTE DE AUDIO PRO: GENERACIÓN AUTÓNOMA (F5-TTS / STABLE AUDIO) ---
+// --- PUENTE DE AUDIO PRO: GENERACIÓN AUTÓNOMA Y DOBLAJE DE VÍDEO EXISTENTE ---
 // ==============================================================================
 async function ejecutarAudioAutonomo(config, targetDiv, btnElement, originalCategory) {
     if (btnElement) {
@@ -2744,10 +2744,8 @@ async function ejecutarAudioAutonomo(config, targetDiv, btnElement, originalCate
             SwalDark.fire({ 
                 icon: 'warning', 
                 title: GartyLang.audio_attn_title || 'Atención', 
-                text: GartyLang.err_audio_no_text_tts || 'Por favor, escribe en el cajón principal el texto que quieres que lea la voz clonada.' 
+                text: GartyLang.err_audio_no_text_tts || 'Por favor, escribe el texto que quieres que lea la voz clonada.' 
             });
-        } else {
-            alert(GartyLang.err_audio_no_text_tts_alert || 'Escribe el texto a locutar en el cajón principal.');
         }
         if (btnElement) { btnElement.innerHTML = btnElement.dataset.oldText || (GartyLang.btn_renderizar || 'Renderizar'); btnElement.disabled = false; }
         if (typeof stopProgressBar === 'function') stopProgressBar();
@@ -2759,33 +2757,39 @@ async function ejecutarAudioAutonomo(config, targetDiv, btnElement, originalCate
     fd.append('standalone', '1');      
     fd.append('engine', config.engine); 
     fd.append('prompt_text', promptAudio);
-	// 👇 AÑADE ESTA LÍNEA PARA QUE EL WEBSOCKET TE AVISE AL TERMINAR 👇
-    fd.append('client_id', window.comfyClientId);																	   
+    fd.append('client_id', window.comfyClientId);
+
+    // Enviamos banderas de sincronización y lip-sync por si estamos doblando un vídeo en el visor
+    fd.append('sync_with_video', config.sync_with_video ? 'true' : 'false');
+    fd.append('wav2lip', config.wav2lip ? 'true' : 'false');
+
     if (config.engine === 'tts') {
         fd.append('tts_engine', config.tts_engine || 'f5');
         fd.append('tts_emotion', config.tts_emotion || 'calm');
-        
+        fd.append('tts_language', config.tts_language || 'Spanish');
+        fd.append('tts_gender', config.tts_gender || 'male');
+        fd.append('tts_age', config.tts_age || 'None');
+        fd.append('minimax_model', config.minimax_model || '');
         fd.append('ref_file', config.ref_file || '');
         fd.append('ref_text', config.ref_text || '');
         fd.append('speed', config.speed || '1.0');
         fd.append('remove_silence', config.remove_silence || '1');
     } else {
         fd.append('seconds', config.seconds || '10');
-        // Mandamos el valor con la etiqueta exacta que PHP está esperando ahora
         fd.append('sfx_steps', config.sfx_steps || config.steps || '100');
     }
     
-	// Inyección para Foley: Pasar el vídeo del visor
-    if (config.engine === 'foley') {
-        const foleyMedia = config.media_base64 || 
-                           (typeof window !== 'undefined' && window.currentVideoBase64 ? window.currentVideoBase64 : null) || 
-                           (typeof currentImageBase64 !== 'undefined' && currentImageBase64 ? currentImageBase64 : null);
+    // Inyección de Vídeo del Visor: Para Foley O para Modo Doblaje (cuando hay un vídeo cargado y se pide sincronizar)
+    const activeVideoMedia = config.media_base64 || 
+                             (typeof window !== 'undefined' && window.currentVideoBase64 ? window.currentVideoBase64 : null);
 
-        if (foleyMedia) {
-            fd.append('image_data', foleyMedia);
-        }
+    if (config.engine === 'foley') {
+        const foleyMedia = activeVideoMedia || (typeof currentImageBase64 !== 'undefined' && currentImageBase64 ? currentImageBase64 : null);
+        if (foleyMedia) fd.append('image_data', foleyMedia);
+    } else if (activeVideoMedia && (config.sync_with_video || config.wav2lip)) {
+        fd.append('image_data', activeVideoMedia);
     }
-	
+    
     try {
         const res = await fetch('procesar.php', { method: 'POST', body: fd });
         const data = await res.json();
@@ -2946,7 +2950,20 @@ async function runGpu(mode = 'directo') {
     if (typeof getActiveAudioConfig === 'function') {
         const audioConfig = getActiveAudioConfig();
         if (audioConfig === false) return; // Abortar
-        if (audioConfig && !audioConfig.sync_with_video) {
+        
+        // ¿Hay un archivo de VÍDEO cargado actualmente en el visor?
+        const hayVideoCargadoEnVisor = (typeof window.currentVideoBase64 === 'string' && window.currentVideoBase64.length > 50);
+
+        // ¿El usuario ha dejado VACÍO el prompt visual principal? (Quiere operar sobre el vídeo existente, no generar uno nuevo)
+        const promptVisualPrincipal = isModoDirecto 
+            ? (document.getElementById('posContent') ? document.getElementById('posContent').innerText.trim() : '')
+            : ideaInicial;
+        const sinPromptVisual = (promptVisualPrincipal === '');
+
+        // Vamos a api_audio.php (ejecutarAudioAutonomo) en dos casos:
+        // 1) Si NO marcó sincronizar con vídeo (quiere generar solo un .wav o un Foley)
+        // 2) Si SÍ marcó sincronizar con vídeo, hay un vídeo cargado en el visor Y NO escribió prompt visual arriba (MODO DOBLAJE DE VÍDEO EXISTENTE)
+        if (audioConfig && (!audioConfig.sync_with_video || (hayVideoCargadoEnVisor && sinPromptVisual))) {
             ejecutarAudioAutonomo(audioConfig, resDiv, buttonUsed, originalCategory);
             return; 
         }

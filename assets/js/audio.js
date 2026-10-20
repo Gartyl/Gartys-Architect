@@ -174,11 +174,18 @@ function getActiveAudioConfig() {
     // Si no es TTS ni Foley, asumimos que es SFX
 
     let syncVideo = document.getElementById('syncAudioVideo') ? document.getElementById('syncAudioVideo').checked : false;
+    let useWav2Lip = document.getElementById('wav2lipToggle') ? document.getElementById('wav2lipToggle').checked : false;
+	if (useWav2Lip) syncVideo = true;
 
-    // ESCUDO ANTI-IMÁGENES
+    // Detectamos si hay un vídeo cargado actualmente en el visor
+    const hayVideoEnPantalla = (typeof window.currentVideoBase64 === 'string' && window.currentVideoBase64.length > 50) || 
+                               (document.getElementById('videoBadge') !== null);
+
+    // ESCUDO ANTI-IMÁGENES: Solo apagamos syncVideo si NO estamos en [VIDEO] Y TAMPOCO hay un vídeo cargado para doblar
     const selectorEl = document.getElementById('selector');
-    if (selectorEl && selectorEl.value !== '[VIDEO]') {
+    if (selectorEl && selectorEl.value !== '[VIDEO]' && !hayVideoEnPantalla) {
         syncVideo = false; 
+        useWav2Lip = false;
     }
 
     if (isTTS) {
@@ -223,7 +230,8 @@ function getActiveAudioConfig() {
             ref_text: document.getElementById('audioRefText') ? document.getElementById('audioRefText').value.trim() : '',
             speed: document.getElementById('ttsSpeed') ? document.getElementById('ttsSpeed').value : 1.0,
             remove_silence: document.getElementById('ttsRemoveSilence') && document.getElementById('ttsRemoveSilence').checked ? '1' : '0',
-            sync_with_video: syncVideo
+            sync_with_video: syncVideo,
+            wav2lip: useWav2Lip
         };
         
     } else if (isFoley) {
@@ -290,7 +298,8 @@ function getActiveAudioConfig() {
             prompt_text: sfxPrompt,
             seconds: document.getElementById('sfxSeconds') ? document.getElementById('sfxSeconds').value : 5.0,
             sfx_steps: document.getElementById('sfxSteps') ? document.getElementById('sfxSteps').value : 100, 
-            sync_with_video: syncVideo
+            sync_with_video: syncVideo,
+			wav2lip: useWav2Lip
         };
     }
 }
