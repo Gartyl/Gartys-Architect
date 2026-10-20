@@ -150,6 +150,8 @@ return [
 	'tit_sfx_ai_helper' => "Convertir idea simple en prompt musical tècnic (Anglès)",
 	'msg_write_music_idea' => "Escriu primer una idea breu (ex: 'piano trist amb pluja' o 'synthwave vuitanter') a la caixa de música.",
 	'btn_send_foley' => "Sonoritzar Vídeo amb Foley (Hunyuan)",
+	'msg_dado_fijo_on' => "🎲 Dau Fix ACTIVAT (Clic dret per a desactivar)",
+	'msg_dado_fijo_off' => "🎲 Dau Fix DESACTIVAT",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
@@ -337,7 +339,7 @@ return [
     'btn_title_dictation' => "Dictat per Veu",
     'btn_title_new_face' => "Crear nou rostre",
     'btn_title_save' => "Desar Configuració Actual",
-    'btn_title_surprise' => "Sorprèn-me!",
+    'btn_title_surprise' => "Sorprèn-me! - 🖱️ Bloqueig",
     'btn_title_wildcards' => "Catàleg de Comodins",
     'btn_translate_edit' => "Traduir / Editar",
     'btn_tray_insert' => "Clic per inserir al prompt",

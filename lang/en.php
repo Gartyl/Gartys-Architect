@@ -150,6 +150,8 @@ return [
 	'tit_sfx_ai_helper' => "Convert simple idea into technical music prompt (English)",
 	'msg_write_music_idea' => "First write a brief idea (e.g., 'sad piano with rain' or '80s synthwave') in the music box.",
 	'btn_send_foley' => "Add Foley Sound to Video (Hunyuan)",
+	'msg_dado_fijo_on' => "🎲 Fixed Dice ACTIVATED (Right-click to disable)",
+	'msg_dado_fijo_off' => "🎲 Fixed Dice DEACTIVATED",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
@@ -337,7 +339,7 @@ return [
     'btn_title_dictation' => "Voice Dictation",
     'btn_title_new_face' => "Create new face",
     'btn_title_save' => "Save Current Configuration",
-    'btn_title_surprise' => "Surprise me!",
+    'btn_title_surprise' => "Surprise me! - 🖱️ Lock",
     'btn_title_wildcards' => "Wildcards Catalog",
     'btn_translate_edit' => "Translate / Edit",
     'btn_tray_insert' => "Click to insert into prompt",

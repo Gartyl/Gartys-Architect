@@ -150,6 +150,8 @@ return [
 	'tit_sfx_ai_helper' => "Convertir idea simple en prompt musical técnico (Inglés)",
 	'msg_write_music_idea' => "Escribe primero una idea breve (ej: 'piano triste con lluvia' o 'synthwave ochentero') en la caja de música.",
 	'btn_send_foley' => "Sonorizar Vídeo con Foley (Hunyuan)",
+	'msg_dado_fijo_on' => "🎲 Dado Fijo ACTIVADO (Clic derecho para quitar)",
+	'msg_dado_fijo_off' => "🎲 Dado Fijo DESACTIVADO",
 	
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
@@ -337,7 +339,7 @@ return [
     'btn_title_dictation' => "Dictado por Voz",
     'btn_title_new_face' => "Crear nuevo rostro",
     'btn_title_save' => "Guardar Configuración Actual",
-    'btn_title_surprise' => "¡Sorpréndeme!",
+    'btn_title_surprise' => "¡Sorpréndeme! - 🖱️ Bloqueo",
     'btn_title_wildcards' => "Catálogo de Comodines",
     'btn_translate_edit' => "Traducir / Editar",
     'btn_tray_insert' => "Clic para insertar en el prompt",

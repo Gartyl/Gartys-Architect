@@ -2844,7 +2844,7 @@ async function _construirPayloadGpu(mode, ideaInicial, isModoDirecto, isPureMode
         const checkAudio = document.getElementById('audioToggle');
         const panelAudioActivo = (checkAudio && checkAudio.checked);
 
-        if (!ideaInicial && !isPureMode && !panelAudioActivo) { 
+        if (!ideaInicial && !isPureMode && !panelAudioActivo && !window.dadoFijoActivo) { 
             throw new Error('STOP_SILENT_MSG:' + (GartyLang.avis_gengpu1 || "Falta información."));
         }
         
@@ -2930,7 +2930,7 @@ async function runGpu(mode = 'directo') {
     const resDiv = document.getElementById('imageResult'); 
     const resultsArea = document.getElementById('results'); 
     const originalCategory = document.getElementById('selector').value;
-    const ideaInicial = document.getElementById('descripcion') ? document.getElementById('descripcion').value.trim() : ''; 
+    let ideaInicial = document.getElementById('descripcion') ? document.getElementById('descripcion').value.trim() : '';
     let buttonUsed = mode === 'directo' ? document.getElementById('gpuDirectBtn') : document.getElementById('gpuArquitectoBtn');
     const originalBtnText = buttonUsed ? buttonUsed.innerHTML : '';
     
@@ -2967,6 +2967,17 @@ async function runGpu(mode = 'directo') {
             ejecutarAudioAutonomo(audioConfig, resDiv, buttonUsed, originalCategory);
             return; 
         }
+    }
+	
+	// Si el Modo Dado Fijo está activo (en disparo simple o lote 2/4), tiramos el dado para la 1ª imagen
+    const batchValPre = document.getElementById('batchSize') ? document.getElementById('batchSize').value : "1";
+    if (window.dadoFijoActivo && mode === 'directo' && !isModoDirecto && !isPureMode && batchValPre !== 'inf' && typeof window.tirarDadoSilencioso === 'function') {
+        if (buttonUsed) {
+            buttonUsed.disabled = true;
+            buttonUsed.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> 🎲...';
+        }
+        const nuevaIdea = await window.tirarDadoSilencioso();
+        if (nuevaIdea) ideaInicial = nuevaIdea;
     }
 
     // --- 3.2 Construcción del Modelo (Payload) y Validaciones ---
@@ -3138,18 +3149,35 @@ async function runGpu(mode = 'directo') {
         buttonUsed.disabled = false;
         
         buttonUsed.onclick = window.detenerBucleInfinito;
-        window.dispararTareaInfinita(); window.dispararTareaInfinita();
+        window.dispararTareaInfinita();
+        if (!window.dadoFijoActivo) window.dispararTareaInfinita();
         return;
     }
 
     if (batchVal === '2' || batchVal === '4') {
         const total = parseInt(batchVal);
+        let promptsLote = [{ pos: prompts.finalPrompt, neg: prompts.finalNegPrompt, orig: ideaInicial || prompts.finalPrompt }];
+
+        // Si el Dado Fijo está activo, generamos antes las sorpresas restantes para no solapar Ollama con ComfyUI
+        if (window.dadoFijoActivo && typeof window.obtenerPromptDadoProcesado === 'function') {
+            for (let i = 1; i < total; i++) {
+                if (buttonUsed) buttonUsed.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> 🎲 (${i + 1}/${total})...`;
+                const pExtra = await window.obtenerPromptDadoProcesado();
+                if (pExtra) promptsLote.push(pExtra);
+            }
+        }
+
         for (let i = 0; i < total; i++) {
             let fdSingle = new FormData();
             fd.forEach((v, k) => fdSingle.append(k, v));
             fdSingle.set('batch_size', 1); 
             fdSingle.set('seed', (seedVal === -1 || isNaN(seedVal)) ? Math.floor(Math.random() * 9007199254740991) : (seedVal + i));
-            // A partir de la 2ª imagen del lote, forzamos ID nuevo para que no colisionen en la BBDD
+            if (window.dadoFijoActivo && promptsLote[i]) {
+                fdSingle.set('prompt', promptsLote[i].pos);
+                fdSingle.set('negative_prompt', promptsLote[i].neg);
+                fdSingle.set('descripcion_original', promptsLote[i].orig);
+                fdSingle.set('session_fingerprint', promptsLote[i].orig + "|" + currentModelCheck);
+            }
             if (i > 0) fdSingle.delete('historial_id');
             enviarTareaIndividualGpu(fdSingle, resDiv, buttonUsed, (i === 0 ? currentPromptId : 0), originalCategory, i + 1, total);
         }
@@ -3410,6 +3438,17 @@ window.dispararTareaInfinita = async function() {
     fdSingle.set('batch_size', 1);
     fdSingle.set('seed', Math.floor(Math.random() * 9007199254740991));
     fdSingle.delete('historial_id'); // Cada vuelta del bucle infinito crea su propio registro y JSON
+
+    if (window.dadoFijoActivo && typeof window.obtenerPromptDadoProcesado === 'function') {
+        const pDado = await window.obtenerPromptDadoProcesado();
+        if (!window.bucleInfinitoActivo || !window.configBucleInfinito) return;
+        if (pDado) {
+            fdSingle.set('prompt', pDado.pos);
+            fdSingle.set('negative_prompt', pDado.neg);
+            fdSingle.set('descripcion_original', pDado.orig);
+            fdSingle.set('session_fingerprint', pDado.orig + "|" + (fdSingle.get('model_path') || ''));
+        }
+    }
     
     try {
         const res = await fetch('procesar.php', { method: 'POST', body: fdSingle }); 

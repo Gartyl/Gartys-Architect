@@ -675,9 +675,111 @@ async function cargarDatosImagen(imgId) {
     }
 }
 
-// --- BOTÓN SORPRÉNDEME ---
+// --- BOTÓN SORPRÉNDEME Y MODO DADO FIJO ---
+window.dadoFijoActivo = false;
+
+window.tirarDadoSilencioso = async function() {
+    let formData = new FormData();
+    formData.append('action', 'generar_prompt_sorpresa');
+    formData.append('idioma', APP_ENV.lang.toUpperCase());
+
+    let selectorPrincipal = document.getElementById('selector');
+    let modoActual = 'Imagen';
+    if (selectorPrincipal) {
+        let valor = selectorPrincipal.value.toUpperCase();
+        if (valor.includes('VIDEO')) modoActual = 'Video';
+        else if (valor.includes('CHAT') || valor.includes('TEXT')) modoActual = 'Chat';
+    }
+    formData.append('contexto', modoActual);
+
+    let response = await fetch('procesar.php', { method: 'POST', body: formData });
+    let data = await response.json();
+    if (data && data.success && data.prompt) {
+        const caja = document.getElementById('descripcion');
+        if (caja) caja.value = data.prompt;
+        return data.prompt.trim();
+    }
+    return '';
+};
+
+window.obtenerPromptDadoProcesado = async function() {
+    const rawPrompt = await window.tirarDadoSilencioso();
+    if (!rawPrompt) return null;
+
+    let finalPos = rawPrompt;
+    let finalNeg = "";
+
+    const autoTranslate = document.getElementById('autoTranslateToggle') ? document.getElementById('autoTranslateToggle').checked : false;
+    if (autoTranslate) {
+        try {
+            const fdTrad = new FormData();
+            fdTrad.append('action', 'traducir_rapido');
+            fdTrad.append('texto', rawPrompt);
+            const llmSel = document.getElementById('llmModelSelector');
+            if (llmSel && llmSel.value) fdTrad.append('llm_model', llmSel.value);
+
+            const resTrad = await fetch('procesar.php', { method: 'POST', body: fdTrad });
+            const dataTrad = await resTrad.json();
+            if (dataTrad && dataTrad.traduccion && dataTrad.traduccion.trim() !== '') {
+                finalPos = dataTrad.traduccion.trim();
+            }
+        } catch (e) {
+            console.warn("Aviso traduciendo tirada de dado:", e);
+        }
+    }
+
+    if (typeof window.getPromptsWithPresets === 'function') {
+        const applied = window.getPromptsWithPresets(finalPos, "");
+        finalPos = applied.pos;
+        finalNeg = applied.neg;
+    }
+
+    return { pos: finalPos, neg: finalNeg, orig: rawPrompt };
+};
+
 const botonDadoMagico = document.getElementById('surpriseBtn');
 if (botonDadoMagico) {
+    // Clic derecho: Activar / Desactivar Modo Dado Fijo para Lotes y Bucle Infinito
+    botonDadoMagico.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        window.dadoFijoActivo = !window.dadoFijoActivo;
+
+        if (!botonDadoMagico.dataset.baseHtml) {
+            botonDadoMagico.dataset.baseHtml = botonDadoMagico.innerHTML;
+        }
+
+        if (window.dadoFijoActivo) {
+            botonDadoMagico.classList.remove('btn-warning');
+            botonDadoMagico.classList.add('btn-info', 'border', 'border-light');
+            botonDadoMagico.innerHTML = botonDadoMagico.dataset.baseHtml + ' <i class="bi bi-lock-fill" style="font-size: 0.75em;"></i>';
+            
+            const txtDadoOn = (typeof GartyLang !== 'undefined' && GartyLang.msg_dado_fijo_on) 
+                ? GartyLang.msg_dado_fijo_on 
+                : '🎲 Dado Fijo ACTIVADO (Clic derecho para quitar)';
+
+            SwalDark.fire({
+                toast: true, position: 'top-end', icon: 'info',
+                title: txtDadoOn,
+                showConfirmButton: false, timer: 2000
+            });
+        } else {
+            botonDadoMagico.classList.remove('btn-info', 'border', 'border-light');
+            botonDadoMagico.classList.add('btn-warning');
+            botonDadoMagico.innerHTML = botonDadoMagico.dataset.baseHtml;
+
+            const txtDadoOff = (typeof GartyLang !== 'undefined' && GartyLang.msg_dado_fijo_off) 
+                ? GartyLang.msg_dado_fijo_off 
+                : '🎲 Dado Fijo DESACTIVADO';
+
+            SwalDark.fire({
+                toast: true, position: 'top-end', icon: 'info',
+                title: txtDadoOff,
+                showConfirmButton: false, timer: 1500
+            });
+        }
+    });
+
+    // Clic izquierdo: Tirada única tradicional
     botonDadoMagico.onclick = async function() {
         let cajaTextoPrincipal = document.getElementById('descripcion');
         if (!cajaTextoPrincipal) return;
@@ -686,35 +788,20 @@ if (botonDadoMagico) {
         botonDadoMagico.disabled = true;
 
         try {
-            let formData = new FormData();
-            formData.append('action', 'generar_prompt_sorpresa');
-            formData.append('idioma', APP_ENV.lang.toUpperCase()); 
-            
-            let selectorPrincipal = document.getElementById('selector'); 
-            let modoActual = 'Imagen';
-            if (selectorPrincipal) {
-                let valor = selectorPrincipal.value.toUpperCase();
-                if (valor.includes('VIDEO')) modoActual = 'Video';
-                else if (valor.includes('CHAT') || valor.includes('TEXT')) modoActual = 'Chat';
+            let promptSorpresa = await window.tirarDadoSilencioso();
+            if (promptSorpresa !== "") {
+                const claseBase = window.dadoFijoActivo ? 'btn-info' : 'btn-warning';
+                botonDadoMagico.classList.replace(claseBase, 'btn-success');
+                setTimeout(() => botonDadoMagico.classList.replace('btn-success', claseBase), 500);
+            } else {
+                SwalDark.fire({ icon: 'info', title: GartyLang.avis_dado1, text: GartyLang.avis_dado2 });
             }
-            formData.append('contexto', modoActual);
-
-            let response = await fetch('procesar.php', { method: 'POST', body: formData });
-            let data = await response.json();
-
-            if (data.success) {
-                if (data.prompt !== "") {
-                    cajaTextoPrincipal.value = data.prompt;
-                    botonDadoMagico.classList.replace('btn-warning', 'btn-success');
-                    setTimeout(() => botonDadoMagico.classList.replace('btn-success', 'btn-warning'), 500);
-                } else {
-                    SwalDark.fire({ icon: 'info', title: GartyLang.avis_dado1, text: GartyLang.avis_dado2 });
-                }
-            } else if (data.error) {
-                SwalDark.fire({ icon: 'warning', title: GartyLang.ollama_in_process, text: data.error, confirmButtonText: GartyLang.btn_entendido });
-            }
-        } catch (error) { SwalDark.fire({ icon: 'error', title: GartyLang.swal_ollama_err_title, text: GartyLang.swal_ollama_err_text });
-        } finally { botonDadoMagico.innerHTML = iconoOriginal; botonDadoMagico.disabled = false; }
+        } catch (error) {
+            SwalDark.fire({ icon: 'error', title: GartyLang.swal_ollama_err_title, text: GartyLang.swal_ollama_err_text });
+        } finally {
+            botonDadoMagico.innerHTML = iconoOriginal;
+            botonDadoMagico.disabled = false;
+        }
     };
 }
 
