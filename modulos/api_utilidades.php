@@ -164,8 +164,21 @@ if ($action === 'generar_prompt_sorpresa') {
         }
 
         // 3. Buscamos una personalidad aleatoria directamente (ignoramos el idioma)
-        $stmtDado = $pdo->query("SELECT titulo, prompt_texto, parametros FROM personalidades_prompts WHERE LOWER(tipo) = 'random_prompt' AND activo = 1 ORDER BY RAND() LIMIT 1");
+		
+		//$stmtDado = $pdo->query("SELECT titulo, prompt_texto, parametros FROM personalidades_prompts WHERE LOWER(tipo) = 'random_prompt' AND activo = 1 ORDER BY RAND() LIMIT 1");
+		
+		// INTENTAR REPETIR MENYS
+		$ultimos = $_SESSION['ultimos_dados'] ?? [];
+		$filtroNoRepetir = !empty($ultimos) ? "AND titulo NOT IN (" . implode(',', array_map([$pdo, 'quote'], $ultimos)) . ")" : "";
+		$stmtDado = $pdo->query("SELECT titulo, prompt_texto, parametros FROM personalidades_prompts WHERE LOWER(tipo) = 'random_prompt' AND activo = 1 $filtroNoRepetir ORDER BY RAND() LIMIT 1");
+		// FINS ACÍ
+		
         $resultado_db = $stmtDado->fetch(PDO::FETCH_ASSOC);
+		
+		// CONTINUA
+        $_SESSION['ultimos_dados'][] = $resultado_db['titulo'];
+        if (count($_SESSION['ultimos_dados']) > 8) array_shift($_SESSION['ultimos_dados']);
+        //FINS ACÍ
 
         if (!$resultado_db || empty($resultado_db['prompt_texto'])) { 
             echo json_encode(['error' => __('err_surprise_config_char')]); 
@@ -242,6 +255,9 @@ if ($action === 'generar_prompt_sorpresa') {
             
             // Texto de salida final limpio
             $texto_final = trim(str_replace('"', '', $clean));
+			
+			// Opcional para depurar los prompts (comentar con // al terminar)
+            //$texto_final .= ', small clean text in the bottom corner reading "' . $resultado_db['titulo'] . '"';
             
             echo json_encode(['success' => true, 'prompt' => $texto_final]);
         } else {
