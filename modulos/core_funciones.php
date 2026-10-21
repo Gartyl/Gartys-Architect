@@ -466,4 +466,47 @@ if (!function_exists('ejecutarBusquedaSemantica')) {
     }
 }
 
+// ==============================================================================
+// --- FORMATO HISTORIAL DE CONVERSACIONES CON LLM ---
+// ==============================================================================
+
+function renderizarMarkdownChat($texto) {
+    if (empty($texto)) return '';
+    
+    // 1. Escapamos HTML por seguridad y normalizamos saltos de línea
+    $html = htmlspecialchars(trim($texto), ENT_QUOTES, 'UTF-8');
+    $html = str_replace(["\r\n", "\r"], "\n", $html);
+
+    // 2. Bloques de código ```codigo```
+    $html = preg_replace_callback('/```(?:\w+)?\n([\s\S]*?)```/', function($m) {
+        return '<pre class="bg-black text-info p-3 rounded border border-secondary my-2" style="overflow-x:auto;"><code>' . trim($m[1]) . '</code></pre>';
+    }, $html);
+
+    // 3. Código en línea `codigo`
+    $html = preg_replace('/`([^`\n]+)`/', '<code class="bg-dark text-warning px-1 rounded">$1</code>',$html);
+
+    // 4. Encabezados (### Título)
+    $html = preg_replace('/^###\s+(.+)$/m', '<h6 class="text-info fw-bold mt-3 mb-1">$1</h6>',$html);
+    $html = preg_replace('/^##\s+(.+)$/m', '<h5 class="text-info fw-bold mt-3 mb-2">$1</h5>',$html);
+    $html = preg_replace('/^#\s+(.+)$/m', '<h4 class="text-info fw-bold mt-3 mb-2">$1</h4>',$html);
+
+    // 5. Negritas (**texto**) y Cursivas (*texto*)
+    $html = preg_replace('/\*\*(.+?)\*\*/s', '<strong class="text-white">$1</strong>', $html);$html = preg_replace('/(?<!\*)\*([^\*\n]+)\*(?!\*)/', '<em>$1</em>',$html);
+
+    // 6. Párrafos y saltos de línea controlados (evita los huecos gigantes)
+    $bloques = preg_split('/\n{2,}/', $html);$salida = [];
+    foreach ($bloques as$bloque) {
+        $bloque = trim($bloque);
+        if ($bloque === '') continue;
+        // Si ya es un bloque <pre> o <h>, no lo envolvemos en <p>
+        if (preg_match('/^<(pre|h[1-6])/i', $bloque)) {
+            $salida[] =$bloque;
+        } else {
+            $salida[] = '<p class="mb-2">' . nl2br($bloque) . '</p>';
+        }
+    }
+
+    return implode('', $salida);
+}
+
 ?>

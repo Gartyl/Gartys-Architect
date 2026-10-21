@@ -360,9 +360,22 @@ $items = groupHistoryItems($all_prompts);
                                         <div class="flex-grow-1">
                                             <span class="chat-label label-user"><?= __('lbl_user_date') ?> (<?php echo date('d/m/Y H:i', strtotime($msg['fecha_hora'])); ?>):</span>
                                             <p class="text-light mb-3"><?php echo nl2br(htmlspecialchars($msg['descripcion_original'])); ?></p>
-                                            <span class="chat-label label-ai"><?= __('lbl_architect_resp') ?></span>
+                                            <?php 
+                                            $meta_chat = !empty($msg['metadata']) ? json_decode($msg['metadata'], true) : [];
+                                            $llm_usado = $meta_chat['llm_model'] ?? $meta_chat['Model'] ?? null;
+                                            // Solo abrimos el visor Swarm si hay imagen/vídeo o metadatos gráficos (no si solo viene llm_model)
+                                            $es_bloque_grafico = !empty($msg['imagen_path']) || (!empty($meta_chat) && !isset($meta_chat['llm_model']));
+                                            ?>
+                                            <span class="chat-label label-ai">
+                                                <?= __('lbl_architect_resp') ?>
+                                                <?php if ($llm_usado): ?>
+                                                    <span class="badge bg-dark text-secondary border border-secondary ms-2 fw-normal" style="font-size: 0.72rem; vertical-align: middle;">
+                                                        <i class="bi bi-cpu text-info me-1"></i><?php echo htmlspecialchars($llm_usado); ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                            </span>
                                             
-                                            <?php if (!empty($msg['metadata']) || !empty($msg['imagen_path'])): ?>
+                                            <?php if ($es_bloque_grafico): ?>
                                                 <div class="row mt-2">
                                                     <?php if (!empty($msg['imagen_path'])): ?>
                                                     <div class="col-md-4 mb-3 mb-md-0">
@@ -384,7 +397,7 @@ $items = groupHistoryItems($all_prompts);
                                                                 <i class="bi bi-globe"></i>
                                                             </a>
                                                             <a href="javascript:void(0)" onclick="toggleFavorito(<?php echo $msg['id']; ?>, this)" class="btn-fav-img <?php echo ($msg['favorito'] ? 'active' : ''); ?>" title="<?= __('btn_fav') ?>">
-                                                            <i class="bi <?php echo ($msg['favorito'] ? 'bi-heart-fill' : 'bi-heart'); ?>"></i>
+                                                                <i class="bi <?php echo ($msg['favorito'] ? 'bi-heart-fill' : 'bi-heart'); ?>"></i>
                                                             </a>
 
                                                             <div style="position: absolute; bottom: 10px; right: 10px; display: flex; gap: 8px; z-index: 50;">
@@ -404,11 +417,11 @@ $items = groupHistoryItems($all_prompts);
                                                                 <a href="index.php?reutilizar=<?php echo $msg['id']; ?>" class="btn-fab btn-reutilizar-fab" title="<?= __('btn_reutilizar') ?>">
                                                                     <i class="bi bi-magic"></i>
                                                                 </a>
-																<?php if (!in_array($ext, ['wav', 'mp3', 'flac', 'ogg'])): ?>
+                                                                <?php if (!in_array($ext, ['wav', 'mp3', 'flac', 'ogg'])): ?>
                                                                 <a href="javascript:void(0)" onclick="prepararComparacion('galeria/<?php echo htmlspecialchars($msg['imagen_path']); ?>', this)" class="btn-fab btn-compare-fab" title="<?= __('tit_compare') ?>">
                                                                     <i class="bi bi-symmetry-vertical"></i>
                                                                 </a>
-																<?php endif; ?>
+                                                                <?php endif; ?>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -444,19 +457,23 @@ $items = groupHistoryItems($all_prompts);
                                                     </div>
                                                 </div>
                                             <?php else: ?>
-                                                <div class="prompt-container mt-2">
+                                                <div class="prompt-container mt-2 p-3 position-relative" style="font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 0.95rem; line-height: 1.6; color: #e6edf3; word-break: normal; overflow-wrap: break-word; white-space: normal;">
                                                     <button class="btn-icon-gray position-absolute top-0 end-0 m-2" onclick="copyTextEx('copy-<?php echo $msg['id']; ?>')"><i class="bi bi-copy"></i></button>
-                                                    <code style="color: #8b949e; font-size: 0.85rem; font-family: 'Consolas', monospace; white-space: pre-wrap;" id="copy-<?php echo $msg['id']; ?>"><?php echo nl2br(htmlspecialchars($msg['prompt_positivo'])); ?></code>
+                                                    <div class="pe-4" id="copy-<?php echo $msg['id']; ?>">
+                                                        <?php echo function_exists('renderizarMarkdownChat') ? renderizarMarkdownChat($msg['prompt_positivo']) : nl2br(htmlspecialchars($msg['prompt_positivo'])); ?>
+                                                    </div>
                                                 </div>
                                             <?php endif; ?>
                                             
                                             <?php if (!empty($msg['texto_generado'])): ?>
-                                                <div class="mt-3 p-3 bg-dark border border-secondary rounded text-light" style="white-space: pre-wrap; font-size: 0.95rem; border-color: rgba(255,255,255,0.1) !important;">
+                                                <div class="mt-3 p-3 bg-dark border border-secondary rounded text-light" style="font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 0.95rem; line-height: 1.6; word-break: normal; overflow-wrap: break-word; white-space: normal; border-color: rgba(255,255,255,0.1) !important;">
                                                     <div class="d-flex justify-content-between align-items-center mb-2 border-bottom border-secondary pb-2" style="border-color: rgba(255,255,255,0.1) !important;">
                                                         <h6 class="text-info fw-bold mb-0"><i class="bi bi-file-text"></i> <?= __('tit_txt_gen') ?>:</h6>
                                                         <button class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="copyTextEx('texto-gen-<?php echo $msg['id']; ?>')"><i class="bi bi-copy"></i> <?= __('btn_copy_text') ?></button>
                                                     </div>
-                                                    <div id="texto-gen-<?php echo $msg['id']; ?>"><?php echo htmlspecialchars($msg['texto_generado']); ?></div>
+                                                    <div id="texto-gen-<?php echo $msg['id']; ?>">
+                                                        <?php echo function_exists('renderizarMarkdownChat') ? renderizarMarkdownChat($msg['texto_generado']) : nl2br(htmlspecialchars($msg['texto_generado'])); ?>
+                                                    </div>
                                                 </div>
                                             <?php endif; ?>
                                         </div>
@@ -474,6 +491,8 @@ $items = groupHistoryItems($all_prompts);
                         $groupIds = array_column($item['items'], 'id');
                         $groupIdsJson = json_encode($groupIds);
                         $isSingle = count($item['items']) === 1;
+                        $firstMeta = !empty($item['items'][0]['metadata']) ? json_decode($item['items'][0]['metadata'], true) : [];
+                        $firstLlmModel = $firstMeta['llm_model'] ?? ($item['modelo'] === '[LLM]' ? ($firstMeta['Model'] ?? null) : null);
                     ?>
                         <div class="card card-historial p-4 shadow-sm" id="group-card-<?php echo $item['items'][0]['id']; ?>">
                             
@@ -482,6 +501,11 @@ $items = groupHistoryItems($all_prompts);
                                     <span class="model-badge">
                                         <?php echo getIconoHistorial($item['modelo']); ?> <?php echo htmlspecialchars($item['modelo']); ?>
                                     </span>
+                                    <?php if ($isSingle && $firstLlmModel): ?>
+                                        <span class="badge bg-dark text-secondary border border-secondary ms-2 fw-normal" style="font-size: 0.72rem; vertical-align: middle;">
+                                            <i class="bi bi-cpu text-info me-1"></i><?php echo htmlspecialchars($firstLlmModel); ?>
+                                        </span>
+                                    <?php endif; ?>
                                     <span class="date-text ms-2"><?php echo date('d/m/Y H:i', strtotime($item['fecha_hora'])); ?></span>
                                     <?php if (!$isSingle): ?>
                                         <span class="badge bg-secondary ms-2"><?php echo count($item['items']); ?> <?= __('txt_reg_filt') ?></span>
@@ -498,7 +522,11 @@ $items = groupHistoryItems($all_prompts);
                                 <h6 class="text-light fw-bold mb-3"><?php echo nl2br(htmlspecialchars($item['descripcion_original'])); ?></h6>
                             <?php endif; ?>
                             
-                            <?php foreach ($item['items'] as $index => $subItem): ?>
+                            <?php foreach ($item['items'] as $index => $subItem): 
+                                $meta_sub = !empty($subItem['metadata']) ? json_decode($subItem['metadata'], true) : [];
+                                $llm_usado_sub = $meta_sub['llm_model'] ?? ($subItem['modelo'] === '[LLM]' ? ($meta_sub['Model'] ?? null) : null);
+                                $es_bloque_grafico_sub = !empty($subItem['imagen_path']) || (!empty($meta_sub) && !isset($meta_sub['llm_model']) && $subItem['modelo'] !== '[LLM]');
+                            ?>
                                 <div class="<?php echo (!$isSingle && $index < count($item['items']) - 1) ? 'mb-4 border-bottom border-secondary pb-4' : ''; ?>" id="prompt-row-<?php echo $subItem['id']; ?>" style="border-color: rgba(255,255,255,0.1) !important;">
                                     
                                     <?php if(!empty($subItem['anotacion_admin'])): ?>
@@ -513,11 +541,16 @@ $items = groupHistoryItems($all_prompts);
                                             <?php if (!$isSingle): ?>
                                                 <div class="d-flex align-items-center mb-2">
                                                     <span class="chat-label label-ai mb-0"><i class="bi bi-diagram-2 me-1"></i> <?= __('tit_hist_var') ?></span>
+                                                    <?php if ($llm_usado_sub): ?>
+                                                        <span class="badge bg-dark text-secondary border border-secondary ms-2 fw-normal" style="font-size: 0.72rem; vertical-align: middle;">
+                                                            <i class="bi bi-cpu text-info me-1"></i><?php echo htmlspecialchars($llm_usado_sub); ?>
+                                                        </span>
+                                                    <?php endif; ?>
                                                     <span class="date-text ms-2">(<?php echo date('H:i:s', strtotime($subItem['fecha_hora'])); ?>)</span>
                                                 </div>
                                             <?php endif; ?>
                                             
-                                            <?php if (!empty($subItem['metadata']) || !empty($subItem['imagen_path'])): ?>
+                                            <?php if ($es_bloque_grafico_sub): ?>
                                                 <div class="row mt-2">
                                                     <?php if (!empty($subItem['imagen_path'])): ?>
                                                     <div class="col-md-4 mb-3 mb-md-0">
@@ -539,7 +572,7 @@ $items = groupHistoryItems($all_prompts);
                                                                 <i class="bi bi-globe"></i>
                                                             </a>
                                                             <a href="javascript:void(0)" onclick="toggleFavorito(<?php echo $subItem['id']; ?>, this)" class="btn-fav-img <?php echo ($subItem['favorito'] ? 'active' : ''); ?>" title="<?= __('btn_fav') ?>">
-                                                            <i class="bi <?php echo ($subItem['favorito'] ? 'bi-heart-fill' : 'bi-heart'); ?>"></i>
+                                                                <i class="bi <?php echo ($subItem['favorito'] ? 'bi-heart-fill' : 'bi-heart'); ?>"></i>
                                                             </a>
 
                                                             <div style="position: absolute; bottom: 10px; right: 10px; display: flex; gap: 8px; z-index: 50;">
@@ -562,10 +595,10 @@ $items = groupHistoryItems($all_prompts);
                                                                     <i class="bi bi-magic"></i>
                                                                 </a>
                                                                 <?php if (!in_array($ext, ['wav', 'mp3', 'flac', 'ogg'])): ?>
-																<a href="javascript:void(0)" onclick="prepararComparacion('galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>', this)" class="btn-fab btn-compare-fab" title="<?= __('tit_compare') ?>">
+                                                                <a href="javascript:void(0)" onclick="prepararComparacion('galeria/<?php echo htmlspecialchars($subItem['imagen_path']); ?>', this)" class="btn-fab btn-compare-fab" title="<?= __('tit_compare') ?>">
                                                                     <i class="bi bi-symmetry-vertical"></i>
                                                                 </a>
-																<?php endif; ?>
+                                                                <?php endif; ?>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -601,19 +634,23 @@ $items = groupHistoryItems($all_prompts);
                                                     </div>
                                                 </div>
                                             <?php else: ?>
-                                                <div class="prompt-container mt-0">
+                                                <div class="prompt-container mt-0 p-3 position-relative" style="font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 0.95rem; line-height: 1.6; color: #e6edf3; word-break: normal; overflow-wrap: break-word; white-space: normal;">
                                                     <button class="btn-icon-gray position-absolute top-0 end-0 m-2" onclick="copyTextEx('copy-<?php echo $subItem['id']; ?>')"><i class="bi bi-copy"></i></button>
-                                                    <code id="copy-<?php echo $subItem['id']; ?>"><?php echo nl2br(htmlspecialchars($subItem['prompt_positivo'])); ?></code>
+                                                    <div class="pe-4" id="copy-<?php echo $subItem['id']; ?>">
+                                                        <?php echo function_exists('renderizarMarkdownChat') ? renderizarMarkdownChat($subItem['prompt_positivo']) : nl2br(htmlspecialchars($subItem['prompt_positivo'])); ?>
+                                                    </div>
                                                 </div>
                                             <?php endif; ?>
                                             
                                             <?php if (!empty($subItem['texto_generado'])): ?>
-                                                <div class="mt-3 p-3 bg-dark border border-secondary rounded text-light" style="white-space: pre-wrap; font-size: 0.95rem; border-color: rgba(255,255,255,0.1) !important;">
+                                                <div class="mt-3 p-3 bg-dark border border-secondary rounded text-light" style="font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 0.95rem; line-height: 1.6; word-break: normal; overflow-wrap: break-word; white-space: normal; border-color: rgba(255,255,255,0.1) !important;">
                                                     <div class="d-flex justify-content-between align-items-center mb-2 border-bottom border-secondary pb-2" style="border-color: rgba(255,255,255,0.1) !important;">
                                                         <h6 class="text-info fw-bold mb-0"><i class="bi bi-file-text"></i> <?= __('tit_txt_gen') ?>:</h6>
                                                         <button class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="copyTextEx('texto-gen-<?php echo $subItem['id']; ?>')"><i class="bi bi-copy"></i> <?= __('btn_copy_text') ?></button>
                                                     </div>
-                                                    <div id="texto-gen-<?php echo $subItem['id']; ?>"><?php echo htmlspecialchars($subItem['texto_generado']); ?></div>
+                                                    <div id="texto-gen-<?php echo $subItem['id']; ?>">
+                                                        <?php echo function_exists('renderizarMarkdownChat') ? renderizarMarkdownChat($subItem['texto_generado']) : nl2br(htmlspecialchars($subItem['texto_generado'])); ?>
+                                                    </div>
                                                 </div>
                                             <?php endif; ?>
                                             

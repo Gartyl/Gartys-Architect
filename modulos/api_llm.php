@@ -6,6 +6,28 @@
  * ==============================================================================
  */
 
+// Helper interno para obtener el nombre limpio del LLM sin riesgo de romper la ejecución
+if (!function_exists('obtenerNombreBonitoLlm')) {
+    function obtenerNombreBonitoLlm($pdo, $nombre_archivo, $info_modelo = null) {
+        if (is_array($info_modelo)) {
+            if (!empty($info_modelo['nombre'])) return $info_modelo['nombre'];
+            if (!empty($info_modelo['titulo'])) return $info_modelo['titulo'];
+            if (!empty($info_modelo['nombre_visible'])) return $info_modelo['nombre_visible'];
+        }
+        try {
+            $stmt = $pdo->prepare("SELECT * FROM modelos_ia WHERE nombre_archivo = ? LIMIT 1");
+            $stmt->execute([$nombre_archivo]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row) {
+                return $row['nombre'] ?? $row['titulo'] ?? $row['nombre_visible'] ?? basename($nombre_archivo);
+            }
+        } catch (Throwable $e) {
+            // Silencioso si falla la consulta
+        }
+        return basename($nombre_archivo);
+    }
+}
+
 // ==============================================================================
 // --- 1. ACCIÓN: EJECUTAR LLM (Ejecución Directa / Redacción) ---
 // ==============================================================================
@@ -27,7 +49,13 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
         $prompt_final = trim($_POST['prompt_final'] ?? '');
         $descripcion_original = $_POST['descripcion_original'] ?? $prompt_final;
         $document_text = $_POST['document_text'] ?? null;
+        if ($document_text === 'null' || $document_text === 'undefined') $document_text = null;
+
+        // Filtro estricto para evitar enviar imágenes fantasma a modelos sin visión
         $image_data = $_POST['image_data'] ?? null;
+        if (!empty($image_data) && strpos(trim($image_data), 'data:image') !== 0) {
+            $image_data = null;
+        }
         
         $stmtSys = $pdo->prepare("SELECT prompt_texto, parametros FROM personalidades_prompts WHERE tipo = 'sys_prompt_chat' AND idioma = ? AND activo = 1 LIMIT 1");
         $stmtSys->execute([$lang]);
@@ -40,8 +68,8 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
             $json_params = json_decode($rowSys['parametros'], true);
             if (isset($json_params['temperature'])) $temp_llm = (float)$json_params['temperature'];
         }
-		
-		// --- NUEVO: INYECCIÓN DE REGLAS ESPECÍFICAS DEL MODELO (CHAT DIRECTO) ---
+        
+        // --- INYECCIÓN DE REGLAS ESPECÍFICAS DEL MODELO (CHAT DIRECTO) ---
         if (!empty($modelo_recibido)) {
             try {
                 $sql = is_numeric($modelo_recibido) ? "SELECT reglas_arquitecto FROM modelos_ia WHERE id = ? LIMIT 1" : "SELECT reglas_arquitecto FROM modelos_ia WHERE nombre_archivo = ? LIMIT 1";
@@ -52,14 +80,12 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
                 if (!empty($reglas_modelo)) {
                     $sys_prompt .= "\n\n[SYSTEM DIRECTIVE FOR THIS SPECIFIC MODEL]:\n" . trim($reglas_modelo);
                 }
-            } catch (Exception $e) { /* Silencioso, por si la columna aún no existe */ }
+            } catch (Exception $e) { /* Silencioso */ }
         }
-        // --------------------------------------------------------------------------
 
         // ====================================================================
         // 🌐 RAG FRANCOTIRADOR (WIKIPEDIA API + DDG LITE + DEBUGGING)
         // ====================================================================
-        // IMPORTANTE: Asegúrate de que tu main.js / api_chat.js está enviando usar_internet: 'true' en el FormData
         $usar_internet = isset($_POST['usar_internet']) && $_POST['usar_internet'] === 'true';
         $contexto_web = "";
 
@@ -68,19 +94,15 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
             $excepciones_wiki = ['jp' => 'ja', 'kr' => 'ko', 'cn' => 'zh', 'ca' => 'ca'];
             $idioma_wiki = $excepciones_wiki[$codigo_base] ?? $codigo_base;
             
-            // 1. LIMPIEZA DEL PROMPT (Para que Wikipedia no busque "Háblame de...")
             $stopwords = ['/h[áa]blame\s+de\s+/i', '/informaci[oó]n\s+(sobre|de)\s+/i', '/qu[ée]\s+es\s+/i', '/dime\s+algo\s+de\s+/i', '/expl[íi]came\s+/i'];
             $termino_limpio = trim(preg_replace($stopwords, '', $prompt_final));
-            if(empty($termino_limpio)) $termino_limpio = trim($prompt_final);
+            if (empty($termino_limpio)) $termino_limpio = trim($prompt_final);
 
-            // ---------------------------------------------------------
-            // MOTOR 1: WIKIPEDIA API (Prioridad absoluta para lugares y cosas)
-            // ---------------------------------------------------------
+            // MOTOR 1: WIKIPEDIA API
             $wiki_search_url = "https://{$idioma_wiki}.wikipedia.org/w/api.php?action=query&list=search&srsearch=" . urlencode($termino_limpio) . "&utf8=&format=json&srlimit=1";
             
             $ch_w = curl_init($wiki_search_url);
             curl_setopt($ch_w, CURLOPT_RETURNTRANSFER, true);
-            // Wikipedia bloquea los cURL anónimos, fingimos ser tu aplicación
             curl_setopt($ch_w, CURLOPT_USERAGENT, 'GartysArchitect/1.2 (Local RAG System)');
             curl_setopt($ch_w, CURLOPT_TIMEOUT, 4);
             $res_w = curl_exec($ch_w);
@@ -90,7 +112,6 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
                 $wiki_data = json_decode($res_w, true);
                 if (!empty($wiki_data['query']['search'][0]['pageid'])) {
                     $pageid = $wiki_data['query']['search'][0]['pageid'];
-                    // Pedimos las primeras 7 frases del artículo exacto, sin código HTML
                     $wiki_text_url = "https://{$idioma_wiki}.wikipedia.org/w/api.php?action=query&prop=extracts&exsentences=7&explaintext&redirects=1&format=json&pageids={$pageid}";
                     
                     $ch_t = curl_init($wiki_text_url);
@@ -111,10 +132,7 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
                 }
             }
 
-            // ---------------------------------------------------------
-            // MOTOR 2: DUCKDUCKGO LITE (Fallback para actualidad)
-            // Solo entra aquí si Wikipedia no ha devuelto nada útil
-            // ---------------------------------------------------------
+            // MOTOR 2: DUCKDUCKGO LITE
             if (empty($contexto_web)) { 
                 $url_ddg = "https://lite.duckduckgo.com/lite/";
                 $ch_ddg = curl_init($url_ddg);
@@ -128,7 +146,6 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
                 curl_close($ch_ddg);
 
                 if ($res_ddg) {
-                    // Regex todoterreno que ignora si son comillas simples o dobles
                     preg_match_all('/class=[\'"]?result-snippet[\'"]?[^>]*>(.*?)<\//is', $res_ddg, $matches);
                     if (!empty($matches[1])) {
                         $top_resultados = array_slice($matches[1], 0, 4);
@@ -142,14 +159,14 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
                 }
             }
 
-            // ---------------------------------------------------------
+			// ---------------------------------------------------------
             // 3. CHIVATO DE DEPURACIÓN (Borrar cuando funcione)
-            // ---------------------------------------------------------
-            file_put_contents(__DIR__ . '/debug_rag.txt', "PROMPT ORIGINAL: {$prompt_final}\nLIMPIADO PARA WIKI: {$termino_limpio}\nRESULTADOS OBTENIDOS:\n" . ($contexto_web ?: "NADA ENCONTRADO"));
+            // ---------------------------------------------------------																																
+            //file_put_contents(__DIR__ . '/debug_rag.txt', "PROMPT ORIGINAL: {$prompt_final}\nLIMPIADO PARA WIKI: {$termino_limpio}\nRESULTADOS OBTENIDOS:\n" . ($contexto_web ?: "NADA ENCONTRADO"));
 
-            // ---------------------------------------------------------
+			// ---------------------------------------------------------
             // 4. INYECCIÓN DEL CONTEXTO REAL EN EL MODELO
-            // ---------------------------------------------------------
+            // ---------------------------------------------------------															
             if (!empty($contexto_web)) {
                 $sys_prompt .= "\n\n[REAL-TIME SEARCH RESULTS]\n\"\"\"\n{$contexto_web}\n\"\"\"\n\n[CRITICAL DIRECTIVE]: You are a conversational and helpful assistant. Use the search results above to answer the user's question accurately. Ignore your previous knowledge if it contradicts the search results. Talk naturally directly to the user.";
             }
@@ -173,8 +190,7 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
         }
 
         $temp_segura = ($temp_llm < 0.4) ? 0.7 : $temp_llm;
-        
-        // Comprobamos si el Frontend nos está pidiendo Streaming
+		// Comprobamos si el Frontend nos está pidiendo Streaming														  
         $is_stream = isset($_POST['stream']) && $_POST['stream'] === 'true';
 
         // --- CONTROL INTELIGENTE DE MEMORIA (VRAM) ---
@@ -193,7 +209,7 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
             "options" => [
                 "temperature" => $temp_segura,
                 "num_ctx" => 8192,
-				"num_predict" => 4096
+                "num_predict" => 4096
             ]
         ];
         
@@ -210,16 +226,15 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
 
         // --- LÓGICA DE STREAMING (FASE 2) ---
         if ($is_stream) {
-            // Anulamos el buffer de salida de PHP para que escupa los datos instantáneamente
+			// Anulamos el buffer de salida de PHP para que escupa los datos instantáneamente																				  
             if (ob_get_level()) ob_end_clean();
             header('Content-Type: application/x-ndjson');
             header('Cache-Control: no-cache');
             header('Connection: keep-alive');
 
-            // Interceptamos los datos a medida que Ollama los genera
+			// Interceptamos los datos a medida que Ollama los genera														 
             curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($curl, $data) use (&$buffer, &$full_generated_text) {
                 $buffer .= $data;
-                // Leemos línea a línea
                 while (($pos = strpos($buffer, "\n")) !== false) {
                     $line = trim(substr($buffer, 0, $pos));
                     $buffer = substr($buffer, $pos + 1);
@@ -231,19 +246,16 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
                         $raw_content = $decoded['message']['content'] ?? '';
                         $raw_thinking = $decoded['message']['thinking'] ?? '';
                         
-                        // Fix Magistral para Qwen al vuelo
                         $chunk = (empty($raw_content) && !empty($raw_thinking)) ? $raw_thinking : $raw_content;
                         $full_generated_text .= $chunk;
 
                         $decoded['message']['content'] = $chunk;
                         unset($decoded['message']['thinking']);
                         
-                        // Enviamos el trozo al navegador web
                         echo json_encode($decoded, JSON_UNESCAPED_UNICODE) . "\n";
                     } else {
                         echo $line . "\n";
                     }
-                    // Forzamos al servidor a enviar el paquete
                     flush();
                 }
                 return strlen($data);
@@ -257,6 +269,14 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
             if ($is_stream) { echo $err_msg . "\n"; flush(); exit(); }
             else { echo $err_msg; exit(); }
         }
+
+        // --- NOMBRE LIMPIO DEL MODELO PARA EL HISTORIAL ---
+        $nombreLlmBonito = obtenerNombreBonitoLlm($pdo, $llm_model_selected, $info_modelo);
+        $meta_json = json_encode([
+            'llm_model' => $nombreLlmBonito,
+            'Model'     => $nombreLlmBonito,
+            'Modo'      => __('lbl_mode_direct')
+        ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
 
         // --- FINALIZACIÓN DEL STREAMING Y GUARDADO EN BBDD ---
         if ($is_stream) {
@@ -277,15 +297,14 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
                     if ($row_hist) {
                         if (!empty($row_hist['texto_generado'])) {
                             $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata, texto_generado) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                            $stmt_ins->execute([$row_hist['user_id'], $row_hist['modelo'], $row_hist['descripcion_original'], $row_hist['prompt_positivo'], $row_hist['prompt_negativo'], $row_hist['metadata'], $final_text]);
+                            $stmt_ins->execute([$row_hist['user_id'], $row_hist['modelo'], $row_hist['descripcion_original'], $row_hist['prompt_positivo'], $row_hist['prompt_negativo'], $meta_json, $final_text]);
                             $new_prompt_id = $pdo->lastInsertId();
                         } else {
-                            $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET texto_generado = ? WHERE id = ?");
-                            $stmt_upd->execute([$final_text, $prompt_id]);
+                            $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET texto_generado = ?, metadata = ? WHERE id = ?");
+                            $stmt_upd->execute([$final_text, $meta_json, $prompt_id]);
                         }
                     }
                 } else {
-                    $meta_json = json_encode(['Model' => basename($llm_model_selected), 'Modo' => __('lbl_mode_direct')], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
                     $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata, texto_generado) VALUES (?, ?, ?, ?, ?, ?, ?)");
                     $stmt_ins->execute([$_SESSION['user_id'], '[LLM]', $safe_desc, $safe_pos, '', $meta_json, $final_text]);
                     $new_prompt_id = $pdo->lastInsertId();
@@ -296,7 +315,6 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
                 }
             }
             
-            // Le mandamos el ID final al navegador como último paquete
             echo json_encode(['new_prompt_id' => $new_prompt_id]) . "\n";
             flush();
             exit();
@@ -333,16 +351,15 @@ if (isset($_POST['ejecutar_llm']) && $_POST['ejecutar_llm'] === 'true') {
                     if ($row_hist) {
                         if (!empty($row_hist['texto_generado'])) {
                             $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata, texto_generado) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                            $stmt_ins->execute([$row_hist['user_id'], $row_hist['modelo'], $row_hist['descripcion_original'], $row_hist['prompt_positivo'], $row_hist['prompt_negativo'], $row_hist['metadata'], $final_text]);
+                            $stmt_ins->execute([$row_hist['user_id'], $row_hist['modelo'], $row_hist['descripcion_original'], $row_hist['prompt_positivo'], $row_hist['prompt_negativo'], $meta_json, $final_text]);
                             $res['new_prompt_id'] = $pdo->lastInsertId();
                         } else {
-                            $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET texto_generado = ? WHERE id = ?");
-                            $stmt_upd->execute([$final_text, $prompt_id]);
+                            $stmt_upd = $pdo->prepare("UPDATE historial_prompts SET texto_generado = ?, metadata = ? WHERE id = ?");
+                            $stmt_upd->execute([$final_text, $meta_json, $prompt_id]);
                             $res['new_prompt_id'] = $prompt_id;
                         }
                     }
                 } else {
-                    $meta_json = json_encode(['Model' => basename($llm_model_selected), 'Modo' => __('lbl_mode_direct')], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
                     $stmt_ins = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata, texto_generado) VALUES (?, ?, ?, ?, ?, ?, ?)");
                     $stmt_ins->execute([$_SESSION['user_id'], '[LLM]', $safe_desc, $safe_pos, '', $meta_json, $final_text]);
                     $res['new_prompt_id'] = $pdo->lastInsertId();
@@ -378,8 +395,17 @@ $descripcion = trim($_POST['descripcion'] ?? '');
 $descripcion = process_dynamic_prompts($descripcion);
 
 $isChat = ($selector === '[CHAT]');
+
+// Filtro estricto para que no se cuele 'null', 'undefined' o basura en image_data / document_text
 $image_data = $_POST['image_data'] ?? null;
+if (!empty($image_data) && strpos(trim($image_data), 'data:image') !== 0) {
+    $image_data = null;
+}
+
 $document_text = $_POST['document_text'] ?? null;
+if ($document_text === 'null' || $document_text === 'undefined') {
+    $document_text = null;
+}
 
 $temp_final = 0.7; 
 
@@ -480,9 +506,9 @@ if ($isChat) {
     }
 } 
 
-// --- NUEVO: INYECCIÓN DE REGLAS ESPECÍFICAS DEL MODELO GRÁFICO (Arquitecto) ---
+// --- INYECCIÓN DE REGLAS ESPECÍFICAS DEL MODELO GRÁFICO (Arquitecto) ---
 $modelo_grafico_recibido = $_POST['modelo_grafico_id'] ?? '';
-$default_negativo_bd = ''; // <--- NUEVA VARIABLE DE RESCATE
+$default_negativo_bd = '';
 
 if (!empty($modelo_grafico_recibido) && $selector !== '[LLM]' && !$isChat) {
     try {
@@ -500,7 +526,6 @@ if (!empty($modelo_grafico_recibido) && $selector !== '[LLM]' && !$isChat) {
         }
     } catch (Exception $e) { /* Silencioso */ }
 }
-// -------------------------------------------------------------------------------
 
 // ====================================================================
 // 🌐 RAG FRANCOTIRADOR (PARA EL CHAT DEL ARQUITECTO)
@@ -513,12 +538,11 @@ if ($usar_internet && !empty($descripcion)) {
     $excepciones_wiki = ['jp' => 'ja', 'kr' => 'ko', 'cn' => 'zh', 'ca' => 'ca'];
     $idioma_wiki = $excepciones_wiki[$codigo_base] ?? $codigo_base;
     
-    // 1. Limpiamos el texto para que los buscadores no se líen
     $stopwords = ['/h[áa]blame\s+de\s+/i', '/informaci[oó]n\s+(sobre|de)\s+/i', '/qu[ée]\s+es\s+/i', '/dime\s+algo\s+de\s+/i', '/expl[íi]came\s+/i', '/busca\s+en\s+internet\s+/i'];
     $termino_limpio = trim(preg_replace($stopwords, '', $descripcion));
-    if(empty($termino_limpio)) $termino_limpio = trim($descripcion);
+    if (empty($termino_limpio)) $termino_limpio = trim($descripcion);
 
-    // 2. MOTOR WIKIPEDIA API
+    // MOTOR WIKIPEDIA API
     $wiki_search_url = "https://{$idioma_wiki}.wikipedia.org/w/api.php?action=query&list=search&srsearch=" . urlencode($termino_limpio) . "&utf8=&format=json&srlimit=1";
     $ch_w = curl_init($wiki_search_url);
     curl_setopt($ch_w, CURLOPT_RETURNTRANSFER, true);
@@ -548,7 +572,7 @@ if ($usar_internet && !empty($descripcion)) {
         }
     }
 
-    // 3. MOTOR DUCKDUCKGO LITE (Solo si Wikipedia falló)
+    // MOTOR DUCKDUCKGO LITE
     if (empty($contexto_web)) { 
         $url_ddg = "https://lite.duckduckgo.com/lite/";
         $ch_ddg = curl_init($url_ddg);
@@ -573,10 +597,6 @@ if ($usar_internet && !empty($descripcion)) {
         }
     }
 
-    // 4. CHIVATO (Ya podemos apagarlo)
-    // file_put_contents(__DIR__ . '/debug_rag.txt', "PROMPT ORIGINAL: {$descripcion}\nLIMPIADO: {$termino_limpio}\nRESULTADOS:\n" . ($contexto_web ?: "NADA ENCONTRADO"));
-
-    // 5. INYECTAMOS LOS RESULTADOS AL SISTEMA ANTES DE HABLAR CON OLLAMA
     if (!empty($contexto_web)) {
         $system_prompt .= "\n\n[REAL-TIME SEARCH RESULTS FROM THE INTERNET]\n\"\"\"\n{$contexto_web}\n\"\"\"\n\n[CRITICAL DIRECTIVE]: You are a conversational and helpful assistant. Use the search results above to answer the user's question accurately. Ignore your previous training knowledge if it contradicts the search results. Talk naturally directly to the user.";
     }
@@ -586,42 +606,34 @@ if ($usar_internet && !empty($descripcion)) {
 $messages = [];
 $messages[] = ["role" => "system", "content" => $system_prompt];
 
-// --- NUEVO: INYECTAR HISTORIAL DE CHAT (LÍMITE INTELIGENTE DE TOKENS) ---
+// --- INYECTAR HISTORIAL DE CHAT (LÍMITE INTELIGENTE DE TOKENS) ---
 if ($isChat && !empty($_POST['chat_history'])) {
     $historial = json_decode($_POST['chat_history'], true);
     if (is_array($historial)) {
-        // 1. Invertimos el array para evaluar primero los mensajes MÁS RECIENTES
         $historial = array_reverse($historial);
         $historial_seguro = [];
         
-        // 16000 caracteres son aprox 4000 tokens. Dejamos los otros 4000 del num_ctx libres para la respuesta.
         $max_caracteres = 16000; 
         $caracteres_actuales = 0;
 
         foreach ($historial as $msg) {
             if (isset($msg['role']) && isset($msg['content'])) {
                 $longitud = mb_strlen($msg['content']);
-                
-                // Si añadir este mensaje no satura la memoria, lo guardamos
                 if ($caracteres_actuales + $longitud <= $max_caracteres) {
                     $historial_seguro[] = ["role" => $msg['role'], "content" => $msg['content']];
                     $caracteres_actuales += $longitud;
                 } else {
-                    // Si se llena, ignoramos este mensaje antiguo y paramos de buscar
                     break;
                 }
             }
         }
         
-        // 2. Volvemos a darle la vuelta para recuperar el orden cronológico normal (antiguo -> nuevo)
         $historial_seguro = array_reverse($historial_seguro);
-        
         foreach ($historial_seguro as $msg) {
             $messages[] = $msg;
         }
     }
 }
-// -----------------------------------------
 
 if ($isChat && !empty($image_data)) {
     $base64_clean = preg_replace('#^data:image/[^;]+;base64,#', '', $image_data);
@@ -662,10 +674,11 @@ if ($isChat && !empty($image_data)) {
 
 $modelo_recibido = !empty($_POST['model_path']) ? $_POST['model_path'] : '';
 $selected_model = '';
+$info_modelo_part2 = null;
 
 if (($isChat || $selector === '[LLM]') && !empty($modelo_recibido)) {
-    $info_modelo = obtener_info_modelo($modelo_recibido, $pdo, 'ollama');
-    $selected_model = $info_modelo['nombre_archivo'];
+    $info_modelo_part2 = obtener_info_modelo($modelo_recibido, $pdo, 'ollama');
+    $selected_model = $info_modelo_part2['nombre_archivo'];
 }
 
 $ka_from_db = null;
@@ -686,8 +699,7 @@ if (empty($selected_model)) {
         }
     }
 } else {
-    // Si el modelo vino del desplegable, rescatamos el keep_alive de la info consultada al principio
-    $ka_from_db = $info_modelo['keep_alive'] ?? null;
+    $ka_from_db = $info_modelo_part2['keep_alive'] ?? null;
 }
 
 if (empty($selected_model)) {
@@ -707,7 +719,7 @@ else $keep_alive_val = $ka_raw;
 $payload = [
     "model" => $selected_model, 
     "messages" => $messages, 
-    "stream" => true, // <-- Mantenemos la conexión viva con FrankenPHP
+    "stream" => true,
     "options" => [
         "temperature" => $temp_final,
         "num_ctx" => 8192,
@@ -716,7 +728,6 @@ $payload = [
     "keep_alive" => $keep_alive_val
 ];
 
-// Liberamos sesión para evitar bloqueos
 session_write_close();
 
 $ch = curl_init("http://" . LLM_IP . ":11434/api/chat");
@@ -725,17 +736,14 @@ curl_setopt($ch, CURLOPT_TIMEOUT, 0);
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_INVALID_UTF8_SUBSTITUTE)); 
 curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
 
-// Preparar cabeceras para Streaming
 header('Content-Type: application/x-ndjson');
 header('Cache-Control: no-cache');
 header('Connection: keep-alive');
 
 $raw_response_chunks = "";
 
-// Interceptamos la respuesta letra a letra para enviar "latidos" al navegador
 curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($curl, $data) use (&$raw_response_chunks) {
     $raw_response_chunks .= $data;
-    // Enviamos un latido invisible para que FrankenPHP no cierre la conexión
     echo json_encode(['status' => 'thinking']) . "\n";
     flush();
     return strlen($data);
@@ -748,21 +756,32 @@ if ($api_res === false) {
     flush(); exit(); 
 }
 
-// Reconstruimos la respuesta completa a partir de los fragmentos
 $raw_content = '';
 $raw_thinking = '';
+$ollama_error = '';
 $lines = explode("\n", trim($raw_response_chunks));
 
-foreach($lines as $line) {
-    if(empty(trim($line))) continue;
+foreach ($lines as $line) {
+    if (empty(trim($line))) continue;
     $dec = json_decode($line, true);
-    if ($dec && isset($dec['message'])) {
-        $raw_content .= $dec['message']['content'] ?? '';
-        $raw_thinking .= $dec['message']['thinking'] ?? '';
+    if ($dec) {
+        if (isset($dec['error'])) {
+            $ollama_error = $dec['error'];
+        }
+        if (isset($dec['message'])) {
+            $raw_content .= $dec['message']['content'] ?? '';
+            $raw_thinking .= $dec['message']['thinking'] ?? '';
+        }
     }
 }
 
-// --- FIX MAGISTRAL PARA QWEN (Reutilizado) ---
+// Si Ollama devolvió un error explícito, lo mostramos en lugar de dar "Respuesta vacía"
+if (!empty($ollama_error) && empty(trim($raw_content)) && empty(trim($raw_thinking))) {
+    echo json_encode(['error' => 'Ollama: ' . $ollama_error]) . "\n";
+    flush();
+    exit();
+}
+
 $raw = (empty(trim($raw_content)) && !empty(trim($raw_thinking))) ? $raw_thinking : $raw_content;
 
 $finalP = ""; 
@@ -820,19 +839,12 @@ if (in_array(strtolower(trim($finalN)), $noise)) { $finalN = ""; }
 
 $finalP = trim(preg_replace('/^(The user wants|Here is|Prompt:|Positive Prompt:)/i', '', trim($finalP)));
 
-// 1. DIOS MANDA: Si has escrito un negativo en la BD para este modelo, MACHACA lo que haya dicho el LLM.
-// Esto aplica a CUALQUIER modelo (SD15, SDXL, NATURAL_IMAGE, VIDEO).
 if (!empty(trim($default_negativo_bd))) {
     $finalN = trim($default_negativo_bd);
 } else {
-    // 2. Si la BD está vacía, aplicamos la lógica estándar de contención:
-    
-    // A. Borramos las "alucinaciones" negativas del LLM para modelos Flux, DiT o Video, ya que les hacen daño.
     if (in_array($selector, ['[LLM]', '[NATURAL_IMAGE]', '[VIDEO]'])) { 
         $finalN = ""; 
     }
-    
-    // B. Si es SD1.5 o SDXL y el LLM no generó ningún negativo, ponemos el salvavidas universal clásico.
     if (empty($finalN) && ($selector === '[SD15]' || $selector === '[SDXL]')) {
         $finalN = "lowres, bad quality, worst quality, blurry, text, (deformed, distorted:1.3), CGI, render, plastic skin, bad anatomy";
     }
@@ -846,24 +858,41 @@ if (!empty(trim($finalP))) {
     $uid = $user_id ?? $_SESSION['user_id'] ?? 1;
     $inserted_id = 0;
 
-    // --- NUEVA LÓGICA DE FINGERPRINTING DESDE EL FRONTEND ---
+    // --- METADATA BLINDADO PARA HISTORIAL DE CHAT / LLM ---
+    $metadata_llm = null;
+    if ($isChat || $selector === '[LLM]') {
+        $nombreLlmBonito = obtenerNombreBonitoLlm($pdo, $selected_model, $info_modelo_part2);
+        $metadata_llm = json_encode([
+            'llm_model' => $nombreLlmBonito,
+            'Model'     => $nombreLlmBonito
+        ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    }
+
+    // --- LÓGICA DE FINGERPRINTING DESDE EL FRONTEND ---
     $force_new_block = isset($_POST['force_new_block']) && $_POST['force_new_block'] === 'true';
     $parent_id = intval($_POST['parent_id'] ?? 0);
 
-    if ($force_new_block || $parent_id === 0) {
-        // Creamos un bloque nuevo porque la huella cambió o es la primera vez
-        $stmt = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$uid, $selector, $safe_desc, $safe_pos, $safe_neg]);
-        $inserted_id = $pdo->lastInsertId();
-    } else {
-        // Aprovechamos el bloque existente de la sesión actual
-        $stmt = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ? WHERE id = ?");
-        $stmt->execute([$safe_pos, $safe_neg, $parent_id]);
-        $inserted_id = $parent_id;
-    }
+    try {
+        if ($force_new_block || $parent_id === 0) {
+            $stmt = $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$uid, $selector, $safe_desc, $safe_pos, $safe_neg, $metadata_llm]);
+            $inserted_id = $pdo->lastInsertId();
+        } else {
+            if ($metadata_llm !== null) {
+                $stmt = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ?, metadata = ? WHERE id = ?");
+                $stmt->execute([$safe_pos, $safe_neg, $metadata_llm, $parent_id]);
+            } else {
+                $stmt = $pdo->prepare("UPDATE historial_prompts SET prompt_positivo = ?, prompt_negativo = ? WHERE id = ?");
+                $stmt->execute([$safe_pos, $safe_neg, $parent_id]);
+            }
+            $inserted_id = $parent_id;
+        }
 
-    if (function_exists('guardarEmbeddingHistorial') && $inserted_id > 0) {
-        guardarEmbeddingHistorial($inserted_id, $pdo);
+        if (function_exists('guardarEmbeddingHistorial') && $inserted_id > 0) {
+            guardarEmbeddingHistorial($inserted_id, $pdo);
+        }
+    } catch (Throwable $dbErr) {
+        file_put_contents(__DIR__ . '/debug_llm_fatal.txt', "Error DB Parte 2: " . $dbErr->getMessage());
     }
 
     $normalized = ["prompt" => $safe_pos, "negative_prompt" => $safe_neg];
