@@ -257,7 +257,7 @@ if ($action === 'generar_prompt_sorpresa') {
             $texto_final = trim(str_replace('"', '', $clean));
 			
 			// Opcional para depurar los prompts (comentar con // al terminar)
-            $texto_final .= ', small clean text in the bottom corner reading "' . $resultado_db['titulo'] . '"';
+            //$texto_final .= ', small clean text in the bottom corner reading "' . $resultado_db['titulo'] . '"';
             
             echo json_encode(['success' => true, 'prompt' => $texto_final]);
         } else {
