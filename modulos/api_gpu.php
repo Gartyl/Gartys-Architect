@@ -100,7 +100,7 @@ if ($action === 'generar_imagen') {
             strpos($modelo_solicitado, 'FLUX') !== false || strpos($modelo_solicitado, 'SD3.5') !== false || 
             strpos($modelo_solicitado, 'QWEN') !== false || strpos($modelo_solicitado, 'WAN') !== false || 
             strpos($modelo_solicitado, 'LTX') !== false || strpos($modelo_solicitado, 'KREA') !== false ||
-            strpos($modelo_solicitado, 'MOSS') !== false) {
+            strpos($modelo_solicitado, 'MOSS') !== false || strpos($modelo_solicitado, 'FIBO') !== false) {
             echo json_encode(['success' => false, 'error' => __('err_pro_heavy_models')]);
             exit;
         }
@@ -497,7 +497,7 @@ if ($action === 'generar_imagen') {
     // 🛡️ AUTO-ENRUTADOR INTELIGENTE PARA VLM (KREA-2 Y QWEN) 🛡️
     // ====================================================================
     $temp_mod_lower = strtolower($model_path);
-    $es_modelo_vlm = (strpos($temp_mod_lower, 'qwen') !== false || strpos($temp_mod_lower, 'krea2') !== false || strpos($temp_mod_lower, 'krea-2') !== false);
+    $es_modelo_vlm = (strpos($temp_mod_lower, 'qwen') !== false || strpos($temp_mod_lower, 'krea2') !== false || strpos($temp_mod_lower, 'krea-2') !== false || strpos($temp_mod_lower, 'fibo') !== false);
 
     // Si el modelo es Krea/Qwen, el lienzo principal está vacío, pero el usuario subió foto al IP-Adapter...
     if ($es_modelo_vlm && empty($init_image_base64) && !empty($_POST['ipadapter_image'])) {
@@ -789,12 +789,13 @@ if ($action === 'generar_imagen') {
     $is_hidream = (strpos($model_lower, 'hidream') !== false);
     $is_anima = (strpos($model_lower, 'anima') !== false);
     $is_moss = (strpos($model_lower, 'moss') !== false);
+	$is_fibo2 = (strpos($model_lower, 'fibo') !== false);
     
     // 2. Bandera exclusiva para Z-Image
     $is_zimage = (strpos($model_lower, 'z-image') !== false || strpos($model_lower, 'z_image') !== false || strpos($model_lower, 'zimage') !== false);
     
     // 3. Añadimos a la familia UNETs
-    $is_unet = (stripos($model_path, 'unet/') !== false || stripos($model_path, 'unet\\') !== false || $is_flux || $is_chroma || $is_sd35 || $is_zimage || $is_qwen || $is_gguf || $is_krea2 || $is_hunyuan || $is_hidream || $is_anima || $is_moss);
+    $is_unet = (stripos($model_path, 'unet/') !== false || stripos($model_path, 'unet\\') !== false || $is_flux || $is_chroma || $is_sd35 || $is_zimage || $is_qwen || $is_gguf || $is_krea2 || $is_hunyuan || $is_hidream || $is_anima || $is_moss) || $is_fibo2;
     
     // 4. Turbo (Añadida también la versión sin guion)
     $is_turbo = (strpos($model_lower, 'turbo') !== false || strpos($model_lower, 'schnell') !== false);
@@ -802,8 +803,8 @@ if ($action === 'generar_imagen') {
     // --- SELECCIÓN INTELIGENTE DE VAE ---
     $vae_name = "ae.safetensors"; 
     
-   if (strpos($model_lower, 'flux2') !== false || $is_flux3 || $is_moss) {
-        $vae_name = "flux2_vae.safetensors";
+	if (strpos($model_lower, 'flux2') !== false || $is_flux3 || $is_moss || $is_fibo2) {
+        $vae_name = "flux2_vae.safetensors";		
     } elseif ($is_flux) {
         $vae_name = "flux_vae.safetensors";
     } elseif ($is_sd35) {
@@ -829,7 +830,12 @@ if ($action === 'generar_imagen') {
     }
 
     // --- CONFIGURACIÓN DE SAMPLER ---
-    if ($is_turbo) {
+    if ($is_fibo2) {
+        $steps = 8; 
+        $cfg = 1.0; 
+        $sampler = "euler"; 
+        $scheduler = "normal";
+    } elseif ($is_turbo) {
         $steps = 6; 
         $cfg = 1.5; 
         $sampler = "euler"; 
@@ -943,10 +949,10 @@ if ($action === 'generar_imagen') {
     // =========================================================
  
  // Añadimos excepciones a la lista permitida para no bloquear la carga
-    if ($is_unet && !$is_flux && !$is_chroma && !$is_sd35 && !$is_zimage && !$is_qwen && !$is_gguf && !$is_krea2 && !$is_hunyuan && !$is_hidream && !$is_anima && !$is_moss && strpos($model_lower, 'video') === false) {
-        echo json_encode(['error' => __('err_pure_unet_load')]); 
-        exit();
-    }
+    if ($is_unet && !$is_flux && !$is_chroma && !$is_sd35 && !$is_zimage && !$is_qwen && !$is_gguf && !$is_krea2 && !$is_hunyuan && !$is_hidream && !$is_anima && !$is_moss && !$is_fibo2 && strpos($model_lower, 'video') === false) {
+    echo json_encode(['error' => __('err_pure_unet_load')]); 
+    exit();
+	}
     
     // Punteros de Enrutamiento Dinámico
     $current_positive = ["6", 0];
@@ -2616,7 +2622,7 @@ if ($action === 'generar_imagen') {
             
             // Si el modelo activo es un DiT avanzado o carece de CLIP integrado (como Krea-2),
             // delegamos la restauración facial a un modelo rápido y robusto (SD1.5 / SDXL)
-            if ($is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima || $is_moss || !modeloTieneClipIntegrado($model_path)) {
+            if ($is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima || $is_moss || $is_fibo2 || !modeloTieneClipIntegrado($model_path)) {	
                 $stmt_ref = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE categoria = 'sys_refiner' LIMIT 1");
                 $row_ref = $stmt_ref->fetch();
                 
@@ -2807,15 +2813,17 @@ if ($action === 'generar_imagen') {
         $workflow = cargarWorkflowJSON($ruta_json, $reemplazos);
 
     } else { 
-        if ($is_moss || $is_flux3 || strpos($model_lower, 'flux2') !== false) {
-            $workflow["5"] = [ "inputs" => ["width" => $width, "height" => $height, "batch_size" => $batch_size], "class_type" => "EmptyFlux2LatentImage" ];
-        } elseif ($is_chroma) {
-            $workflow["5"] = [ "inputs" => ["width" => $width, "height" => $height, "batch_size" => $batch_size], "class_type" => "EmptySD3LatentImage" ];
-        } else {
-            $workflow["5"] = [ "inputs" => ["width" => $width, "height" => $height, "batch_size" => $batch_size], "class_type" => "EmptyLatentImage" ];
+        if (!$is_fibo2) {
+            if ($is_moss || $is_flux3 || strpos($model_lower, 'flux2') !== false) {
+                $workflow["5"] = [ "inputs" => ["width" => $width, "height" => $height, "batch_size" => $batch_size], "class_type" => "EmptyFlux2LatentImage" ];
+            } elseif ($is_chroma) {
+                $workflow["5"] = [ "inputs" => ["width" => $width, "height" => $height, "batch_size" => $batch_size], "class_type" => "EmptySD3LatentImage" ];
+            } else {
+                $workflow["5"] = [ "inputs" => ["width" => $width, "height" => $height, "batch_size" => $batch_size], "class_type" => "EmptyLatentImage" ];
+            }
         }
         
-        // 🌟 INYECCIÓN QWEN 2.1 (Reemplaza los CLIPTextEncode estándar)
+        // 🌟 INYECCIÓN QWEN 2.1 Y FIBO 2.0 (Reemplaza los CLIPTextEncode estándar)
         if ($is_qwen21) {
             $workflow["6"] = [
                 "inputs" => [
@@ -2833,8 +2841,32 @@ if ($action === 'generar_imagen') {
                 "class_type" => "CLIPTextEncode" 
             ];
             
+           $current_positive = ["6", 0];
+            $current_negative = ["6", 1];
+        } elseif ($is_fibo2) {
+            // 1. Inyectar el nodo TextEncodeFibo2 en la posición 6
+            $workflow["6"] = [
+                "inputs" => [
+                    "prompt" => $posPrompt,
+                    "negative_prompt" => $neg_prompt,
+                    "width" => $width,
+                    "height" => $height,
+                    "batch_size" => $batch_size,
+                    "clip" => [$base_clip_node, $base_clip_index],
+                    "vae" => [$base_vae_node, $base_vae_index]
+                ],
+                "class_type" => "TextEncodeFibo2"
+            ];
+            
+            // 2. Nodo fantasma en la 7 por seguridad de estructura
+            $workflow["7"] = [ 
+                "inputs" => ["text" => "", "clip" => [$base_clip_node, $base_clip_index]], 
+                "class_type" => "CLIPTextEncode" 
+            ];
+            
             $current_positive = ["6", 0];
             $current_negative = ["6", 1];
+            $current_latent   = ["6", 2];
         } else {
             $workflow["6"] = [ "inputs" => ["text" => $posPrompt, "clip" => [$base_clip_node, $base_clip_index]], "class_type" => "CLIPTextEncode" ];
             $workflow["7"] = [ "inputs" => ["text" => $neg_prompt, "clip" => [$base_clip_node, $base_clip_index]], "class_type" => "CLIPTextEncode" ];
@@ -2847,7 +2879,7 @@ if ($action === 'generar_imagen') {
     
     // El control absoluto lo tiene la BD ($es_unbundled_db). 
     // Pero MANTENEMOS las heurísticas como salvavidas automático
-    $es_arquitectura_nueva = ($es_unbundled_db || $esta_en_carpeta_unet || $is_flux || $is_chroma || $is_zimage || $is_gguf || $is_qwen || $is_krea2 || $is_hunyuan || $is_hidream || $is_anima || $is_moss);
+    $es_arquitectura_nueva = ($es_unbundled_db || $esta_en_carpeta_unet || $is_flux || $is_chroma || $is_zimage || $is_gguf || $is_qwen || $is_krea2 || $is_hunyuan || $is_hidream || $is_anima || $is_moss) || $is_fibo2;
 
     if ($es_arquitectura_nueva) {
         // Dejamos la ruta absolutamente intacta para que coincida 100% con Windows/ComfyUI
@@ -2913,6 +2945,8 @@ if ($action === 'generar_imagen') {
             $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "qwen_3_06b_base.safetensors", "type" => "stable_diffusion"], "class_type" => "CLIPLoader" ];
         } elseif ($is_moss) {
             $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "qwen3.5_9b_int8_convrot.safetensors", "type" => "moss_image", "device" => "default"], "class_type" => "CLIPLoader" ];
+		} elseif ($is_fibo2) {
+            $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "qwen3vl_4b_bf16.safetensors", "type" => "fibo2", "device" => "default"], "class_type" => "CLIPLoader" ];	
         } elseif ($is_flux3) {
             $workflow["90"] = [ "inputs" => ["clip_name" => $te1 ?: "qwen3vl_4b_int8_convrot.safetensors", "type" => "flux3", "device" => "default"], "class_type" => "CLIPLoader" ];
         } elseif (strpos($model_lower, 'flux2') !== false) {
@@ -2950,6 +2984,7 @@ if ($action === 'generar_imagen') {
         $workflow["7"]["inputs"]["clip"] = [$base_clip_node, $base_clip_index]; 
         
         $base_vae_node = "91"; $base_vae_index = 0;
+        if ($is_fibo2) { $workflow["6"]["inputs"]["vae"] = [$base_vae_node, $base_vae_index]; }
 
         foreach ($workflow as $id_nodo => &$nodo) {
             if (isset($nodo['class_type']) && $nodo['class_type'] === 'VAEDecode') {
@@ -2988,7 +3023,7 @@ if ($action === 'generar_imagen') {
 	// ==============================================================================
     // ✂️ CLIP SKIP (Aplicado de forma segura solo a arquitecturas clásicas SD1.5/SDXL)
     // ==============================================================================
-    $is_classic_architecture = !$is_flux && !$is_chroma && !$is_sd35 && !$is_qwen && !$is_krea2 && !$is_hunyuan && !$is_hidream && !$is_anima && !$is_video_mode && !$is_zimage && !$is_moss;
+    $is_classic_architecture = !$is_flux && !$is_chroma && !$is_sd35 && !$is_qwen && !$is_krea2 && !$is_hunyuan && !$is_hidream && !$is_anima && !$is_video_mode && !$is_zimage && !$is_moss && !$is_fibo2;
 
     if ($clip_skip > 1 && $is_classic_architecture) {
         $workflow["200_clip_skip"] = [
@@ -3140,8 +3175,8 @@ if ($action === 'generar_imagen') {
         $temp_mod_lower = strtolower($model_path);
         $es_flux2_local = (strpos($temp_mod_lower, 'flux2') !== false || strpos($temp_mod_lower, 'klein') !== false || strpos($temp_mod_lower, 'kontext') !== false);
 
-        // 1. ESCUDO 1: Qwen y Krea-2 (Son VLMs Nativos)
-        if (isset($is_qwen) && $is_qwen || isset($is_krea2) && $is_krea2) {
+        // 1. ESCUDO 1: Qwen, Krea-2 y Fibo 2.0 (Son VLMs Nativos)
+        if ((isset($is_qwen) && $is_qwen) || (isset($is_krea2) && $is_krea2) || (isset($is_fibo2) && $is_fibo2)) {
             echo json_encode(['error' => __('err_ipa_vlm') ?? 'IP-Adapter no es compatible con modelos VLM (Qwen/Krea-2). Usa la bandeja de multicarga normal.']);
             exit();
         }
@@ -3272,7 +3307,9 @@ if ($action === 'generar_imagen') {
     // ==============================================================================
     // --- FASE 7: INPAINTING & OUTPAINTING ---
     // ==============================================================================
-    $current_latent = ["5", 0];
+    if (!$is_fibo2 && !$is_qwen21) {
+        $current_latent = ["5", 0];
+    }
     
     // 🎯 INYECCIÓN: Detección FLUX FILL
     $is_flux_fill = ($is_flux && (strpos($model_lower, 'fill') !== false || strpos($model_lower, 'inpaint') !== false));
@@ -3281,13 +3318,13 @@ if ($action === 'generar_imagen') {
         
         $comfy_filename = null;
 
-        if ($init_image_base64 === "TRAY_IMAGE_USED") {
-            // Ya subimos la imagen de la bandeja al inicio, reutilizamos su nombre validado
+        // Si ya se subió en el Paso 2 (tanto desde el visor como desde la bandeja), reutilizamos su nombre directamente
+        if (!empty($comfy_image_filename) && $comfy_image_filename !== "none") {
             $comfy_filename = $comfy_image_filename;
         } else {
-            // Proceso normal de decodificación y subida para el visor gigante
+            $clean_b64 = strpos($init_image_base64, 'base64,') !== false ? explode('base64,', $init_image_base64)[1] : $init_image_base64;
             $tmp_file = sys_get_temp_dir() . '/init_' . uniqid() . '.png';
-            file_put_contents($tmp_file, base64_decode($init_image_base64));
+            file_put_contents($tmp_file, base64_decode($clean_b64));
             $cfile = function_exists('curl_file_create') ? curl_file_create($tmp_file, 'image/png', 'init_image.png') : '@' . realpath($tmp_file);
             
             $ch_up = curl_init(COMFY_URL . '/upload/image');
@@ -3519,6 +3556,68 @@ if ($action === 'generar_imagen') {
         unset($workflow["14"]);
     }
 	
+	// 3. RUTA FIBO 2.0 (Edición Simple y Multicarga hasta 9 imágenes)
+    if ($is_fibo2 && (!empty($init_image_base64) || !empty($tray_comfy_filenames)) && empty($mask_data_base64) && !$is_outpainting) {
+        $fibo_inputs = [
+            "prompt" => $posPrompt,
+            "negative_prompt" => $neg_prompt,
+            "width" => $width,
+            "height" => $height,
+            "batch_size" => $batch_size,
+            "clip" => [$base_clip_node, $base_clip_index],
+            "vae" => [$base_vae_node, $base_vae_index]
+        ];
+
+        $fibo_raw_nodes = [];
+
+        // A) Si hay una imagen en el visor principal que NO sea el eco de la bandeja, va como imagen 1
+        if (isset($workflow["11"]) && $init_image_base64 !== "TRAY_IMAGE_USED") {
+            $fibo_raw_nodes[] = ["11", 0];
+        } else {
+            // Si el nodo 11 era solo un duplicado de la bandeja creado por Fase 7, lo limpiamos
+            unset($workflow["11"]);
+        }
+
+        // B) Añadimos todas las imágenes de la bandeja multicarga en orden
+        if (!empty($tray_comfy_filenames)) {
+            foreach ($tray_comfy_filenames as $index => $filename) {
+                if (count($fibo_raw_nodes) >= 9) break;
+                $node_load = "11_fibo_tray_" . $index;
+                $workflow[$node_load] = [
+                    "inputs" => ["image" => $filename, "upload" => "image"],
+                    "class_type" => "LoadImage"
+                ];
+                $fibo_raw_nodes[] = [$node_load, 0];
+            }
+        }
+
+        // C) Escalamos cada imagen con FluxKontextImageScale (~1MP óptimo) antes de meterla en TextEncodeFibo2
+        foreach ($fibo_raw_nodes as $idx => $raw_source) {
+            $num_img = $idx + 1;
+            $scale_node_id = "11_fibo_scale_" . $num_img;
+            $workflow[$scale_node_id] = [
+                "inputs" => ["image" => $raw_source],
+                "class_type" => "FluxKontextImageScale"
+            ];
+            $fibo_inputs["images.image_" . $num_img] = [$scale_node_id, 0];
+        }
+
+        $workflow["6"] = [
+            "inputs" => $fibo_inputs,
+            "class_type" => "TextEncodeFibo2"
+        ];
+
+        $current_positive = ["6", 0];
+        $current_negative = ["6", 1];
+        $current_latent   = ["6", 2];
+        $sampler_denoise  = 1.0;
+
+        unset($workflow["5"], $workflow["12"], $workflow["13"], $workflow["14"]);
+        if (isset($workflow["12_noise"])) unset($workflow["12_noise"]);
+
+        $meta_modo = 'Fibo 2.0 Edit (' . count($fibo_raw_nodes) . ' img)';
+    }
+	
 	// ==============================================================================
     // 🌟 INYECCIÓN FLUX 2 KLEIN EDIT & MULTICARGA (Kontext Conditioner)
     // ==============================================================================
@@ -3699,6 +3798,11 @@ if ($action === 'generar_imagen') {
             if ($is_chroma && strpos($lname, '\\') === false && strpos($lname, '/') === false) {
                 $lname = "Chroma\\" . $lname;
             }
+			
+			// AUTOMATIZACIÓN CARPETA FIBO (Solo si no trae ruta manual)
+			if ($is_fibo2 && strpos($lname, '\\') === false && strpos($lname, '/') === false) { 
+				$lname = "Fibo\\" . $lname; 
+			}
             
             // AUTOMATIZACIÓN CARPETA KREA2 (Solo si no trae ruta manual)
             if (isset($is_krea2) && $is_krea2 && strpos($lname, '\\') === false && strpos($lname, '/') === false) {
@@ -3801,7 +3905,7 @@ if ($action === 'generar_imagen') {
             $current_model_node = "849_moss_shift";
         }
 
-        // Si usamos CFG > 1.0 (modelo base/SFT), activamos el SkipLayerGuidance en la capa 22
+   // Si usamos CFG > 1.0 (modelo base/SFT), activamos el SkipLayerGuidance en la capa 22
         if ($cfg > 1.2) {
             $workflow["850_moss_slg"] = [
                 "inputs" => [
@@ -3817,6 +3921,21 @@ if ($action === 'generar_imagen') {
         }
     }
     // =========================================================================
+
+    // =========================================================================
+    // --- SAGE ATTENTION PARA FIBO 2.0 (Evita desborde de VRAM en Edición) ---
+    // =========================================================================
+    if ($is_fibo2) {
+        $workflow["850_fibo_sage"] = [
+            "inputs" => [
+                "sage_attention" => "auto",
+                "allow_compile" => false,
+                "model" => [$current_model_node, 0]
+            ],
+            "class_type" => "PathchSageAttentionKJ"
+        ];
+        $current_model_node = "850_fibo_sage";
+    }
 
     // --- WRAPPERS OBLIGATORIOS PARA QWEN 2 CLÁSICO (2511 Edit) ---
     if ($is_qwen && !$is_qwen21 && !empty($init_image_base64)) {
@@ -4134,20 +4253,32 @@ if ($action === 'generar_imagen') {
         // ==============================================================================
 
         // Generación Text2Img o Img2Img NORMAL (Garantiza que el LoRA se aplique antes de escalar)
-        $workflow["3"] = [
-            "inputs" => [
-                "seed" => $seed, "steps" => $steps, "cfg" => $cfg, "sampler_name" => $sampler, "scheduler" => $scheduler, "denoise" => $sampler_denoise, 
-                "model" => [$current_model_node, 0], 
-                "positive" => $current_positive, 
-                "negative" => $current_negative, 
-                "latent_image" => $current_latent
-            ], 
-            "class_type" => "KSampler" 
-        ];
+		$workflow["3"] = [
+			"inputs" => [
+				"seed" => $seed,
+				"steps" => $steps,
+				"cfg" => $cfg,
+				"sampler_name" => $sampler,
+				"scheduler" => $scheduler,
+				"denoise" => $sampler_denoise,
+				"model" => [$current_model_node, 0],
+				"positive" => $current_positive,
+				"negative" => $current_negative,
+				"latent_image" => $is_fibo2 ? ["6", 2] : $current_latent
+			],
+			"class_type" => "KSampler"
+		];
 
-        $workflow["8"] = [ "inputs" => ["samples" => ["3", 0], "vae" => [$base_vae_node, $base_vae_index]], "class_type" => "VAEDecode" ];
-        $current_image_node = "8";
-    }
+		$workflow["8"] = [
+			"inputs" => [
+				"samples" => ["3", 0],
+				"vae" => [$base_vae_node, $base_vae_index]
+			],
+			"class_type" => "VAEDecode"
+		];
+
+		$current_image_node = "8";
+		}
 
     // --- FASE 5: UPSCALE ---
     if ($hires_fix) {
@@ -4391,7 +4522,7 @@ if ($action === 'generar_imagen') {
             $adetailer_steps   = $steps;
 
             // 🛡️ ESTRATEGIA ANTI-COLLISION PARA DiT O MODO PURO
-            if (!empty($es_modo_puro_activo) || $is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima || $is_moss) {
+            if (!empty($es_modo_puro_activo) || $is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima || $is_moss || $is_fibo2) {	
                 $modelo_rostros = "";
 
                 $stmt_ref = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE categoria = 'sys_refiner' LIMIT 1");
