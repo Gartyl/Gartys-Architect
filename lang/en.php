@@ -924,6 +924,9 @@ return [
 	'adm_ph_default_neg' => "Ex: lowres, bad anatomy, worst quality...",
 	'adm_desc_default_neg' => "If the Architect does not generate a negative prompt, this will be used. If left empty, the system universal fallback will be used.",
 	'lbl_del_fisico' => "Also delete the physical file from the hard drive",
+	'adm_lbl_civitai_hash' => "Civitai Hash",
+	'adm_ph_civitai_hash'  => "Auto / Manual",
+	'adm_hlp_civitai_hash' => "10-character AutoV2 code (leave empty for automatic calculation)",
 
     'mod_lic_activated' => "Activated!",
     'mod_lic_btn_activate' => "Validate and Activate",

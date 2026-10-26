@@ -186,27 +186,31 @@ $lista_clips   = array_unique(array_merge(scanComfyFolder('clip'), scanComfyFold
                                             </div>
                                             
                                             <div class="row g-2">
-                                                <div class="col-md-2">
-                                                    <label class="small text-secondary fw-bold"><?= __('tit_pan_vae') ?></label>
-                                                    <input type="text" list="dl_vaes" id="modVae" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="<?= __('adm_ph_auto') ?>" autocomplete="off">
+                                                    <div class="col-md-2">
+                                                        <label class="small text-secondary fw-bold"><?= __('tit_pan_vae') ?></label>
+                                                        <input type="text" list="dl_vaes" id="modVae" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="<?= __('adm_ph_auto') ?>" autocomplete="off">
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="small text-secondary fw-bold"><?= __('tit_pan_te1') ?></label>
+                                                        <input type="text" list="dl_clips" id="modTE1" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="<?= __('adm_ph_auto') ?>" autocomplete="off">
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="small text-secondary fw-bold"><?= __('tit_pan_te2') ?></label>
+                                                        <input type="text" list="dl_clips" id="modTE2" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="<?= __('adm_ph_auto') ?>" autocomplete="off">
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="small text-secondary fw-bold"><?= __('tit_pan_te3') ?></label>
+                                                        <input type="text" list="dl_clips" id="modTE3" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="<?= __('adm_ph_auto') ?>" autocomplete="off">
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="small text-secondary fw-bold"><?= __('tit_pan_te4') ?></label>
+                                                        <input type="text" list="dl_clips" id="modTE4" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="<?= __('adm_ph_auto') ?>" autocomplete="off">
+                                                    </div>
+                                                    <div class="col-md-2">
+														<label class="small text-info fw-bold"><i class="bi bi-hash"></i> <?= __('adm_lbl_civitai_hash') ?></label>
+														<input type="text" id="modCivitaiHash" class="form-control form-control-sm bg-dark text-info border-info" placeholder="<?= __('adm_ph_civitai_hash') ?>" maxlength="20" autocomplete="off" title="<?= __('adm_hlp_civitai_hash') ?>">
+													</div>
                                                 </div>
-                                                <div class="col-md-2">
-                                                    <label class="small text-secondary fw-bold"><?= __('tit_pan_te1') ?></label>
-                                                    <input type="text" list="dl_clips" id="modTE1" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="<?= __('adm_ph_auto') ?>" autocomplete="off">
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <label class="small text-secondary fw-bold"><?= __('tit_pan_te2') ?></label>
-                                                    <input type="text" list="dl_clips" id="modTE2" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="<?= __('adm_ph_auto') ?>" autocomplete="off">
-                                                </div>
-                                                <div class="col-md-2">
-                                                    <label class="small text-secondary fw-bold"><?= __('tit_pan_te3') ?></label>
-                                                    <input type="text" list="dl_clips" id="modTE3" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="<?= __('adm_ph_auto') ?>" autocomplete="off">
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <label class="small text-secondary fw-bold"><?= __('tit_pan_te4') ?></label>
-                                                    <input type="text" list="dl_clips" id="modTE4" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="<?= __('adm_ph_auto') ?>" autocomplete="off">
-                                                </div>
-                                            </div>
                                         </div>
                                     </div>
                                     <!-- ============================================================== -->

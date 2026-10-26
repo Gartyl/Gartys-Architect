@@ -678,7 +678,7 @@ async function cargarTablaModelos() {
                 <tr>
                     <td class="text-secondary">${m.id}</td>
                     <td class="fw-bold text-light">${m.nombre_visual}${candado}</td>
-                    <td class="text-muted small"><code>${m.nombre_archivo}</code></td>
+                    <td class="text-muted small"><code>${m.nombre_archivo}</code>${m.civitai_hash ? ` <span class="badge bg-dark border border-secondary text-info ms-1" title="Hash AutoV2 Civitai">#${m.civitai_hash}</span>` : ''}</td>
                     <td><span class="badge ${m.motor === 'ollama' ? 'bg-info text-dark' : 'bg-primary'}"><i class="bi bi-cpu-fill"></i> ${m.motor.toUpperCase()}</span></td>
                     
                     <!-- MAGIA: Metemos la categoría real (m.categoria) oculta con d-none para que el buscador la encuentre -->
@@ -758,6 +758,8 @@ function editarModelo(mDataSeguro) {
     // NUEVO: CARGAR DATOS DE ARQUITECTURA AL EDITAR
     // =========================================================================
     if(document.getElementById('modVae')) document.getElementById('modVae').value = m.vae_requerido || '';
+	
+	if(document.getElementById('modCivitaiHash')) document.getElementById('modCivitaiHash').value = m.civitai_hash || '';
     
     // Limpiamos siempre las cajas por si el modelo anterior tenía más campos llenos
     for (let i = 1; i <= 4; i++) {
@@ -849,11 +851,21 @@ async function guardarModeloBD() {
     
     // Añadimos los nuevos campos al payload
     fd.append('vae_requerido', vaeReq);
+	const civHash = document.getElementById('modCivitaiHash') ? document.getElementById('modCivitaiHash').value.trim() : '';
+	fd.append('civitai_hash', civHash);
     fd.append('text_encoders', jsonTextEncoders);
 
-   try {
+   const btnSubmit = document.getElementById('btnSubmitModelo');
+    const oldBtnHtml = btnSubmit ? btnSubmit.innerHTML : '<i class="bi bi-save"></i>';
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    }
+
+    try {
         let res = await fetch('procesar.php', { method: 'POST', body: fd });
         let data = await res.json();
+        if (btnSubmit) btnSubmit.disabled = false;
         if(data.success) {
             cancelarEdicionModelo(); 
             cargarTablaModelos();
@@ -863,6 +875,7 @@ async function guardarModeloBD() {
             throw new Error(data.error || GartyLang.err_db_unknown);
         }
     } catch(e) {
+        if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerHTML = oldBtnHtml; }
         SwalDark.fire({icon: 'error', title: GartyLang.swal_err_save_title, text: e.message});
     }
 }
@@ -871,6 +884,7 @@ async function guardarModeloBD() {
 function cancelarEdicionModelo() {
     document.getElementById('formNuevoModelo').reset();
     if(document.getElementById('modId')) document.getElementById('modId').value = '';
+	if(document.getElementById('modCivitaiHash')) document.getElementById('modCivitaiHash').value = '';
     if(document.getElementById('modTags')) document.getElementById('modTags').value = ''; 
     if(document.getElementById('modReglasArq')) document.getElementById('modReglasArq').value = ''; // <-- NUEVO
     

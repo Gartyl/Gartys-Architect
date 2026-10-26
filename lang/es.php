@@ -921,6 +921,9 @@ return [
 	'adm_ph_default_neg' => "Ej: lowres, bad anatomy, worst quality...",
 	'adm_desc_default_neg' => "Si el Arquitecto no genera un negativo, usará este. Si está vacío, usará el salvavidas universal del sistema.",
 	'lbl_del_fisico' => "Borrar también el archivo físico del disco duro",
+	'adm_lbl_civitai_hash' => "Hash Civitai",
+	'adm_ph_civitai_hash'  => "Auto / Manual",
+	'adm_hlp_civitai_hash' => "Código AutoV2 de 10 caracteres (dejar vacío para cálculo automático)",
 
     'mod_lic_activated' => "¡Activado!",
     'mod_lic_btn_activate' => "Validar y Activar",

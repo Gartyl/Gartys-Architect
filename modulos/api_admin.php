@@ -15,6 +15,50 @@ if (!isset($is_pro)) {
 if (!defined('APP_VERSION')) {
     require_once __DIR__ . '/../config.php';
 }
+
+// ==============================================================================
+// --- HELPER: CÁLCULO AUTOMÁTICO DE HASH AUTOV2 (CIVITAI) PARA MODELOS ---
+// ==============================================================================
+if (!function_exists('calcularHashAutoV2Modelo')) {
+    function calcularHashAutoV2Modelo($nombre_archivo, $motor = 'comfyui') {
+        if (empty($nombre_archivo) || strtolower(trim($motor)) !== 'comfyui') {
+            return null;
+        }
+
+        $ruta_cfg = defined('COMFY_MODELS_DIR') ? COMFY_MODELS_DIR : (defined('COMFY_MODEL_PATH') ? COMFY_MODEL_PATH : 'C:/ComfyUI/models');
+        if (empty($ruta_cfg)) return null;
+
+        $rel = ltrim(str_replace('\\', '/', trim($nombre_archivo)), '/');
+        $solo_nombre = basename($rel);
+        $base = rtrim(str_replace('\\', '/', $ruta_cfg), '/');
+        $padre = dirname($base);
+
+        $raices = array_unique([$base, $padre]);
+        $subcarpetas = ['', 'checkpoints', 'unet', 'diffusion_models', 'loras'];
+
+        $ruta_fisica = null;
+        foreach ($raices as $r) {
+            foreach ($subcarpetas as $sub) {
+                $prefijo = $sub === '' ? $r : ($r . '/' . $sub);
+                
+                if (@file_exists($prefijo . '/' . $rel) && @is_file($prefijo . '/' . $rel)) {
+                    $ruta_fisica = $prefijo . '/' . $rel;
+                    break 2;
+                }
+                if (@file_exists($prefijo . '/' . $solo_nombre) && @is_file($prefijo . '/' . $solo_nombre)) {
+                    $ruta_fisica = $prefijo . '/' . $solo_nombre;
+                    break 2;
+                }
+            }
+        }
+
+        if (!$ruta_fisica) return null;
+
+        @set_time_limit(180);
+        $full_sha256 = @hash_file('sha256', $ruta_fisica);
+        return $full_sha256 ? strtolower(substr($full_sha256, 0, 10)) : null;
+    }
+}
 // ==============================================================================
 // --- MÓDULO ADMIN: GESTIÓN BBDD, DESCARGAS, LICENCIA E IDIOMAS ---
 // ==============================================================================
@@ -148,7 +192,10 @@ if ($action === 'descargar_civitai') {
         }
 
         try {
-            $stmt = $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled) VALUES (?, ?, ?, ?, ?, ?)");
+            $civitai_hash_dl = calcularHashAutoV2Modelo($nombre_para_bd, 'comfyui');
+			$stmt = $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled, civitai_hash) VALUES (?, ?, ?, ?, ?, ?, ?)");
+			$stmt->execute([$nombre_visual, $nombre_para_bd, $db_motor, $db_cat, 'usuario', $es_unbundled_auto, $civitai_hash_dl]);
+			
             $subcarpeta = (strpos($categoria_dropdown, 'unet') !== false) ? 'unet/' : '';
             $nombre_para_bd = $subcarpeta . $nombre_archivo_seguro;
             
@@ -301,6 +348,9 @@ if ($action === 'get_active_models') {
 
 if ($action === 'save_modelo_bd') {
     try {
+        // Aseguramos que la columna civitai_hash exista en la tabla
+        try { $pdo->query("SELECT civitai_hash FROM modelos_ia LIMIT 1"); } catch (Exception $e) { $pdo->exec("ALTER TABLE modelos_ia ADD COLUMN civitai_hash VARCHAR(20) DEFAULT NULL"); }
+
         $es_unbundled = isset($_POST['es_unbundled']) ? intval($_POST['es_unbundled']) : 0;
         
         // El usuario manda. Si viene vacío, guardamos explícitamente NULL.
@@ -319,51 +369,16 @@ if ($action === 'save_modelo_bd') {
         $vae_requerido = (isset($_POST['vae_requerido']) && trim($_POST['vae_requerido']) !== '') ? trim($_POST['vae_requerido']) : null;
         $text_encoders = (isset($_POST['text_encoders']) && trim($_POST['text_encoders']) !== '') ? trim($_POST['text_encoders']) : null;
 
-        $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, tags_uso, reglas_arquitecto, default_negative, vae_requerido, text_encoders) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-            ->execute([
-                $_POST['nombre_visual'], 
-                $_POST['nombre_archivo'], 
-                $_POST['motor'], 
-                $_POST['categoria'], 
-                $_POST['nivel_acceso'], 
-                $es_unbundled,
-                $d_steps,
-                $d_cfg,
-                $d_sampler,
-                $d_scheduler,
-                $d_denoise,
-                $keep_alive,
-                $tags_uso,
-                $reglas_arquitecto,
-                $d_negative,
-                $vae_requerido,
-                $text_encoders
-            ]);
-        echo json_encode(['success' => true]);
-    } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
-    exit();
-}
-
-if ($action === 'update_modelo_bd') {
-    try {
-        $es_unbundled = isset($_POST['es_unbundled']) ? intval($_POST['es_unbundled']) : 0;
-        
-        $d_steps = (isset($_POST['default_steps']) && is_numeric($_POST['default_steps'])) ? intval($_POST['default_steps']) : null;
-        $d_cfg = (isset($_POST['default_cfg']) && is_numeric($_POST['default_cfg'])) ? floatval($_POST['default_cfg']) : null;
-        $d_sampler = !empty($_POST['default_sampler']) ? $_POST['default_sampler'] : null;
-        $d_scheduler = !empty($_POST['default_scheduler']) ? $_POST['default_scheduler'] : null;
-        $d_denoise = (isset($_POST['default_denoise']) && $_POST['default_denoise'] !== '') ? floatval($_POST['default_denoise']) : null;
-        $keep_alive = (isset($_POST['keep_alive']) && trim($_POST['keep_alive']) !== '') ? trim($_POST['keep_alive']) : null;
-
-        $tags_uso = $_POST['tags_uso'] ?? '';
-        $reglas_arquitecto = $_POST['reglas_arquitecto'] ?? '';
-        $d_negative = $_POST['default_negative'] ?? '';
-        
-        // NUEVAS VARIABLES DE ARQUITECTURA
-        $vae_requerido = (isset($_POST['vae_requerido']) && trim($_POST['vae_requerido']) !== '') ? trim($_POST['vae_requerido']) : null;
-        $text_encoders = (isset($_POST['text_encoders']) && trim($_POST['text_encoders']) !== '') ? trim($_POST['text_encoders']) : null;
-
-        $pdo->prepare("UPDATE modelos_ia SET nombre_visual = ?, nombre_archivo = ?, motor = ?, categoria = ?, nivel_acceso = ?, es_unbundled = ?, default_steps = ?, default_cfg = ?, default_sampler = ?, default_scheduler = ?, default_denoise = ?, keep_alive = ?, tags_uso = ?, reglas_arquitecto = ?, default_negative = ?, vae_requerido = ?, text_encoders = ? WHERE id = ?")
+        // 🌟 CÁLCULO AUTOMÁTICO DEL HASH AUTOV2 PARA CIVITAI
+		// 🌟 HASH CIVITAI: Si el usuario lo puso a mano, mandamos el suyo; si está vacío, lo calculamos
+		$hash_manual = isset($_POST['civitai_hash']) ? strtolower(preg_replace('/[^a-fA-F0-9]/', '', $_POST['civitai_hash'])) : '';
+		if (!empty($hash_manual)) {
+		  $civitai_hash = substr($hash_manual, 0, 10);
+		} else {
+          $civitai_hash = calcularHashAutoV2Modelo($_POST['nombre_archivo'] ?? '', $_POST['motor'] ?? 'comfyui');
+		}
+		
+		$pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, tags_uso, reglas_arquitecto, default_negative, vae_requerido, text_encoders, civitai_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
             ->execute([
                 $_POST['nombre_visual'], 
                 $_POST['nombre_archivo'], 
@@ -382,9 +397,68 @@ if ($action === 'update_modelo_bd') {
                 $d_negative,
                 $vae_requerido,
                 $text_encoders,
-                $_POST['id'] // El ID que manda el frontend
+                $civitai_hash
             ]);
-        echo json_encode(['success' => true]);
+        echo json_encode(['success' => true, 'civitai_hash' => $civitai_hash]);
+    } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
+    exit();
+}
+
+if ($action === 'update_modelo_bd') {
+    try {
+        try { $pdo->query("SELECT civitai_hash FROM modelos_ia LIMIT 1"); } catch (Exception $e) { $pdo->exec("ALTER TABLE modelos_ia ADD COLUMN civitai_hash VARCHAR(20) DEFAULT NULL"); }
+
+        $id_mod = intval($_POST['id'] ?? 0);
+        $es_unbundled = isset($_POST['es_unbundled']) ? intval($_POST['es_unbundled']) : 0;
+        
+        $d_steps = (isset($_POST['default_steps']) && is_numeric($_POST['default_steps'])) ? intval($_POST['default_steps']) : null;
+        $d_cfg = (isset($_POST['default_cfg']) && is_numeric($_POST['default_cfg'])) ? floatval($_POST['default_cfg']) : null;
+        $d_sampler = !empty($_POST['default_sampler']) ? $_POST['default_sampler'] : null;
+        $d_scheduler = !empty($_POST['default_scheduler']) ? $_POST['default_scheduler'] : null;
+        $d_denoise = (isset($_POST['default_denoise']) && $_POST['default_denoise'] !== '') ? floatval($_POST['default_denoise']) : null;
+        $keep_alive = (isset($_POST['keep_alive']) && trim($_POST['keep_alive']) !== '') ? trim($_POST['keep_alive']) : null;
+
+        $tags_uso = $_POST['tags_uso'] ?? '';
+        $reglas_arquitecto = $_POST['reglas_arquitecto'] ?? '';
+        $d_negative = $_POST['default_negative'] ?? '';
+        
+        // NUEVAS VARIABLES DE ARQUITECTURA
+        $vae_requerido = (isset($_POST['vae_requerido']) && trim($_POST['vae_requerido']) !== '') ? trim($_POST['vae_requerido']) : null;
+        $text_encoders = (isset($_POST['text_encoders']) && trim($_POST['text_encoders']) !== '') ? trim($_POST['text_encoders']) : null;
+
+        // 🌟 HASH CIVITAI: Prioridad al valor manual; si se deja vacío, calcula automáticamente del disco
+        $archivo_nuevo = trim($_POST['nombre_archivo'] ?? '');
+        $hash_manual = isset($_POST['civitai_hash']) ? strtolower(preg_replace('/[^a-fA-F0-9]/', '', $_POST['civitai_hash'])) : '';
+
+        if (!empty($hash_manual)) {
+            $civitai_hash = substr($hash_manual, 0, 10);
+        } else {
+            $civitai_hash = calcularHashAutoV2Modelo($archivo_nuevo, $_POST['motor'] ?? 'comfyui');
+        }
+
+        $pdo->prepare("UPDATE modelos_ia SET nombre_visual = ?, nombre_archivo = ?, motor = ?, categoria = ?, nivel_acceso = ?, es_unbundled = ?, default_steps = ?, default_cfg = ?, default_sampler = ?, default_scheduler = ?, default_denoise = ?, keep_alive = ?, tags_uso = ?, reglas_arquitecto = ?, default_negative = ?, vae_requerido = ?, text_encoders = ?, civitai_hash = ? WHERE id = ?")
+            ->execute([
+                $_POST['nombre_visual'], 
+                $archivo_nuevo, 
+                $_POST['motor'], 
+                $_POST['categoria'], 
+                $_POST['nivel_acceso'], 
+                $es_unbundled,
+                $d_steps,
+                $d_cfg,
+                $d_sampler,
+                $d_scheduler,
+                $d_denoise,
+                $keep_alive,
+                $tags_uso,
+                $reglas_arquitecto,
+                $d_negative,
+                $vae_requerido,
+                $text_encoders,
+                $civitai_hash,
+                $id_mod
+            ]);
+        echo json_encode(['success' => true, 'civitai_hash' => $civitai_hash]);
     } catch (Exception $e) { 
         echo json_encode(['error' => $e->getMessage()]); 
     }

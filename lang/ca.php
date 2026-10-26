@@ -921,6 +921,9 @@ return [
 	'adm_ph_default_neg' => "Ex: lowres, bad anatomy, worst quality...",
 	'adm_desc_default_neg' => "Si l'Arquitecte no genera un negatiu, usarà aquest. Si està buit, usarà el salvavides universal del sistema.",
 	'lbl_del_fisico' => "Esborrar també el fitxer físic del disc dur",
+	'adm_lbl_civitai_hash' => "Hash Civitai",
+	'adm_ph_civitai_hash'  => "Auto / Manual",
+	'adm_hlp_civitai_hash' => "Codi AutoV2 de 10 caràcters (deixar buit per a càlcul automàtic)",
 
     'mod_lic_activated' => "Activat!",
     'mod_lic_btn_activate' => "Validar i Activar",

@@ -1,5 +1,288 @@
 <?php
 // ==============================================================================
+// --- HELPERS CIVITAI: HASH AUTOV2 EN BBDD E INYECCIÓN DE METADATOS PNG ---
+// ==============================================================================
+
+if (!function_exists('buscarRutaFisicaModeloCivitai')) {
+    function buscarRutaFisicaModeloCivitai($nombre_archivo) {
+        $ruta_cfg = defined('COMFY_MODELS_DIR') ? COMFY_MODELS_DIR : (defined('COMFY_MODEL_PATH') ? COMFY_MODEL_PATH : 'C:/ComfyUI/models');
+        if (empty($nombre_archivo) || empty($ruta_cfg)) {
+            return null;
+        }
+        $rel = ltrim(str_replace('\\', '/', trim($nombre_archivo)), '/');
+        $solo_nombre = strtolower(basename($rel));
+        $base = rtrim(str_replace('\\', '/', $ruta_cfg), '/');
+        $padre = dirname($base);
+
+        $raices = array_unique([$base, $padre]);
+        $subcarpetas = ['', 'checkpoints', 'unet', 'diffusion_models', 'loras'];
+
+        // 1. Búsqueda directa rápida
+        foreach ($raices as $r) {
+            foreach ($subcarpetas as $sub) {
+                $prefijo = $sub === '' ? $r : ($r . '/' . $sub);
+                
+                $cand1 = $prefijo . '/' . $rel;
+                if (@file_exists($cand1) && @is_file($cand1)) return $cand1;
+
+                $cand2 = $prefijo . '/' . basename($rel);
+                if (@file_exists($cand2) && @is_file($cand2)) return $cand2;
+            }
+        }
+
+        // 2. Búsqueda recursiva en subcarpetas (ej. checkpoints/SDXL/modelo.safetensors)
+        foreach ($raices as $r) {
+            foreach (['checkpoints', 'unet', 'diffusion_models', 'loras'] as $sub) {
+                $dir_scan = $r . '/' . $sub;
+                if (!is_dir($dir_scan)) continue;
+                try {
+                    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir_scan, RecursiveDirectoryIterator::SKIP_DOTS));
+                    foreach ($it as $file) {
+                        if ($file->isFile() && strtolower($file->getFilename()) === $solo_nombre) {
+                            return $file->getPathname();
+                        }
+                    }
+                } catch (Exception $e) {}
+            }
+        }
+        return null;
+    }
+}
+
+if (!function_exists('obtenerHashAutoV2Civitai')) {
+    function obtenerHashAutoV2Civitai($nombre_archivo, $pdo) {
+        if (empty($nombre_archivo)) return null;
+        $solo_nombre = basename(str_replace('\\', '/', trim($nombre_archivo)));
+        $modelo_id = null;
+        $archivo_real_bd = $nombre_archivo;
+
+        // 1. Consultamos primero la tabla modelos_ia en la Base de Datos
+        if ($pdo) {
+            try {
+                $stmt = $pdo->prepare("SELECT id, nombre_archivo, civitai_hash FROM modelos_ia WHERE nombre_archivo LIKE ? LIMIT 1");
+                $stmt->execute(['%' . $solo_nombre]);
+                if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                    $modelo_id = $row['id'];
+                    if (!empty($row['nombre_archivo'])) {
+                        $archivo_real_bd = $row['nombre_archivo'];
+                    }
+                    if (!empty(trim((string)$row['civitai_hash']))) {
+                        return strtoupper(trim($row['civitai_hash']));
+                    }
+                }
+            } catch (Exception $e) {}
+        }
+
+        // 2. Si está vacío en la BD, lo calculamos desde el archivo físico
+        $ruta_fisica = buscarRutaFisicaModeloCivitai($archivo_real_bd);
+        if (!$ruta_fisica) return null;
+
+        @set_time_limit(180);
+        $full_sha256 = @hash_file('sha256', $ruta_fisica);
+        if (!$full_sha256) return null;
+
+        $autov2 = strtolower(substr($full_sha256, 0, 10));
+
+        // 3. Lo guardamos en modelos_ia para siempre
+        if ($pdo && $modelo_id) {
+            try {
+                $upd = $pdo->prepare("UPDATE modelos_ia SET civitai_hash = ? WHERE id = ?");
+                $upd->execute([$autov2, $modelo_id]);
+            } catch (Exception $e) {}
+        }
+
+        return strtoupper($autov2);
+    }
+}
+
+if (!function_exists('limpiarChunksTextoComfyPNG')) {
+    function limpiarChunksTextoComfyPNG($png_binary) {
+        // Elimina los chunks tEXt/iTXt nativos de ComfyUI ("prompt" y "workflow") 
+        // para que Civitai no ignore nuestro bloque "parameters" con los hashes
+        $out = substr($png_binary, 0, 8);
+        $pos = 8;
+        $len = strlen($png_binary);
+
+        while ($pos + 8 <= $len) {
+            $chunk_len = unpack('N', substr($png_binary, $pos, 4))[1];
+            $chunk_type = substr($png_binary, $pos + 4, 4);
+            $total_chunk_size = 4 + 4 + $chunk_len + 4;
+
+            if ($pos + $total_chunk_size > $len) break;
+
+            if (!in_array($chunk_type, ['tEXt', 'iTXt', 'zTXt'])) {
+                $out .= substr($png_binary, $pos, $total_chunk_size);
+            }
+            $pos += $total_chunk_size;
+        }
+        return strlen($out) > 33 ? $out : $png_binary;
+    }
+}
+
+if (!function_exists('inyectarMetadatosCivitaiPNG')) {
+    function inyectarMetadatosCivitaiPNG($png_binary, $historial_id, $pdo) {
+        if (strlen($png_binary) < 64 || substr($png_binary, 0, 8) !== "\x89PNG\r\n\x1a\n") {
+            return $png_binary;
+        }
+
+        // 1. Limpiamos los chunks de ComfyUI sin hash para evitar conflictos en Civitai
+        $png_binary = limpiarChunksTextoComfyPNG($png_binary);
+
+        // 2. Obtener prompts y metadata desde historial_prompts
+        $pos_prompt = '';
+        $neg_prompt = '';
+        $meta_db = [];
+
+        if ($historial_id > 0 && $pdo) {
+            try {
+                $st = $pdo->prepare("SELECT prompt_positivo, prompt_negativo, metadata FROM historial_prompts WHERE id = ?");
+                $st->execute([$historial_id]);
+                if ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+                    $pos_prompt = trim((string)($r['prompt_positivo'] ?? ''));
+                    $neg_prompt = trim((string)($r['prompt_negativo'] ?? ''));
+                    $meta_db = @json_decode($r['metadata'] ?? '{}', true) ?: [];
+                }
+            } catch (Exception $e) {}
+        }
+
+        // 3. Extraer datos del workflow_ID.json
+        $model_file = $meta_db['Model'] ?? '';
+        $steps      = $meta_db['Steps'] ?? 20;
+        $cfg        = $meta_db['CFG Scale'] ?? 3.5;
+        $seed       = $meta_db['Seed'] ?? 0;
+        $res        = $meta_db['Resolution'] ?? '1024x1024';
+        if (!preg_match('/^\d+x\d+$/', (string)$res)) $res = '1024x1024';
+
+        $sampler_raw   = 'euler';
+        $scheduler_raw = 'normal';
+        $loras_encontrados = [];
+
+        $wf_path = __DIR__ . '/../galeria/workflow_' . $historial_id . '.json';
+        if ($historial_id > 0 && file_exists($wf_path)) {
+            $wf = @json_decode(@file_get_contents($wf_path), true);
+            if (is_array($wf)) {
+                foreach ($wf as $nid => $node) {
+                    $ct = $node['class_type'] ?? '';
+                    $in = $node['inputs'] ?? [];
+
+                    if (in_array($ct, ['CheckpointLoaderSimple', 'UNETLoader', 'UnetLoaderGGUF']) && (string)$nid !== '902') {
+                        if (!empty($in['ckpt_name'])) $model_file = $in['ckpt_name'];
+                        elseif (!empty($in['unet_name'])) $model_file = $in['unet_name'];
+                    }
+
+                    if (in_array($ct, ['LoraLoader', 'LoraLoaderModelOnly']) && !empty($in['lora_name'])) {
+                        $loras_encontrados[] = [
+                            'file' => $in['lora_name'],
+                            'strength' => $in['strength_model'] ?? 0.8
+                        ];
+                    }
+
+                    if (in_array($ct, ['KSampler', 'KSamplerAdvanced']) && !in_array((string)$nid, ['901', '401'])) {
+                        if (isset($in['steps'])) $steps = $in['steps'];
+                        if (isset($in['cfg'])) $cfg = $in['cfg'];
+                        if (isset($in['seed'])) $seed = $in['seed'];
+                        elseif (isset($in['noise_seed'])) $seed = $in['noise_seed'];
+                        if (!empty($in['sampler_name'])) $sampler_raw = $in['sampler_name'];
+                        if (!empty($in['scheduler'])) $scheduler_raw = $in['scheduler'];
+                    }
+                }
+            }
+        }
+
+        if (empty($model_file) || strpos($model_file, 'Audio_') === 0) {
+            return $png_binary;
+        }
+
+        $sampler_map = [
+            'euler' => 'Euler',
+            'euler_ancestral' => 'Euler a',
+            'heun' => 'Heun',
+            'dpm_2' => 'DPM2',
+            'dpm_2_ancestral' => 'DPM2 a',
+            'lms' => 'LMS',
+            'dpmpp_2s_ancestral' => 'DPM++ 2S a',
+            'dpmpp_sde' => 'DPM++ SDE',
+            'dpmpp_2m' => 'DPM++ 2M',
+            'dpmpp_2m_sde' => 'DPM++ 2M SDE',
+            'dpmpp_3m_sde' => 'DPM++ 3M SDE',
+            'ddim' => 'DDIM',
+            'uni_pc' => 'UniPC'
+        ];
+        $sampler_clean = $sampler_map[strtolower($sampler_raw)] ?? ucfirst($sampler_raw);
+        if (!in_array(strtolower($scheduler_raw), ['normal', 'simple', ''])) {
+            $sampler_clean .= ' ' . ucfirst($scheduler_raw);
+        }
+
+        // 4. Obtener el Hash AutoV2
+        $model_name_clean = pathinfo(str_replace('\\', '/', $model_file), PATHINFO_FILENAME);
+        $model_hash = obtenerHashAutoV2Civitai($model_file, $pdo);
+
+        $hashes_dict = [];
+        if ($model_hash) {
+            $hashes_dict['model'] = $model_hash;
+        }
+
+        $lora_tags_prompt = [];
+        $lora_hashes_str = [];
+        foreach ($loras_encontrados as $l_item) {
+            $l_clean = pathinfo(str_replace('\\', '/', $l_item['file']), PATHINFO_FILENAME);
+            $l_str   = $l_item['strength'];
+            $l_hash  = obtenerHashAutoV2Civitai($l_item['file'], $pdo);
+            if ($l_hash) {
+                $hashes_dict['lora:' . $l_clean] = $l_hash;
+                $lora_hashes_str[] = "{$l_clean}: {$l_hash}";
+            }
+            if (stripos($pos_prompt, '<lora:' . $l_clean) === false) {
+                $lora_tags_prompt[] = "<lora:{$l_clean}:{$l_str}>";
+            }
+        }
+
+        if (!empty($lora_tags_prompt)) {
+            $pos_prompt = rtrim($pos_prompt) . ' ' . implode(' ', $lora_tags_prompt);
+        }
+
+        $pos_prompt = str_replace(["\r", "\x00"], '', $pos_prompt);
+        $neg_prompt = str_replace(["\r", "\x00"], '', $neg_prompt);
+
+        // 5. Construir bloque oficial "parameters" (A1111 + Lora hashes + Hashes JSON)
+        $param_parts = [
+            "Steps: " . intval($steps),
+            "Sampler: " . $sampler_clean,
+            "CFG scale: " . floatval($cfg),
+            "Seed: " . $seed,
+            "Size: " . $res
+        ];
+        if ($model_hash) {
+            $param_parts[] = "Model hash: " . strtolower($model_hash);
+        }
+        $param_parts[] = "Model: " . $model_name_clean;
+
+        if (!empty($lora_hashes_str)) {
+            $param_parts[] = 'Lora hashes: "' . implode(', ', $lora_hashes_str) . '"';
+        }
+        if (!empty($hashes_dict)) {
+            $param_parts[] = "Hashes: " . json_encode($hashes_dict, JSON_UNESCAPED_SLASHES);
+        }
+
+        $parameters_text = $pos_prompt . "\n";
+        if (!empty($neg_prompt)) {
+            $parameters_text .= "Negative prompt: " . $neg_prompt . "\n";
+        }
+        $parameters_text .= implode(", ", $param_parts);
+
+        // 6. Inyectar chunk tEXt tras IHDR
+        $chunk_data = "parameters\x00" . $parameters_text;
+        $chunk_type = "tEXt";
+        $full_chunk = pack('N', strlen($chunk_data)) . $chunk_type . $chunk_data . pack('N', crc32($chunk_type . $chunk_data));
+
+        $ihdr_len = unpack('N', substr($png_binary, 8, 4))[1];
+        $insert_pos = 8 + 4 + 4 + $ihdr_len + 4;
+
+        return substr($png_binary, 0, $insert_pos) . $full_chunk . substr($png_binary, $insert_pos);
+    }
+}
+
+// ==============================================================================
 // --- MÓDULO RADAR: EL ÁNGEL DE LA GUARDIA Y ESTADO DE COLAS ---
 // ==============================================================================
 
@@ -151,6 +434,11 @@ if ($action === 'angel_guardia') {
                                 }
                             }
                             
+                            // 🌟 INYECCIÓN METADATOS CIVITAI (Solo en PNG)
+                            if (strtolower($ext) === 'png') {
+                                $file_data = inyectarMetadatosCivitaiPNG($file_data, $historial_id, $pdo);
+                            }
+
                             $new_name = 'byGarty_' . md5($prompt_id . $filename) . '.' . $ext;
                             @file_put_contents(__DIR__ . '/../galeria/' . $new_name, $file_data);
                             if (!in_array($new_name, $filenames_for_db)) {
@@ -409,6 +697,11 @@ if ($action === 'check_ticket') {
                         }
                     }
                     
+                    // 🌟 INYECCIÓN METADATOS CIVITAI (Solo en PNG)
+                    if (strtolower($ext) === 'png') {
+                        $file_data = inyectarMetadatosCivitaiPNG($file_data, $historial_id, $pdo);
+                    }
+
                     $new_name = 'byGarty_' . md5($prompt_id . $filename) . '.' . $ext;
                     @file_put_contents(__DIR__ . '/../galeria/' . $new_name, $file_data);
                     if (!in_array($new_name, $filenames_for_db)) {
