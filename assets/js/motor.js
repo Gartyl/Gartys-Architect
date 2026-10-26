@@ -2094,13 +2094,17 @@ async function visionToPrompt(btnElement) {
     // 2. Determinamos inteligentemente el selector estructural según el modelo
     let targetSelector = '[SDXL]'; // Fallback por defecto
     
-    if (lowerModel.includes('flux') || lowerModel.includes('chroma') || lowerModel.includes('sd3') || lowerModel.includes('z-image') || lowerModel.includes('zimage') || lowerModel.includes('qwen') || lowerModel.includes('krea') || lowerModel.includes('dit') || lowerModel.includes('cogvideo')) {
-    targetSelector = '[NATURAL_IMAGE]';
+    if (lowerModel.includes('ltx') || lowerModel.includes('wan') || lowerModel.includes('minimax') || lowerModel.includes('cogvideo')) {
+        targetSelector = '[VIDEO]';
+    } else if (lowerModel.includes('flux') || lowerModel.includes('fibo') || lowerModel.includes('moss') || lowerModel.includes('hunyuan') || lowerModel.includes('hidream') || lowerModel.includes('anima') || lowerModel.includes('chroma') || lowerModel.includes('sd3') || lowerModel.includes('z-image') || lowerModel.includes('zimage') || lowerModel.includes('qwen') || lowerModel.includes('krea') || lowerModel.includes('ideogram') || lowerModel.includes('dit')) {
+        targetSelector = '[NATURAL_IMAGE]';
     } else if (lowerModel.includes('15') || lowerModel.includes('v1-5') || lowerModel.includes('sd15')) {
         targetSelector = '[SD15]';
     } else if (modelSelect && modelSelect.selectedIndex >= 0) {
         const optCat = modelSelect.options[modelSelect.selectedIndex].getAttribute('data-categoria');
-        if (optCat && (optCat === 'natural' || optCat === 'flux' || optCat === '[NATURAL_IMAGE]')) {
+        if (optCat && (optCat === 'video' || optCat === '[VIDEO]')) {
+            targetSelector = '[VIDEO]';
+        } else if (optCat && (optCat === 'natural' || optCat === 'flux' || optCat === '[NATURAL_IMAGE]')) {
             targetSelector = '[NATURAL_IMAGE]';
         } else if (optCat && (optCat === 'sd15' || optCat === '[SD15]')) {
             targetSelector = '[SD15]';
