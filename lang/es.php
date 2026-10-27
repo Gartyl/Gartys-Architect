@@ -924,6 +924,8 @@ return [
 	'adm_lbl_civitai_hash' => "Hash Civitai",
 	'adm_ph_civitai_hash'  => "Auto / Manual",
 	'adm_hlp_civitai_hash' => "Código AutoV2 de 10 caracteres (dejar vacío para cálculo automático)",
+	'adm_ph_max_frames'  => "Frames SD/HD/FHD (241/121/65)",
+	'adm_hlp_max_frames' => "Máximo de fotogramas por fragmento según resolución SD / HD / FHD (Ej: 241/121/65). Dejar vacío para límite inteligente automático.",
 
     'mod_lic_activated' => "¡Activado!",
     'mod_lic_btn_activate' => "Validar y Activar",

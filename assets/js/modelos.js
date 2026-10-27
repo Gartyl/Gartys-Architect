@@ -760,6 +760,8 @@ function editarModelo(mDataSeguro) {
     if(document.getElementById('modVae')) document.getElementById('modVae').value = m.vae_requerido || '';
 	
 	if(document.getElementById('modCivitaiHash')) document.getElementById('modCivitaiHash').value = m.civitai_hash || '';
+	
+	if(document.getElementById('modLimitesFrames')) document.getElementById('modLimitesFrames').value = m.limites_frames || '';
     
     // Limpiamos siempre las cajas por si el modelo anterior tenía más campos llenos
     for (let i = 1; i <= 4; i++) {
@@ -854,6 +856,9 @@ async function guardarModeloBD() {
 	const civHash = document.getElementById('modCivitaiHash') ? document.getElementById('modCivitaiHash').value.trim() : '';
 	fd.append('civitai_hash', civHash);
     fd.append('text_encoders', jsonTextEncoders);
+	
+	const limFrames = document.getElementById('modLimitesFrames') ? document.getElementById('modLimitesFrames').value.trim() : '';
+	fd.append('limites_frames', limFrames);
 
    const btnSubmit = document.getElementById('btnSubmitModelo');
     const oldBtnHtml = btnSubmit ? btnSubmit.innerHTML : '<i class="bi bi-save"></i>';
@@ -886,7 +891,8 @@ function cancelarEdicionModelo() {
     if(document.getElementById('modId')) document.getElementById('modId').value = '';
 	if(document.getElementById('modCivitaiHash')) document.getElementById('modCivitaiHash').value = '';
     if(document.getElementById('modTags')) document.getElementById('modTags').value = ''; 
-    if(document.getElementById('modReglasArq')) document.getElementById('modReglasArq').value = ''; // <-- NUEVO
+    if(document.getElementById('modReglasArq')) document.getElementById('modReglasArq').value = ''; 
+	if(document.getElementById('modLimitesFrames')) document.getElementById('modLimitesFrames').value = '';
     
     // Devolvemos el botón a su estado original (verde de guardar)
     const btn = document.getElementById('btnSubmitModelo');

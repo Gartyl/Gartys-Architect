@@ -927,6 +927,8 @@ return [
 	'adm_lbl_civitai_hash' => "Civitai Hash",
 	'adm_ph_civitai_hash'  => "Auto / Manual",
 	'adm_hlp_civitai_hash' => "10-character AutoV2 code (leave empty for automatic calculation)",
+	'adm_ph_max_frames'  => "Frames SD/HD/FHD (241/121/65)",
+	'adm_hlp_max_frames' => "Max frames per chunk by resolution SD / HD / FHD (e.g., 241/121/65). Leave empty for smart automatic limit.",
 
     'mod_lic_activated' => "Activated!",
     'mod_lic_btn_activate' => "Validate and Activate",

@@ -470,22 +470,34 @@ if ($action === 'generar_imagen') {
     $dynamic_thresholding = filter_var($_POST['dynamic_thresholding'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
     
     // Image2Image & Outpainting
-    // --- 1. CAPTURA DE IMAGEN INICIAL (NUEVO EXTRACTOR INTEGRADO) ---
+    // --- 1. CAPTURA DE IMAGEN INICIAL (EXTRACTOR HÍBRIDO LTX CLIP / I2V FRAME) ---
     $previous_video = $_POST['previous_video'] ?? null;
-    $is_chain_chunk = false; // Bandera para saber si es contexto autoregresivo
+    $is_chain_chunk = false; // Bandera para saber si es clip MP4 autoregresivo (LTX)
+    $es_ltx_chain   = (stripos($model_path, 'ltx') !== false);
     
     if (!empty($previous_video)) {
-        // Si venimos de encadenar, sacamos un mini-clip de contexto
         $real_vid_path = __DIR__ . '/../galeria/' . basename($previous_video);
         if (file_exists($real_vid_path)) {
-            $is_chain_chunk = true; 
-            // 🌟 CAMBIO: Extraemos el último MEDIO SEGUNDO (inercia) en MP4
-            $tmp_clip = sys_get_temp_dir() . '/ltx_context_' . uniqid() . '.mp4';
-            exec("ffmpeg -sseof -0.5 -i " . escapeshellarg($real_vid_path) . " -c:v libx264 -an -preset ultrafast -crf 18 " . escapeshellarg($tmp_clip) . " 2>&1");
-            
-            if (file_exists($tmp_clip)) {
-                $init_image_base64 = base64_encode(file_get_contents($tmp_clip));
-                @unlink($tmp_clip);
+            if ($es_ltx_chain) {
+                // 🌟 RUTA LTX: Extraemos el último MEDIO SEGUNDO (inercia) en MP4 para VHS_LoadVideo
+                $is_chain_chunk = true; 
+                $tmp_clip = sys_get_temp_dir() . '/ltx_context_' . uniqid() . '.mp4';
+                exec("ffmpeg -y -sseof -0.5 -i " . escapeshellarg($real_vid_path) . " -c:v libx264 -an -preset ultrafast -crf 18 " . escapeshellarg($tmp_clip) . " 2>&1");
+                
+                if (file_exists($tmp_clip)) {
+                    $init_image_base64 = base64_encode(file_get_contents($tmp_clip));
+                    @unlink($tmp_clip);
+                }
+            } else {
+                // 🌟 RUTA WAN / MINIMAX / COGVIDEO / HUNYUAN: Extraemos el ÚLTIMO FOTOGRAMA exacto en PNG para LoadImage
+                $is_chain_chunk = false;
+                $tmp_frame = sys_get_temp_dir() . '/chain_frame_' . uniqid() . '.png';
+                exec("ffmpeg -y -sseof -0.1 -i " . escapeshellarg($real_vid_path) . " -frames:v 1 -update 1 " . escapeshellarg($tmp_frame) . " 2>&1");
+                
+                if (file_exists($tmp_frame)) {
+                    $init_image_base64 = base64_encode(file_get_contents($tmp_frame));
+                    @unlink($tmp_frame);
+                }
             }
         }
     } else {
@@ -1156,8 +1168,8 @@ if ($action === 'generar_imagen') {
            // --- NUEVO: CAPTURAR SI VENIMOS DEL PANEL PRO ---
            $tiene_audio_pro = (!empty($audioConfigPro) && $audioConfigPro['sync_with_video'] === true);
 
-           // LA ÚNICA REGLA EXTRA: Si el vídeo es largo o un chunk, apagamos TODO el audio
-           if ($video_frames > 121 || !empty($previous_video)) {
+           // LA ÚNICA REGLA EXTRA: Si el vídeo es un tramo encadenado, apagamos el audio interno
+           if (!empty($_POST['is_tramo']) || !empty($previous_video) || $video_frames > 241) {
                $comfy_audio_filename = "none";
                $tiene_audio_pro = false;
            }
@@ -1886,24 +1898,10 @@ if ($action === 'generar_imagen') {
         $positive_source = ["93", 0]; 
         $negative_source = ["89", 0]; 
 
-        if (!empty($init_image_base64)) {
-            if ($init_image_base64 === "TRAY_IMAGE_USED") {
-                // Si la imagen viene de la bandeja, ya está en ComfyUI
-                $workflow["97"] = ["inputs" => ["image" => $comfy_image_filename, "upload" => "image"], "class_type" => "LoadImage"];
-            } else {
-                // Subida estándar de Wan
-                $tmp_file = sys_get_temp_dir() . '/init_vid_' . uniqid() . '.png';
-                file_put_contents($tmp_file, base64_decode($init_image_base64));
-                $cfile = function_exists('curl_file_create') ? curl_file_create($tmp_file, 'image/png', 'init_image.png') : '@' . realpath($tmp_file);
-                
-                $ch_up = curl_init(COMFY_URL . '/upload/image');
-                curl_setopt($ch_up, CURLOPT_POST, true); curl_setopt($ch_up, CURLOPT_POSTFIELDS, ['image' => $cfile]); curl_setopt($ch_up, CURLOPT_RETURNTRANSFER, true);
-                $res_up = json_decode(curl_exec($ch_up), true); @unlink($tmp_file);
-
-                if (isset($res_up['name'])) {
-                    $workflow["97"] = ["inputs" => ["image" => $res_up['name'], "upload" => "image"], "class_type" => "LoadImage"];
-                }
-            }
+        // ✅ PON ESTO EN SU LUGAR:
+        if (!empty($comfy_image_filename) && $comfy_image_filename !== "none") {
+            // Reutilizamos la imagen (de visor, bandeja o fotograma del tramo anterior) ya subida en el Paso 2
+            $workflow["97"] = ["inputs" => ["image" => $comfy_image_filename, "upload" => "image"], "class_type" => "LoadImage"];
         } else {
             // TRUCO: Creamos una imagen negra al vuelo para T2V
             $workflow["97"] = ["inputs" => ["width" => $width, "height" => $height, "batch_size" => 1, "color" => 0], "class_type" => "EmptyImage"];
@@ -1938,6 +1936,10 @@ if ($action === 'generar_imagen') {
             $workflow["87"] = ["inputs" => ["samples" => ["85", 0], "vae" => ["90", 0]], "class_type" => "VAEDecode"];
             
             $video_format = $_POST['video_format'] ?? 'image/webp';
+            // Si es un tramo de vídeo encadenado, forzamos MP4 para que FFmpeg pueda unirlos
+            if (!empty($_POST['is_tramo']) || !empty($previous_video)) {
+                $video_format = 'video/h264-mp4';
+            }
             
             // 1. Audio del sistema ANTIGUO (Carga directa / Wav2Lip)
             $tiene_audio = ($comfy_audio_filename !== "none" && !empty($comfy_audio_filename));

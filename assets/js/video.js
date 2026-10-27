@@ -5,9 +5,72 @@
 let listaVideosFusion = [];
 let currentVideoUploadBase64 = null;
 
+// --- CALCULADORA INTELIGENTE DE FRAMES POR FRAGMENTO (BBDD + FALLBACK POR MODELO Y RESOLUCIÓN) ---
+window.obtenerLimiteFramesVideo = function() {
+    // 1. Detectar la resolución de vídeo seleccionada y clasificar en Tier: 0 = SD, 1 = HD, 2 = FHD
+    const aspectStr = document.getElementById('videoAspectRatio')?.value || '832x480';
+    const parts = aspectStr.split('x');
+    const w = parseInt(parts[0]) || 832;
+    const h = parseInt(parts[1]) || 480;
+    const totalPixels = w * h;
+
+    let resTier = 0; // SD por defecto (<= 450.000 px: 832x480, 480x832, 640x640, 768x512)
+    if (totalPixels > 1000000) {
+        resTier = 2; // FHD (> 1M px: 1920x1080, 1080x1920)
+    } else if (totalPixels > 450000) {
+        resTier = 1; // HD (450k - 1M px: 1280x720, 720x1280, 1024x1024)
+    }
+
+    // 2. Buscar el modelo activo y comprobar si tiene límite personalizado en la BBDD
+    const sel = document.getElementById('modelSelector');
+    const valModelo = sel ? sel.value : '';
+    const txtModelo = (sel && sel.selectedIndex >= 0) ? sel.options[sel.selectedIndex].text : '';
+    const firmaCompleta = (valModelo + ' ' + txtModelo).toLowerCase();
+
+    let cfgBD = '';
+    if (typeof window.modelosDisponibles !== 'undefined' && Array.isArray(window.modelosDisponibles)) {
+        const modObj = window.modelosDisponibles.find(m => m.nombre_archivo === valModelo || m.nombre_visual === txtModelo);
+        if (modObj && modObj.limites_frames) {
+            cfgBD = String(modObj.limites_frames).trim();
+        }
+    }
+
+    // Si en la BBDD pusiste ej. "241/121/65" o "81, 49, 33" o un único número "161"
+    if (cfgBD !== '') {
+        const nums = cfgBD.split(/[\/,;|\s]+/).map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n > 0);
+        if (nums.length > 0) {
+            return nums[Math.min(resTier, nums.length - 1)];
+        }
+    }
+
+    // 3. FALLBACK AUTOMÁTICO: Distingue familia de arquitectura + si es versión Ligera/Destilada/GGUF vs Completa
+    const esLigero = /(distill|turbo|light|fp8|gguf|q4|q5|q6|q8|int8|pruned|2b)/i.test(firmaCompleta);
+    const esLTX25  = /(ltx.*2\.5|ltx.*25|ltx2)/i.test(firmaCompleta);
+
+    let limitesFallback = [81, 49, 33]; // Por defecto para motores DiT densos (Wan, Hunyuan, etc.)
+
+    if (firmaCompleta.includes('ltx')) {
+        if (esLTX25 && !esLigero) {
+            limitesFallback = [161, 97, 49];  // LTX 2.5 Full/Pesado
+        } else if (esLTX25 && esLigero) {
+            limitesFallback = [209, 121, 65]; // LTX 2.5 GGUF/FP8/Distilled
+        } else {
+            limitesFallback = esLigero ? [241, 121, 81] : [193, 121, 65]; // LTX clásico
+        }
+    } else if (firmaCompleta.includes('minimax')) {
+        limitesFallback = esLigero ? [81, 49, 33] : [65, 41, 25];
+    } else if (firmaCompleta.includes('cogvideo')) {
+        limitesFallback = esLigero ? [81, 49, 33] : [49, 33, 17];
+    } else if (firmaCompleta.includes('wan') || firmaCompleta.includes('hunyuan')) {
+        limitesFallback = esLigero ? [81, 49, 33] : [65, 33, 17];
+    }
+
+    return limitesFallback[resTier];
+};
+
 // --- MOTOR AUTOREGRESIVO JS (EL DIRECTOR DE ORQUESTA DE FRAMES) ---
-async function lanzarVideoEncadenado(fdOriginal, totalFramesPeticion) {
-    const framesPorTramo = 121; 
+async function lanzarVideoEncadenado(fdOriginal, totalFramesPeticion, maxFramesOverride = null) {
+    const framesPorTramo = maxFramesOverride || (typeof window.obtenerLimiteFramesVideo === 'function' ? window.obtenerLimiteFramesVideo() : 121); 
     const totalTramos = Math.ceil(totalFramesPeticion / framesPorTramo);
     let tramosNombres = [];
     

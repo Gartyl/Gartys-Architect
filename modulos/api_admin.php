@@ -349,8 +349,9 @@ if ($action === 'get_active_models') {
 if ($action === 'save_modelo_bd') {
     try {
         // Aseguramos que la columna civitai_hash exista en la tabla
-        try { $pdo->query("SELECT civitai_hash FROM modelos_ia LIMIT 1"); } catch (Exception $e) { $pdo->exec("ALTER TABLE modelos_ia ADD COLUMN civitai_hash VARCHAR(20) DEFAULT NULL"); }
-
+/*        try { $pdo->query("SELECT civitai_hash FROM modelos_ia LIMIT 1"); } catch (Exception $e) { $pdo->exec("ALTER TABLE modelos_ia ADD COLUMN civitai_hash VARCHAR(20) DEFAULT NULL"); }
+		try { $pdo->query("SELECT limites_frames FROM modelos_ia LIMIT 1"); } catch (Exception $e) { $pdo->exec("ALTER TABLE modelos_ia ADD COLUMN limites_frames VARCHAR(50) DEFAULT NULL"); }
+*/
         $es_unbundled = isset($_POST['es_unbundled']) ? intval($_POST['es_unbundled']) : 0;
         
         // El usuario manda. Si viene vacío, guardamos explícitamente NULL.
@@ -360,6 +361,7 @@ if ($action === 'save_modelo_bd') {
         $d_scheduler = !empty($_POST['default_scheduler']) ? $_POST['default_scheduler'] : null;
         $d_denoise = (isset($_POST['default_denoise']) && $_POST['default_denoise'] !== '') ? floatval($_POST['default_denoise']) : null;
         $keep_alive = (isset($_POST['keep_alive']) && trim($_POST['keep_alive']) !== '') ? trim($_POST['keep_alive']) : null;
+		$limites_frames = (isset($_POST['limites_frames']) && trim($_POST['limites_frames']) !== '') ? trim($_POST['limites_frames']) : null;
         
         $tags_uso = $_POST['tags_uso'] ?? ''; 
         $reglas_arquitecto = $_POST['reglas_arquitecto'] ?? '';
@@ -368,6 +370,9 @@ if ($action === 'save_modelo_bd') {
         // NUEVAS VARIABLES DE ARQUITECTURA
         $vae_requerido = (isset($_POST['vae_requerido']) && trim($_POST['vae_requerido']) !== '') ? trim($_POST['vae_requerido']) : null;
         $text_encoders = (isset($_POST['text_encoders']) && trim($_POST['text_encoders']) !== '') ? trim($_POST['text_encoders']) : null;
+		
+		// 👇 AÑADE ESTA LÍNEA AQUÍ 👇
+        $limites_frames = (isset($_POST['limites_frames']) && trim($_POST['limites_frames']) !== '') ? trim($_POST['limites_frames']) : null;
 
         // 🌟 CÁLCULO AUTOMÁTICO DEL HASH AUTOV2 PARA CIVITAI
 		// 🌟 HASH CIVITAI: Si el usuario lo puso a mano, mandamos el suyo; si está vacío, lo calculamos
@@ -378,35 +383,36 @@ if ($action === 'save_modelo_bd') {
           $civitai_hash = calcularHashAutoV2Modelo($_POST['nombre_archivo'] ?? '', $_POST['motor'] ?? 'comfyui');
 		}
 		
-		$pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, tags_uso, reglas_arquitecto, default_negative, vae_requerido, text_encoders, civitai_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-            ->execute([
-                $_POST['nombre_visual'], 
-                $_POST['nombre_archivo'], 
-                $_POST['motor'], 
-                $_POST['categoria'], 
-                $_POST['nivel_acceso'], 
-                $es_unbundled,
-                $d_steps,
-                $d_cfg,
-                $d_sampler,
-                $d_scheduler,
-                $d_denoise,
-                $keep_alive,
-                $tags_uso,
-                $reglas_arquitecto,
-                $d_negative,
-                $vae_requerido,
-                $text_encoders,
-                $civitai_hash
-            ]);
-        echo json_encode(['success' => true, 'civitai_hash' => $civitai_hash]);
+		$pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, tags_uso, reglas_arquitecto, default_negative, vae_requerido, text_encoders, civitai_hash, limites_frames) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+			->execute([
+				$_POST['nombre_visual'], 
+				$_POST['nombre_archivo'], 
+				$_POST['motor'], 
+				$_POST['categoria'], 
+				$_POST['nivel_acceso'], 
+				$es_unbundled, 
+				$d_steps, 
+				$d_cfg, 
+				$d_sampler, 
+				$d_scheduler, 
+				$d_denoise, 
+				$keep_alive, 
+				$tags_uso, 
+				$reglas_arquitecto, 
+				$d_negative, 
+				$vae_requerido, 
+				$text_encoders, 
+				$civitai_hash, 
+				$limites_frames
+			]);		
+	    echo json_encode(['success' => true, 'civitai_hash' => $civitai_hash]);
     } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
     exit();
 }
 
 if ($action === 'update_modelo_bd') {
     try {
-        try { $pdo->query("SELECT civitai_hash FROM modelos_ia LIMIT 1"); } catch (Exception $e) { $pdo->exec("ALTER TABLE modelos_ia ADD COLUMN civitai_hash VARCHAR(20) DEFAULT NULL"); }
+        //try { $pdo->query("SELECT civitai_hash FROM modelos_ia LIMIT 1"); } catch (Exception $e) { $pdo->exec("ALTER TABLE modelos_ia ADD COLUMN civitai_hash VARCHAR(20) DEFAULT NULL"); }
 
         $id_mod = intval($_POST['id'] ?? 0);
         $es_unbundled = isset($_POST['es_unbundled']) ? intval($_POST['es_unbundled']) : 0;
@@ -425,6 +431,9 @@ if ($action === 'update_modelo_bd') {
         // NUEVAS VARIABLES DE ARQUITECTURA
         $vae_requerido = (isset($_POST['vae_requerido']) && trim($_POST['vae_requerido']) !== '') ? trim($_POST['vae_requerido']) : null;
         $text_encoders = (isset($_POST['text_encoders']) && trim($_POST['text_encoders']) !== '') ? trim($_POST['text_encoders']) : null;
+		
+		// 👇 AÑADE ESTA LÍNEA AQUÍ 👇
+        $limites_frames = (isset($_POST['limites_frames']) && trim($_POST['limites_frames']) !== '') ? trim($_POST['limites_frames']) : null;
 
         // 🌟 HASH CIVITAI: Prioridad al valor manual; si se deja vacío, calcula automáticamente del disco
         $archivo_nuevo = trim($_POST['nombre_archivo'] ?? '');
@@ -436,28 +445,29 @@ if ($action === 'update_modelo_bd') {
             $civitai_hash = calcularHashAutoV2Modelo($archivo_nuevo, $_POST['motor'] ?? 'comfyui');
         }
 
-        $pdo->prepare("UPDATE modelos_ia SET nombre_visual = ?, nombre_archivo = ?, motor = ?, categoria = ?, nivel_acceso = ?, es_unbundled = ?, default_steps = ?, default_cfg = ?, default_sampler = ?, default_scheduler = ?, default_denoise = ?, keep_alive = ?, tags_uso = ?, reglas_arquitecto = ?, default_negative = ?, vae_requerido = ?, text_encoders = ?, civitai_hash = ? WHERE id = ?")
-            ->execute([
-                $_POST['nombre_visual'], 
-                $archivo_nuevo, 
-                $_POST['motor'], 
-                $_POST['categoria'], 
-                $_POST['nivel_acceso'], 
-                $es_unbundled,
-                $d_steps,
-                $d_cfg,
-                $d_sampler,
-                $d_scheduler,
-                $d_denoise,
-                $keep_alive,
-                $tags_uso,
-                $reglas_arquitecto,
-                $d_negative,
-                $vae_requerido,
-                $text_encoders,
-                $civitai_hash,
-                $id_mod
-            ]);
+        $pdo->prepare("UPDATE modelos_ia SET nombre_visual = ?, nombre_archivo = ?, motor = ?, categoria = ?, nivel_acceso = ?, es_unbundled = ?, default_steps = ?, default_cfg = ?, default_sampler = ?, default_scheduler = ?, default_denoise = ?, keep_alive = ?, tags_uso = ?, reglas_arquitecto = ?, default_negative = ?, vae_requerido = ?, text_encoders = ?, civitai_hash = ?, limites_frames = ? WHERE id = ?")
+			->execute([
+				$_POST['nombre_visual'], 
+				$archivo_nuevo, 
+				$_POST['motor'], 
+				$_POST['categoria'], 
+				$_POST['nivel_acceso'], 
+				$es_unbundled, 
+				$d_steps, 
+				$d_cfg, 
+				$d_sampler, 
+				$d_scheduler, 
+				$d_denoise, 
+				$keep_alive, 
+				$tags_uso, 
+				$reglas_arquitecto, 
+				$d_negative, 
+				$vae_requerido, 
+				$text_encoders, 
+				$civitai_hash, 
+				$limites_frames, 
+				$id_mod
+			]);	
         echo json_encode(['success' => true, 'civitai_hash' => $civitai_hash]);
     } catch (Exception $e) { 
         echo json_encode(['error' => $e->getMessage()]); 

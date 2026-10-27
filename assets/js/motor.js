@@ -3127,10 +3127,15 @@ async function runGpu(mode = 'directo') {
     }
 
     const numFrames = parseInt(document.getElementById('videoFramesInput')?.value) || 33;
-    const esLTX = currentModelCheck.toLowerCase().includes('ltx') || (document.getElementById('modelSelector')?.options[document.getElementById('modelSelector').selectedIndex]?.text.toLowerCase() || '').includes('ltx');
-    if (originalCategory === '[VIDEO]' && numFrames > 121 && esLTX) {
+    //const esLTX = currentModelCheck.toLowerCase().includes('ltx') || (document.getElementById('modelSelector')?.options[document.getElementById('modelSelector').selectedIndex]?.text.toLowerCase() || '').includes('ltx');
+    
+	const maxFramesPermitidos = (typeof window.obtenerLimiteFramesVideo === 'function')
+        ? window.obtenerLimiteFramesVideo()
+        : 121;
+
+    if (originalCategory === '[VIDEO]' && numFrames > maxFramesPermitidos) {
         if (typeof lanzarVideoEncadenado === 'function') {
-            lanzarVideoEncadenado(fd, numFrames).finally(() => _actualizarBotonRender(buttonUsed, 'restaurar', originalBtnText));
+            lanzarVideoEncadenado(fd, numFrames, maxFramesPermitidos).finally(() => _actualizarBotonRender(buttonUsed, 'restaurar', originalBtnText));
         }
         return; 
     }
