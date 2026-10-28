@@ -336,6 +336,9 @@ function extractMaskBase64() {
 
 // --- NUEVO: FUNCIÓN PARA LIMPIAR SUBIDAS DE CHAT/LLM/VISIÓN ---
 window.clearUploadData = function(keepTray = false) {
+	window.chatImagesList = [];
+    window.chatDocsList = [];
+    document.querySelectorAll('.chat-multi-badge').forEach(b => b.remove());
     currentImageBase64 = null;
     window.currentVideoBase64 = null; 
     currentDocumentText = "";
@@ -375,6 +378,55 @@ window.clearUploadData = function(keepTray = false) {
         if (previewContainer.querySelectorAll('.badge').length === 0 && !document.getElementById('videoFramePreview')) {
             previewContainer.style.display = 'none';
         }
+    }
+};
+
+window.chatImagesList = []; // [{ name, data }]
+window.chatDocsList = [];   // [{ name, text }]
+
+window.quitarAdjuntoChat = function(tipo, index) {
+    if (tipo === 'img') window.chatImagesList.splice(index, 1);
+    else window.chatDocsList.splice(index, 1);
+    // Sincronizamos retrocompatibilidad
+    currentImageBase64 = window.chatImagesList.length > 0 ? window.chatImagesList[0].data : null;
+    currentDocumentText = window.chatDocsList.map(d => `[${d.name}]:\n${d.text}`).join("\n\n---\n\n");
+    window.renderizarAdjuntosChat();
+};
+
+window.renderizarAdjuntosChat = function() {
+    const imgPreviewContainer = document.getElementById('imgPreviewContainer');
+    if (!imgPreviewContainer) return;
+    document.querySelectorAll('.chat-multi-badge').forEach(b => b.remove());
+    const oldImg = document.getElementById('chatImgBadge'); if (oldImg) oldImg.remove();
+    const oldDoc = document.getElementById('chatDocBadge'); if (oldDoc) oldDoc.remove();
+
+    const txtQuitar = (typeof GartyLang !== 'undefined' && GartyLang.btn_quitar) ? GartyLang.btn_quitar : 'Quitar';
+    const txtDocAdjunto = (typeof GartyLang !== 'undefined' && GartyLang.lbl_attached_doc) ? GartyLang.lbl_attached_doc : 'Documento adjunto';
+    let html = '';
+
+    window.chatImagesList.forEach((item, idx) => {
+        html += `
+        <div class="badge bg-info text-dark p-2 mt-1 mb-1 fs-6 w-100 text-start shadow-sm d-flex align-items-center chat-multi-badge">
+            <img src="${item.data}" style="width: 36px; height: 36px; object-fit: cover; border-radius: 4px; margin-right: 12px; border: 1px solid rgba(0,0,0,0.2);">
+            <span class="text-truncate"><i class="bi bi-image me-1"></i> ${item.name}</span>
+            <i class="bi bi-x-circle ms-auto fs-5 text-dark" style="cursor:pointer;" onclick="quitarAdjuntoChat('img', ${idx})" title="${txtQuitar}"></i>
+        </div>`;
+    });
+
+    window.chatDocsList.forEach((doc, idx) => {
+        html += `
+        <div class="badge bg-secondary p-2 mt-1 mb-1 fs-6 w-100 text-start shadow-sm d-flex align-items-center chat-multi-badge">
+            <i class="bi bi-file-earmark-text fs-5 me-2"></i>
+            <span class="text-truncate">${txtDocAdjunto}: ${doc.name}</span>
+            <i class="bi bi-x-circle ms-auto fs-5 text-light" style="cursor:pointer;" onclick="quitarAdjuntoChat('doc', ${idx})" title="${txtQuitar}"></i>
+        </div>`;
+    });
+
+    if (html !== '') {
+        imgPreviewContainer.insertAdjacentHTML('afterbegin', html);
+        imgPreviewContainer.style.display = 'block';
+    } else if (imgPreviewContainer.querySelectorAll('.badge').length === 0) {
+        imgPreviewContainer.style.display = 'none';
     }
 };
 
@@ -449,19 +501,11 @@ function setBaseImageFromDataUrl(dataUrl, fileName = '') {
 
         // --- NUEVO: GESTIÓN DE BADGES PARA CHAT, LLM Y VISIÓN ---
         if (sel === '[CHAT]') {
-            if (visorContainer) visorContainer.style.display = 'none'; 
-            if (imgPreviewContainer) {
-                const oldImg = document.getElementById('chatImgBadge'); if (oldImg) oldImg.remove();
-                const oldDoc = document.getElementById('chatDocBadge'); if (oldDoc) oldDoc.remove();
-                
-                imgPreviewContainer.insertAdjacentHTML('afterbegin', `
-                <div id="chatImgBadge" class="badge bg-info text-dark p-3 mt-2 mb-2 fs-6 w-100 text-start shadow-sm d-flex align-items-center">
-                    <img src="${currentImageBase64}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 15px; border: 1px solid rgba(0,0,0,0.2);">
-                    <span class="text-truncate"><i class="bi bi-image fs-5 me-2"></i> ${displayImgName}</span>
-                    <i class="bi bi-x-circle ms-auto fs-5 text-dark" style="cursor:pointer;" onclick="clearUploadData(true)" title="${GartyLang.btn_quitar || 'Quitar'}"></i>
-                </div>`);
-                imgPreviewContainer.style.display = 'block';
-            }
+            if (visorContainer) visorContainer.style.display = 'none';
+            window.chatImagesList = window.chatImagesList || [];
+            window.chatImagesList.push({ name: displayImgName, data: currentImageBase64 });
+            window.imgYaEnviada = false;
+            window.renderizarAdjuntosChat();
         } else {
             if (imgPreview) imgPreview.src = currentImageBase64;
             if (visorContainer) visorContainer.style.display = 'block';
@@ -479,7 +523,7 @@ function setBaseImageFromDataUrl(dataUrl, fileName = '') {
             if (zoomControls) zoomControls.style.display = displayToolbar;
         }
         
-        currentDocumentText = ""; 
+        if (sel !== '[CHAT]') currentDocumentText = "";
         
         maskCanvas = document.getElementById('maskCanvas');
         maskCanvas.style.display = displayMask; // Aseguramos mostrar/ocultar el canvas según permisos
@@ -1226,6 +1270,56 @@ if (mainImageInput) {
             mainImageInput.value = ""; // Vaciamos para no bloquear subidas posteriores
             return; // 🛑 Cortamos aquí, no seguimos a la lógica de imagen principal o de inpaint
         }
+		
+		// 2.5 MODO CHAT MULTICARGA (Permite subir varias imágenes y/o documentos a la vez)
+        const currentSel = document.getElementById('selector') ? document.getElementById('selector').value : '';
+        if (currentSel === '[CHAT]') {
+            const txtErrorLectura = (typeof GartyLang !== 'undefined' && GartyLang.swal_err_read_file) ? GartyLang.swal_err_read_file : 'Fallo al leer el archivo.';
+            for (const file of files) {
+                if (file.type.startsWith('image/')) {
+                    await new Promise(resolve => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            setBaseImageFromDataUrl(e.target.result, file.name);
+                            resolve();
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                } else {
+                    let extractedText = "";
+                    try {
+                        if (file.type === 'application/pdf') {
+                            const arrayBuf = await file.arrayBuffer();
+                            const typedarray = new Uint8Array(arrayBuf);
+                            const pdfjsLib = window['pdfjs-dist/build/pdf'];
+                            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+                            const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                            for (let i = 1; i <= pdf.numPages; i++) {
+                                const page = await pdf.getPage(i);
+                                const content = await page.getTextContent();
+                                extractedText += content.items.map(item => item.str).join(' ') + '\n';
+                            }
+                        } else if (file.name.endsWith('.docx')) {
+                            const arrayBuf = await file.arrayBuffer();
+                            const resMam = await mammoth.extractRawText({ arrayBuffer: arrayBuf });
+                            extractedText = resMam.value;
+                        } else {
+                            extractedText = await file.text();
+                        }
+                    } catch (err) {
+                        showError(`${txtErrorLectura} (${file.name}) - ${err.message}`);
+                    }
+                    if (extractedText.trim() !== '') {
+                        window.chatDocsList.push({ name: file.name, text: extractedText });
+                        currentDocumentText = window.chatDocsList.map(d => `[${d.name}]:\n${d.text}`).join("\n\n---\n\n");
+                        window.docYaEnviado = false;
+                        window.renderizarAdjuntosChat();
+                    }
+                }
+            }
+            mainImageInput.value = "";
+            return;
+        }
 
         // 3. MODO NORMAL (Imagen Única, Video o Documentos)
         const file = files[0];
@@ -1488,13 +1582,52 @@ function updateUIForSelector(sel) {
 
     if (btnAudio) btnAudio.classList.toggle('d-none', !cfg.btnAudio);
 
-    // 4. BOTÓN UPLOAD
-    if (cfg.uploadType === 'chat') {
-        if (btnUpload) { btnUpload.classList.remove('d-none'); btnUpload.innerHTML = '<i class="bi bi-paperclip"></i> ' + (typeof GartyLang !== 'undefined' ? GartyLang.btn_subiranalisis : 'Subir'); }
+    // 4. BOTÓN UPLOAD Y CARPETA BATCH
+    const btnBatchFolder = document.getElementById('btnBatchFolder');
+    const inpFile = document.getElementById('imageInput');
+
+    if (cfg.uploadType === 'chat' || sel === '[CHAT]') {
+        if (btnUpload) { 
+            btnUpload.classList.remove('d-none'); 
+            btnUpload.innerHTML = '<i class="bi bi-paperclip"></i> ' + (typeof GartyLang !== 'undefined' ? GartyLang.btn_subiranalisis : 'Subir'); 
+        }
+        // En modo Chat permitimos siempre seleccionar varios archivos/imágenes a la vez
+        if (inpFile) inpFile.setAttribute('multiple', 'multiple');
+
+        // Ocultamos fulminantemente "Carpeta Batch" en modo Chat
+        if (btnBatchFolder) {
+            btnBatchFolder.hidden = true;
+            btnBatchFolder.classList.add('d-none');
+            btnBatchFolder.style.setProperty('display', 'none', 'important');
+        }
     } else {
+        // En modos gráficos solo es multiple si el switch multiInputToggle está encendido
+        const isMultiOn = document.getElementById('multiInputToggle')?.checked;
+        if (inpFile) {
+            if (isMultiOn) inpFile.setAttribute('multiple', 'multiple');
+            else inpFile.removeAttribute('multiple');
+        }
+
         if (btnUpload) {
             if (!isAvanzado) btnUpload.classList.add('d-none');
-            else { btnUpload.classList.remove('d-none'); btnUpload.innerHTML = '<i class="bi bi-image"></i> ' + (typeof GartyLang !== 'undefined' ? GartyLang.btn_subirbase : 'Subir Base'); }
+            else { 
+                btnUpload.classList.remove('d-none'); 
+                btnUpload.innerHTML = '<i class="bi bi-image"></i> ' + (typeof GartyLang !== 'undefined' ? GartyLang.btn_subirbase : 'Subir Base'); 
+            }
+        }
+
+        // En los modos gráficos estáticos lo restauramos (ocultándolo también en Vídeo)
+        if (btnBatchFolder) {
+            const esModoVideo = Boolean(cfg.videoSpecific || cfg.gpuDirectMode === 'video' || cfg.arqBtnMode === 'video');
+            if (!isAvanzado || esModoVideo) {
+                btnBatchFolder.hidden = true;
+                btnBatchFolder.classList.add('d-none');
+                btnBatchFolder.style.setProperty('display', 'none', 'important');
+            } else {
+                btnBatchFolder.hidden = false;
+                btnBatchFolder.classList.remove('d-none');
+                btnBatchFolder.style.removeProperty('display');
+            }
         }
     }
 
@@ -2325,11 +2458,17 @@ async function executeProcess(fd, selValue, retries = 2, loadingId = null, silen
                 return executeProcess(fd, selValue, retries - 1, loadingId, silentMainBtn);
             }
             
-            // 🛑 FIX: Matamos el spinner y actualizamos la burbuja
+            // 🛑 FIX: Si falla, eliminamos la burbuja temporal de carga para no ensuciar el chat y mostramos solo el SwalDark
             if (loadingId) {
-                document.getElementById(loadingId).innerHTML = `<span class="text-danger"><i class="bi bi-x-circle"></i> ${data.error}</span><span class="bubble-meta">${GartyLang.txt_system || 'Sistema'}</span>`;
-                const thread = document.getElementById('chatThreadContainer');
-                if (thread) thread.scrollTop = thread.scrollHeight;
+                const tempBubble = document.getElementById(loadingId);
+                if (tempBubble) tempBubble.remove();
+            }
+
+            // Por si el mensaje llegase aún con formato JSON crudo de Ollama:
+            if (data.error.includes('image input is not supported') || data.error.includes('mmproj')) {
+                data.error = (typeof GartyLang !== 'undefined' && GartyLang.err_chat_no_vision) 
+                    ? GartyLang.err_chat_no_vision 
+                    : 'El modelo LLM seleccionado es solo de texto y no puede ver imágenes. Cambia a un modelo con Visión (ej. Qwen2.5-VL) o quita la imagen adjunta.';
             } 
             
             // 💡 EXTRA: Detección inteligente de falta de visión
@@ -2518,35 +2657,35 @@ document.getElementById('promptForm').onsubmit = async (e) => {
 
     const fd = new FormData(); fd.append('selector', selValue); fd.append('descripcion', idea);
     
-    // 👇 NUEVO: ENVIAR Y ACTUALIZAR MEMORIA DEL CHAT 👇
+    // 👇 1. ENVIAR Y ACTUALIZAR MEMORIA DEL CHAT 👇
     if (window.chatHistory && window.chatHistory.length > 0) {
         fd.append('chat_history', JSON.stringify(window.chatHistory));
     }
     
+    const tieneDocsChat = (window.chatDocsList && window.chatDocsList.length > 0) || Boolean(currentDocumentText);
+    const tieneImgsChat = (window.chatImagesList && window.chatImagesList.length > 0) || Boolean(currentImageBase64);
+
     if (selValue === '[CHAT]') {
         let msgHistory = idea;
-        if (currentDocumentText) msgHistory += "\n[El usuario ha adjuntado un documento para analizar]";
-        if (currentImageBase64) msgHistory += "\n[El usuario ha adjuntado una imagen para analizar]";
+        if (tieneDocsChat) msgHistory += "\n[El usuario ha adjuntado un documento para analizar]";
+        if (tieneImgsChat) msgHistory += "\n[El usuario ha adjuntado una imagen para analizar]";
         window.chatHistory.push({ role: 'user', content: msgHistory });
     }
     // 👆 HASTA AQUÍ 👆
     
-    // 👇 NUEVO: CABLEAMOS EL BOTÓN DE INTERNET (SOLO AÑADIMOS ESTO) 👇
+    // 👇 2. CABLEAMOS INTERNET, MODELO LLM Y ROL 👇
     const chkInternet = document.getElementById('internetToggle');
     if (chkInternet) {
         fd.append('usar_internet', chkInternet.checked ? 'true' : 'false');
     }
-    // 👆 HASTA AQUÍ 👆
 
     const llmSel = document.getElementById('llmModelSelector');
     if (llmSel && llmSel.value && selValue === '[CHAT]') fd.append('model_path', llmSel.value);
     
-    // 👇 NUEVO: Inyectar el ID del modelo gráfico seleccionado para leer sus reglas
     const selectedGraphicModel = document.getElementById('modelSelector') ? document.getElementById('modelSelector').value : '';
     if (selectedGraphicModel) {
         fd.append('modelo_grafico_id', selectedGraphicModel);
     }
-    // --------------------------------------------------------------------------
     
     if (selValue === '[CHAT]') {
         const roleSel = document.getElementById('chatRoleSelector');
@@ -2555,6 +2694,7 @@ document.getElementById('promptForm').onsubmit = async (e) => {
         if (chosenRole) fd.append('chat_role', chosenRole);
     }
 
+    // 👇 3. EJECUCIÓN DEL CHAT (Comandos y Adjuntos Múltiples) 👇
     if (selValue === '[CHAT]') { 
         const lowerIdea = idea.toLowerCase();
         const isLlmCmd = lowerIdea.startsWith('/imagen ') || lowerIdea.startsWith('/img ');
@@ -2571,7 +2711,6 @@ document.getElementById('promptForm').onsubmit = async (e) => {
                 thread.appendChild(b); thread.scrollTop = thread.scrollHeight; document.getElementById('submitBtn').disabled = false; return;
             }
 
-            // --- ARREGLO 1: ADIÓS AL UNDEFINED CON FALLBACKS ---
             const msgInicial = isGpuCmd ? (GartyLang.msg_gpu_direct || 'Enviando a GPU...') : (GartyLang.msg_gpu_ai || 'Consultando a la IA...');
             b.innerHTML = `<div class="d-flex align-items-center text-info"><div class="spinner-border spinner-border-sm me-2"></div> <small>${msgInicial}</small></div>`;
             thread.appendChild(b); thread.scrollTop = thread.scrollHeight;
@@ -2582,19 +2721,14 @@ document.getElementById('promptForm').onsubmit = async (e) => {
                     
                     if (isLlmCmd) {
                         const fdPrompt = new FormData(); 
-                        
-                        // --- ARREGLO 2: ADIÓS AL [SDXL] HARDCODEADO ---
-                        // Lee el modelo gráfico real que tienes seleccionado, o usa NATURAL_IMAGE por defecto
                         const currentCat = document.getElementById('selector') ? document.getElementById('selector').value : '[NATURAL_IMAGE]';
                         const targetCat = currentCat === '[CHAT]' ? '[NATURAL_IMAGE]' : currentCat;
                         fdPrompt.append('selector', targetCat); 
                         fdPrompt.append('descripcion', promptIdea);
                         
-                        // NUEVO: Enviar estado de Internet
                         const internetToggle = document.getElementById('internetToggle');
                         if (internetToggle && internetToggle.checked) fdPrompt.append('usar_internet', 'true');
                         
-                        // --- ARREGLO DEL STREAMING Y DEL ERROR JSON ---
                         const resPrompt = await fetch('procesar.php', { method: 'POST', body: fdPrompt }); 
                         const reader = resPrompt.body.getReader();
                         const decoder = new TextDecoder("utf-8");
@@ -2630,7 +2764,7 @@ document.getElementById('promptForm').onsubmit = async (e) => {
                     }
 
                     document.getElementById(loadingId).innerHTML = `<b>${typeof GartyLang !== 'undefined' && GartyLang.chat_msg_prompt_to_gen ? GartyLang.chat_msg_prompt_to_gen : 'Prompt generado:'}</b><br><code class="text-light">${finalP}</code><br><br><div class="d-flex align-items-center text-info"><div class="spinner-border spinner-border-sm me-2"></div> <small>${typeof GartyLang !== 'undefined' && GartyLang.chat_msg_rendering_gpu ? GartyLang.chat_msg_rendering_gpu : 'Enviando a renderizar...'}</small></div>`;
-					thread.scrollTop = thread.scrollHeight;
+                    thread.scrollTop = thread.scrollHeight;
                     
                     let fdImg = new FormData();
                     const applied = getPromptsWithPresets(finalP, finalN); finalP = applied.pos; finalN = applied.neg;
@@ -2643,28 +2777,19 @@ document.getElementById('promptForm').onsubmit = async (e) => {
                     
                     fdImg = appendUIParametersToFormData(fdImg, true); 
                     
-                    // 👇 NUEVA LÓGICA: Soporte para Img2Img desde comandos del chat 👇
                     if (currentImageBase64) {
-                        // Si hay una imagen retenida en el chat, la enviamos al motor gráfico
                         fdImg.append('init_image', currentImageBase64.split(',')[1]);
-                        
-                        // Nos aseguramos de inyectar el Denoise de la interfaz
                         if (!fdImg.has('denoise')) {
                             const globalDenoise = document.getElementById('globalDenoiseSlider');
                             fdImg.append('denoise', globalDenoise ? globalDenoise.value : 0.75);
                         }
-                        
-                        // Por si acaso has pintado una máscara en el visor principal
                         const extractedMask = extractMaskBase64();
                         if (extractedMask) fdImg.append('mask_data', extractedMask);
-                        
                     } else {
-                        // Si NO hay imagen en memoria, forzamos un Text-to-Image puro
                         fdImg.delete('init_image');
                         fdImg.delete('mask_data');
                     }
-                    // 👆 -------------------------------------------------------- 👆
-					
+                    
                     fdImg.append('async_mode', 'true');
 
                     const resImg = await fetch('procesar.php', { method: 'POST', body: fdImg });
@@ -2675,21 +2800,19 @@ document.getElementById('promptForm').onsubmit = async (e) => {
                         document.getElementById(loadingId).innerHTML = `<b>${typeof GartyLang !== 'undefined' && GartyLang.chat_msg_prompt_designed ? GartyLang.chat_msg_prompt_designed : 'Diseñado:'}</b><br><code class="text-light">${finalP}</code><br><br><div class="d-flex align-items-center text-warning"><div class="spinner-grow spinner-grow-sm me-2"></div> <small>${typeof GartyLang !== 'undefined' && GartyLang.chat_msg_gpu_processing ? GartyLang.chat_msg_gpu_processing : 'Procesando en GPU'} (${dataImg.prompt_id})...</small></div>`;
                         thread.scrollTop = thread.scrollHeight;
 
-                    	const chatRadarInterval = setInterval(async () => {
-                        let fdCheck = new FormData(); 
-                        fdCheck.append('action', 'check_ticket'); 
-                        fdCheck.append('prompt_id', dataImg.prompt_id); 
-                        fdCheck.append('historial_id', dataImg.historial_id || chatPromptId);
-                        
-                        // 👇 NUEVO: Inyectar formato de imagen en el radar de comandos de chat
-                        const formatInput = document.getElementById('imageFormatInput');
-                        if (formatInput) fdCheck.append('image_format', formatInput.value);
-                        // ---------------------------------------------------------
+                        const chatRadarInterval = setInterval(async () => {
+                            let fdCheck = new FormData(); 
+                            fdCheck.append('action', 'check_ticket'); 
+                            fdCheck.append('prompt_id', dataImg.prompt_id); 
+                            fdCheck.append('historial_id', dataImg.historial_id || chatPromptId);
+                            
+                            const formatInput = document.getElementById('imageFormatInput');
+                            if (formatInput) fdCheck.append('image_format', formatInput.value);
 
-                        try {
-                            const resCheck = await fetch('procesar.php', { method: 'POST', body: fdCheck }); 
-                            const dataCheck = await resCheck.json();	
-					            if (dataCheck.status === 'completed') {
+                            try {
+                                const resCheck = await fetch('procesar.php', { method: 'POST', body: fdCheck }); 
+                                const dataCheck = await resCheck.json();   
+                                if (dataCheck.status === 'completed') {
                                     clearInterval(chatRadarInterval);
                                     if (dataCheck.images && dataCheck.images.length > 0) {
                                         let html = `<b>${typeof GartyLang !== 'undefined' && GartyLang.chat_msg_prompt_label ? GartyLang.chat_msg_prompt_label : 'Prompt:'}</b> <code class="text-light">${finalP}</code><div class="row g-2 mt-2">`;
@@ -2718,37 +2841,39 @@ document.getElementById('promptForm').onsubmit = async (e) => {
             return;
         }
 
-        if (currentDocumentText) {
-            fd.append('document_text', currentDocumentText);
-            
-            // Mostramos el icono de documento en la burbuja solo la primera vez
-            addMessageToUI('user', idea || GartyLang.chat_msg_analyze_doc, null, !window.docYaEnviado);
-            window.docYaEnviado = true; // Bandera de seguridad
-            
-            document.getElementById('descripcion').value = ""; 
-            // 🛑 HEMOS QUITADO LA DESTRUCCIÓN DE currentDocumentText E imgPreviewContainer 🛑
-            
-            const loadingId = 'loading-' + Date.now(); const b = document.createElement('div'); b.className = `chat-bubble bubble-ai`; b.id = loadingId;
-            b.innerHTML = `<div class="d-flex align-items-center text-info"><div class="spinner-border spinner-border-sm me-2"></div> <small>${GartyLang.chat_msg_analyzing_doc}</small></div>`;
-            document.getElementById('chatThreadContainer').appendChild(b); document.getElementById('chatThreadContainer').scrollTop = document.getElementById('chatThreadContainer').scrollHeight;
-            executeProcess(fd, selValue, 2, loadingId); return;
-        }
-        
-        if (currentImageBase64) {
-            fd.append('image_data', currentImageBase64);
-            
-            // Mostramos la imagen enorme en la burbuja del chat SOLO la primera vez
-            let imgParaBurbuja = window.imgYaEnviada ? null : currentImageBase64;
-            addMessageToUI('user', idea || GartyLang.chat_msg_analyze_img, imgParaBurbuja, false);
-            window.imgYaEnviada = true; // Bandera de seguridad
-            
-            document.getElementById('descripcion').value = ""; 
-            // 🛑 HEMOS QUITADO LA DESTRUCCIÓN DE currentImageBase64 E imgPreviewContainer 🛑
-            
-            const loadingId = 'loading-' + Date.now(); const b = document.createElement('div'); b.className = `chat-bubble bubble-ai`; b.id = loadingId;
-            b.innerHTML = `<div class="d-flex align-items-center text-info"><div class="spinner-border spinner-border-sm me-2"></div> <small>${GartyLang.chat_msg_analyzing_img}</small></div>`;
-            document.getElementById('chatThreadContainer').appendChild(b); document.getElementById('chatThreadContainer').scrollTop = document.getElementById('chatThreadContainer').scrollHeight;
-            executeProcess(fd, selValue, 2, loadingId); return;
+        // 👉 ENVÍO UNIFICADO DE 1 O VARIOS DOCUMENTOS E IMÁGENES (YA CON model_path CARGADO)
+        if (tieneDocsChat || tieneImgsChat) {
+            if (tieneDocsChat) {
+                fd.append('document_text', currentDocumentText);
+            }
+            if (tieneImgsChat) {
+                const imgsParaEnviar = (window.chatImagesList && window.chatImagesList.length > 0)
+                    ? window.chatImagesList.map(i => i.data)
+                    : [currentImageBase64];
+                fd.append('image_data', imgsParaEnviar[0]); // Retrocompatibilidad
+                imgsParaEnviar.forEach(imgB64 => fd.append('image_data_list[]', imgB64));
+            }
+
+            let imgParaBurbuja = (!window.imgYaEnviada && tieneImgsChat) 
+                ? ((window.chatImagesList && window.chatImagesList.length > 0) ? window.chatImagesList.map(i => i.data) : currentImageBase64) 
+                : null;
+            let mostrarDocBadge = (!window.docYaEnviado && tieneDocsChat);
+
+            const textoDefault = tieneImgsChat ? GartyLang.chat_msg_analyze_img : GartyLang.chat_msg_analyze_doc;
+            addMessageToUI('user', idea || textoDefault, imgParaBurbuja, mostrarDocBadge);
+
+            if (tieneImgsChat) window.imgYaEnviada = true;
+            if (tieneDocsChat) window.docYaEnviado = true;
+
+            document.getElementById('descripcion').value = "";
+            const loadingId = 'loading-' + Date.now();
+            const b = document.createElement('div'); b.className = `chat-bubble bubble-ai`; b.id = loadingId;
+            const msgSpinner = tieneImgsChat ? GartyLang.chat_msg_analyzing_img : GartyLang.chat_msg_analyzing_doc;
+            b.innerHTML = `<div class="d-flex align-items-center text-info"><div class="spinner-border spinner-border-sm me-2"></div> <small>${msgSpinner}</small></div>`;
+            document.getElementById('chatThreadContainer').appendChild(b);
+            document.getElementById('chatThreadContainer').scrollTop = document.getElementById('chatThreadContainer').scrollHeight;
+            executeProcess(fd, selValue, 2, loadingId);
+            return;
         }
 
         addMessageToUI('user', idea); document.getElementById('descripcion').value = ""; 
@@ -4291,10 +4416,13 @@ function addMessageToUI(role, text, imgSrc = null, isDoc = false) {
         ? window.formatearMarkdownChat(text) 
         : text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-    if (imgSrc) contentHtml += `<br><img src="${imgSrc}" class="img-fluid rounded mt-2 shadow-sm" style="max-height: 180px;">`;
-    else if (isDoc) contentHtml += `<br><div class="badge bg-light text-dark p-2 mt-2"><i class="bi bi-file-earmark-text"></i> ${typeof GartyLang !== 'undefined' && GartyLang.chat_msg_doc_processed ? GartyLang.chat_msg_doc_processed : 'Documento procesado'}</div>`;
-
-    if (isAvanzado && role === 'ai' && text.length > 5 && !text.includes(typeof GartyLang !== 'undefined' && GartyLang.txt_ai_greeting ? GartyLang.txt_ai_greeting : '¡Hola!')) {
+    if (imgSrc) {
+        const imgs = Array.isArray(imgSrc) ? imgSrc : [imgSrc];
+        contentHtml += `<div class="d-flex flex-wrap gap-2 mt-2">` + imgs.map(src => `<img src="${src}" class="img-fluid rounded shadow-sm" style="max-height: 150px;">`).join('') + `</div>`;
+    }
+    if (isDoc) contentHtml += `<br><div class="badge bg-light text-dark p-2 mt-2"><i class="bi bi-file-earmark-text"></i> ${typeof GartyLang !== 'undefined' && GartyLang.chat_msg_doc_processed ? GartyLang.chat_msg_doc_processed : 'Documento procesado'}</div>`;
+	
+	if (isAvanzado && role === 'ai' && text.length > 5 && !text.includes(typeof GartyLang !== 'undefined' && GartyLang.txt_ai_greeting ? GartyLang.txt_ai_greeting : '¡Hola!')) {
         let rawText = text.replace(/```json|```/gi, '').trim(); 
         let promptToSend = rawText;
         try { const parsed = JSON.parse(rawText); if (parsed.prompt) promptToSend = parsed.prompt; } catch(e) {}

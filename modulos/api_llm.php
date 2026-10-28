@@ -635,15 +635,30 @@ if ($isChat && !empty($_POST['chat_history'])) {
     }
 }
 
-if ($isChat && !empty($image_data)) {
-    $base64_clean = preg_replace('#^data:image/[^;]+;base64,#', '', $image_data);
+// Recogemos todas las imágenes adjuntas (soporta 1 o múltiples)
+$lista_imagenes_limpias = [];
+if (!empty($_POST['image_data_list']) && is_array($_POST['image_data_list'])) {
+    foreach ($_POST['image_data_list'] as $raw_img) {
+        if (!empty($raw_img) && strpos(trim($raw_img), 'data:image') === 0) {
+            $lista_imagenes_limpias[] = preg_replace('#^data:image/[^;]+;base64,#', '', trim($raw_img));
+        }
+    }
+} elseif (!empty($image_data)) {
+    $lista_imagenes_limpias[] = preg_replace('#^data:image/[^;]+;base64,#', '', $image_data);
+}
+
+if ($isChat && !empty($lista_imagenes_limpias)) {
     $user_content = empty($descripcion) ? __('cmd_analyze_image') : $descripcion;
+    // Si además de imágenes adjuntó algún documento de texto, lo incluimos en el prompt
+    if (!empty($document_text)) {
+        $user_content = __('lbl_doc_content') . ":\n\n---\n" . $document_text . "\n---\n\n" . __('lbl_user_instruction') . ": " . $user_content;
+    }
     $messages[] = [
         "role" => "user", 
         "content" => $user_content,
-        "images" => [$base64_clean]
+        "images" => $lista_imagenes_limpias
     ];
-    $descripcion_historial = "[" . __('lbl_attached_image') . "] " . $descripcion;
+    $descripcion_historial = "[" . __('lbl_attached_image') . " (" . count($lista_imagenes_limpias) . ")] " . $descripcion;
 } elseif (!empty($document_text)) {
     $instruction = empty($descripcion) ? __('cmd_analyze_doc') : $descripcion;
     $full_text = __('lbl_doc_content') . ":\n\n---\n" . $document_text . "\n---\n\n" . __('lbl_user_instruction') . ": " . $instruction;
@@ -672,13 +687,30 @@ if ($isChat && !empty($image_data)) {
     $descripcion_historial = $descripcion;
 }
 
-$modelo_recibido = !empty($_POST['model_path']) ? $_POST['model_path'] : '';
+$modelo_recibido = !empty($_POST['model_path']) ? trim($_POST['model_path']) : (!empty($_POST['llm_model']) ? trim($_POST['llm_model']) : '');
 $selected_model = '';
 $info_modelo_part2 = null;
 
 if (($isChat || $selector === '[LLM]') && !empty($modelo_recibido)) {
     $info_modelo_part2 = obtener_info_modelo($modelo_recibido, $pdo, 'ollama');
-    $selected_model = $info_modelo_part2['nombre_archivo'];
+    if (!empty($info_modelo_part2['nombre_archivo'])) {
+        $selected_model = $info_modelo_part2['nombre_archivo'];
+    } else {
+        // Respaldo directo en BD por si el modelo de visión tiene otro 'motor' o 'categoria'
+        $sql_direct = is_numeric($modelo_recibido) 
+            ? "SELECT nombre_archivo, keep_alive FROM modelos_ia WHERE id = ? LIMIT 1" 
+            : "SELECT nombre_archivo, keep_alive FROM modelos_ia WHERE nombre_archivo = ? OR nombre = ? LIMIT 1";
+        $stmt_dir = $pdo->prepare($sql_direct);
+        $stmt_dir->execute(is_numeric($modelo_recibido) ? [$modelo_recibido] : [$modelo_recibido, $modelo_recibido]);
+        $row_dir = $stmt_dir->fetch(PDO::FETCH_ASSOC);
+        if ($row_dir && !empty($row_dir['nombre_archivo'])) {
+            $selected_model = $row_dir['nombre_archivo'];
+            $info_modelo_part2 = $row_dir;
+        } else {
+            // Si ya venía el tag directo de Ollama (ej. qwen2.5vl:32b)
+            $selected_model = $modelo_recibido;
+        }
+    }
 }
 
 $ka_from_db = null;
@@ -766,7 +798,9 @@ foreach ($lines as $line) {
     $dec = json_decode($line, true);
     if ($dec) {
         if (isset($dec['error'])) {
-            $ollama_error = $dec['error'];
+            $ollama_error = is_array($dec['error']) 
+                ? ($dec['error']['message'] ?? json_encode($dec['error'])) 
+                : (string)$dec['error'];
         }
         if (isset($dec['message'])) {
             $raw_content .= $dec['message']['content'] ?? '';
@@ -775,9 +809,14 @@ foreach ($lines as $line) {
     }
 }
 
-// Si Ollama devolvió un error explícito, lo mostramos en lugar de dar "Respuesta vacía"
+// Si Ollama devolvió un error explícito, lo filtramos y mostramos limpio
 if (!empty($ollama_error) && empty(trim($raw_content)) && empty(trim($raw_thinking))) {
-    echo json_encode(['error' => 'Ollama: ' . $ollama_error]) . "\n";
+    if (stripos($ollama_error, 'image input is not supported') !== false || stripos($ollama_error, 'mmproj') !== false || stripos($ollama_error, 'vision') !== false || stripos($ollama_error, 'multimodal') !== false) {
+        $msg_limpio = (__('err_chat_no_vision') ?? 'El modelo LLM seleccionado es solo de texto y no soporta imágenes. Por favor, selecciona un modelo con Visión o quita la imagen adjunta.');
+        echo json_encode(['error' => $msg_limpio, 'no_vision' => true]) . "\n";
+    } else {
+        echo json_encode(['error' => 'Ollama (' . $selected_model . '): ' . $ollama_error]) . "\n";
+    }
     flush();
     exit();
 }
