@@ -670,6 +670,12 @@ if ($action === 'generar_imagen') {
     $reactor_fidelity = isset($_POST['reactor_fidelity']) ? floatval($_POST['reactor_fidelity']) : 0.75;
     $reactor_visibility = isset($_POST['reactor_visibility']) ? floatval($_POST['reactor_visibility']) : 1.0;
     $pure_faceswap = filter_var($_POST['pure_faceswap'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+	
+	$reactor_weight = $_POST['reactor_weight'] ?? "100%";
+    $reactor_face_boost = filter_var($_POST['reactor_face_boost'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+    $reactor_lut = $_POST['reactor_lut'] ?? "none";
+    $reactor_lut_strength = isset($_POST['reactor_lut_strength']) ? floatval($_POST['reactor_lut_strength']) : 0.50;
+    $reactor_grain = isset($_POST['reactor_grain']) ? floatval($_POST['reactor_grain']) : 0.00;
 
     // --- IP-ADAPTER ---
     $ipadapter_enabled = $_POST['ipadapter_enabled'] ?? 'false';
@@ -2234,12 +2240,92 @@ if ($action === 'generar_imagen') {
                 $inputs_reactor["source_image"] = ["11", 0];
             }
 
+            // A) Si el usuario eligió un Peso menor al 100%, intercalamos ReActorSetWeight
+            if ($reactor_weight !== "100%" && !empty($reactor_weight)) {
+                $inputs_weight = [
+                    "input_image" => $inputs_reactor["input_image"],
+                    "faceswap_weight" => $reactor_weight
+                ];
+                if ($es_modelo_guardado) {
+                    $inputs_weight["face_model"] = $inputs_reactor["face_model"];
+                } else {
+                    $inputs_weight["source_image"] = $inputs_reactor["source_image"];
+                }
+                $workflow["100_set_weight"] = [
+                    "inputs" => $inputs_weight,
+                    "class_type" => "ReActorSetWeight"
+                ];
+                $inputs_reactor["input_image"] = ["100_set_weight", 0];
+                $inputs_reactor["face_model"]  = ["100_set_weight", 1];
+                unset($inputs_reactor["source_image"]);
+            }
+
+            // B) Si el usuario activó Face Boost y hay un modelo de restauración activo
+            if ($reactor_face_boost && $reactor_restore_model !== "none") {
+                $workflow["100_face_boost"] = [
+                    "inputs" => [
+                        "enabled" => true,
+                        "boost_model" => $reactor_restore_model,
+                        "interpolation" => "Bicubic",
+                        "visibility" => $reactor_visibility,
+                        "codeformer_weight" => $reactor_fidelity,
+                        "restore_with_main_after" => false
+                    ],
+                    "class_type" => "ReActorFaceBoost"
+                ];
+                $inputs_reactor["face_boost"] = ["100_face_boost", 0];
+            }
+
             $workflow["101"] = [ 
                 "inputs" => $inputs_reactor, 
                 "class_type" => "ReActorFaceSwap" 
             ];
 
-            $workflow["9"] = [ "inputs" => ["images" => ["101", 0]], "class_type" => "PreviewImage" ];
+            $salida_final_reactor = ["101", 0];
+
+            // C) Si el usuario eligió un filtro LUT (.cube) O activó el Grano de Película (> 0)
+            $tiene_lut = (!empty($reactor_lut) && strtolower($reactor_lut) !== "none");
+            if ($tiene_lut || $reactor_grain > 0.0) {
+                $workflow["102_lut"] = [
+                    "inputs" => [
+                        "enabled" => true,
+                        "intensity" => 1.0,
+                        "lut_file" => $tiene_lut ? $reactor_lut : "none",
+                        "lut_gamma_correction" => true,
+                        "lut_strength" => $tiene_lut ? $reactor_lut_strength : 0.0,
+                        // Corrección de Color (Neutro)
+                        "cc_temperature" => 0.0,
+                        "cc_hue" => 0.0,
+                        "cc_brightness" => 0.0,
+                        "cc_contrast" => 0.0,
+                        "cc_saturation" => 0.0,
+                        "cc_gamma" => 1.0,
+                        // Efecto HDR (Apagado = 0.0)
+                        "hdr_intensity" => 0.0,
+                        "hdr_shadow_intensity" => 0.0,
+                        "hdr_highlight_intensity" => 0.0,
+                        "hdr_gamma" => 1.0,
+                        "hdr_contrast" => 0.0,
+                        "hdr_enhance_color" => 0.0,
+                        // Grano de Película y Lente
+                        "film_grain_method" => "fast",
+                        "film_grain_power" => $reactor_grain,
+                        "film_grain_scale" => 0.7, // 0.7 hace el grano más fino y fotográfico que 1.0
+                        "film_grain_sat" => 0.3,   // Un poco menos de saturación en el grano evita motas de colores
+                        "film_grain_shadows" => 0.2,
+                        "film_grain_highs" => 0.2,
+                        "film_blur_strength" => 0,
+                        "film_focal_depth" => 0.5,
+                        "film_focus_spread" => 0.5,
+                        "film_vignette_intensity" => 0.0,
+                        "image" => $salida_final_reactor
+                    ],
+                    "class_type" => "ReActorCinematicEnhancer"
+                ];
+                $salida_final_reactor = ["102_lut", 0];
+            }
+
+            $workflow["9"] = [ "inputs" => ["images" => $salida_final_reactor], "class_type" => "PreviewImage" ];
             goto EJECUTAR_COMFYUI; 
         } else {
             echo json_encode(['error' => __('err_faceswap_upload')]);
@@ -4485,13 +4571,94 @@ if ($action === 'generar_imagen') {
                     $inputs_reactor["source_image"] = ["100_reactor_face", 0];
                 }
 
+                // A) Si el usuario eligió un Peso menor al 100%, intercalamos ReActorSetWeight
+                if ($reactor_weight !== "100%" && !empty($reactor_weight)) {
+                    $inputs_weight = [
+                        "input_image" => $inputs_reactor["input_image"],
+                        "faceswap_weight" => $reactor_weight
+                    ];
+                    if ($es_modelo_guardado_univ) {
+                        $inputs_weight["face_model"] = $inputs_reactor["face_model"];
+                    } else {
+                        $inputs_weight["source_image"] = $inputs_reactor["source_image"];
+                    }
+                    $workflow["100_set_weight"] = [
+                        "inputs" => $inputs_weight,
+                        "class_type" => "ReActorSetWeight"
+                    ];
+                    $inputs_reactor["input_image"] = ["100_set_weight", 0];
+                    $inputs_reactor["face_model"]  = ["100_set_weight", 1];
+                    unset($inputs_reactor["source_image"]);
+                }
+
+                // B) Si el usuario activó Face Boost y hay un modelo de restauración activo
+                $rest_mod_univ = $_POST['reactor_restore_model'] ?? "none";
+                if ($reactor_face_boost && strtolower($rest_mod_univ) !== "none") {
+                    $workflow["100_face_boost"] = [
+                        "inputs" => [
+                            "enabled" => true,
+                            "boost_model" => $rest_mod_univ,
+                            "interpolation" => "Bicubic",
+                            "visibility" => isset($_POST['reactor_visibility']) ? max(0.1, floatval($_POST['reactor_visibility'])) : 1.0,
+                            "codeformer_weight" => isset($_POST['reactor_fidelity']) ? max(0.0, floatval($_POST['reactor_fidelity'])) : 0.75,
+                            "restore_with_main_after" => false
+                        ],
+                        "class_type" => "ReActorFaceBoost"
+                    ];
+                    $inputs_reactor["face_boost"] = ["100_face_boost", 0];
+                }
+
                 $workflow["101_reactor_swap"] = [ 
                     "inputs" => $inputs_reactor, 
                     "class_type" => "ReActorFaceSwap" 
                 ]; 
 
-                // 5. Conectamos la salida de ReActor al empaquetador
-                $workflow[$nodo_empaquetador]["inputs"]["images"] = ["101_reactor_swap", 0];
+                $salida_univ_reactor = ["101_reactor_swap", 0];
+
+                // C) Si el usuario eligió un filtro LUT (.cube) O activó el Grano de Película (> 0)
+                $tiene_lut = (!empty($reactor_lut) && strtolower($reactor_lut) !== "none");
+                if ($tiene_lut || $reactor_grain > 0.0) {
+                    $workflow["102_lut_univ"] = [
+                        "inputs" => [
+                            "enabled" => true,
+                            "intensity" => 1.0,
+                            "lut_file" => $tiene_lut ? $reactor_lut : "none",
+                            "lut_gamma_correction" => true,
+                            "lut_strength" => $tiene_lut ? $reactor_lut_strength : 0.0,
+                            // Corrección de Color (Neutro)
+                            "cc_temperature" => 0.0,
+                            "cc_hue" => 0.0,
+                            "cc_brightness" => 0.0,
+                            "cc_contrast" => 0.0,
+                            "cc_saturation" => 0.0,
+                            "cc_gamma" => 1.0,
+                            // Efecto HDR (Apagado = 0.0)
+                            "hdr_intensity" => 0.0,
+                            "hdr_shadow_intensity" => 0.0,
+                            "hdr_highlight_intensity" => 0.0,
+                            "hdr_gamma" => 1.0,
+                            "hdr_contrast" => 0.0,
+                            "hdr_enhance_color" => 0.0,
+                            // Grano de Película y Lente
+                            "film_grain_method" => "fast",
+                            "film_grain_power" => $reactor_grain,
+                            "film_grain_scale" => 0.7,
+                            "film_grain_sat" => 0.3,
+                            "film_grain_shadows" => 0.2,
+                            "film_grain_highs" => 0.2,
+                            "film_blur_strength" => 0,
+                            "film_focal_depth" => 0.5,
+                            "film_focus_spread" => 0.5,
+                            "film_vignette_intensity" => 0.0,
+                            "image" => $salida_univ_reactor
+                        ],
+                        "class_type" => "ReActorCinematicEnhancer"
+                    ];
+                    $salida_univ_reactor = ["102_lut_univ", 0];
+                }
+
+                // 5. Conectamos la salida de ReActor (o del LUT) al empaquetador
+                $workflow[$nodo_empaquetador]["inputs"]["images"] = $salida_univ_reactor;
             }
         } 
     }

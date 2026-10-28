@@ -85,7 +85,8 @@ try {
 		// --- NUEVO: REACTOR FACESWAP ---
         case 'obtener_caras_reactor':
         case 'guardar_cara_reactor':
-        case 'eliminar_cara_reactor':  // <--- AÑADIR ESTA LÍNEA
+        case 'eliminar_cara_reactor':
+		case 'fusionar_caras_reactor':
             require_once __DIR__ . '/modulos/api_reactor.php';
             break;
 			
@@ -93,9 +94,9 @@ try {
         case 'generar_audio':
         case 'clonar_audio':
         case 'subir_audio_referencia':
-        case 'obtener_voces':        // <-- AÑADIDO
-        case 'guardar_voz':          // <-- AÑADIDO
-        case 'eliminar_voz':         // <-- AÑADIDO
+        case 'obtener_voces':        
+        case 'guardar_voz':          
+        case 'eliminar_voz':         
         case 'optimizar_prompt_sfx': // <-- NUEVO: Maestro Musical IA
             require_once __DIR__ . '/modulos/api_audio.php';
             break;

@@ -1119,6 +1119,36 @@ return [
     'reac_ph_target' => "Ex: 0 or 0,1",
     'reac_rest_none' => "None",
 	'tit_reac_modelo_swap' => "Swap Model (Base)",
+	// --- FRAME LIMITS (MODELS MODAL) ---
+	'adm_ph_max_frames'     => "Frames SD/HD/FHD (241/121/65)",
+	'adm_hlp_max_frames'    => "Max frames per chunk by resolution SD / HD / FHD (e.g., 241/121/65). Leave empty for smart automatic limit.",
+
+	// --- REACTOR: NEW OPTIONS (WEIGHT, BOOST & LUTS) ---
+	'tit_reac_modelo_swap'  => "Swap Model (Base)",
+	'tit_reac_weight'       => "Swap Weight",
+	'hlp_reac_weight'       => "Blending strength of the source face onto the target face",
+	'opt_reac_w_total'      => "Full",
+	'opt_reac_w_fusion'     => "Blend",
+	'opt_reac_w_hybrid'     => "Hybrid",
+	'ctrl_reac_boost'       => "Enable Face Boost (Sharp pre-upscale)",
+	'hlp_reac_boost'        => "Restores and upscales the cropped face BEFORE pasting it onto the final image",
+	'tit_reac_lut'          => "LUT Filter (.cube)",
+	'reac_lut_none'         => "No LUT (Original Color)",
+	'ctrl_reac_lut_str'     => "LUT Strength",
+	'ctrl_reac_grain' => "Film Grain (Texture)",
+	'hlp_reac_grain'  => "Adds organic micro-texture to eliminate the smooth/plastic skin look after face restoration (0.05 - 0.15 recommended)",
+	
+	// --- REACTOR: FACE BLENDING ---
+	'btn_title_blend_face' => "Blend two saved faces into a new one",
+	'tit_reac_blend_faces' => "Blend 2 Saved Faces",
+	'ph_reac_blend_name'   => "Hybrid face name (e.g., Anna_Mix)",
+	'btn_blend_face_model' => "Create Blended Face",
+	'err_reac_same_face'   => "Please select two different faces to blend.",
+	'swal_blend_min_title' => "Not enough faces",
+	'swal_blend_min_text'  => "You need at least 2 saved faces to blend them.",
+	'swal_blend_miss_text' => "Select both faces and enter a name for the new hybrid face.",
+	'swal_blend_ok_title'  => "Face Blended!",
+	'swal_blend_ok_text'   => "The new hybrid face model has been generated and selected.",
 
     // --- IC-Light (iclight_) ---
     'iclight_dir_ambient' => "Ambient Light / Detail",
@@ -1352,6 +1382,8 @@ return [
     'err_no_sys_llm_active' => "No active SYS_LLM model",
 	'err_ollama_unexp_format' => "Unexpected format from Ollama:",
     'err_ollama_conn_fail_curl' => "Connection failure with Ollama. cURL Error:",
+	'err_reac_invalid_models' => "One or both facial models do not exist or do not belong to the user.",
+	'err_reac_invalid_name'   => "The new model name is invalid.",
 
     // ==============================================================================
     // 13. LOGS DE CONSOLA (log_)

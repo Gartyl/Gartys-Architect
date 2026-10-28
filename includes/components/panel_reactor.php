@@ -58,6 +58,23 @@ if (!empty($ruta_raiz_modelos)) {
     }
 }
 
+// 1.8. Escanear Archivos LUT (.cube) para ReActor Cinematic Enhancer
+$lut_options = '<option value="none">' . (__('reac_lut_none') ?? 'Sin LUT (Color Original)') . '</option>';
+if (!empty($ruta_raiz_modelos)) {
+    $dir_luts = $ruta_raiz_modelos . '/luts';
+    if (is_dir($dir_luts)) {
+        $archivos_lut = @scandir($dir_luts);
+        if ($archivos_lut !== false) {
+            foreach ($archivos_lut as $archivo) {
+                if ($archivo !== '.' && $archivo !== '..' && preg_match('/\.cube$/i', $archivo)) {
+                    $nombre_limpio = pathinfo($archivo, PATHINFO_FILENAME);
+                    $lut_options .= "<option value=\"$archivo\">$nombre_limpio</option>";
+                }
+            }
+        }
+    }
+}
+
 // Eliminamos duplicados, ordenamos y generamos el HTML
 $modelos_swap_encontrados = array_unique($modelos_swap_encontrados);
 if (!empty($modelos_swap_encontrados)) {
@@ -92,7 +109,7 @@ $facedetect_options = '
     <div id="reactorUI" class="d-none mt-3 text-center">
         
         <!-- ========================================================= -->
-        <!-- NUEVO: SELECTOR DE ROSTROS GUARDADOS -->
+        <!-- SELECTOR DE ROSTROS GUARDADOS + BOTONES ACCIÓN -->
         <!-- ========================================================= -->
         <div class="mb-3 text-start">
             <label class="small text-secondary fw-bold mb-1"><?= __('tit_reac_saved_faces') ?></label>
@@ -107,19 +124,44 @@ $facedetect_options = '
                     <i class="bi bi-trash"></i>
                 </button>
                 
+                <!-- BOTÓN EXTRAER NUEVO ROSTRO DESDE IMAGEN -->
                 <button class="btn btn-outline-warning" type="button" id="btnToggleSaveFace" onclick="toggleSaveFaceForm()" title="<?= __('btn_title_new_face') ?>">
                     <i class="bi bi-person-plus-fill"></i>
+                </button>
+
+                <!-- NUEVO: BOTÓN FUSIONAR 2 ROSTROS GUARDADOS -->
+                <button class="btn btn-outline-info" type="button" id="btnToggleBlendFace" onclick="toggleBlendFaceForm()" title="<?= __('btn_title_blend_face') ?>">
+                    <i class="bi bi-intersect"></i>
                 </button>
             </div>
         </div>
 
         <!-- ========================================================= -->
-        <!-- NUEVO: FORMULARIO OCULTO PARA EXTRAER MODELO -->
+        <!-- FORMULARIO OCULTO PARA EXTRAER MODELO -->
         <!-- ========================================================= -->
         <div id="saveFaceFormContainer" class="d-none text-start border border-warning rounded p-2 mb-3 shadow-sm" style="background-color: rgba(255, 193, 7, 0.05);">
             <label class="small text-warning fw-bold mb-1"><i class="bi bi-box-arrow-in-down"></i> <?= __('tit_reac_new_face') ?></label>
             <input type="text" id="newFaceName" class="form-control form-control-sm bg-dark text-light border-warning mb-2" placeholder="<?= __('ph_reac_face_name') ?>" autocomplete="off">
             <button type="button" class="btn btn-sm btn-warning w-100 fw-bold shadow-sm" id="btnSaveFaceModel" onclick="guardarModeloRostro()"><i class="bi bi-save"></i> <?= __('btn_save_face_model') ?></button>
+        </div>
+
+        <!-- ========================================================= -->
+        <!-- NUEVO: FORMULARIO OCULTO PARA FUSIONAR 2 ROSTROS -->
+        <!-- ========================================================= -->
+        <div id="blendFaceFormContainer" class="d-none text-start border border-info rounded p-2 mb-3 shadow-sm" style="background-color: rgba(13, 202, 240, 0.05);">
+            <label class="small text-info fw-bold mb-2"><i class="bi bi-intersect me-1"></i> <?= __('tit_reac_blend_faces') ?></label>
+            <div class="row g-1 mb-2">
+                <div class="col-6">
+                    <select id="blendFace1" class="form-select form-select-sm bg-dark text-light border-info"></select>
+                </div>
+                <div class="col-6">
+                    <select id="blendFace2" class="form-select form-select-sm bg-dark text-light border-info"></select>
+                </div>
+            </div>
+            <input type="text" id="blendFaceName" class="form-control form-control-sm bg-dark text-light border-info mb-2" placeholder="<?= __('ph_reac_blend_name') ?>" autocomplete="off">
+            <button type="button" class="btn btn-sm btn-info w-100 fw-bold text-dark shadow-sm" id="btnBlendFaceModel" onclick="fusionarModelosRostro()">
+                <i class="bi bi-magic"></i> <?= __('btn_blend_face_model') ?>
+            </button>
         </div>
         <!-- ========================================================= -->
 
@@ -159,11 +201,23 @@ $facedetect_options = '
                 <input type="text" class="form-control form-control-sm bg-dark text-light border-warning pref-track" id="reactorSourceIndex" value="0" placeholder="<?= __('reac_ph_source') ?>">
             </div>
             
-            <!-- NUEVO: Selector de Modelo de Swapping -->
-           <div class="col-md-12 mt-2">
+           <!-- Selector de Modelo de Swapping + Peso de Fusión (NUEVO) -->
+            <div class="col-md-8 mt-2">
                 <label class="small text-secondary fw-bold"><?= __('tit_reac_modelo_swap') ?? 'Modelo Swap (Base)' ?></label>
                 <select class="form-select form-select-sm bg-dark text-light border-warning pref-track" id="reactorSwapModel">
                     <?= $swap_options ?>
+                </select>
+            </div>
+            <div class="col-md-4 mt-2">
+                <label class="small text-secondary fw-bold" title="<?= __('hlp_reac_weight') ?>"><?= __('tit_reac_weight') ?></label>
+                <select class="form-select form-select-sm bg-dark text-light border-warning pref-track" id="reactorWeight">
+                    <option value="100%" selected>100% (<?= __('opt_reac_w_total') ?>)</option>
+                    <option value="87.5%">87.5%</option>
+                    <option value="75%">75% (<?= __('opt_reac_w_fusion') ?>)</option>
+                    <option value="62.5%">62.5%</option>
+                    <option value="50%">50% (<?= __('opt_reac_w_hybrid') ?>)</option>
+                    <option value="37.5%">37.5%</option>
+                    <option value="25%">25%</option>
                 </select>
             </div>
             
@@ -195,6 +249,35 @@ $facedetect_options = '
             <div class="col-md-6 mt-3">
                 <label class="text-secondary small fw-bold"><?= __('ctrl_vis_restaur') ?>: <span id="reactorVisLabel" class="text-light">1.0</span></label>
                 <input type="range" class="form-range pref-track" id="reactorVisibility" min="0.0" max="1.0" step="0.05" value="1.0" oninput="document.getElementById('reactorVisLabel').innerText = this.value;">
+            </div>
+			<!-- NUEVO: Switch Face Boost (Pre-restauración HD antes del pegado) -->
+            <div class="col-md-12 mt-2">
+                <div class="form-check form-switch">
+                    <input class="form-check-input border-warning pref-track" style="cursor: pointer;" type="checkbox" id="reactorFaceBoost">
+					<label class="form-check-label small text-light" for="reactorFaceBoost" title="<?= __('hlp_reac_boost') ?>">
+                        <i class="bi bi-stars text-warning me-1"></i> <?= __('ctrl_reac_boost') ?? 'Activar Face Boost (Pre-escalado nítido)' ?>
+                    </label>
+                </div>
+            </div>
+
+            <!-- NUEVO: Selector de LUT Cinematográfico y Grano -->
+            <div class="col-md-7 mt-2">
+                <label class="small text-secondary fw-bold"><i class="bi bi-film me-1"></i><?= __('tit_reac_lut') ?? 'Filtro LUT (.cube)' ?></label>
+                <select class="form-select form-select-sm bg-dark text-light border-warning pref-track" id="reactorLut">
+                    <?= $lut_options ?>
+                </select>
+            </div>
+            <div class="col-md-5 mt-2">
+                <label class="text-secondary small fw-bold"><?= __('ctrl_reac_lut_str') ?? 'Fuerza LUT' ?>: <span id="reactorLutLabel" class="text-light">0.50</span></label>
+                <input type="range" class="form-range pref-track" id="reactorLutStrength" min="0.1" max="1.0" step="0.05" value="0.50" oninput="document.getElementById('reactorLutLabel').innerText = this.value;">
+            </div>
+			
+			<!-- NUEVO: Deslizador de Grano de Película (Anti-piel de plástico) -->
+            <div class="col-md-12 mt-2">
+                <label class="text-secondary small fw-bold" title="<?= __('hlp_reac_grain') ?>">
+                    <i class="bi bi-grip-horizontal me-1"></i><?= __('ctrl_reac_grain') ?>: <span id="reactorGrainLabel" class="text-light">0.00</span>
+                </label>
+                <input type="range" class="form-range pref-track" id="reactorGrain" min="0.00" max="0.50" step="0.01" value="0.00" oninput="document.getElementById('reactorGrainLabel').innerText = parseFloat(this.value).toFixed(2);">
             </div>
         </div>
     </div>

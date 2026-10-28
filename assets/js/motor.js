@@ -840,6 +840,123 @@ async function guardarModeloRostro() {
 }
 // -----------------------------------------------
 
+// --- ABRIR/CERRAR CAJÓN DE FUSIÓN DE ROSTROS ---
+function toggleBlendFaceForm() {
+    const blendBox = document.getElementById('blendFaceFormContainer');
+    const saveBox  = document.getElementById('saveFaceFormContainer');
+    if (!blendBox) return;
+
+    // Si el cajón de guardar cara normal estaba abierto, lo cerramos
+    if (saveBox && !saveBox.classList.contains('d-none')) {
+        saveBox.classList.add('d-none');
+    }
+
+    if (blendBox.classList.contains('d-none')) {
+        // Copiamos las caras disponibles del selector principal
+        const mainSelect = document.getElementById('reactorSavedFaces');
+        const sel1 = document.getElementById('blendFace1');
+        const sel2 = document.getElementById('blendFace2');
+        
+        if (mainSelect && sel1 && sel2) {
+            sel1.innerHTML = '';
+            sel2.innerHTML = '';
+            let totalCaras = 0;
+
+            Array.from(mainSelect.options).forEach(opt => {
+                if (opt.value !== '') { // Ignoramos la opción "-- Usar imagen temporal --"
+                    sel1.add(new Option(opt.text, opt.value));
+                    sel2.add(new Option(opt.text, opt.value));
+                    totalCaras++;
+                }
+            });
+
+            if (totalCaras < 2) {
+                SwalDark.fire({
+                    icon: 'info',
+                    title: GartyLang.swal_blend_min_title || 'Rostros insuficientes',
+                    text: GartyLang.swal_blend_min_text || 'Necesitas tener al menos 2 rostros guardados para poder fusionarlos.'
+                });
+                return;
+            }
+            // Seleccionamos por defecto el 1º y el 2º para mayor comodidad
+            sel1.selectedIndex = 0;
+            sel2.selectedIndex = 1;
+        }
+        blendBox.classList.remove('d-none');
+    } else {
+        blendBox.classList.add('d-none');
+    }
+}
+
+// --- EJECUTAR LA FUSIÓN DE 2 ROSTROS EN COMFYUI ---
+async function fusionarModelosRostro() {
+    const face1 = document.getElementById('blendFace1')?.value || '';
+    const face2 = document.getElementById('blendFace2')?.value || '';
+    const nuevoNombre = document.getElementById('blendFaceName')?.value.trim() || '';
+
+    if (!face1 || !face2 || !nuevoNombre) {
+        SwalDark.fire({ icon: 'warning', title: GartyLang.swal_miss_data_title, text: GartyLang.swal_blend_miss_text || 'Elige los dos rostros y escribe un nombre para la fusión.' });
+        return;
+    }
+
+    if (face1 === face2) {
+        SwalDark.fire({ icon: 'warning', title: 'Atención', text: GartyLang.err_reac_same_face || 'Selecciona dos rostros diferentes para fusionar.' });
+        return;
+    }
+
+    const btn = document.getElementById('btnBlendFaceModel');
+    const oldHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    }
+
+    try {
+        const fd = new FormData();
+        fd.append('action', 'fusionar_caras_reactor');
+        fd.append('face_1', face1);
+        fd.append('face_2', face2);
+        fd.append('nuevo_nombre', nuevoNombre);
+
+        const res = await fetch('procesar.php', { method: 'POST', body: fd });
+        const data = await res.json();
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = oldHtml;
+        }
+
+        if (data.success && data.cara) {
+            // Añadimos la nueva cara al desplegable principal y la dejamos seleccionada
+            const mainSelect = document.getElementById('reactorSavedFaces');
+            if (mainSelect) {
+                const newOpt = new Option(data.cara.face_name, data.cara.filename);
+                mainSelect.add(newOpt);
+                mainSelect.value = data.cara.filename;
+                if (typeof handleSavedFaceSelection === 'function') handleSavedFaceSelection();
+            }
+            document.getElementById('blendFaceName').value = '';
+            document.getElementById('blendFaceFormContainer')?.classList.add('d-none');
+
+            SwalDark.fire({
+                icon: 'success',
+                title: GartyLang.swal_blend_ok_title || '¡Rostro Fusionado!',
+                text: GartyLang.swal_blend_ok_text || 'El nuevo rostro híbrido se ha creado y seleccionado.',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        } else {
+            throw new Error(data.error || 'Error desconocido al fusionar.');
+        }
+    } catch (e) {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = oldHtml;
+        }
+        SwalDark.fire({ icon: 'error', title: 'Error', text: e.message });
+    }
+}
+
 const faceInputElem = document.getElementById('faceInput');
 if (faceInputElem) {
     faceInputElem.onchange = () => {
@@ -1926,6 +2043,11 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
         fd.append('reactor_restore_model', document.getElementById('reactorRestoreModel').value); fd.append('reactor_gender', document.getElementById('reactorGender').value);
         fd.append('reactor_detector', document.getElementById('reactorDetector').value); fd.append('reactor_fidelity', document.getElementById('reactorFidelity').value);
         fd.append('reactor_visibility', document.getElementById('reactorVisibility').value);
+		fd.append('reactor_weight', document.getElementById('reactorWeight')?.value || '100%');
+        fd.append('reactor_face_boost', document.getElementById('reactorFaceBoost')?.checked ? 'true' : 'false');
+        fd.append('reactor_lut', document.getElementById('reactorLut')?.value || 'none');
+        fd.append('reactor_lut_strength', document.getElementById('reactorLutStrength')?.value || '0.50');
+		fd.append('reactor_grain', document.getElementById('reactorGrain')?.value || '0.00');
     }
         
     // ControlNet

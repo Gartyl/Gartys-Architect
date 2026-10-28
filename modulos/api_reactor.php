@@ -160,3 +160,198 @@ if ($action === 'eliminar_cara_reactor') {
     }
     exit();
 }
+
+// ---------------------------------------------------------
+// FUSIONAR DOS CARAS GUARDADAS (.SAFETENSORS) EN COMFYUI
+// ---------------------------------------------------------
+if ($action === 'fusionar_caras_reactor') {
+
+    $cara1 = trim($_POST['face_1'] ?? '');
+    $cara2 = trim($_POST['face_2'] ?? '');
+    $nuevo_nombre = trim($_POST['nuevo_nombre'] ?? '');
+
+    if (empty($cara1) || empty($cara2) || empty($nuevo_nombre)) {
+        echo json_encode([
+            'error' => __('err_missing_data') ?? 'Faltan datos o rostros a seleccionar.'
+        ]);
+        exit();
+    }
+
+    if ($cara1 === $cara2) {
+        echo json_encode([
+            'error' => __('err_reac_same_face') ?? 'Selecciona dos rostros diferentes para fusionar.'
+        ]);
+        exit();
+    }
+
+    try {
+
+        // 1. Validar que los dos modelos pertenecen al usuario.
+        $stmt_check = $pdo->prepare(
+            "SELECT filename
+             FROM reactor_faces
+             WHERE user_id = ? AND filename IN (?, ?)"
+        );
+
+        $stmt_check->execute([$user_id, $cara1, $cara2]);
+        $caras_validas = $stmt_check->fetchAll(PDO::FETCH_COLUMN);
+
+        if (
+            count($caras_validas) !== 2 ||
+            !in_array($cara1, $caras_validas, true) ||
+            !in_array($cara2, $caras_validas, true)
+        ) {
+            throw new Exception(
+				__('err_reac_invalid_models') ?? 'Uno o ambos modelos faciales no existen o no pertenecen al usuario.'
+            );
+        }
+
+        // 2. Preparar el nombre del nuevo archivo.
+        $safe_name = preg_replace(
+            '/[^a-zA-Z0-9_-]/',
+            '',
+            str_replace(' ', '_', $nuevo_nombre)
+        );
+
+        if ($safe_name === '') {
+            throw new Exception(__('err_reac_invalid_name') ?? 'El nombre del nuevo modelo no es válido.');
+        }
+
+        $safe_filename_no_ext =
+            "usr_" . $user_id . "_blend_" . $safe_name . "_" . time();
+
+        $archivo_final = $safe_filename_no_ext . ".safetensors";
+
+        // 3. Workflow correcto: cargar ambos modelos y fusionarlos
+        //    directamente con ReActorBuildFaceModel.
+        $workflow = [
+
+            "1" => [
+                "inputs" => [
+                    "face_model" => $cara1
+                ],
+                "class_type" => "ReActorLoadFaceModel"
+            ],
+
+            "2" => [
+                "inputs" => [
+                    "face_model" => $cara2
+                ],
+                "class_type" => "ReActorLoadFaceModel"
+            ],
+
+			"3" => [
+				"inputs" => [
+					"face_model1" => ["1", 0],
+					"face_model2" => ["2", 0]
+				],
+				"class_type" => "ReActorMakeFaceModelBatch"
+			],
+
+			"4" => [
+				"inputs" => [
+					"save_mode" => true,
+					"send_only" => false,
+					"face_model_name" => $safe_filename_no_ext,
+					"compute_method" => "Mean",
+					"face_models" => ["3", 0]
+				],
+				"class_type" => "ReActorBuildFaceModel"
+			]
+		];
+
+        // 4. Enviar el workflow a ComfyUI.
+        $ch = curl_init(COMFY_URL . "/prompt");
+
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode([
+                "prompt" => $workflow
+            ]),
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json'
+            ],
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 30
+        ]);
+
+        $respuesta = curl_exec($ch);
+        $curl_error = curl_error($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+        curl_close($ch);
+
+        if ($respuesta === false) {
+            throw new Exception(
+                'Error de conexión con ComfyUI: ' . $curl_error
+            );
+        }
+
+        $res = json_decode($respuesta, true);
+
+        if (
+            $http_code < 200 ||
+            $http_code >= 300 ||
+            !isset($res['prompt_id'])
+        ) {
+            $detalle = $res['error']['message']
+                ?? $res['error']
+                ?? $respuesta;
+
+            throw new Exception(
+                'ComfyUI rechazó la fusión: ' .
+                (is_string($detalle)
+                    ? $detalle
+                    : json_encode($detalle))
+            );
+        }
+		
+		// 4.5. Esperar hasta 2 segundos a que ComfyUI escriba el .safetensors en disco
+        $base_models_dir = defined('COMFY_MODELS_DIR') ? rtrim(COMFY_MODELS_DIR, '/\\') : '';
+        if (!empty($base_models_dir)) {
+            $ruta_esperada = str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $base_models_dir . '/reactor/faces/' . $archivo_final);
+            $intentos = 0;
+            while (!file_exists($ruta_esperada) && $intentos < 20) {
+                usleep(100000); // Espera 0.1s por intento (máx 2 segundos)
+                clearstatcache(true, $ruta_esperada);
+                $intentos++;
+            }
+        }
+
+        // 5. Registrar la fusión en la base de datos.
+        //    IMPORTANTE: ComfyUI ha aceptado el trabajo,
+        //    pero todavía no sabemos si ha terminado correctamente.
+        $stmt_ins = $pdo->prepare(
+            "INSERT INTO reactor_faces
+             (user_id, face_name, filename)
+             VALUES (?, ?, ?)"
+        );
+
+        $stmt_ins->execute([
+            $user_id,
+            $nuevo_nombre,
+            $archivo_final
+        ]);
+
+        echo json_encode([
+            'success' => true,
+            'pending' => true,
+            'prompt_id' => $res['prompt_id'],
+            'cara' => [
+                'id' => $pdo->lastInsertId(),
+                'face_name' => $nuevo_nombre,
+                'filename' => $archivo_final
+            ]
+        ]);
+
+    } catch (Exception $e) {
+
+        echo json_encode([
+            'error' => $e->getMessage()
+        ]);
+
+    }
+
+    exit();
+}

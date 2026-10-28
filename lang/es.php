@@ -1108,6 +1108,36 @@ return [
     'reac_ph_target' => "Ej: 0 o 0,1",
     'reac_rest_none' => "Ninguna",
 	'tit_reac_modelo_swap' => "Modelo Swap (Base)",
+	// --- LÍMITES DE FRAMES (MODAL MODELOS) ---
+	'adm_ph_max_frames'     => "Frames SD/HD/FHD (241/121/65)",
+	'adm_hlp_max_frames'    => "Máximo de fotogramas por fragmento según resolución SD / HD / FHD (Ej: 241/121/65). Dejar vacío para límite inteligente automático.",
+
+	// --- REACTOR: NUEVAS OPCIONES (PESO, BOOST Y LUTS) ---
+	'tit_reac_modelo_swap'  => "Modelo Swap (Base)",
+	'tit_reac_weight'       => "Fuerza Swap",
+	'hlp_reac_weight'       => "Porcentaje de fusión del rostro origen sobre el destino",
+	'opt_reac_w_total'      => "Total",
+	'opt_reac_w_fusion'     => "Fusión",
+	'opt_reac_w_hybrid'     => "Híbrido",
+	'ctrl_reac_boost'       => "Activar Face Boost (Pre-escalado nítido)",
+	'hlp_reac_boost'        => "Restaura y escala el rostro recortado ANTES de pegarlo en la imagen final",
+	'tit_reac_lut'          => "Filtro LUT (.cube)",
+	'reac_lut_none'         => "Sin LUT (Color Original)",
+	'ctrl_reac_lut_str'     => "Fuerza LUT",
+	'ctrl_reac_grain' => "Grano de Película (Textura)",
+	'hlp_reac_grain'  => "Añade micro-textura orgánica para eliminar el efecto de piel lisa/plástica tras la restauración (0.05 - 0.15 recomendado)",
+	
+	// --- REACTOR: FUSIÓN DE ROSTROS ---
+	'btn_title_blend_face' => "Fusionar dos rostros guardados en uno nuevo",
+	'tit_reac_blend_faces' => "Fusionar 2 Rostros Guardados",
+	'ph_reac_blend_name'   => "Nombre del rostro híbrido (Ej: Ana_Mix)",
+	'btn_blend_face_model' => "Crear Rostro Fusionado",
+	'err_reac_same_face'   => "Selecciona dos rostros diferentes para poder fusionarlos.",
+	'swal_blend_min_title' => "Rostros insuficientes",
+	'swal_blend_min_text'  => "Necesitas tener al menos 2 rostros guardados para poder fusionarlos.",
+	'swal_blend_miss_text' => "Elige los dos rostros y escribe un nombre para el nuevo rostro híbrido.",
+	'swal_blend_ok_title'  => "¡Rostro Fusionado!",
+	'swal_blend_ok_text'   => "El nuevo modelo de rostro híbrido se ha generado y seleccionado.",
 
     // --- IC-Light (iclight_) ---
     'iclight_dir_ambient' => "Luz Ambiente / Detalle",
@@ -1339,6 +1369,8 @@ return [
     'err_no_sys_llm_active' => "No hay modelo SYS_LLM activo",
 	'err_ollama_unexp_format' => "Formato inesperado de Ollama:",
     'err_ollama_conn_fail_curl' => "Fallo de conexión con Ollama. cURL Error:",
+	'err_reac_invalid_models' => "Uno o ambos modelos faciales no existen o no pertenecen al usuario.",
+	'err_reac_invalid_name'   => "El nombre del nuevo modelo no es válido.",
 
     // ==============================================================================
     // 13. LOGS DE CONSOLA (log_)

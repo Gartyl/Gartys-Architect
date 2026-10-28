@@ -1119,6 +1119,36 @@ return [
     'reac_ph_target' => "Ex: 0 o 0,1",
     'reac_rest_none' => "Cap",
 	'tit_reac_modelo_swap' => "Model Swap (Base)",
+	// --- LÍMITS DE FRAMES (MODAL MODELS) ---
+	'adm_ph_max_frames'     => "Frames SD/HD/FHD (241/121/65)",
+	'adm_hlp_max_frames'    => "Màxim de fotogrames per fragment segons resolució SD / HD / FHD (Ex: 241/121/65). Deixar buit per a límit intel·ligent automàtic.",
+
+	// --- REACTOR: NOVES OPCIONS (PES, BOOST I LUTS) ---
+	'tit_reac_modelo_swap'  => "Model Swap (Base)",
+	'tit_reac_weight'       => "Força Swap",
+	'hlp_reac_weight'       => "Percentatge de fusió del rostre origen sobre el destí",
+	'opt_reac_w_total'      => "Total",
+	'opt_reac_w_fusion'     => "Fusió",
+	'opt_reac_w_hybrid'     => "Híbrid",
+	'ctrl_reac_boost'       => "Activar Face Boost (Pre-escalat nítid)",
+	'hlp_reac_boost'        => "Restaura i escala el rostre retallat ABANS d'enganxar-lo a la imatge final",
+	'tit_reac_lut'          => "Filtre LUT (.cube)",
+	'reac_lut_none'         => "Sense LUT (Color Original)",
+	'ctrl_reac_lut_str'     => "Força LUT",
+	'ctrl_reac_grain' => "Gra de Pel·lícula (Textura)",
+	'hlp_reac_grain'  => "Afegeix micro-textura orgànica per eliminar l'efecte de pell llisa/plàstica després de la restauració (0.05 - 0.15 recomanat)",
+	
+	// --- REACTOR: FUSIÓ DE ROSTRES ---
+	'btn_title_blend_face' => "Fusionar dos rostres desats en un de nou",
+	'tit_reac_blend_faces' => "Fusionar 2 Rostres Desats",
+	'ph_reac_blend_name'   => "Nom del rostre híbrid (Ex: Anna_Mix)",
+	'btn_blend_face_model' => "Crear Rostre Fusionat",
+	'err_reac_same_face'   => "Selecciona dos rostres diferents per poder fusionar-los.",
+	'swal_blend_min_title' => "Rostres insuficients",
+	'swal_blend_min_text'  => "Necessites tenir almenys 2 rostres desats per poder fusionar-los.",
+	'swal_blend_miss_text' => "Tria els dos rostres i escriu un nom per al nou rostre híbrid.",
+	'swal_blend_ok_title'  => "Rostre Fusionat!",
+	'swal_blend_ok_text'   => "El nou model de rostre híbrid s'ha generat i seleccionat.",
 
     // --- IC-Light (iclight_) ---
     'iclight_dir_ambient' => "Llum Ambient / Detall",
@@ -1352,6 +1382,8 @@ return [
     'err_no_sys_llm_active' => "No hi ha cap model SYS_LLM actiu",
 	'err_ollama_unexp_format' => "Format inesperat d'Ollama:",
     'err_ollama_conn_fail_curl' => "Error de connexió amb Ollama. Error cURL:",
+	'err_reac_invalid_models' => "Un o tots dos models facials no existeixen o no pertanyen a l'usuari.",
+	'err_reac_invalid_name'   => "El nom del nou model no és vàlid.",
 
     // ==============================================================================
     // 13. LOGS DE CONSOLA (log_)
