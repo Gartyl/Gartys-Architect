@@ -34,7 +34,7 @@ function scanOllamaModels() {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 2); // 2 segundos máximo para no atascar la carga del panel
     $res = curl_exec($ch);
-    curl_close($ch);
+    //curl_close($ch);
     
     $results = [];
     if ($res) {
