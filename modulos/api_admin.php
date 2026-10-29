@@ -16,6 +16,13 @@ if (!defined('APP_VERSION')) {
     require_once __DIR__ . '/../config.php';
 }
 
+// Salvavidas por si api_admin.php es llamado directamente vía AJAX sin el motor de idiomas
+if (!function_exists('__')) {
+    function __($key) {
+        return null;
+    }
+}
+
 // ==============================================================================
 // --- HELPER: CÁLCULO AUTOMÁTICO DE HASH AUTOV2 (CIVITAI) PARA MODELOS ---
 // ==============================================================================
@@ -659,7 +666,7 @@ if ($action === 'admin_guardar_idioma') {
 // ==============================================================================
 if ($action === 'check_update') {
     @ini_set('display_errors', 0);
-    if (ob_get_length()) ob_clean();
+    ob_start();
     header('Content-Type: application/json');
     
     // 1. URL "raw" de tu archivo version.json en GitHub (rama main)
@@ -674,7 +681,6 @@ if ($action === 'check_update') {
     curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Gartys-Architect-Updater)');
     $remote_data = curl_exec($ch);
     $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    // Nota: Omitimos curl_close($ch) por obsolescencia en PHP 8.5
     
     if ($http_status === 200 && !empty($remote_data)) {
         $meta = json_decode($remote_data, true);
@@ -695,6 +701,7 @@ if ($action === 'check_update') {
             
             $hay_actualizacion = version_compare($local_ver_clean, $remote_ver_clean, '<');
             
+            ob_clean();
             echo json_encode([
                 'update_available' => $hay_actualizacion,
                 'current_version'  => $local_ver_raw,
@@ -706,6 +713,7 @@ if ($action === 'check_update') {
         }
     }
     
+    ob_clean();
     echo json_encode(['update_available' => false]);
     exit();
 }
@@ -715,204 +723,245 @@ if ($action === 'check_update') {
 // ==============================================================================
 if ($action === 'instalar_actualizacion_zip') {
     @ini_set('display_errors', 0);
-    session_write_close();
+    @ini_set('memory_limit', '512M');
+    ob_start();
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
     @set_time_limit(0);
-    if (ob_get_length()) ob_clean();
     header('Content-Type: application/json');
     
-    if (isset($is_admin) && !$is_admin && defined('APP_MODE') && APP_MODE === 'servidor') {
-        echo json_encode(['error' => __('err_unauthorized') ?? 'No tienes permisos para realizar esta acción.']);
-        exit();
-    }
-    
-    // Para actualizaciones de código en caliente, el ZIP ligero de la rama main es siempre el más seguro y rápido
-    $url_zip = trim($_POST['zip_url'] ?? '');
-    if (empty($url_zip)) {
-        $url_zip = "https://github.com/Gartyl/Gartys-Architect/archive/refs/heads/main.zip";
-    }
-    
-    $archivo_temporal = __DIR__ . '/../temp_update.zip';
-    $ruta_destino = realpath(__DIR__ . '/../');
-    
-    // 1. DESCARGAMOS EL ARCHIVO ZIP DESDE GITHUB
-    $fp = @fopen($archivo_temporal, 'w+');
-    if (!$fp) {
-        echo json_encode(['error' => __('err_temp_file_write') ?? 'No se tiene permiso de escritura para crear el archivo temporal en el servidor.']);
-        exit();
-    }
-    
-    $ch = curl_init($url_zip);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 300);
-    curl_setopt($ch, CURLOPT_FILE, $fp);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Gartys-Architect-Updater)');
-    $success_dl = curl_exec($ch);
-    $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curl_err = curl_error($ch);
-    fclose($fp);
-    
-    if (!$success_dl || $http_status !== 200 || !file_exists($archivo_temporal) || filesize($archivo_temporal) < 1000) {
-        @unlink($archivo_temporal);
-        echo json_encode(['error' => (__('err_download_update') ?? 'No se pudo descargar el paquete de actualización.') . " (HTTP $http_status $curl_err)"]);
-        exit();
-    }
-
-    // --- LISTA NEGRA: Archivos y carpetas INTOCABLES (Usuario + Binarios FrankenPHP) ---
-    $protegidos = [
-        'config.php',
-        'database.sqlite',
-        'ia_prompts.sqlite',
-        'ia_prompts.db'
-    ];
-
-    $esRutaProtegida = function($ruta_rel) use ($protegidos) {
-        $ruta_rel = ltrim(str_replace('\\', '/', $ruta_rel), '/');
-        $nombre_archivo = basename($ruta_rel);
-        $ext = strtolower(pathinfo($nombre_archivo, PATHINFO_EXTENSION));
-
-        // Jamás tocar binarios en ejecución (.exe / .dll) ni carpetas de datos o sistema
-        if (in_array($ext, ['exe', 'dll']) || in_array($nombre_archivo, $protegidos)) {
-            return true;
+    try {
+        if (isset($is_admin) && !$is_admin && defined('APP_MODE') && APP_MODE === 'servidor') {
+            $err_unauth = (function_exists('__') ? __('err_unauthorized') : null) ?: 'No tienes permisos para realizar esta acción.';
+            ob_clean();
+            echo json_encode(['error' => $err_unauth]);
+            exit();
         }
-        if (strpos($ruta_rel, 'data/') === 0 || 
-            strpos($ruta_rel, 'galeria/') === 0 || 
-            strpos($ruta_rel, 'voces/') === 0 || 
-            strpos($ruta_rel, 'system/') === 0 ||
-            strpos($ruta_rel, '.git/') === 0) {
-            return true;
+        
+        // Para actualizaciones de código en caliente, el ZIP ligero de la rama main es siempre el más seguro y rápido
+        $url_zip = trim($_POST['zip_url'] ?? '');
+        if (empty($url_zip)) {
+            $url_zip = "https://github.com/Gartyl/Gartys-Architect/archive/refs/heads/main.zip";
         }
-        return false;
-    };
+        
+        $archivo_temporal = __DIR__ . '/../temp_update.zip';
+        $ruta_destino = realpath(__DIR__ . '/../');
+        
+        // 1. DESCARGAMOS EL ARCHIVO ZIP DESDE GITHUB
+        $fp = @fopen($archivo_temporal, 'w+');
+        if (!$fp) {
+            $err_write = (function_exists('__') ? __('err_temp_file_write') : null) ?: 'No se tiene permiso de escritura para crear el archivo temporal en el servidor.';
+            ob_clean();
+            echo json_encode(['error' => $err_write]);
+            exit();
+        }
+        
+        $ch = curl_init($url_zip);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 300);
+        curl_setopt($ch, CURLOPT_FILE, $fp);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Gartys-Architect-Updater)');
+        $success_dl = curl_exec($ch);
+        $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curl_err = curl_error($ch);
+        fclose($fp);
+        
+        if (!$success_dl || $http_status !== 200 || !file_exists($archivo_temporal) || filesize($archivo_temporal) < 1000) {
+            @unlink($archivo_temporal);
+            $err_dl = (function_exists('__') ? __('err_download_update') : null) ?: 'No se pudo descargar el paquete de actualización.';
+            ob_clean();
+            echo json_encode(['error' => $err_dl . " (HTTP $http_status $curl_err)"]);
+            exit();
+        }
 
-    $archivos_actualizados = 0;
+        // --- LISTA NEGRA: Archivos y carpetas INTOCABLES (Usuario + Binarios FrankenPHP) ---
+        $protegidos = [
+            'config.php',
+            'database.sqlite',
+            'ia_prompts.sqlite',
+            'ia_prompts.db'
+        ];
 
-    // 2A. MÉTODO 1: ZipArchive nativo de PHP (si está compilado en PHP)
-    if (class_exists('ZipArchive')) {
-        $zip = new ZipArchive;
-        if ($zip->open($archivo_temporal) === TRUE) {
-            
-            // Detectamos si el ZIP viene todo dentro de una carpeta raíz (ej. "Gartys-Architect-main/")
-            $tiene_carpeta_raiz = true;
-            $primera_carpeta = null;
-            for ($i = 0; $i < $zip->numFiles; $i++) {
-                $entry = str_replace('\\', '/', $zip->getNameIndex($i));
-                $partes = explode('/', $entry, 2);
-                if (count($partes) < 2) {
-                    $tiene_carpeta_raiz = false;
-                    break;
-                }
-                if ($primera_carpeta === null) {
-                    $primera_carpeta = $partes[0];
-                } elseif ($primera_carpeta !== $partes[0]) {
-                    $tiene_carpeta_raiz = false;
-                    break;
-                }
+        $esRutaProtegida = function($ruta_rel) use ($protegidos) {
+            $ruta_rel = ltrim(str_replace('\\', '/', $ruta_rel), '/');
+            $nombre_archivo = basename($ruta_rel);
+            $ext = strtolower(pathinfo($nombre_archivo, PATHINFO_EXTENSION));
+
+           // Jamás tocar binarios en ejecución (.exe / .dll), bases de datos locales ni archivos de configuración
+			if (in_array($ext, ['exe', 'dll', 'sqlite', 'sqlite3', 'db']) || in_array($nombre_archivo, $protegidos)) {
+				return true;
+			}
+            if (strpos($ruta_rel, 'data/') === 0 || 
+                strpos($ruta_rel, 'galeria/') === 0 || 
+                strpos($ruta_rel, 'voces/') === 0 || 
+                strpos($ruta_rel, 'system/') === 0 ||
+                strpos($ruta_rel, '.git/') === 0) {
+                return true;
             }
+            return false;
+        };
 
-            for ($i = 0; $i < $zip->numFiles; $i++) {
-                $nombre_en_zip = str_replace('\\', '/', $zip->getNameIndex($i));
+        // Helper para construir el mensaje de éxito sin riesgo de Fatal Error en __() o sprintf()
+        $construirMensajeExito = function($cantidad) {
+            $plantilla = function_exists('__') ? __('msg_update_success_count') : null;
+            if (empty($plantilla) || $plantilla === 'msg_update_success_count' || strpos($plantilla, '%') === false) {
+                $plantilla = "¡Actualización completada! (%s archivos actualizados correctamente).";
+            }
+            return @sprintf($plantilla, $cantidad);
+        };
+
+        $archivos_actualizados = 0;
+
+        // 2A. MÉTODO 1: ZipArchive nativo de PHP (si está compilado en PHP)
+        if (class_exists('ZipArchive')) {
+            $zip = new ZipArchive;
+            if ($zip->open($archivo_temporal) === TRUE) {
                 
-                if ($tiene_carpeta_raiz) {
-                    $partes = explode('/', $nombre_en_zip, 2);
-                    if (count($partes) < 2 || empty($partes[1])) continue;
-                    $ruta_relativa = $partes[1];
+                // Detectamos si el ZIP viene todo dentro de una carpeta raíz (ej. "Gartys-Architect-main/")
+                $tiene_carpeta_raiz = true;
+                $primera_carpeta = null;
+                for ($i = 0; $i < $zip->numFiles; $i++) {
+                    $entry = str_replace('\\', '/', $zip->getNameIndex($i));
+                    $partes = explode('/', $entry, 2);
+                    if (count($partes) < 2) {
+                        $tiene_carpeta_raiz = false;
+                        break;
+                    }
+                    if ($primera_carpeta === null) {
+                        $primera_carpeta = $partes[0];
+                    } elseif ($primera_carpeta !== $partes[0]) {
+                        $tiene_carpeta_raiz = false;
+                        break;
+                    }
+                }
+
+                for ($i = 0; $i < $zip->numFiles; $i++) {
+                    $nombre_en_zip = str_replace('\\', '/', $zip->getNameIndex($i));
+                    
+                    if ($tiene_carpeta_raiz) {
+                        $partes = explode('/', $nombre_en_zip, 2);
+                        if (count($partes) < 2 || empty($partes[1])) continue;
+                        $ruta_relativa = $partes[1];
+                    } else {
+                        $ruta_relativa = $nombre_en_zip;
+                    }
+                    
+                    if (substr($ruta_relativa, -1) === '/') {
+                        if (!$esRutaProtegida($ruta_relativa) && !is_dir($ruta_destino . '/' . $ruta_relativa)) {
+                            @mkdir($ruta_destino . '/' . $ruta_relativa, 0777, true);
+                        }
+                        continue;
+                    }
+                    
+                    if ($esRutaProtegida($ruta_relativa)) continue;
+                    
+                    $contenido = $zip->getFromIndex($i);
+                    if ($contenido !== false) {
+                        $archivo_final = $ruta_destino . '/' . $ruta_relativa;
+                        
+                        // Solo sobrescribimos si el archivo no existe o su contenido ha cambiado realmente
+                        if (file_exists($archivo_final) && @md5_file($archivo_final) === md5($contenido)) {
+                            continue;
+                        }
+
+                        $directorio_padre = dirname($archivo_final);
+                        if (!is_dir($directorio_padre)) {
+                            @mkdir($directorio_padre, 0777, true);
+                        }
+                        if (@file_put_contents($archivo_final, $contenido) !== false) {
+                            $archivos_actualizados++;
+                        }
+                    }
+                }
+                $zip->close();
+                @unlink($archivo_temporal);
+
+                ob_clean();
+                echo json_encode([
+                    'success' => true, 
+                    'mensaje' => $construirMensajeExito($archivos_actualizados)
+                ]);
+                exit();
+            }
+        }
+
+        // 2B. MÉTODO 2 (FALLBACK BLINDADO PARA FRANKENPHP SIN EXTENSIÓN ZIP): Usamos tar nativo de Windows
+        $temp_extract_dir = sys_get_temp_dir() . '/garty_upd_' . uniqid();
+        @mkdir($temp_extract_dir, 0777, true);
+
+        $cmd = "tar -xf " . escapeshellarg($archivo_temporal) . " -C " . escapeshellarg($temp_extract_dir) . " 2>&1";
+        @shell_exec($cmd);
+        @unlink($archivo_temporal);
+
+        // Comprobamos si hay una única subcarpeta raíz dentro de la extracción (ej. Gartys-Architect-main)
+        $items_extraidos = array_diff(@scandir($temp_extract_dir) ?: [], ['.', '..']);
+        $origen_base = $temp_extract_dir;
+        if (count($items_extraidos) === 1) {
+            $unico_item = reset($items_extraidos);
+            if (is_dir($temp_extract_dir . '/' . $unico_item)) {
+                $origen_base = $temp_extract_dir . '/' . $unico_item;
+            }
+        }
+
+        if (is_dir($origen_base) && count(array_diff(@scandir($origen_base) ?: [], ['.', '..'])) > 0) {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($origen_base, RecursiveDirectoryIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::SELF_FIRST
+            );
+
+            foreach ($iterator as $item) {
+                $subPath = str_replace('\\', '/', substr($item->getPathname(), strlen($origen_base) + 1));
+                if ($esRutaProtegida($subPath)) continue;
+
+                $targetPath = $ruta_destino . '/' . $subPath;
+                if ($item->isDir()) {
+                    if (!is_dir($targetPath)) @mkdir($targetPath, 0777, true);
                 } else {
-                    $ruta_relativa = $nombre_en_zip;
-                }
-                
-                if (substr($ruta_relativa, -1) === '/') {
-                    if (!$esRutaProtegida($ruta_relativa) && !is_dir($ruta_destino . '/' . $ruta_relativa)) {
-                        @mkdir($ruta_destino . '/' . $ruta_relativa, 0777, true);
+                    // Solo copiamos si el archivo no existe o su contenido ha cambiado realmente
+                    if (file_exists($targetPath) && @md5_file($targetPath) === @md5_file($item->getPathname())) {
+                        continue;
                     }
-                    continue;
-                }
-                
-                if ($esRutaProtegida($ruta_relativa)) continue;
-                
-                $contenido = $zip->getFromIndex($i);
-                if ($contenido !== false) {
-                    $directorio_padre = dirname($ruta_destino . '/' . $ruta_relativa);
-                    if (!is_dir($directorio_padre)) {
-                        @mkdir($directorio_padre, 0777, true);
-                    }
-                    if (@file_put_contents($ruta_destino . '/' . $ruta_relativa, $contenido) !== false) {
+
+                    $parentDir = dirname($targetPath);
+                    if (!is_dir($parentDir)) @mkdir($parentDir, 0777, true);
+                    if (@copy($item->getPathname(), $targetPath)) {
                         $archivos_actualizados++;
                     }
                 }
             }
-            $zip->close();
-            @unlink($archivo_temporal);
 
-            if (ob_get_length()) ob_clean();
+            // Limpieza de carpeta temporal
+            $cleanup = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($temp_extract_dir, RecursiveDirectoryIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::CHILD_FIRST
+            );
+            foreach ($cleanup as $file) {
+                $file->isDir() ? @rmdir($file->getPathname()) : @unlink($file->getPathname());
+            }
+            @rmdir($temp_extract_dir);
+
+            ob_clean();
             echo json_encode([
                 'success' => true, 
-                'mensaje' => sprintf(__('msg_update_success_count') ?? "¡Actualización completada! (%s archivos actualizados correctamente).", $archivos_actualizados)
+                'mensaje' => $construirMensajeExito($archivos_actualizados)
             ]);
             exit();
         }
-    }
 
-    // 2B. MÉTODO 2 (FALLBACK BLINDADO PARA FRANKENPHP SIN EXTENSIÓN ZIP): Usamos tar nativo de Windows
-    $temp_extract_dir = sys_get_temp_dir() . '/garty_upd_' . uniqid();
-    @mkdir($temp_extract_dir, 0777, true);
+        $err_unzip = (function_exists('__') ? __('err_unzip_fail') : null) ?: 'Error al abrir o descomprimir el archivo ZIP descargado.';
+        ob_clean();
+        echo json_encode(['error' => $err_unzip]);
+        exit();
 
-    $cmd = "tar -xf " . escapeshellarg($archivo_temporal) . " -C " . escapeshellarg($temp_extract_dir) . " 2>&1";
-    @shell_exec($cmd);
-    @unlink($archivo_temporal);
-
-    // Comprobamos si hay una única subcarpeta raíz dentro de la extracción (ej. Gartys-Architect-main)
-    $items_extraidos = array_diff(@scandir($temp_extract_dir) ?: [], ['.', '..']);
-    $origen_base = $temp_extract_dir;
-    if (count($items_extraidos) === 1) {
-        $unico_item = reset($items_extraidos);
-        if (is_dir($temp_extract_dir . '/' . $unico_item)) {
-            $origen_base = $temp_extract_dir . '/' . $unico_item;
+    } catch (\Throwable $e) {
+        if (isset($archivo_temporal) && file_exists($archivo_temporal)) {
+            @unlink($archivo_temporal);
         }
-    }
-
-    if (is_dir($origen_base) && count(array_diff(@scandir($origen_base) ?: [], ['.', '..'])) > 0) {
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($origen_base, RecursiveDirectoryIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::SELF_FIRST
-        );
-
-        foreach ($iterator as $item) {
-            $subPath = str_replace('\\', '/', substr($item->getPathname(), strlen($origen_base) + 1));
-            if ($esRutaProtegida($subPath)) continue;
-
-            $targetPath = $ruta_destino . '/' . $subPath;
-            if ($item->isDir()) {
-                if (!is_dir($targetPath)) @mkdir($targetPath, 0777, true);
-            } else {
-                $parentDir = dirname($targetPath);
-                if (!is_dir($parentDir)) @mkdir($parentDir, 0777, true);
-                if (@copy($item->getPathname(), $targetPath)) {
-                    $archivos_actualizados++;
-                }
-            }
-        }
-
-        // Limpieza de carpeta temporal
-        $cleanup = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($temp_extract_dir, RecursiveDirectoryIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST
-        );
-        foreach ($cleanup as $file) {
-            $file->isDir() ? @rmdir($file->getPathname()) : @unlink($file->getPathname());
-        }
-        @rmdir($temp_extract_dir);
-
-        if (ob_get_length()) ob_clean();
-        echo json_encode([
-            'success' => true, 
-            'mensaje' => sprintf(__('msg_update_success_count') ?? "¡Actualización completada! (%s archivos actualizados correctamente).", $archivos_actualizados)
-        ]);
+        ob_clean();
+        echo json_encode(['error' => 'Error interno al actualizar: ' . $e->getMessage() . ' (Línea ' . $e->getLine() . ')']);
         exit();
     }
-
-    if (ob_get_length()) ob_clean();
-    echo json_encode(['error' => __('err_unzip_fail') ?? 'Error al abrir o descomprimir el archivo ZIP descargado.']);
-    exit();
 }
 ?>
