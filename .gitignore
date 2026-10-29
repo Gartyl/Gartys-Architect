@@ -1,0 +1,14 @@
+galeria/
+voces/
+.clinerules
+debug_comfy.txt
+
+config.php
+admin_historial.php
+admin_panel.php
+escaner_loras.php
+kanban.html
+login.php
+logout.php
+perfil.php
+registro.php
