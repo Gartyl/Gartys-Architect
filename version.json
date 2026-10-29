@@ -1,6 +1,6 @@
 {
   "version": "1.0.1",
   "fecha": "2026-10-29",
-  "changelog": "Corregido error en Qwen 2.1 sin imagen adjunta.",
+  "changelog": "Corregido error en Qwen 2.1 sin imagen adjunta, mejoras en multicarga del Chat y optimización del auto-actualizador.",
   "zip_url": "https://github.com/Gartyl/Gartys-Architect/archive/refs/heads/main.zip"
 }
