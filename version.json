@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
-  "fecha": "2026-08-29",
-  "changelog": "Añadido control automàtico Auto Architect.",
+  "version": "1.0.1",
+  "fecha": "2026-10-29",
+  "changelog": "Corregido error en Qwen 2.1 sin imagen adjunta.",
   "zip_url": "https://github.com/Gartyl/Gartys-Architect/archive/refs/heads/main.zip"
 }
