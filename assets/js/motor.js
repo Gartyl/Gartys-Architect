@@ -1834,8 +1834,14 @@ function updateUIForSelector(sel) {
     if (isDirectMode) {
         const btnArq = document.getElementById('submitBtn'); if (btnArq) btnArq.style.setProperty('display', 'none', 'important');
         const btnAmp = document.getElementById('amplifyBtn'); if (btnAmp) btnAmp.style.setProperty('display', 'none', 'important');
-        const btnSur = document.getElementById('surpriseBtn'); if (btnSur) btnSur.style.setProperty('display', 'none', 'important');
-        const translateToggle = document.getElementById('translateToggleBlock'); if (translateToggle) translateToggle.style.setProperty('display', 'none', 'important');
+        
+		const btnSur = document.getElementById('surpriseBtn');
+		if (btnSur) {
+			if (sel === '[CHAT]') btnSur.style.setProperty('display', 'none', 'important');
+			else btnSur.style.removeProperty('display');
+		}
+		
+		const translateToggle = document.getElementById('translateToggleBlock'); if (translateToggle) translateToggle.style.setProperty('display', 'none', 'important');
         const contenedorIdea = document.getElementById('contenedorIdea'); if (contenedorIdea) contenedorIdea.classList.add('d-none');
         const btnGpu = document.getElementById('gpuDirectBtn');
 
@@ -3222,7 +3228,7 @@ async function runGpu(mode = 'directo') {
 	
 	// Si el Modo Dado Fijo está activo (en disparo simple o lote 2/4), tiramos el dado para la 1ª imagen
     const batchValPre = document.getElementById('batchSize') ? document.getElementById('batchSize').value : "1";
-    if (window.dadoFijoActivo && mode === 'directo' && !isModoDirecto && !isPureMode && batchValPre !== 'inf' && typeof window.tirarDadoSilencioso === 'function') {
+    if (window.dadoFijoActivo && mode === 'directo' && !isPureMode && batchValPre !== 'inf' && typeof window.tirarDadoSilencioso === 'function') {
         if (buttonUsed) {
             buttonUsed.disabled = true;
             buttonUsed.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> 🎲...';
@@ -4526,7 +4532,8 @@ window.toggleModoIngreso = function() {
         if(contenedorIdea) contenedorIdea.classList.add('d-none');
         if(submitBtn) submitBtn.style.setProperty('display', 'none', 'important');
         if(amplifyBtn) amplifyBtn.style.setProperty('display', 'none', 'important');
-        if(surpriseBtn) surpriseBtn.style.setProperty('display', 'none', 'important');
+        // 👇 Quitamos el bloqueo de surpriseBtn para que siga visible en mainButtonsContainer
+        if(surpriseBtn && isGraphical) surpriseBtn.style.removeProperty('display');
         if(translateToggleBlock) translateToggleBlock.style.setProperty('display', 'none', 'important');
         
         if(lblIdea) lblIdea.innerHTML = '<i class="bi bi-input-cursor-text text-warning"></i> ' + (GartyLang.lbl_prompts_directos || 'Prompts Directos');

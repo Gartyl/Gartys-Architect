@@ -678,6 +678,55 @@ async function cargarDatosImagen(imgId) {
 // --- BOTÓN SORPRÉNDEME Y MODO DADO FIJO ---
 window.dadoFijoActivo = false;
 
+// Separador inteligente de Positivo y Negativo (soporta Español/Inglés, Markdown y JSON)
+window.separarPromptPosNeg = function(texto) {
+    if (!texto) return { pos: '', neg: '' };
+    let limpio = String(texto).replace(/```(?:json|[a-z]*)?\n?/gi, '').replace(/```/g, '').trim();
+
+    // 1. Si el modelo devuelve JSON puro
+    if (limpio.startsWith('{') && limpio.endsWith('}')) {
+        try {
+            const parsed = JSON.parse(limpio);
+            if (parsed.prompt || parsed.positive || parsed.positivo) {
+                return {
+                    pos: String(parsed.prompt || parsed.positive || parsed.positivo || '').trim(),
+                    neg: String(parsed.negative_prompt || parsed.negative || parsed.negativo || '').trim()
+                };
+            }
+        } catch (e) {}
+    }
+
+    // 2. Localizar y aislar el Bloque Negativo
+    const regexNeg = /(?:^|\n)\s*(?:\*{1,2}|#{1,4}|\[|-)?\s*(?:Negative(?:\s+Prompt)?|Prompt\s+Negativo|Negativo)\s*(?:\*{1,2}|\]|:|-)*\s*:?\s*([\s\S]*?)(?:\n\s*(?:\*{1,2}|#{1,4}|\[|-)?\s*(?:Parámetros|Parameters|Concepto).*|$)/i;
+    const matchNeg = limpio.match(regexNeg);
+
+    let pos = limpio;
+    let neg = '';
+
+    if (matchNeg) {
+        neg = matchNeg[1].trim();
+        // Cortamos el texto que va desde la etiqueta negativa hacia atrás para aislar el positivo
+        pos = limpio.slice(0, limpio.indexOf(matchNeg[0])).trim();
+    }
+
+    // 3. Aislar el Positive Prompt ignorando cualquier introducción tipo "¡Claro!" previa
+    const regexPos = /(?:Positive\s+Prompt\s*\(Inglés\)|Prompt\s+Positivo|Positivo)\s*(?:\*{1,2}|\]|:|-)*\s*:?\s*([\s\S]*)$/i;
+    const matchPos = pos.match(regexPos);
+    if (matchPos) {
+        pos = matchPos[1].trim();
+    }
+
+    // Limpiar etiquetas de concepto o markdown residuales al principio del positivo si las hubiera
+    pos = pos.replace(/^-\s*\*\*Concepto:\*\*[\s\S]*?\n/i, '').trim();
+    pos = pos.replace(/^\s*(?:\*{1,2}|#{1,4}|\[|-)?\s*(?:Positive(?:\s+Prompt)?|Prompt\s+Positivo|Positivo)\s*(?:\*{1,2}|\]|:|-)*\s*:?\s*/i, '').trim();
+
+    // Limpiar comillas envolventes
+    pos = pos.replace(/^["']|["']$/g, '').trim();
+    neg = neg.replace(/^["']|["']$/g, '').trim();
+
+    return { pos, neg };
+};
+
 window.tirarDadoSilencioso = async function() {
     let formData = new FormData();
     formData.append('action', 'generar_prompt_sorpresa');
@@ -695,26 +744,63 @@ window.tirarDadoSilencioso = async function() {
     let response = await fetch('procesar.php', { method: 'POST', body: formData });
     let data = await response.json();
     if (data && data.success && data.prompt) {
-        const caja = document.getElementById('descripcion');
-        if (caja) caja.value = data.prompt;
-        return data.prompt.trim();
+        const rawPrompt = data.prompt.trim();
+        const separado = window.separarPromptPosNeg(rawPrompt);
+
+        const isDirectMode = document.getElementById('modoDirectoToggle')?.checked;
+        const promptArea = document.getElementById('promptArea');
+        const negativeArea = document.getElementById('negativeArea');
+        const posContent = document.getElementById('posContent');
+        const negContent = document.getElementById('negContent');
+
+        // Comprobamos si las cajas de Positivo/Negativo están visibles en pantalla
+        const cajasVisibles = isDirectMode || (promptArea && !promptArea.classList.contains('d-none'));
+
+        const cajaIdea = document.getElementById('descripcion');
+        if (cajaIdea) {
+            cajaIdea.value = cajasVisibles ? separado.pos : rawPrompt;
+        }
+
+        if (cajasVisibles && posContent) {
+            posContent.innerText = separado.pos;
+
+            if (negContent) {
+                negContent.innerText = separado.neg;
+                if (negativeArea) {
+                    if (separado.neg !== '') {
+                        negativeArea.classList.remove('d-none');
+                    } else if (!isDirectMode) {
+                        negativeArea.classList.add('d-none');
+                    }
+                }
+            }
+
+            // Sincronizamos con la memoria de presets por si el usuario aplica un estilo después
+            if (typeof lastGeneratedPrompt !== 'undefined') {
+                lastGeneratedPrompt.pos = separado.pos;
+                lastGeneratedPrompt.neg = separado.neg;
+            }
+        }
+
+        return separado.pos || rawPrompt;
     }
     return '';
 };
 
 window.obtenerPromptDadoProcesado = async function() {
-    const rawPrompt = await window.tirarDadoSilencioso();
-    if (!rawPrompt) return null;
+    const rawResult = await window.tirarDadoSilencioso();
+    if (!rawResult) return null;
 
-    let finalPos = rawPrompt;
-    let finalNeg = "";
+    // Recuperamos el positivo y negativo ya separados si existen en memoria
+    let finalPos = (typeof lastGeneratedPrompt !== 'undefined' && lastGeneratedPrompt.pos) ? lastGeneratedPrompt.pos : rawResult;
+    let finalNeg = (typeof lastGeneratedPrompt !== 'undefined' && lastGeneratedPrompt.neg) ? lastGeneratedPrompt.neg : "";
 
     const autoTranslate = document.getElementById('autoTranslateToggle') ? document.getElementById('autoTranslateToggle').checked : false;
     if (autoTranslate) {
         try {
             const fdTrad = new FormData();
             fdTrad.append('action', 'traducir_rapido');
-            fdTrad.append('texto', rawPrompt);
+            fdTrad.append('texto', finalPos);
             const llmSel = document.getElementById('llmModelSelector');
             if (llmSel && llmSel.value) fdTrad.append('llm_model', llmSel.value);
 
@@ -729,12 +815,12 @@ window.obtenerPromptDadoProcesado = async function() {
     }
 
     if (typeof window.getPromptsWithPresets === 'function') {
-        const applied = window.getPromptsWithPresets(finalPos, "");
+        const applied = window.getPromptsWithPresets(finalPos, finalNeg);
         finalPos = applied.pos;
         finalNeg = applied.neg;
     }
 
-    return { pos: finalPos, neg: finalNeg, orig: rawPrompt };
+    return { pos: finalPos, neg: finalNeg, orig: finalPos };
 };
 
 const botonDadoMagico = document.getElementById('surpriseBtn');
@@ -779,10 +865,8 @@ if (botonDadoMagico) {
         }
     });
 
-    // Clic izquierdo: Tirada única tradicional
+    // Clic izquierdo: Tirada única (funciona tanto en Idea Inicial como en Modo Directo)
     botonDadoMagico.onclick = async function() {
-        let cajaTextoPrincipal = document.getElementById('descripcion');
-        if (!cajaTextoPrincipal) return;
         let iconoOriginal = botonDadoMagico.innerHTML;
         botonDadoMagico.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
         botonDadoMagico.disabled = true;
