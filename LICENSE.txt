@@ -14,13 +14,13 @@ The Developer grants you a revocable, non-exclusive, non-transferable, limited l
     Pro Edition: Granted upon purchase of a valid license key, unlocking advanced features and direct support. License keys are strictly personal and may not be shared, resold, or distributed.
 
 2. Third-Party Software and Open Source
-The Software acts as an interface and orchestrator for third-party open-source technologies. You acknowledge that:
+The Software acts as an independent interface and orchestrator for third-party open-source technologies. You acknowledge that:
 
-    The Software bundles and utilizes ComfyUI (GPL-3.0 License) and Ollama (MIT License).
+    The Software is not bundled with, nor does it distribute, third-party AI engines; instead, it communicates via local network APIs with external, user-installed instances of ComfyUI (GPL-3.0 License) and Ollama (MIT License).
 
-    The Developer does not claim ownership over these third-party engines, nor over any AI models downloaded via the Software.
+    The Developer does not claim ownership over these third-party engines, nor over any AI models downloaded or managed via the Software.
 
-    Your use of these third-party engines and AI models is governed by their respective original licenses.
+    Your installation and use of these third-party engines and AI models are governed strictly by their respective original licenses.
 
 3. Restrictions
 You agree not to, and you will not permit others to:
@@ -55,13 +55,13 @@ El Desarrollador te otorga una licencia revocable, no exclusiva, intransferible 
     Pro Edition: Otorgada tras la compra de una clave de licencia válida, desbloqueando funciones avanzadas y soporte directo. Las claves de licencia son estrictamente personales y no pueden ser compartidas, revendidas ni distribuidas.
 
 2. Software de Terceros y Código Abierto
-El Software actúa como una interfaz y orquestador para tecnologías de código abierto de terceros. Reconoces que:
+El Software actúa como una interfaz independiente y un orquestador para tecnologías de código abierto de terceros. Reconoces que:
 
-    El Software empaqueta y utiliza ComfyUI (Licencia GPL-3.0) y Ollama (Licencia MIT).
+    El Software no empaqueta ni distribuye motores de IA de terceros, sino que se comunica a través de red local (API) con instancias externas de ComfyUI (Licencia GPL-3.0) y Ollama (Licencia MIT) instaladas por el usuario.
 
-    El Desarrollador no reclama la propiedad sobre estos motores de terceros, ni sobre los modelos de IA descargados a través del Software.
+    El Desarrollador no reclama la propiedad sobre estos motores de terceros, ni sobre los modelos de IA descargados o gestionados a través del Software.
 
-    El uso de estos motores de terceros y modelos de IA se rige por sus respectivas licencias originales.
+    La instalación y el uso de estos motores de terceros y modelos de IA se rigen estrictamente por sus respectivas licencias originales.
 
 3. Restricciones
 Aceptas no hacer, ni permitir que otros hagan, lo siguiente:
