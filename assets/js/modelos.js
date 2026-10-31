@@ -346,6 +346,16 @@ function updateLoraFilter(category) {
     } else { 
         let tempLoras = [];
         
+        // Helper: Detecta si el LoRA está dentro de una carpeta base o en CUALQUIERA de sus subcarpetas
+        const estaEnCarpeta = (ruta, carpetas) => {
+            const norm = ruta.toLowerCase().replace(/\\/g, '/');
+            const lista = Array.isArray(carpetas) ? carpetas : [carpetas];
+            return lista.some(c => {
+                const base = c.toLowerCase();
+                return norm.startsWith(base + '/') || norm.includes('/' + base + '/');
+            });
+        };
+
         // --- LA MAGIA REAL: DETERMINAR LA ARQUITECTURA ---
         let targetArch = category; 
         
@@ -359,82 +369,66 @@ function updateLoraFilter(category) {
 
         // 2. Filtramos la lista maestra de LoRAs (loadedLoras) según la arquitectura detectada
         if (targetArch === '[SD15]') {
-            tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('sd15') || m.toLowerCase().includes('v15'));
+            tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, ['sd15', 'v15', 'sd1.5']) || m.toLowerCase().includes('sd15') || m.toLowerCase().includes('v15'));
         } else if (targetArch === '[SDXL]') {
-            tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('sdxl') || m.toLowerCase().includes('xl'));
+            tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, ['sdxl', 'xl', 'illustrious', 'pony']) || m.toLowerCase().includes('sdxl') || m.toLowerCase().includes('xl'));
         } else if (targetArch === '[NATURAL_IMAGE]') {
-            // === FILTRO AISLADO POR ARQUITECTURAS ===
+            // === FILTRO AISLADO POR ARQUITECTURAS (SOPORTA SUBCARPETAS INFINITAS) ===
             if (modeloSeleccionado.includes('chroma') && !modeloSeleccionado.includes('zavy')) {
-                tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('chroma\\') || m.toLowerCase().includes('chroma/'));
+                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'chroma'));
             } else if (modeloSeleccionado.includes('ideogram')) {
-                tempLoras = loadedLoras.filter(m => {
-                    let low = m.toLowerCase();
-                    return low.includes('ideogram4');
-                });
+                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, ['ideogram4', 'ideogram']) || m.toLowerCase().includes('ideogram4'));
             } else if (modeloSeleccionado.includes('flux3') || modeloSeleccionado.includes('flux-3') || modeloSeleccionado.includes('flux_3') || modeloSeleccionado.includes('flux.3')) {
-                // FLUX 3 y FLUX 3 KLEIN: Exclusivo para subcarpeta flux3 (o archivos que empiecen por f3_ / contengan flux3)
+                // FLUX 3 y FLUX 3 KLEIN: Carpeta flux3 (y sus subcarpetas) o archivos f3_ / flux3
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
-                    return low.includes('flux3\\') || low.includes('flux3/') || low.startsWith('f3_') || low.includes('flux3');
+                    let fileName = low.split(/[\\/]/).pop();
+                    return estaEnCarpeta(m, ['flux3', 'flux-3', 'flux_3']) || fileName.startsWith('f3_') || low.includes('flux3');
                 });
             } else if (modeloSeleccionado.includes('flux2') || modeloSeleccionado.includes('klein')) {
-                // FLUX 2 y KLEIN: Exclusivo para la subcarpeta flux2 (o archivos que empiecen por f2_)
+                // FLUX 2 y KLEIN: Carpeta flux2 (y sus subcarpetas) o archivos f2_
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
-                    return (low.includes('flux2\\') || low.includes('flux2/') || low.startsWith('f2_')) && !low.includes('flux3');
+                    let fileName = low.split(/[\\/]/).pop();
+                    return (estaEnCarpeta(m, ['flux2', 'flux-2', 'flux_2', 'klein']) || fileName.startsWith('f2_')) && !low.includes('flux3');
                 });
             } else if (modeloSeleccionado.includes('flux') || modeloSeleccionado.includes('kontext')) {
-                // FLUX 1 y KONTEXT: Exclusivo para subcarpeta flux original, excluyendo explícitamente a flux2 y flux3
+                // FLUX 1 y KONTEXT: Carpeta flux original (y sus subcarpetas), excluyendo flux2 y flux3
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
-                    return (low.includes('flux\\') || low.includes('flux/') || low.startsWith('f1_')) && !low.includes('flux2') && !low.includes('flux3');
+                    let fileName = low.split(/[\\/]/).pop();
+                    return (estaEnCarpeta(m, ['flux', 'flux1', 'kontext']) || fileName.startsWith('f1_')) && !low.includes('flux2') && !low.includes('flux3');
                 });
             } else if (modeloSeleccionado.includes('z-image') || modeloSeleccionado.includes('zimage') || modeloSeleccionado.includes('z_image')) {
-                tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('zimage'));
+                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, ['zimage', 'z-image', 'z_image']) || m.toLowerCase().includes('zimage'));
             } else if (modeloSeleccionado.includes('qwen')) {
-                tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('qwen'));
+                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'qwen') || m.toLowerCase().includes('qwen'));
             } else if (modeloSeleccionado.includes('krea2') || modeloSeleccionado.includes('krea-2') || modeloSeleccionado.includes('krea 2')) {
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
-                    return low.includes('krea2') || low.includes('krea-2');
+                    return estaEnCarpeta(m, ['krea2', 'krea-2', 'krea']) || low.includes('krea2') || low.includes('krea-2');
                 });
             } else if (modeloSeleccionado.includes('sd3') || modeloSeleccionado.includes('3.5')) {
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
-                    return low.includes('sd3') || low.includes('3.5');
+                    return estaEnCarpeta(m, ['sd3', 'sd35', 'sd3.5', 'sd3_5']) || low.includes('sd3') || low.includes('3.5');
                 });
             } else if (modeloSeleccionado.includes('hunyuan') && !modeloSeleccionado.includes('video')) {
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
-                    // Mostramos los que estén en la carpeta Hunyuan pero que no sean de vídeo
-                    return low.includes('hunyuan') && !low.includes('video');
+                    return (estaEnCarpeta(m, 'hunyuan') || low.includes('hunyuan')) && !low.includes('video');
                 });
             } else if (modeloSeleccionado.includes('hidream')) {
-                tempLoras = loadedLoras.filter(m => {
-                    let low = m.toLowerCase();
-                    return low.includes('hidream');
-                });
+                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'hidream') || m.toLowerCase().includes('hidream'));
             } else if (modeloSeleccionado.includes('anima')) {
-                tempLoras = loadedLoras.filter(m => {
-                    let low = m.toLowerCase();
-                    // Filtramos para que solo muestre archivos dentro de la carpeta Anima
-                    return low.includes('anima\\') || low.includes('anima/');
-                });
+                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'anima'));
             } else if (modeloSeleccionado.includes('moss')) {
-                tempLoras = loadedLoras.filter(m => {
-                    let low = m.toLowerCase();
-                    // Filtramos para que solo muestre LoRAs de MOSS (carpeta Moss/ o nombre con moss)
-                    return low.includes('moss\\') || low.includes('moss/') || low.includes('moss');
-                });
-			} else if (modeloSeleccionado.includes('fibo')) {
-                tempLoras = loadedLoras.filter(m => {
-                    let low = m.toLowerCase();
-                    return low.includes('fibo\\') || low.includes('fibo/') || low.includes('fibo');
-                });
+                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'moss') || m.toLowerCase().includes('moss'));
+            } else if (modeloSeleccionado.includes('fibo')) {
+                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'fibo') || m.toLowerCase().includes('fibo'));
             } else {
                 tempLoras = loadedLoras.filter(m => {
                     const low = m.toLowerCase();
-                    // Fallback general para Natural Image
                     return low.includes('flux') || low.includes('sd35') || low.includes('sd3.5') || low.includes('sd3_5') || low.includes('zimage') || low.includes('z_image') || low.includes('z-image') || low.includes('qwen') || low.includes('krea2') || low.includes('krea-2') || low.includes('hunyuan') || low.includes('hidream') || low.includes('ideogram4') || low.includes('anima') || low.includes('moss') || low.includes('fibo');      
                 });
             }
@@ -442,24 +436,18 @@ function updateLoraFilter(category) {
         // --- CORRECCIÓN: FILTRO ESPECÍFICO PARA MODELOS DE VIDEO ---
         // =========================================================================
         } else if (targetArch === '[VIDEO]') {
-            // Evaluamos si el modelo seleccionado es Wan, LTX, Minimax o Hunyuan específicamente
             if (modeloSeleccionado.includes('wan')) {
-                tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('wan'));
+                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'wan') || m.toLowerCase().includes('wan'));
             } else if (modeloSeleccionado.includes('ltx')) {
-                tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('ltx'));
+                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'ltx') || m.toLowerCase().includes('ltx'));
             } else if (modeloSeleccionado.includes('minimax')) {
-                tempLoras = loadedLoras.filter(m => {
-                    let low = m.toLowerCase();
-                    return low.includes('minimax_h3\\') || low.includes('minimax_h3/');
-                });
+                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, ['minimax_h3', 'minimax']));
             } else if (modeloSeleccionado.includes('hunyuan')) {
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
-                    // Solo mostramos LoRAs de Hunyuan que tengan la palabra 'video', 't2v', 'i2v' o estén en su carpeta
-                    return (low.includes('hunyuan') && (low.includes('video') || low.includes('t2v') || low.includes('i2v'))) || low.includes('hunyuan\\') || low.includes('hunyuan/');
+                    return estaEnCarpeta(m, 'hunyuan') || (low.includes('hunyuan') && (low.includes('video') || low.includes('t2v') || low.includes('i2v')));
                 });
             } else {
-                // Fallback por si acaso
                 tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('wan') || m.toLowerCase().includes('ltx') || m.toLowerCase().includes('minimax') || m.toLowerCase().includes('hunyuan'));
             }
         // =========================================================================
@@ -588,12 +576,20 @@ function addLoraRow() {
                         triggerBadge.style.display = 'inline-block';
                         
                         triggerBadge.onclick = function() {
-                            if(promptBox) {
-                                promptBox.value += (promptBox.value ? ', ' : '') + data.triggers;
+                            const isDirect = document.getElementById('modoDirectoToggle')?.checked;
+                            const posBox = document.getElementById('posContent');
+                            const descBox = document.getElementById('descripcion');
+
+                            if (isDirect && posBox) {
+                                const actual = posBox.innerText.trim();
+                                posBox.innerText = actual ? (actual + ', ' + data.triggers) : data.triggers;
+                            } else if (descBox) {
+                                const actual = descBox.value.trim();
+                                descBox.value = actual ? (actual + ', ' + data.triggers) : data.triggers;
                             } else {
                                 navigator.clipboard.writeText(data.triggers);
-                                SwalDark.fire({toast: true, position: 'top-end', icon: 'success', title: GartyLang.lora_msg_trig_copied, text: data.triggers, showConfirmButton: false, timer: 3000});
                             }
+                            SwalDark.fire({toast: true, position: 'top-end', icon: 'success', title: GartyLang.lora_msg_trig_copied || 'Trigger añadido', text: data.triggers, showConfirmButton: false, timer: 2000});
                         };
                     }
                 } catch(e) { console.error(GartyLang.err_server_route, text); }

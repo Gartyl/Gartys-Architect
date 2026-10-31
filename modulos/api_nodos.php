@@ -157,7 +157,6 @@ if ($action === 'get_lora_trigger') {
     $lora_name = str_replace('\\', '/', $lora_name);
 
     $filepath = rtrim($base_dir, '/') . '/loras/' . ltrim($lora_name, '/');
-
     if (!file_exists($filepath)) {
         $filepath = rtrim($base_dir, '/') . '/Lora/' . ltrim($lora_name, '/');
     }
@@ -167,104 +166,196 @@ if ($action === 'get_lora_trigger') {
         exit();
     }
 
+    $base_no_ext = preg_replace('/\.(safetensors|pt|ckpt|bin)$/i', '', $filepath);
+    $txt_filepath = $base_no_ext . '.txt';
+
     // ==============================================================================
-    // 🌟 NUEVO: ESCUDO DE ARCHIVOS DE TEXTO GEMELOS (.txt) 🌟
+    // 1. ARCHIVO .TXT GEMELO (Prioridad absoluta / caché local instantánea)
     // ==============================================================================
-    // Sustituimos la extensión del modelo por .txt
-    $txt_filepath = preg_replace('/\.(safetensors|pt|ckpt)$/i', '.txt', $filepath);
-    
     if (file_exists($txt_filepath)) {
-        // Leemos el texto, quitamos espacios en blanco extra y lo enviamos directo a la interfaz
         $trigger_words = trim(file_get_contents($txt_filepath));
-        
         echo json_encode([
             'triggers' => $trigger_words,
-            'debug_exito' => 'Lectura manual (Archivo .txt gemelo)',
+            'debug_exito' => 'Lectura desde archivo .txt gemelo',
             'debug_meta_keys' => ['manual_txt_override']
         ]);
         exit();
     }
+
     // ==============================================================================
-
-    // Si NO hay .txt, procedemos con el escáner binario ultrarrápido habitual
-    $f = fopen($filepath, 'rb');
-    if (!$f) { 
-        echo json_encode(['triggers' => '', 'debug_error' => __('err_lora_read_lock')]); 
-        exit(); 
-    }
-
-    $size_bytes = fread($f, 8);
-    if ($size_bytes === false || strlen($size_bytes) !== 8) {
-        fclose($f);
-        echo json_encode(['triggers' => '', 'debug_error' => __('err_lora_io_header')]); 
-        exit();
-    }
-
-    $unpacked = unpack('P', $size_bytes);
-    if (!$unpacked || !isset($unpacked[1])) {
-        fclose($f);
-        echo json_encode(['triggers' => '', 'debug_error' => __('err_lora_corrupt_header')]); 
-        exit();
-    }
-    
-    $size = $unpacked[1]; 
-    
-    if ($size <= 0 || $size > 10000000) { 
-        fclose($f); 
-        echo json_encode(['triggers' => '', 'debug_error' => __('err_lora_abnormal_size') . ': ' . $size]); 
-        exit(); 
-    }
-
-    $json_str = fread($f, $size);
-    fclose($f);
-
-    if (!$json_str) {
-        echo json_encode(['triggers' => '', 'debug_error' => __('err_lora_ram_dump')]); 
-        exit();
-    }
-
-    $header = json_decode($json_str, true);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        echo json_encode(['triggers' => '', 'debug_error' => __('err_lora_invalid_json')]); 
-        exit();
-    }
-
-    $triggers = [];
-    $meta = [];
-    
-    if (isset($header['__metadata__'])) {
-        $meta = $header['__metadata__'];
-        
-        if (isset($meta['modelspec.trigger_phrase'])) {
-            $triggers[] = $meta['modelspec.trigger_phrase'];
-        }
-        if (isset($meta['trigger_words'])) {
-            $tw_decoded = json_decode($meta['trigger_words'], true);
-            if (is_array($tw_decoded)) {
-                $triggers = array_merge($triggers, $tw_decoded);
-            } else {
-                $triggers[] = $meta['trigger_words'];
+    // 2. ARCHIVOS METADATA EXTERNOS (.civitai.info / .json de gestores)
+    // ==============================================================================
+    $sidecars = [$base_no_ext . '.civitai.info', $base_no_ext . '.json', $filepath . '.json'];
+    foreach ($sidecars as $sc) {
+        if (file_exists($sc)) {
+            $sc_data = json_decode(@file_get_contents($sc), true);
+            if (is_array($sc_data)) {
+                $found_sc = [];
+                if (!empty($sc_data['trainedWords']) && is_array($sc_data['trainedWords'])) {
+                    $found_sc = $sc_data['trainedWords'];
+                } elseif (!empty($sc_data['activation text'])) {
+                    $found_sc = [$sc_data['activation text']];
+                } elseif (!empty($sc_data['trigger_words'])) {
+                    $found_sc = is_array($sc_data['trigger_words']) ? $sc_data['trigger_words'] : [$sc_data['trigger_words']];
+                }
+                $found_sc = array_values(array_unique(array_filter(array_map('trim', $found_sc))));
+                if (!empty($found_sc)) {
+                    $res_str = implode(', ', $found_sc);
+                    @file_put_contents($txt_filepath, $res_str); // Lo guardamos en .txt para acelerar futuras cargas
+                    echo json_encode([
+                        'triggers' => $res_str,
+                        'debug_exito' => 'Extraído de sidecar JSON/Civitai',
+                        'debug_meta_keys' => ['sidecar_json']
+                    ]);
+                    exit();
+                }
             }
         }
-        if (empty($triggers) && isset($meta['ss_tag_frequency'])) {
-            $tags = json_decode($meta['ss_tag_frequency'], true);
-            if (is_array($tags)) {
-                foreach ($tags as $folder => $tag_list) {
-                    foreach ($tag_list as $tag => $count) {
-                        if (!in_array($tag, ['1girl', '1boy', 'solo', 'highres'])) {
+    }
+
+    // ==============================================================================
+    // 3. ESCÁNER BINARIO DE CABECERA SAFETENSORS (Mejorado)
+    // ==============================================================================
+    $triggers = [];
+    $meta = [];
+
+    $f = @fopen($filepath, 'rb');
+    if ($f) {
+        $size_bytes = fread($f, 8);
+        if ($size_bytes !== false && strlen($size_bytes) === 8) {
+            $unpacked = unpack('P', $size_bytes);
+            $size = $unpacked[1] ?? 0;
+            if ($size > 0 && $size <= 10000000) {
+                $json_str = fread($f, $size);
+                if ($json_str) {
+                    $header = json_decode($json_str, true);
+                    if (isset($header['__metadata__']) && is_array($header['__metadata__'])) {
+                        $meta = $header['__metadata__'];
+                    }
+                }
+            }
+        }
+        fclose($f);
+    }
+
+    if (!empty($meta)) {
+        // A) Campos directos de diferentes entrenadores (Kohya, AI-Toolkit, FluxGym, Swarm, etc.)
+        $direct_keys = [
+            'modelspec.trigger_phrase',
+            'trigger_words',
+            'trigger_word',
+            'ss_activation_tags',
+            'activation_text',
+            'trained_words',
+            'prompt'
+        ];
+        foreach ($direct_keys as $k) {
+            if (!empty($meta[$k])) {
+                $val = $meta[$k];
+                $decoded = json_decode($val, true);
+                if (is_array($decoded)) {
+                    foreach ($decoded as $item) {
+                        if (is_string($item)) $triggers[] = trim($item);
+                    }
+                } elseif (is_string($val)) {
+                    $triggers[] = trim($val);
+                }
+            }
+        }
+
+        // B) Extraer de ss_tag_frequency ORDENADO POR FRECUENCIA REAL (de más repetido a menos)
+        if (empty($triggers) && !empty($meta['ss_tag_frequency'])) {
+            $tags_por_carpeta = json_decode($meta['ss_tag_frequency'], true);
+            if (is_array($tags_por_carpeta)) {
+                $acumulado = [];
+                $ruido = [
+                    '1girl', '1boy', 'solo', 'highres', 'absurdres', 'masterpiece', 'best quality',
+                    'looking at viewer', 'simple background', 'white background', 'black background',
+                    'portrait', 'upper body', 'full body', 'cowboy shot', 'close-up', 'realistic',
+                    'photorealistic', ' blurry', 'depth of field', ' bokeh', 'smile', 'standing', 'sitting'
+                ];
+                foreach ($tags_por_carpeta as $folder => $tag_list) {
+                    if (is_array($tag_list)) {
+                        foreach ($tag_list as $tag => $count) {
+                            $clean_t = trim($tag);
+                            if ($clean_t !== '' && !in_array(strtolower($clean_t), $ruido) && strlen($clean_t) > 1) {
+                                $acumulado[$clean_t] = ($acumulado[$clean_t] ?? 0) + intval($count);
+                            }
+                        }
+                    }
+                }
+                if (!empty($acumulado)) {
+                    arsort($acumulado); // Ordenamos de mayor a menor frecuencia
+                    $max_count = reset($acumulado);
+                    foreach ($acumulado as $tag => $count) {
+                        // Cogemos el más repetido y los que tengan al menos el 50% de presencia respecto al líder
+                        if (count($triggers) === 0 || ($count >= $max_count * 0.5 && count($triggers) < 4)) {
                             $triggers[] = $tag;
-                            if (count($triggers) >= 3) break 2; 
                         }
                     }
                 }
             }
         }
+
+        // C) Extraer del nombre de carpeta de dataset de Kohya (ej. "10_jinx_arcane" -> "jinx_arcane")
+        if (empty($triggers) && !empty($meta['ss_dataset_dirs'])) {
+            $dirs = json_decode($meta['ss_dataset_dirs'], true);
+            if (is_array($dirs)) {
+                foreach ($dirs as $dir_name => $info) {
+                    $clean_dir = preg_replace('/^\d+_/', '', trim($dir_name));
+                    $clean_dir = str_replace('_', ' ', $clean_dir);
+                    if (!empty($clean_dir) && !in_array(strtolower($clean_dir), ['img', 'image', 'images', 'train', 'dataset', 'data'])) {
+                        $triggers[] = $clean_dir;
+                        break;
+                    }
+                }
+            }
+        }
     }
-    
-    $triggers = array_unique(array_filter($triggers));
-    
+
+    $triggers = array_values(array_unique(array_filter(array_map('trim', $triggers))));
+
+    // ==============================================================================
+    // 4. FALLBACK AUTOMÁTICO A CIVITAI API POR HASH SHA256 (Y AUTO-GUARDADO EN .TXT)
+    // ==============================================================================
+    if (empty($triggers) && filesize($filepath) < 1500000000) { // Solo si pesa menos de 1.5GB para no bloquear
+        @set_time_limit(60);
+        $sha256 = @hash_file('sha256', $filepath);
+        if ($sha256) {
+            $ch = curl_init("https://civitai.com/api/v1/model-versions/by-hash/" . $sha256);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Gartys-Architect)');
+            $civ_res = curl_exec($ch);
+            $http_c = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+            if ($http_c === 200 && $civ_res) {
+                $civ_data = json_decode($civ_res, true);
+                if (!empty($civ_data['trainedWords']) && is_array($civ_data['trainedWords'])) {
+                    foreach ($civ_data['trainedWords'] as $tw) {
+                        if (is_string($tw) && trim($tw) !== '') {
+                            $triggers[] = trim($tw);
+                        }
+                    }
+                }
+                
+				$triggers = array_values(array_unique(array_filter($triggers)));
+                if (!empty($triggers)) {
+                    @file_put_contents($txt_filepath, implode(', ', $triggers));
+                }
+		    }
+        }
+    }
+
+    $final_str = implode(', ', $triggers);
+    if ($final_str !== '' && !file_exists($txt_filepath)) {
+        // Cacheamos también en .txt los que salgan del binario para que la próxima vez sea instantáneo
+        @file_put_contents($txt_filepath, $final_str);
+    }
+
     echo json_encode([
-        'triggers' => implode(', ', $triggers),
+        'triggers' => $final_str,
         'debug_exito' => __('msg_lora_fast_read'),
         'debug_meta_keys' => array_keys($meta)
     ]);
