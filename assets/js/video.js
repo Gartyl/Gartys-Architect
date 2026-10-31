@@ -7,35 +7,46 @@ let currentVideoUploadBase64 = null;
 
 // --- CALCULADORA INTELIGENTE DE FRAMES POR FRAGMENTO (BBDD + FALLBACK POR MODELO Y RESOLUCIÓN) ---
 window.obtenerLimiteFramesVideo = function() {
-    // 1. Detectar la resolución de vídeo seleccionada y clasificar en Tier: 0 = SD, 1 = HD, 2 = FHD
-    const aspectStr = document.getElementById('videoAspectRatio')?.value || '832x480';
+    // 1. Detectar la resolución real de vídeo en la interfaz (cajas vidWidth/vidHeight o selector video_aspect_ratio)
+    const wInput = parseInt(document.getElementById('vidWidth')?.value);
+    const hInput = parseInt(document.getElementById('vidHeight')?.value);
+    const aspectStr = document.getElementById('video_aspect_ratio')?.value || '832x480';
     const parts = aspectStr.split('x');
-    const w = parseInt(parts[0]) || 832;
-    const h = parseInt(parts[1]) || 480;
+
+    const w = !isNaN(wInput) && wInput > 0 ? wInput : (parseInt(parts[0]) || 832);
+    const h = !isNaN(hInput) && hInput > 0 ? hInput : (parseInt(parts[1]) || 480);
     const totalPixels = w * h;
 
     let resTier = 0; // SD por defecto (<= 450.000 px: 832x480, 480x832, 640x640, 768x512)
     if (totalPixels > 1000000) {
-        resTier = 2; // FHD (> 1M px: 1920x1080, 1080x1920)
+        resTier = 2; // FHD (> 1M px: 1920x1080, 1080x1920, 1024x1024)
     } else if (totalPixels > 450000) {
-        resTier = 1; // HD (450k - 1M px: 1280x720, 720x1280, 1024x1024)
+        resTier = 1; // HD (450k - 1M px: 1280x720, 720x1280, 960x960)
     }
 
-    // 2. Buscar el modelo activo y comprobar si tiene límite personalizado en la BBDD
+    // 2. Buscar el modelo activo en window.modelosDBSistema (por ID, archivo o nombre visual)
     const sel = document.getElementById('modelSelector');
+    const optSel = (sel && sel.selectedIndex >= 0) ? sel.options[sel.selectedIndex] : null;
     const valModelo = sel ? sel.value : '';
-    const txtModelo = (sel && sel.selectedIndex >= 0) ? sel.options[sel.selectedIndex].text : '';
-    const firmaCompleta = (valModelo + ' ' + txtModelo).toLowerCase();
+    const txtModelo = optSel ? optSel.text : '';
+    const archDataset = optSel?.dataset?.archivo || '';
+    const firmaCompleta = (valModelo + ' ' + txtModelo + ' ' + archDataset).toLowerCase();
 
     let cfgBD = '';
-    if (typeof window.modelosDisponibles !== 'undefined' && Array.isArray(window.modelosDisponibles)) {
-        const modObj = window.modelosDisponibles.find(m => m.nombre_archivo === valModelo || m.nombre_visual === txtModelo);
+    const listaModelos = window.modelosDBSistema || window.modelosDisponibles;
+    if (Array.isArray(listaModelos)) {
+        const modObj = listaModelos.find(m => 
+            String(m.id) === String(valModelo) || 
+            m.nombre_archivo === valModelo || 
+            m.nombre_archivo === archDataset || 
+            m.nombre_visual === txtModelo
+        );
         if (modObj && modObj.limites_frames) {
             cfgBD = String(modObj.limites_frames).trim();
         }
     }
 
-    // Si en la BBDD pusiste ej. "241/121/65" o "81, 49, 33" o un único número "161"
+    // Si en la BBDD pusiste ej. "360/121/121" o "81, 49, 33" o un único número "161"
     if (cfgBD !== '') {
         const nums = cfgBD.split(/[\/,;|\s]+/).map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n > 0);
         if (nums.length > 0) {

@@ -345,9 +345,9 @@ if ($action === 'get_modelos_bd') {
 
 if ($action === 'get_active_models') {
     try {
-        if ($is_admin) $stmt = $pdo->query("SELECT id, nombre_visual, nombre_archivo, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, default_negative FROM modelos_ia WHERE activo = 1 ORDER BY nombre_visual ASC");
-        elseif ($is_pro) $stmt = $pdo->query("SELECT id, nombre_visual, nombre_archivo, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, default_negative FROM modelos_ia WHERE activo = 1 AND nivel_acceso IN ('usuario', 'avanzado') ORDER BY nombre_visual ASC");
-        else $stmt = $pdo->query("SELECT id, nombre_visual, nombre_archivo, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, default_negative FROM modelos_ia WHERE activo = 1 AND nivel_acceso = 'usuario' ORDER BY nombre_visual ASC");
+        if ($is_admin) $stmt = $pdo->query("SELECT id, nombre_visual, nombre_archivo, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, default_negative, limites_frames FROM modelos_ia WHERE activo = 1 ORDER BY nombre_visual ASC");
+        elseif ($is_pro) $stmt = $pdo->query("SELECT id, nombre_visual, nombre_archivo, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, default_negative, limites_frames FROM modelos_ia WHERE activo = 1 AND nivel_acceso IN ('usuario', 'avanzado') ORDER BY nombre_visual ASC");
+        else $stmt = $pdo->query("SELECT id, nombre_visual, nombre_archivo, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, default_negative, limites_frames FROM modelos_ia WHERE activo = 1 AND nivel_acceso = 'usuario' ORDER BY nombre_visual ASC");
         echo json_encode(['modelos' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
     } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
     exit();
@@ -368,7 +368,6 @@ if ($action === 'save_modelo_bd') {
         $d_scheduler = !empty($_POST['default_scheduler']) ? $_POST['default_scheduler'] : null;
         $d_denoise = (isset($_POST['default_denoise']) && $_POST['default_denoise'] !== '') ? floatval($_POST['default_denoise']) : null;
         $keep_alive = (isset($_POST['keep_alive']) && trim($_POST['keep_alive']) !== '') ? trim($_POST['keep_alive']) : null;
-		$limites_frames = (isset($_POST['limites_frames']) && trim($_POST['limites_frames']) !== '') ? trim($_POST['limites_frames']) : null;
         
         $tags_uso = $_POST['tags_uso'] ?? ''; 
         $reglas_arquitecto = $_POST['reglas_arquitecto'] ?? '';
