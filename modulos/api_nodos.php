@@ -169,6 +169,47 @@ if ($action === 'get_lora_trigger') {
     $base_no_ext = preg_replace('/\.(safetensors|pt|ckpt|bin)$/i', '', $filepath);
     $txt_filepath = $base_no_ext . '.txt';
 
+    // --- BUSCAR IMAGEN DE VISTA PREVIA GEMELA (EXACTA O CON SUFIJO -ID) ---
+    $preview_b64 = '';
+    $extensiones_img = ['.png', '.webp', '.jpg', '.jpeg', '.gif', '.preview.png', '.preview.webp', '.preview.jpg', '.preview.gif'];
+    $img_path = '';
+
+    // 1. Búsqueda exacta (ej: nombre_lora.png)
+    foreach ($extensiones_img as $ext_img) {
+        if (file_exists($base_no_ext . $ext_img)) {
+            $img_path = $base_no_ext . $ext_img;
+            break;
+        }
+    }
+
+    // 2. Si no hay exacta, buscamos si la imagen tiene sufijo -ID al final (ej: nombre_lora-12345.png)
+    if ($img_path === '') {
+        $patron_glob = preg_replace('/([*?\[])/', '[$1]', $base_no_ext) . '-*';
+        $coincidencias = @glob($patron_glob);
+        if (is_array($coincidencias)) {
+            foreach ($coincidencias as $cand) {
+                if (preg_match('/\.(png|webp|jpg|jpeg|gif)$/i', $cand)) {
+                    $img_path = $cand;
+                    break;
+                }
+            }
+        }
+    }
+
+    // 3. Si hemos encontrado imagen por cualquiera de las dos vías, la pasamos a Base64
+    if ($img_path !== '') {
+        $ext_low = strtolower(pathinfo($img_path, PATHINFO_EXTENSION));
+        $mime = 'image/png';
+        if ($ext_low === 'webp') $mime = 'image/webp';
+        elseif ($ext_low === 'jpg' || $ext_low === 'jpeg') $mime = 'image/jpeg';
+        elseif ($ext_low === 'gif') $mime = 'image/gif';
+
+        $img_data = @file_get_contents($img_path);
+        if ($img_data !== false) {
+            $preview_b64 = 'data:' . $mime . ';base64,' . base64_encode($img_data);
+        }
+    }
+
     // ==============================================================================
     // 1. ARCHIVO .TXT GEMELO (Prioridad absoluta / caché local instantánea)
     // ==============================================================================
@@ -176,6 +217,7 @@ if ($action === 'get_lora_trigger') {
         $trigger_words = trim(file_get_contents($txt_filepath));
         echo json_encode([
             'triggers' => $trigger_words,
+			'preview'  => $preview_b64,
             'debug_exito' => 'Lectura desde archivo .txt gemelo',
             'debug_meta_keys' => ['manual_txt_override']
         ]);
@@ -204,6 +246,7 @@ if ($action === 'get_lora_trigger') {
                     @file_put_contents($txt_filepath, $res_str); // Lo guardamos en .txt para acelerar futuras cargas
                     echo json_encode([
                         'triggers' => $res_str,
+						'preview'  => $preview_b64,
                         'debug_exito' => 'Extraído de sidecar JSON/Civitai',
                         'debug_meta_keys' => ['sidecar_json']
                     ]);
@@ -311,6 +354,19 @@ if ($action === 'get_lora_trigger') {
                 }
             }
         }
+		
+		// D) Extraer de rutas de OneTrainer / training_datasets (ej. "/workspace/remote/OneTrainer/training_datasets/nombreTRIGGER\")
+        if (empty($triggers)) {
+            $meta_raw = json_encode($meta, JSON_UNESCAPED_SLASHES);
+            if (preg_match('/training_datasets[\/\\\\]+([^"\/\\\\]+)/i', $meta_raw, $m_ot)) {
+                $ot_trigger = trim($m_ot[1]);
+                // Limpiamos por si lleva prefijo numérico tipo "10_trigger"
+                $ot_trigger = preg_replace('/^\d+_/', '', $ot_trigger);
+                if (!empty($ot_trigger) && !in_array(strtolower($ot_trigger), ['img', 'image', 'images', 'train', 'dataset', 'data'])) {
+                    $triggers[] = $ot_trigger;
+                }
+            }
+        }
     }
 
     $triggers = array_values(array_unique(array_filter(array_map('trim', $triggers))));
@@ -356,6 +412,7 @@ if ($action === 'get_lora_trigger') {
 
     echo json_encode([
         'triggers' => $final_str,
+		'preview'  => $preview_b64,
         'debug_exito' => __('msg_lora_fast_read'),
         'debug_meta_keys' => array_keys($meta)
     ]);

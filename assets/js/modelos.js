@@ -534,16 +534,17 @@ function addLoraRow() {
         <div class="col-3 px-1">
             <div class="input-group input-group-sm" title="${GartyLang.lora_title_h}">
                 <span class="input-group-text bg-dark border-secondary text-warning fw-bold">H</span>
-				<input type="number" class="form-control lora-strength-high pref-track" value="0.8" min="-5.0" max="5.0" step="0.05">
+                <input type="number" class="form-control lora-strength-high pref-track" value="0.8" min="-5.0" max="5.0" step="0.05">
             </div>
         </div>
         <div class="col-3 ps-1 lora-l-box">
             <div class="input-group input-group-sm" title="${GartyLang.lora_title_l}">
                 <span class="input-group-text bg-dark border-secondary text-info fw-bold">L</span>
-				<input type="number" class="form-control lora-strength-low pref-track" value="0.8" min="-5.0" max="5.0" step="0.05">
+                <input type="number" class="form-control lora-strength-low pref-track" value="0.8" min="-5.0" max="5.0" step="0.05">
             </div>
         </div>
-        <div class="col-12 mt-1">
+        <div class="col-12 mt-1 d-flex align-items-center gap-2">
+            <img class="lora-preview-img rounded border border-info shadow-sm" src="" style="display:none; width: 48px; height: 48px; object-fit: cover; cursor: zoom-in;" onclick="if(typeof abrirVisor === 'function') abrirVisor(this.src)" title="Clic para ampliar vista previa">
             <span class="badge bg-secondary text-info border border-info trigger-badge text-wrap text-break" style="display:none; cursor:pointer; text-align: left;" title="${GartyLang.lora_title_add}"></span>
         </div>
     `;
@@ -555,13 +556,15 @@ function addLoraRow() {
     
     let selectElement = row.querySelector('select');
     let triggerBadge = row.querySelector('.trigger-badge');
+    let previewImg = row.querySelector('.lora-preview-img');
     let promptBox = document.getElementById('descripcionInput') || document.querySelector('textarea'); 
 
     selectElement.addEventListener('change', function() {
         let loraName = this.value;
         triggerBadge.style.display = 'none';
+        if (previewImg) { previewImg.style.display = 'none'; previewImg.src = ''; }
 
-        if(loraName) {
+        if (loraName) {
             let fd = new FormData();
             fd.append('action', 'get_lora_trigger');
             fd.append('lora_name', loraName);
@@ -571,7 +574,14 @@ function addLoraRow() {
             .then(text => {
                 try {
                     let data = JSON.parse(text);
-                    if(data.triggers && data.triggers.trim() !== '') {
+                    
+                    // Mostrar miniatura si existe imagen gemela
+                    if (data.preview && previewImg) {
+                        previewImg.src = data.preview;
+                        previewImg.style.display = 'inline-block';
+                    }
+
+                    if (data.triggers && data.triggers.trim() !== '') {
                         triggerBadge.innerText = "✨ " + GartyLang.lora_lbl_triggers + ": " + data.triggers;
                         triggerBadge.style.display = 'inline-block';
                         
