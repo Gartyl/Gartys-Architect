@@ -105,6 +105,26 @@ case 'generar_audio':
             exit();
         }
 
+        // 🔄 SINCRONIZACIÓN UNIVERSAL DE VOCES GUARDADAS CON COMFYUI (/input)
+        if (!empty($ref_file)) {
+            $ruta_voz_local = __DIR__ . '/../voces/' . basename($ref_file);
+            if (!file_exists($ruta_voz_local)) {
+                $ruta_voz_local = sys_get_temp_dir() . '/garty_ref_' . basename($ref_file);
+            }
+            if (file_exists($ruta_voz_local) && $tts_engine !== 'minimax') {
+                $cfile_v = function_exists('curl_file_create') ? curl_file_create($ruta_voz_local, 'audio/wav', basename($ref_file)) : '@' . realpath($ruta_voz_local);
+                $ch_v = curl_init(rtrim($comfy_server, '/') . '/upload/image');
+                curl_setopt($ch_v, CURLOPT_POST, true);
+                curl_setopt($ch_v, CURLOPT_POSTFIELDS, ['image' => $cfile_v, 'type' => 'input', 'overwrite' => 'true']);
+                curl_setopt($ch_v, CURLOPT_RETURNTRANSFER, true);
+                $res_v = json_decode(curl_exec($ch_v), true);
+                curl_close($ch_v);
+                if (!empty($res_v['name'])) {
+                    $ref_file = $res_v['name'];
+                }
+            }
+        }
+
         if ($tts_engine === 'f5') {
             // --- MOTOR 1: F5-TTS (Legacy / Zombi) ---
             $speed_ui = floatval($_POST['speed'] ?? 1.0);
@@ -204,7 +224,7 @@ case 'generar_audio':
 
             // ⏱️ Duración ajustada a velocidad de locución real (~14.5 caracteres/seg) para no dejar cola de balbuceos
             $num_chars = mb_strlen($prompt_text, 'UTF-8');
-            $segundos_auto = max(2.5, min(15.0, round(($num_chars / 14.5) + 0.6, 1)));
+            $segundos_auto = max(1.5, min(15.0, round(($num_chars / 14.5) + 0.2, 1)));
 
             $emocion = $_POST['tts_emotion'] ?? 'calm';
             // Volvemos al formato directo sin texto extra detrás de las comillas
@@ -381,7 +401,7 @@ case 'generar_audio':
 			}
 
 			$cfile_vid = function_exists('curl_file_create') ? curl_file_create($tmp_vid, 'video/mp4', 'foley_ref.mp4') : '@' . realpath($tmp_vid);
-			$ch_vid = curl_init(COMFY_URL . '/upload/image');
+			$ch_vid = curl_init(rtrim($comfy_server, '/') . '/upload/image');
 			curl_setopt($ch_vid, CURLOPT_POST, true);
 			curl_setopt($ch_vid, CURLOPT_POSTFIELDS, ['image' => $cfile_vid]);
 			curl_setopt($ch_vid, CURLOPT_RETURNTRANSFER, true);
@@ -399,22 +419,8 @@ case 'generar_audio':
         // Usamos la misma plantilla JSON que configuramos antes
         $ruta_json = __DIR__ . '/../workflows/Hunyuan_Foley.json';
         
-        // Función auxiliar inline si api_audio no tiene acceso a cargarWorkflowJSON
         if (!function_exists('cargarWorkflowJSON')) {
-            function cargarWorkflowJSON($ruta, $reemplazos) {
-                if (!file_exists($ruta)) return [];
-                $contenido = file_get_contents($ruta);
-                foreach ($reemplazos as $key => $value) {
-                    if (is_string($value)) {
-                        // Escapamos las comillas dobles para no romper el JSON
-                        $value_escaped = str_replace('"', '\"', $value);
-                        $contenido = str_replace($key, $value_escaped, $contenido);
-                    } else {
-                        $contenido = str_replace('"' . $key . '"', $value, $contenido); // Para números (steps, cfg, seed)
-                    }
-                }
-                return json_decode($contenido, true) ?: [];
-            }
+            require_once __DIR__ . '/core_funciones.php';
         }
 
         $steps = intval($_POST['sfx_steps'] ?? 50); // Foley funciona mejor con 50-100 pasos
@@ -508,7 +514,7 @@ case 'generar_audio':
             $workflow['900_load_vid'] = [
                 'inputs' => [
                     'video' => $dub_video_name,
-                    'force_rate' => ($wav2lip_check && $engine === 'tts') ? 30 : 0,
+                    'force_rate' => ($wav2lip_check && $engine === 'tts') ? 0 : 0,
                     'force_size' => 'Disabled',
                     'custom_width' => 0,
                     'custom_height' => 0,
@@ -534,7 +540,7 @@ case 'generar_audio':
                     'class_type' => 'Wav2Lip'
                 ];
                 $images_for_combine = ['901_wav2lip', 0];
-                $fps_combine = 30;
+                $fps_combine = 24;
             }
 
             // 3. Empaquetamos el vídeo doblado en MP4

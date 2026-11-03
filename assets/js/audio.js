@@ -160,17 +160,17 @@ function getActiveAudioConfig() {
     const toggle = document.getElementById('audioToggle');
     if (!toggle || !toggle.checked) return null;
 
-    // --- INTERCEPTOR INTELIGENTE PARA AUDIO CLÁSICO ---
+    // Detectamos qué pestaña (motor) está activa PRIMERO
+    const isTTS = document.getElementById('tts-tab') && document.getElementById('tts-tab').classList.contains('active');
+    const isFoley = document.getElementById('foley-tab') && document.getElementById('foley-tab').classList.contains('active'); 
+
+    // --- INTERCEPTOR INTELIGENTE PARA AUDIO CLÁSICO (Solo si está en pestaña TTS sin guion) ---
     const ttsSpeechEl = document.getElementById('ttsSpeechText');
     const ttsSpeech = ttsSpeechEl ? ttsSpeechEl.value.trim() : '';
 
-    if (typeof currentAudioBase64 !== 'undefined' && currentAudioBase64 !== null && ttsSpeech === '') {
+    if (isTTS && typeof currentAudioBase64 !== 'undefined' && currentAudioBase64 !== null && ttsSpeech === '') {
         return null;
-    }
-
-    // Detectamos qué pestaña (motor) está activa
-    const isTTS = document.getElementById('tts-tab') && document.getElementById('tts-tab').classList.contains('active');
-    const isFoley = document.getElementById('foley-tab') && document.getElementById('foley-tab').classList.contains('active'); 
+    } 
     // Si no es TTS ni Foley, asumimos que es SFX
 
     let syncVideo = document.getElementById('syncAudioVideo') ? document.getElementById('syncAudioVideo').checked : false;
@@ -366,11 +366,12 @@ window.handleSavedVoiceSelection = async function() {
             const errNotFound = typeof GartyLang !== 'undefined' && GartyLang.err_audio_not_found ? GartyLang.err_audio_not_found : 'Audio no encontrado en el servidor';
             if (!response.ok) throw new Error(errNotFound);
             
-            const blob = await response.blob();
+			const blob = await response.blob();
             const file = new File([blob], path, { type: 'audio/wav' });
             
-            // Usamos tu función existente para previsualizar y mandar a ComfyUI automáticamente
-            handleAudioRefUpload({ files: [file], value: path });
+            // Preasignamos el nombre por seguridad y esperamos a que termine la subida a ComfyUI
+            uploadedAudioRefName = path;
+            await handleAudioRefUpload({ files: [file], value: path });
             
         } catch (e) {
             console.error("Error al cargar el archivo de voz guardado:", e);

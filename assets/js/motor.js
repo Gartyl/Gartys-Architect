@@ -41,8 +41,9 @@ window.iniciarWebSocketComfy = function() {
         };
         
         window.comfySocket.onmessage = (event) => {
-            // 1. IMÁGENES EN VIVO (¡Quitamos el bloqueo de vídeo para que lleguen los blobs!)
+            // 1. IMÁGENES EN VIVO (Solo si hay un radar activo esperando respuesta)
             if (event.data instanceof Blob) {
+                if (!window.activeRadars || Object.keys(window.activeRadars).length === 0) return;
                 let previewContainer = document.getElementById('livePreviewContainer');
                 let previewImg = document.getElementById('livePreviewImg');
                 
@@ -2249,13 +2250,9 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
         
         let syncActive = false;
         
-        // 1. Si el panel Pro está ABIERTO, domina su interruptor
-        if (audioPanelToggle && audioPanelToggle.checked) {
-            if (proSyncToggle && proSyncToggle.checked) syncActive = true;
-        } 
-        // 2. Si el panel Pro está CERRADO, ignoramos el anterior y usamos el clásico
-        else {
-            if (wav2lipToggle && wav2lipToggle.checked) syncActive = true;
+        // Wav2Lip solo se activa si su propio interruptor está marcado explícitamente
+        if (wav2lipToggle && wav2lipToggle.checked) {
+            syncActive = true;
         }
         
         if (syncActive) {
@@ -4013,10 +4010,12 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
             }
         } else if (data.status === 'processing') {
             tarea.isFetching = false;
+            tarea.erroresRed = 0; // Reiniciamos contador de fallos de red porque el servidor responde bien
             tarea.intentosRadar = (tarea.intentosRadar || 0) + 1;
             
-            if (tarea.intentosRadar > 300) {
-                window.abortarRadarPorAtasco(promptId, tarea, isPolling, "Timeout extremo");
+            // 900 intentos * 2s = 30 minutos de margen para vídeos largos de Wan (Doble KSampler + Audio)
+            if (tarea.intentosRadar > 900) {
+                window.abortarRadarPorAtasco(promptId, tarea, false, "Timeout extremo");
             } else {
                 setTimeout(() => window.recolectarImagenGpu(promptId, isPolling), 2000);
             }
@@ -4024,12 +4023,13 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
     } catch (e) {
         tarea.isFetching = false;
         console.warn(typeof GartyLang !== 'undefined' && GartyLang.log_radar_net_crit ? GartyLang.log_radar_net_crit : 'Radar de GPU cortó conexión:', e); 
-        tarea.intentosRadar = (tarea.intentosRadar || 0) + 1;
+        tarea.erroresRed = (tarea.erroresRed || 0) + 1;
         
-        if (tarea.intentosRadar > 15) { 
-            window.abortarRadarPorAtasco(promptId, tarea, isPolling, "Error de red continuo");
+        // Solo abortamos si hay 15 errores de red CONSECUTIVOS
+        if (tarea.erroresRed > 15) { 
+            window.abortarRadarPorAtasco(promptId, tarea, false, "Error de red continuo");
         } else {
-            setTimeout(() => window.recolectarImagenGpu(promptId, isPolling), 2000);
+            setTimeout(() => window.recolectarImagenGpu(promptId, isPolling), 3000);
         }
     }
 };

@@ -76,6 +76,8 @@ function cargarWorkflowJSON($ruta_archivo, $reemplazos) {
             $valor_seguro = substr(json_encode($valor), 1, -1);
             $json_texto = str_replace($etiqueta, $valor_seguro, $json_texto);
         } else {
+            // Reemplaza tanto si en el JSON el número lleva comillas ("__STEPS__") como si no las lleva (__STEPS__)
+            $json_texto = str_replace('"' . $etiqueta . '"', $valor, $json_texto);
             $json_texto = str_replace($etiqueta, $valor, $json_texto);
         }
     }

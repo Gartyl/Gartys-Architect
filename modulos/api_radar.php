@@ -288,7 +288,7 @@ if (!function_exists('inyectarMetadatosCivitaiPNG')) {
 
 if ($action === 'angel_guardia') {
     ignore_user_abort(true);
-    set_time_limit(600); // 10 Minutos de vida independiente
+    set_time_limit(1800); // 30 Minutos de vida independiente para vídeos pesados
     
     $prompt_id = $_POST['prompt_id'] ?? '';
     $historial_id = intval($_POST['historial_id'] ?? 0);
@@ -296,7 +296,7 @@ if ($action === 'angel_guardia') {
     
     if (empty($prompt_id) || $historial_id <= 0 || $user_id_angel <= 0) exit();
     
-    for ($i = 0; $i < 120; $i++) {
+    for ($i = 0; $i < 360; $i++) {
         // Damos ventaja a check_ticket (WebSocket) cuando el navegador está abierto
         sleep($i === 0 ? 7 : 5);
         
@@ -316,11 +316,11 @@ if ($action === 'angel_guardia') {
         $err_q = curl_errno($ch_q);
         curl_close($ch_q);
 
-        if ($err_q == 28 || $err_q == 7 || $res_q === false) {
-            continue; // Sigue trabajando a tope, esperamos al siguiente ciclo
+        $queue = $res_q ? json_decode($res_q, true) : null;
+        if ($err_q == 28 || $err_q == 7 || $res_q === false || !is_array($queue) || !isset($queue['queue_running'])) {
+            continue; // Sigue trabajando a tope o saturado en cambio de modelo, esperamos al siguiente ciclo
         }
         
-        $queue = json_decode($res_q, true);
         $is_in_queue = false;
         if (is_array($queue)) {
             foreach (['queue_running', 'queue_pending'] as $q_type) {
@@ -409,7 +409,8 @@ if ($action === 'angel_guardia') {
                             if (empty($ext)) $ext = 'png';
                             
                             $formato_salida = $_POST['image_format'] ?? 'png';
-                            if ($formato_salida !== 'png' && in_array(strtolower($ext), ['png', 'jpg', 'jpeg', 'webp'])) {
+                            // No tocamos archivos .webp con GD porque si es un vídeo WebP animado de Wan perdería la animación
+                            if ($formato_salida !== 'png' && strtolower($ext) !== 'webp' && in_array(strtolower($ext), ['png', 'jpg', 'jpeg'])) {
                                 $im = @imagecreatefromstring($file_data);
                                 if ($im !== false) {
                                     ob_start();
@@ -553,7 +554,11 @@ if ($action === 'check_ticket') {
         exit();
     }
     
-    $queue = json_decode($res_q, true);
+    $queue = $res_q ? json_decode($res_q, true) : null;
+    if (!is_array($queue) || !isset($queue['queue_running'])) {
+        echo json_encode(['status' => 'processing']);
+        exit();
+    }
     $is_in_queue = false;
     
     if (is_array($queue)) {
@@ -672,7 +677,8 @@ if ($action === 'check_ticket') {
                     if (empty($ext)) $ext = 'png';
                     
                     $formato_salida = $_POST['image_format'] ?? 'png';
-                    if ($formato_salida !== 'png' && in_array(strtolower($ext), ['png', 'jpg', 'jpeg', 'webp'])) {
+                    // No tocamos archivos .webp con GD porque si es un vídeo WebP animado de Wan perdería la animación
+                    if ($formato_salida !== 'png' && strtolower($ext) !== 'webp' && in_array(strtolower($ext), ['png', 'jpg', 'jpeg'])) {
                         $im = @imagecreatefromstring($file_data);
                         if ($im !== false) {
                             ob_start();
@@ -762,6 +768,20 @@ if ($action === 'check_ticket') {
         exit();
     } 
     
+    // Damos 2 segundos y reintentamos /history por si acaba de salir de /queue y está cerrando el MP4
+    sleep(2);
+    $ch_retry = curl_init(COMFY_URL . '/history/' . $prompt_id);
+    curl_setopt($ch_retry, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch_retry, CURLOPT_TIMEOUT, 5);
+    $res_retry = curl_exec($ch_retry);
+    curl_close($ch_retry);
+    $hist_retry = $res_retry ? json_decode($res_retry, true) : null;
+
+    if (isset($hist_retry[$prompt_id]) || $res_retry === false) {
+        echo json_encode(['status' => 'processing']);
+        exit();
+    }
+
     try {
         $stmt_del = $pdo->prepare("DELETE FROM historial_prompts WHERE id = ? AND imagen_path IS NULL");
         $stmt_del->execute([$historial_id]);
