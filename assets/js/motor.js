@@ -150,12 +150,34 @@ document.addEventListener('DOMContentLoaded', () => {
 window.bandejaArchivos = [];
 
 window.agregarImagenABandeja = function(base64Data) {
-    // 1. Ampliamos el límite físico de la bandeja a 9
-    if (window.bandejaArchivos.length >= 9) {
+    // 1. Detectamos el límite dinámico según el modelo seleccionado actualmente
+    const modelSel = document.getElementById('modelSelector');
+    const modText = modelSel && modelSel.selectedIndex >= 0 
+        ? (modelSel.value + ' ' + modelSel.options[modelSel.selectedIndex].text).toLowerCase() 
+        : '';
+
+    let maxPermitido = 9;
+    let msgLimite = (typeof GartyLang !== 'undefined' && GartyLang.swal_limit_tray_text) 
+        ? GartyLang.swal_limit_tray_text 
+        : 'Puedes subir un máximo de 9 imágenes de referencia a la bandeja.';
+
+    if (modText.includes('krea2') || modText.includes('krea-2')) {
+        maxPermitido = 2;
+        msgLimite = (typeof GartyLang !== 'undefined' && GartyLang.err_krea2_max_images) 
+            ? GartyLang.err_krea2_max_images 
+            : 'Krea-2 solo admite un máximo de 2 imágenes simultáneas en la bandeja.';
+    } else if ((modText.includes('flux2') || modText.includes('klein') || modText.includes('kontext')) && !modText.includes('flux3')) {
+        maxPermitido = 3;
+        msgLimite = (typeof GartyLang !== 'undefined' && GartyLang.err_flux2_max_images) 
+            ? GartyLang.err_flux2_max_images 
+            : 'Flux 2 Klein solo admite un máximo de 3 imágenes simultáneas en la bandeja.';
+    }
+
+    if (window.bandejaArchivos.length >= maxPermitido) {
         SwalDark.fire({ 
             icon: 'info', 
             title: typeof GartyLang !== 'undefined' && GartyLang.swal_limit_tray_title ? GartyLang.swal_limit_tray_title : 'Límite alcanzado', 
-            text: typeof GartyLang !== 'undefined' && GartyLang.swal_limit_tray_text ? GartyLang.swal_limit_tray_text : 'Puedes subir un máximo de 9 imágenes de referencia a la bandeja.' 
+            text: msgLimite 
         });
         return;
     }

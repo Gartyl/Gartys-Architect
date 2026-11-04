@@ -735,9 +735,10 @@ if ($action === 'generar_imagen') {
     $temp_mod_lower = strtolower($model_path);
     $es_modelo_vlm = (strpos($temp_mod_lower, 'qwen') !== false || strpos($temp_mod_lower, 'krea2') !== false || strpos($temp_mod_lower, 'krea-2') !== false || strpos($temp_mod_lower, 'fibo') !== false);
 
-    // Si el modelo es Krea/Qwen, el lienzo principal está vacío, pero el usuario subió foto al IP-Adapter...
-    if ($es_modelo_vlm && empty($init_image_base64) && !empty($_POST['ipadapter_image'])) {
-        $init_image_base64 = $_POST['ipadapter_image']; // Trasvasamos la imagen internamente
+    // Si el modelo es Krea/Qwen/Fibo, el lienzo principal está vacío, pero el usuario subió foto al IP-Adapter...
+    $primera_ipa = $_POST['ipadapter_images'][0] ?? ($_POST['ipadapter_image'] ?? null);
+    if ($es_modelo_vlm && empty($init_image_base64) && empty($_POST['has_tray_images']) && !empty($primera_ipa)) {
+        $init_image_base64 = $primera_ipa; // Trasvasamos la imagen internamente
         $_POST['ipadapter_enabled'] = 'false'; // Desactivamos la bandera para que no salte la alerta roja
     }
     // ====================================================================
@@ -797,15 +798,12 @@ if ($action === 'generar_imagen') {
     // B. Subir Imagen Base Clásica o Contexto de Vídeo
     if (!empty($init_image_base64)) {
         $imgData = $init_image_base64;
+        $es_video_manual = (strpos($imgData, 'data:video/') === 0);
         if (strpos($imgData, 'base64,') !== false) {
             $imgData = explode('base64,', $imgData)[1];
         }
-        
-        // 🌟 CAMBIO: Detectar automáticamente si le pasamos foto o vídeo
-        // Detectamos si es un trozo de cadena, o si el usuario subió un vídeo manualmente
-		$es_video_manual = (strpos($imgData, 'data:video/') === 0);
-		$is_video = ($is_chain_chunk || $es_video_manual);
-
+        $is_video = ($is_chain_chunk || $es_video_manual);
+		
 		$extension = $is_video ? 'mp4' : 'png';
 		$mime_type = $is_video ? 'video/mp4' : 'image/png';
         
@@ -3034,28 +3032,10 @@ if ($action === 'generar_imagen') {
         // 1. CARGAMOS EL UNET (100% Nativos para que ComfyUI no sature)
         if ($is_gguf) {
             $workflow["4"] = [ "inputs" => ["unet_name" => $unet_filename], "class_type" => "UnetLoaderGGUF" ];
-            $current_model_node = "4";
         } else {
             $workflow["4"] = [ "inputs" => ["unet_name" => $unet_filename, "weight_dtype" => "default"], "class_type" => "UNETLoader" ];
-            
-            // Inyectamos el "Flow Shift" = 1.0 (El secreto de calidad de Chroma)
-            if ($is_chroma) {
-                $workflow["4_shift"] = [
-                    "inputs" => [
-                        "shift" => 1.0, // Parámetro antiguo por si acaso
-                        "base_shift" => 1.0, // Engañamos al nuevo ComfyUI para que sea estático
-                        "max_shift" => 1.0,  // Engañamos al nuevo ComfyUI para que sea estático
-                        "width" => $width,
-                        "height" => $height,
-                        "model" => ["4", 0]
-                    ],
-                    "class_type" => "ModelSamplingFlux" // Nodo oficial, sin fallos
-                ];
-                $current_model_node = "4_shift";
-            } else {
-                $current_model_node = "4";
-            }
         }
+        $current_model_node = "4";
         
 		// 2. TEXT ENCODERS (HÍBRIDO: BD Custom + Salvavidas)
         if ($is_sd35) {
@@ -3662,44 +3642,80 @@ if ($action === 'generar_imagen') {
         $sampler_denoise = $denoise_slider; 
     }
 
-    // 2. RUTA QWEN 2.1 (El modelo Unificado Next-Gen)
-    if ($is_qwen21 && !empty($init_image_base64)) {
-        $qwen_image_source = ["11", 0]; 
-        if ($is_outpainting && isset($workflow["111"])) {
-            $qwen_image_source = ["111", 0]; 
-        } elseif (isset($workflow["13"])) {
-            $qwen_image_source = ["13", 0]; 
+    // 2. RUTA QWEN 2.1 (Edición Simple, Outpaint y Multicarga hasta 9 imágenes)
+    if ($is_qwen21 && (!empty($init_image_base64) || !empty($tray_comfy_filenames))) {
+        
+        $qwen_raw_nodes = [];
+
+        // A) Si hay una imagen en el visor principal que NO sea el eco de la bandeja, va como imagen 1
+        if (isset($workflow["11"]) && $init_image_base64 !== "TRAY_IMAGE_USED") {
+            if ($is_outpainting && isset($workflow["111"])) {
+                $qwen_raw_nodes[] = ["111", 0];
+            } else {
+                $qwen_raw_nodes[] = ["11", 0];
+            }
+        } else {
+            // Si el nodo 11 era solo un duplicado de la bandeja creado por Fase 7, lo limpiamos
+            unset($workflow["11"]);
         }
 
-        // Qwen 2.1 exige que su prompt invoque la etiqueta <image 1>
-        $prompt_qwen21 = $posPrompt;
-        if (strpos(strtolower($prompt_qwen21), '<image') === false) {
-            $prompt_qwen21 = "<image 1> " . $posPrompt;
+        // B) Añadimos todas las imágenes de la bandeja multicarga en orden
+        if (!empty($tray_comfy_filenames)) {
+            foreach ($tray_comfy_filenames as $index => $filename) {
+                if (count($qwen_raw_nodes) >= 9) break;
+                $node_load = "11_qwen_tray_" . $index;
+                $workflow[$node_load] = [
+                    "inputs" => ["image" => $filename, "upload" => "image"],
+                    "class_type" => "LoadImage"
+                ];
+                $qwen_raw_nodes[] = [$node_load, 0];
+            }
+        }
+
+        // C) Normalizamos etiquetas <|image_X|> de la bandeja a <image X> e inyectamos las que falten
+        $prompt_qwen21 = preg_replace('/<\|image_(\d+)\|>/i', '<image $1>', $posPrompt);
+        $etiquetas_faltantes = [];
+        for ($i = 1; $i <= count($qwen_raw_nodes); $i++) {
+            if (stripos($prompt_qwen21, "<image $i>") === false && stripos($prompt_qwen21, "<image_$i>") === false) {
+                $etiquetas_faltantes[] = "<image $i>";
+            }
+        }
+        if (!empty($etiquetas_faltantes)) {
+            $prompt_qwen21 = implode(' ', $etiquetas_faltantes) . " " . $prompt_qwen21;
+        }
+
+        // D) Construimos el nodo TextEncodeQwenImage21 con todas las entradas dinámicas
+        $qwen21_inputs = [
+            "prompt" => $prompt_qwen21,
+            "negative_prompt" => $neg_prompt,
+            "resolution" => 1024,
+            "clip" => [$base_clip_node, $base_clip_index],
+            "vae" => [$base_vae_node, $base_vae_index]
+        ];
+
+        foreach ($qwen_raw_nodes as $idx => $raw_source) {
+            $num_img = $idx + 1;
+            $qwen21_inputs["images.image_" . $num_img] = $raw_source;
         }
 
         $workflow["6"] = [
-            "inputs" => [
-                "prompt" => $prompt_qwen21,
-                "negative_prompt" => $neg_prompt,
-                "resolution" => 1024,
-                "clip" => [$base_clip_node, $base_clip_index],
-                "vae" => [$base_vae_node, $base_vae_index],
-                "images.image_1" => $qwen_image_source 
-            ],
+            "inputs" => $qwen21_inputs,
             "class_type" => "TextEncodeQwenImage21"
         ];
         
         $current_positive = ["6", 0];
         $current_negative = ["6", 1];
-        $current_latent = ["6", 2];
+        $current_latent   = ["6", 2];
         
-        // 🎚️ EL USUARIO MANDA
-        $sampler_denoise = $denoise_slider; 
+        // 🎚️ Si hay varias imágenes o el panel de edición está cerrado, forzamos Denoise 1.0 para que componga libremente
+        $is_edit_panel_active = !empty($_POST['edit_tools_active']) || !empty($mask_data_base64);
+        $sampler_denoise = ($is_edit_panel_active && count($qwen_raw_nodes) === 1) ? $denoise_slider : 1.0;
         
-        // Limpiamos los nodos clásicos
-        unset($workflow["12"]);
+        // Limpiamos los nodos clásicos residuales de Fase 7
+        unset($workflow["5"], $workflow["12"], $workflow["13"], $workflow["14"]);
         if (isset($workflow["12_noise"])) unset($workflow["12_noise"]);
-        unset($workflow["14"]);
+
+        $meta_modo = 'Qwen 2.1 Edit (' . count($qwen_raw_nodes) . ' img)';
     }
 	
 	// 3. RUTA FIBO 2.0 (Edición Simple y Multicarga hasta 9 imágenes)
@@ -3771,30 +3787,34 @@ if ($action === 'generar_imagen') {
 
     if ($is_flux2 && (!empty($init_image_base64) || !empty($tray_comfy_filenames)) && !$is_outpainting) {
         
-        // 1. Agrupar Imágenes (de la bandeja o del visor)
+        // 1. Agrupar Imágenes unificando Visor Principal + Bandeja Multicarga
         $kontext_images = [];
         
+        // A) Si hay una imagen real en el visor principal (que no sea el eco de la bandeja), va la primera
+        if (isset($workflow["11"]) && $init_image_base64 !== "TRAY_IMAGE_USED") {
+            $kontext_images[] = isset($workflow["13"]) ? ["13", 0] : ["11", 0];
+        } else {
+            unset($workflow["11"]);
+        }
+
+        // B) Añadimos las imágenes de la bandeja en orden
         if (!empty($tray_comfy_filenames)) {
-            // MODO BANDEJA: Cargamos dinámicamente tantas fotos como subiera el usuario
             foreach ($tray_comfy_filenames as $index => $filename) {
                 $node_id = "11_tray_" . $index;
                 $workflow[$node_id] = [
                     "inputs" => ["image" => $filename, "upload" => "image"],
                     "class_type" => "LoadImage"
                 ];
-                $kontext_images[$index] = [$node_id, 0];
+                $kontext_images[] = [$node_id, 0];
             }
-        } else {
-            // MODO VISOR GIGANTE: Solo hay una
-            $kontext_images[1] = isset($workflow["13"]) ? ["13", 0] : ["11", 0];
         }
 
-        // 👇 NUEVO: FRENO CON AVISO AL USUARIO 👇
+        // 👇 FRENO CON AVISO AL USUARIO (MÁXIMO 3 IMÁGENES EN FLUX 2 KLEIN) 👇
         if (count($kontext_images) > 3) {
             echo json_encode(['error' => __('err_flux2_max_images') ?? 'Flux 2 Klein solo admite un máximo de 3 imágenes simultáneas. Por favor, elimina alguna de la bandeja.']);
             exit();
         }
-        // 👆 --------------------------------- 👆
+        // 👆 ----------------------------------------------------------------- 👆
 
         // 2. Construimos la estructura base del Conditioner
         $inputs_pos = [
@@ -3812,7 +3832,7 @@ if ($action === 'generar_imagen') {
         
         // 3. Inyectamos dinámicamente image1, image2, image3...
         $contador = 1;
-        foreach ($kontext_images as $real_index => $node_ref) {
+        foreach ($kontext_images as $node_ref) {
             $inputs_pos["image" . $contador] = $node_ref;
             $inputs_pos["image" . $contador . "_strength"] = 1.0;
             $inputs_pos["image" . $contador . "_resolution"] = 1024;
@@ -3839,10 +3859,23 @@ if ($action === 'generar_imagen') {
             unset($workflow["600"]);
         }
         
-        // 6. Modo edición dinámico
-        $is_edit_panel_active = !empty($_POST['edit_tools_active']) || !empty($mask_base64);
+        // 6. Modo edición dinámico: Si hay más de 1 imagen o el panel de edición está cerrado, Denoise = 1.0 con lienzo limpio
+        $is_edit_panel_active = !empty($_POST['edit_tools_active']) || !empty($mask_data_base64);
         $panel_denoise = isset($_POST['denoise']) ? (float)$_POST['denoise'] : 0.65;
-        $sampler_denoise = $is_edit_panel_active ? $panel_denoise : 1.0; 
+        $sampler_denoise = ($is_edit_panel_active && count($kontext_images) === 1) ? $panel_denoise : 1.0;
+
+        if ($sampler_denoise >= 1.0 || !isset($workflow["14"])) {
+            unset($workflow["12"], $workflow["13"], $workflow["14"]);
+            if (isset($workflow["12_noise"])) unset($workflow["12_noise"]);
+
+            $workflow["5"] = [
+                "inputs" => ["width" => $width, "height" => $height, "batch_size" => $batch_size],
+                "class_type" => "EmptyFlux2LatentImage"
+            ];
+            $current_latent = ["5", 0];
+        }
+
+        $meta_modo = 'Flux 2 Klein Edit (' . count($kontext_images) . ' img)';
     }
 	
 	// ==============================================================================
@@ -3850,12 +3883,20 @@ if ($action === 'generar_imagen') {
     // ==============================================================================
     if ($is_flux3 && (!empty($init_image_base64) || !empty($tray_comfy_filenames)) && empty($mask_data_base64) && !$is_outpainting) {
         
-        // 1. Recolectamos todas las imágenes (Visor Principal y/o Bandeja Multicarga en orden image_1, image_2...)
+        // 1. Recolectamos todas las imágenes unificando Visor Principal + Bandeja Multicarga (hasta 9)
         $flux3_ref_nodes = [];
 
+        // A) Si hay una imagen en el visor principal que NO sea el eco de la bandeja, va como imagen 1
+        if (isset($workflow["11"]) && $init_image_base64 !== "TRAY_IMAGE_USED") {
+            $flux3_ref_nodes[] = ["11", 0];
+        } else {
+            unset($workflow["11"]);
+        }
+
+        // B) Añadimos las imágenes de la Bandeja Multicarga en orden
         if (!empty($tray_comfy_filenames)) {
-            // Si hay fotos en la Bandeja Multicarga, las cargamos todas en orden numérico (hasta 9)
             foreach ($tray_comfy_filenames as $index => $filename) {
+                if (count($flux3_ref_nodes) >= 9) break;
                 $node_load = "11_f3_tray_" . $index;
                 $workflow[$node_load] = [
                     "inputs" => ["image" => $filename, "upload" => "image"],
@@ -3863,9 +3904,6 @@ if ($action === 'generar_imagen') {
                 ];
                 $flux3_ref_nodes[] = [$node_load, 0];
             }
-        } elseif (isset($workflow["11"])) {
-            // Modo Visor Principal (1 sola imagen subida)
-            $flux3_ref_nodes[] = ["11", 0];
         }
 
         // 2. Codificamos cada referencia con el VAE y la encadenamos con ReferenceLatent (100% Nativo ComfyUI)
@@ -3909,14 +3947,10 @@ if ($action === 'generar_imagen') {
             $current_negative = [$ref_neg, 0];
         }
 
-        // 3. LIBERTAD TOTAL: Respetamos el CFG y el Denoise que mande el usuario desde la interfaz
+        // 3. Si hay múltiples imágenes de referencia (fusión) o el panel de edición está cerrado, Denoise = 1.0
         $is_edit_panel_active = !empty($_POST['edit_tools_active']) || !empty($mask_data_base64);
-        $sampler_denoise = $is_edit_panel_active ? $denoise_slider : 1.0;
+        $sampler_denoise = ($is_edit_panel_active && count($flux3_ref_nodes) === 1) ? $denoise_slider : 1.0;
 
-        // Si el usuario deja el Denoise en 1.0 (valor recomendado por defecto en modelos.js), 
-        // usamos el lienzo limpio EmptyFlux2LatentImage.
-        // Si decide bajar el Denoise (< 1.0) a propósito para conservar píxeles de su imagen base, 
-        // respetamos el latente VAEEncode de su foto original (nodos 12/14).
         if ($sampler_denoise >= 1.0 || !isset($workflow["14"])) {
             unset($workflow["12"], $workflow["13"], $workflow["14"]);
             if (isset($workflow["12_noise"])) unset($workflow["12_noise"]);
@@ -4108,17 +4142,37 @@ if ($action === 'generar_imagen') {
     // ==============================================================================
     if ($is_krea2 && $comfy_image_filename !== "none") {
         
-        $doble_imagen = !empty($tray_comfy_filenames[1]);
+        // 1. Calculamos cuántas imágenes reales ha subido el usuario (Visor + Bandeja)
+        if ($init_image_base64 === "TRAY_IMAGE_USED") {
+            // El visor principal estaba vacío y tomó la foto 1 de la bandeja
+            $total_imgs_krea = count($tray_comfy_filenames);
+            $segunda_imagen_krea = $tray_comfy_filenames[2] ?? null;
+        } else {
+            // Hay 1 foto en el visor principal + las que haya en la bandeja
+            $total_imgs_krea = 1 + count($tray_comfy_filenames);
+            $segunda_imagen_krea = $tray_comfy_filenames[1] ?? null;
+        }
+
+        // 👇 FRENO CON AVISO AL USUARIO (MÁXIMO 2 IMÁGENES EN KREA-2) 👇
+        if ($total_imgs_krea > 2) {
+            echo json_encode([
+                'error' => __('err_krea2_max_images') ?? 'Krea-2 solo admite un máximo de 2 imágenes simultáneas (Imagen A + Imagen B). Por favor, elimina alguna de la bandeja.'
+            ]);
+            exit();
+        }
+        // 👆 ---------------------------------------------------------- 👆
+
+        $doble_imagen = !empty($segunda_imagen_krea);
         $prompt_texto = trim($posPrompt);
 
         // Gestión de LoRA estrictamente a través de la UI (Cero rutas fijadas a fuego)
         $lora_krea = (!empty($lora_names[0]) && strtolower(trim($lora_names[0])) !== 'ninguno') ? trim($lora_names[0]) : "";
         $lora_fuerza = isset($lora_strengths_high[0]) ? floatval($lora_strengths_high[0]) : 1.0;
 
-        // 🎚️ CAPTURAMOS EL DESLIZADOR DE LA INTERFAZ
+        // 🎚️ CAPTURAMOS EL DESLIZADOR DE LA INTERFAZ (En modo de 2 imágenes forzamos 1.0 para que cree en lienzo limpio)
         $is_edit_panel_active = !empty($_POST['edit_tools_active']) || !empty($mask_data_base64);
         $panel_denoise = isset($_POST['denoise']) ? floatval($_POST['denoise']) : 0.65;
-        $slider_denoise_final = $is_edit_panel_active ? $panel_denoise : 1.0;
+        $slider_denoise_final = ($is_edit_panel_active && !$doble_imagen) ? $panel_denoise : 1.0;
 
         // Nodos Base de la arquitectura Krea-2
         $workflow = [
@@ -4153,15 +4207,17 @@ if ($action === 'generar_imagen') {
         $patch_inputs = [ "ref_boost" => 1.0, "fit_mode" => "fit", "model" => [$current_model_node, 0], "source_latent" => ["73", 0], "ref_boost_mask" => ["123", 3], "vae" => ["57", 0], "source_image" => ["123", 0] ];
         
         if ($doble_imagen) {
-            // El usuario subió una segunda imagen a la bandeja (Referencia)
-            $workflow["139"] = [ "class_type" => "LoadImage", "inputs" => [ "image" => $tray_comfy_filenames[1] ] ];
+            // Cargamos la verdadera segunda imagen (ya sea la 2ª de la bandeja o la 1ª si había foto en el visor)
+            $workflow["139"] = [ "class_type" => "LoadImage", "inputs" => [ "image" => $segunda_imagen_krea ] ];
             $workflow["140"] = [ "class_type" => "ImageResizeKJv2", "inputs" => [ "width" => 1024, "height" => 1024, "upscale_method" => "lanczos", "keep_proportion" => "resize", "pad_color" => "0, 0, 0", "crop_position" => "center", "divisible_by" => 2, "device" => "cpu", "image" => ["139", 0] ] ];
             $workflow["117"] = [ "class_type" => "VAEEncode", "inputs" => [ "pixels" => ["140", 0], "vae" => ["57", 0] ] ];
             
             $encode_inputs_pos["image_b"] = ["140", 0];
             $encode_inputs_neg["image_b"] = ["140", 0];
             
-            $patch_inputs["ref_boost_a"] = 1.0;
+            // Bajamos ligeramente el boost de 1.0 a 0.75 en modo dual para que no bloquee la creatividad del prompt
+            $patch_inputs["ref_boost"]   = 0.75;
+            $patch_inputs["ref_boost_a"] = 0.75;
             $patch_inputs["source_latent_b"] = ["117", 0];
             $patch_inputs["source_image_b"] = ["140", 0];
             
@@ -4729,12 +4785,18 @@ if ($action === 'generar_imagen') {
             
             // 1. ENRUTAMIENTO INTELIGENTE (ADETAILER ANTES QUE REACTOR)
             $nodo_origen_imagen = $workflow["9"]["inputs"]["images"]; 
-            $es_previo_a_reactor = false;
+            $nodo_reactor_entrada = null;
 
-            // Si ReActor está activo, interceptamos el cable ANTES de que ReActor actúe
-            if (isset($workflow["101"]) && $workflow["101"]["class_type"] === "ReActorFaceSwap") {
-                $nodo_origen_imagen = $workflow["101"]["inputs"]["input_image"];
-                $es_previo_a_reactor = true;
+            if (isset($workflow["100_set_weight"])) {
+                $nodo_reactor_entrada = "100_set_weight";
+            } elseif (isset($workflow["101_reactor_swap"])) {
+                $nodo_reactor_entrada = "101_reactor_swap";
+            } elseif (isset($workflow["101"]) && $workflow["101"]["class_type"] === "ReActorFaceSwap") {
+                $nodo_reactor_entrada = "101";
+            }
+
+            if ($nodo_reactor_entrada !== null) {
+                $nodo_origen_imagen = $workflow[$nodo_reactor_entrada]["inputs"]["input_image"];
             }
 
             $workflow["900"] = ["inputs" => ["model_name" => $adetailer_model], "class_type" => "UltralyticsDetectorProvider"];
@@ -4836,9 +4898,9 @@ if ($action === 'generar_imagen') {
             ];
 
             // 2. RECONECTAMOS LOS CABLES SEGÚN EL ORDEN
-            if ($es_previo_a_reactor) {
-                // ReActor ahora tomará la cara mejorada y en alta resolución de ADetailer
-                $workflow["101"]["inputs"]["input_image"] = ["901", 0];
+            if ($nodo_reactor_entrada !== null) {
+                // ReActor (y su nodo de peso si existe) toma la cara ya restaurada por ADetailer
+                $workflow[$nodo_reactor_entrada]["inputs"]["input_image"] = ["901", 0];
             } else {
                 // Comportamiento normal: salida directa al visor
                 $workflow["9"]["inputs"]["images"] = ["901", 0]; 
@@ -4991,8 +5053,8 @@ if ($action === 'generar_imagen') {
         }
     }
 
-    if ($reactor_enabled === 'true' && !empty($reactor_image_base64)) $meta_json_array['Face Swap (ReActor)'] = __('lbl_activated'); 
-    if ($ipadapter_enabled === 'true' && !empty($ipadapter_image_base64)) $meta_json_array['IP-Adapter'] = __('lbl_activated'); 
+    if ($reactor_enabled === 'true' && (!empty($reactor_image_base64) || !empty($reactor_saved_face))) $meta_json_array['Face Swap (ReActor)'] = __('lbl_activated'); 
+	if ($ipadapter_enabled === 'true' && !empty($ipadapter_images)) $meta_json_array['IP-Adapter'] = __('lbl_activated'); 
     if ($controlnet_enabled === 'true' && !empty($controlnet_model)) $meta_json_array['ControlNet'] = basename($controlnet_model);
     if ($remove_background) $meta_json_array['Fondo Transparente'] = __('lbl_activated') . ' (' . $rembg_model . ')';
 	if ($ddcolor_enabled) $meta_json_array['Coloreado Neural'] = __('lbl_activated') . ' (DDColor: ' . basename($ddcolor_model) . ')';
@@ -5343,7 +5405,7 @@ if ($action === 'generar_imagen') {
 // --- ACCIÓN: LIBERAR VRAM DE COMFYUI ---
 // ==============================================================================
 if ($action === 'liberar_vram') {
-    $comfy_url = "http://127.0.0.1:8188/free"; // Cambia la IP/Puerto si tu ComfyUI está en otra ruta
+    $comfy_url = rtrim(COMFY_URL, '/') . "/free";
     
     $payload = json_encode([
         "unload_models" => true,

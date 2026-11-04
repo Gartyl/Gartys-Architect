@@ -22,7 +22,7 @@
       "memory_efficient": false,
       "cpu_offload": false,
       "enabled": true,
-      "silent_audio": true
+      "silent_audio": false
     },
     "class_type": "HunyuanVideoFoley"
   },
