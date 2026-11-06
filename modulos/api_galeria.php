@@ -187,11 +187,11 @@ if ($action === 'concatenar_videos') {
     if (!empty($audio_data)) {
         $tmp_audio = $tmp_dir . '/audio_concat_' . uniqid() . '.mp3';
         file_put_contents($tmp_audio, base64_decode($audio_data));
-        // Fusión H.265 con Audio: Añadido -shortest para alinear el final del audio al milisegundo exacto en que acaba la pista de vídeo
-        $cmd = "ffmpeg -f concat -safe 0 -i " . escapeshellarg($lista_txt_path) . " -i " . escapeshellarg($tmp_audio) . " -vf \"{$vf_scale}\" -c:v libx265 -preset fast -crf 12 -pix_fmt yuv420p10le -tag:v hvc1 -c:a aac -map 0:v:0 -map 1:a:0 -shortest " . escapeshellarg($ruta_final) . " 2>&1";
+        // Fusión H.265 con Audio: Añadido -y y -shortest para alinear el final del audio al milisegundo exacto en que acaba la pista de vídeo
+        $cmd = "ffmpeg -y -f concat -safe 0 -i " . escapeshellarg($lista_txt_path) . " -i " . escapeshellarg($tmp_audio) . " -vf \"{$vf_scale}\" -c:v libx265 -preset fast -crf 12 -pix_fmt yuv420p10le -tag:v hvc1 -c:a aac -map 0:v:0 -map 1:a:0 -shortest " . escapeshellarg($ruta_final) . " 2>&1";
     } else {
-        // Fusión H.265 sin Audio: Alta compresión (libx265), Máxima Calidad (crf 12), 8-bits web (yuv420p10le) y Etiqueta Apple/Google (hvc1)
-        $cmd = "ffmpeg -f concat -safe 0 -i " . escapeshellarg($lista_txt_path) . " -vf \"{$vf_scale}\" -c:v libx265 -preset fast -crf 12 -pix_fmt yuv420p10le -tag:v hvc1 " . escapeshellarg($ruta_final) . " 2>&1";
+        // Fusión H.265 sin Audio: Alta compresión (libx265), Máxima Calidad (crf 12), 10-bits (yuv420p10le) y Etiqueta Apple/Google (hvc1)
+        $cmd = "ffmpeg -y -f concat -safe 0 -i " . escapeshellarg($lista_txt_path) . " -vf \"{$vf_scale}\" -c:v libx265 -preset fast -crf 12 -pix_fmt yuv420p10le -tag:v hvc1 " . escapeshellarg($ruta_final) . " 2>&1";
     }
 
     exec($cmd, $output, $return_var);
@@ -204,19 +204,19 @@ if ($action === 'concatenar_videos') {
         try {
             global $pdo; 
             $nombre_primer_tramo = basename($tramos[0]);
-            $stmt = $pdo->prepare("SELECT user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata FROM historial_prompts WHERE imagen_path = ?");
+            $stmt = $pdo->prepare("SELECT user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, metadata, embedding FROM historial_prompts WHERE imagen_path = ?");
             $stmt->execute([$nombre_primer_tramo]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$row) {
                 $row = [
                     'user_id' => $_SESSION['user_id'] ?? 1, 'modelo' => __('lbl_manual_fusion'), 'descripcion_original' => __('lbl_fusion_description'),
-                    'prompt_positivo' => '', 'prompt_negativo' => '', 'metadata' => '{"Nota":"' . __('lbl_fusion_metadata') . '"}'
+                    'prompt_positivo' => '', 'prompt_negativo' => '', 'metadata' => '{"Nota":"' . __('lbl_fusion_metadata') . '"}', 'embedding' => null
                 ];
             }
 
-            $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, imagen_path, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)")
-                ->execute([$row['user_id'], $row['modelo'], $row['descripcion_original'], $row['prompt_positivo'], $row['prompt_negativo'], $nombre_final, $row['metadata']]);
+            $pdo->prepare("INSERT INTO historial_prompts (user_id, modelo, descripcion_original, prompt_positivo, prompt_negativo, imagen_path, metadata, embedding) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+                ->execute([$row['user_id'], $row['modelo'], $row['descripcion_original'], $row['prompt_positivo'], $row['prompt_negativo'], $nombre_final, $row['metadata'], $row['embedding'] ?? null]);
             
             $borrar_origenes = filter_var($_POST['borrar_origenes'] ?? 'true', FILTER_VALIDATE_BOOLEAN);
             if ($borrar_origenes) {

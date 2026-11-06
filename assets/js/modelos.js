@@ -1381,17 +1381,26 @@ window.filtrarPromptsAvanzado = function() {
 // --- MÓDULO: GESTIÓN DE MEMORIA (VRAM) ---
 // ==============================================================================
 async function vaciarVramComfy() {
-	
-	// 👇 NUEVO: Si hay modelos de Ollama activos en el monitor, los matamos en bloque
+    window.lastComfyLoadedModel = null;
+
+    // 👇 Si hay modelos de Ollama activos en el monitor, los descargamos RESPETANDO la categoría SYS_EMBED
     if (window.lastSysStats && window.lastSysStats.ollama && window.lastSysStats.ollama.models) {
+        const embedModels = (window.modelosDBSistema || [])
+            .filter(m => m.motor === 'ollama' && m.categoria && m.categoria.toLowerCase() === 'sys_embed')
+            .map(m => m.nombre_archivo.toLowerCase().trim());
+
         window.lastSysStats.ollama.models.forEach(mod => {
+            const nomActivo = (mod.name || '').toLowerCase().trim();
+            const nomSinTag = nomActivo.split(':')[0];
+            const esEmbed = embedModels.some(em => em === nomActivo || em.split(':')[0] === nomSinTag);
+            if (esEmbed) return; // No expulsamos a SYS_EMBED
+
             let fdOllama = new FormData();
             fdOllama.append('action', 'liberar_modelo_ollama');
             fdOllama.append('modelo', mod.name);
             fetch('procesar.php', { method: 'POST', body: fdOllama }).catch(() => {});
         });
     }
-    // 👆 FIN DE LO NUEVO 👆
 	
     let fd = new FormData();
     fd.append('action', 'liberar_vram');
@@ -1606,6 +1615,7 @@ async function actualizarDatosMonitor() {
         }
 
         // --- 3. RENDERIZAR COMFYUI QUEUE ---
+        const lblOffline = (typeof GartyLang !== 'undefined' && GartyLang.mon_offline) ? GartyLang.mon_offline : 'Desconectado';
         const comfyBox = document.getElementById('monComfyData');
         if (data.comfy_queue) {
             const running = data.comfy_queue.queue_running ? data.comfy_queue.queue_running.length : 0;
@@ -1615,26 +1625,56 @@ async function actualizarDatosMonitor() {
                 ? `<span class="badge bg-primary text-white"><span class="spinner-grow spinner-grow-sm me-1"></span> ${lblRendering}</span>`
                 : `<span class="badge" style="background-color: rgba(255,255,255,0.1); color: #ccc;"><i class="bi bi-moon-fill"></i> ${lblIdle}</span>`;
 
-            let currentModelTask = '';
-            if (running > 0 && data.comfy_queue.queue_running[0] && data.comfy_queue.queue_running[0][2]) {
-                const promptDef = data.comfy_queue.queue_running[0][2];
-                let loadedModels = [];
-                for (let nodeId in promptDef) {
-                    let node = promptDef[nodeId];
-                    if (node.class_type === "CheckpointLoaderSimple" && node.inputs && node.inputs.ckpt_name) {
-                        loadedModels.push(node.inputs.ckpt_name.split(/[\\/]/).pop());
-                    } else if (node.class_type === "UNETLoader" && node.inputs && node.inputs.unet_name) {
-                        loadedModels.push(node.inputs.unet_name.split(/[\\/]/).pop());
+            let loadedModels = [];
+            if (running > 0 && data.comfy_queue.queue_running[0]) {
+                // Buscamos el diccionario de nodos en la tupla de queue_running (suele ser el índice 2)
+                const queueItem = data.comfy_queue.queue_running[0];
+                const promptDef = (queueItem[2] && typeof queueItem[2] === 'object') ? queueItem[2] : queueItem.find(el => el && typeof el === 'object' && !Array.isArray(el));
+                
+                if (promptDef) {
+                    for (let nodeId in promptDef) {
+                        let node = promptDef[nodeId];
+                        if (!node || !node.class_type) continue;
+                        let inp = node.inputs || {};
+
+                        if ((node.class_type === "CheckpointLoaderSimple" || node.class_type === "CheckpointLoader") && inp.ckpt_name) {
+                            loadedModels.push(String(inp.ckpt_name).split(/[\\/]/).pop());
+                        } else if ((node.class_type === "UNETLoader" || node.class_type === "UnetLoaderGGUF") && inp.unet_name) {
+                            loadedModels.push(String(inp.unet_name).split(/[\\/]/).pop());
+                        } else if (node.class_type === "DownloadAndLoadCogVideoModel" && inp.model) {
+                            loadedModels.push(String(inp.model).split(/[\\/]/).pop());
+                        } else if (node.class_type === "HunyuanVideoFoley") {
+                            loadedModels.push("Hunyuan Video Foley");
+                        } else if (node.class_type === "OmniVoiceEngineNode") {
+                            loadedModels.push("OmniVoice TTS");
+                        } else if (node.class_type === "IndexTTSEngineNode") {
+                            loadedModels.push("IndexTTS-2");
+                        } else if (node.class_type === "F5TTSAudioInputs") {
+                            loadedModels.push("F5-TTS");
+                        }
                     }
                 }
-                
                 if (loadedModels.length > 0) {
-                    currentModelTask = `
-                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-secondary text-light" style="border-color: rgba(255,255,255,0.1) !important;">
-                        <span class="small text-secondary"><i class="bi bi-box-seam"></i> Modelo:</span>
-                        <span class="small text-info text-truncate ms-2 fw-bold" style="max-width: 65%;" title="${loadedModels[0]}">${loadedModels[0]}</span>
-                    </div>`;
+                    window.lastComfyLoadedModel = loadedModels[0];
                 }
+            }
+
+            // Si ComfyUI ya terminó de renderizar pero la VRAM sigue ocupada (> 4 GB), mostramos el último modelo que quedó cargado en memoria
+            const gpuDev = (activeComfySys && activeComfySys.devices && activeComfySys.devices[0]) ? activeComfySys.devices[0] : null;
+            const vramUsedNum = gpuDev ? ((gpuDev.vram_total - gpuDev.vram_free) / 1024 / 1024 / 1024) : 0;
+            if (running === 0 && vramUsedNum < 3.5) {
+                window.lastComfyLoadedModel = null;
+            }
+
+            const modelToDisplay = loadedModels.length > 0 ? loadedModels[0] : (window.lastComfyLoadedModel || '');
+            let currentModelTask = '';
+            if (modelToDisplay) {
+                const lblMod = running > 0 ? 'Modelo:' : 'En VRAM:';
+                currentModelTask = `
+                <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-secondary text-light" style="border-color: rgba(255,255,255,0.1) !important;">
+                    <span class="small text-secondary"><i class="bi bi-box-seam"></i> ${lblMod}</span>
+                    <span class="small text-info text-truncate ms-2 fw-bold" style="max-width: 65%;" title="${modelToDisplay}">${modelToDisplay}</span>
+                </div>`;
             }
 
             comfyBox.innerHTML = `

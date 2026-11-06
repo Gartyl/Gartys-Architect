@@ -303,7 +303,7 @@ if (!function_exists('generarEmbeddingOllama')) {
         if ($texto === '') return null;
         $texto = mb_substr($texto, 0, 2500);
 
-        $ka_raw = isset($mod['keep_alive']) && trim($mod['keep_alive']) !== '' ? trim($mod['keep_alive']) : '2m';
+        $ka_raw = isset($mod['keep_alive']) && trim($mod['keep_alive']) !== '' ? trim($mod['keep_alive']) : '-1';
         if ($ka_raw === '0' || $ka_raw === 0) $ka_val = 0;
         elseif ($ka_raw === '-1' || $ka_raw === -1) $ka_val = -1;
         elseif (is_numeric($ka_raw)) $ka_val = $ka_raw . 'm';

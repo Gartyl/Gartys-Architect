@@ -52,7 +52,7 @@ if ($action === 'amplificar_prompt') {
         "options" => [ "temperature" => $temperatura_varita ]
     ];
 
-    $ch = curl_init('http://' . LLM_IP . ':11434/api/chat');
+    $ch = curl_init("http://" . LLM_IP . ":" . LLM_PORT . "/api/chat");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data)); curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
     curl_setopt($ch, CURLOPT_TIMEOUT, 120); 
@@ -99,7 +99,7 @@ if ($action === 'traducir_rapido') {
         "options" => ["temperature" => 0.1]
     ];
     
-    $ch = curl_init("http://" . LLM_IP . ":11434/api/chat");
+    $ch = curl_init("http://" . LLM_IP . ":" . LLM_PORT . "/api/chat");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); curl_setopt($ch, CURLOPT_TIMEOUT, 60);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload)); curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
     $api_res = curl_exec($ch);
@@ -335,7 +335,7 @@ if ($action === 'get_wildcards') {
 }
 
 if ($action === 'get_ollama_models') {
-    $url = "http://" . LLM_IP . ":11434/api/tags"; 
+    $url = "http://" . LLM_IP . ":" . LLM_PORT . "/api/tags";
     $ch = curl_init($url); curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); curl_setopt($ch, CURLOPT_TIMEOUT, 5);
     $res = curl_exec($ch);
     $models = [];
