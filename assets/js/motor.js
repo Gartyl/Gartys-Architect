@@ -1482,23 +1482,69 @@ if (mainImageInput) {
 
 // --- BARRA DE PROGRESO ---
 let progressInterval = null;
+let stopProgressTimeout = null;
+
 function startProgressBar(estimatedSeconds) {
-    const pContainer = document.getElementById('progressContainer'); const pBar = document.getElementById('progressBar'); const pText = document.getElementById('progressPercent');
-    if(!pContainer) return;
-    pContainer.classList.remove('d-none'); pBar.style.width = '0%'; pText.innerText = '0%';
-    let currentPercent = 0; const intervalMs = 200; const increment = 100 / ((estimatedSeconds * 1000) / intervalMs);
+    if (stopProgressTimeout) {
+        clearTimeout(stopProgressTimeout);
+        stopProgressTimeout = null;
+    }
+    const pContainer = document.getElementById('progressContainer');
+    const pBar = document.getElementById('progressBar');
+    const pText = document.getElementById('progressPercent');
+    if (!pContainer) return;
+
+    pContainer.classList.remove('d-none');
+    pContainer.style.display = 'block';
+
+    if (pBar) {
+        // Guardamos la clase morada original de index.php la primera vez y la restauramos siempre
+        if (!pBar.dataset.origClass) {
+            pBar.dataset.origClass = pBar.className;
+        } else {
+            pBar.className = pBar.dataset.origClass;
+        }
+        pBar.style.width = '0%';
+    }
+    if (pText) pText.innerText = '0%';
+
+    let currentPercent = 0;
+    const intervalMs = 200;
+    const increment = 100 / ((estimatedSeconds * 1000) / intervalMs);
     clearInterval(progressInterval);
     progressInterval = setInterval(() => {
-        currentPercent += increment; if(currentPercent > 95) currentPercent = 95; 
-        pBar.style.width = currentPercent + '%'; pText.innerText = Math.round(currentPercent) + '%';
+        currentPercent += increment;
+        if (currentPercent > 95) currentPercent = 95;
+        if (pBar) pBar.style.width = currentPercent + '%';
+        if (pText) pText.innerText = Math.round(currentPercent) + '%';
     }, intervalMs);
 }
 
 function stopProgressBar() {
     clearInterval(progressInterval);
-    const pBar = document.getElementById('progressBar'); const pText = document.getElementById('progressPercent');
-    if(pBar) pBar.style.width = '100%'; if(pText) pText.innerText = '100%';
-    setTimeout(() => { const pc = document.getElementById('progressContainer'); if(pc) pc.classList.add('d-none'); if(pBar) pBar.style.width = '0%'; }, 1000);
+    progressInterval = null;
+    if (stopProgressTimeout) {
+        clearTimeout(stopProgressTimeout);
+        stopProgressTimeout = null;
+    }
+    const pBar = document.getElementById('progressBar');
+    const pText = document.getElementById('progressPercent');
+    if (pBar) pBar.style.width = '100%';
+    if (pText) pText.innerText = '100%';
+
+    stopProgressTimeout = setTimeout(() => {
+        stopProgressTimeout = null;
+        // 🛡️ Si mientras tanto ha arrancado otro render o sigue el Bucle/Batch activo, NO ocultamos la barra
+        if ((window.activeRadars && Object.keys(window.activeRadars).length > 0) || window.bucleInfinitoActivo || window.loteBatchActivo) {
+            return;
+        }
+        const pc = document.getElementById('progressContainer');
+        if (pc) {
+            pc.classList.add('d-none');
+            pc.style.removeProperty('display');
+        }
+        if (pBar) pBar.style.width = '0%';
+    }, 1000);
 }
 
 // ==============================================================================
@@ -3833,6 +3879,15 @@ window.abortarRadarPorAtasco = function(promptId, tarea, isPolling, errorMsg = n
 };
 
 function iniciarRadarGpu(promptId, targetDiv, btnElement, dbId, originalCategory, xyLabel = null) {
+    if (stopProgressTimeout) {
+        clearTimeout(stopProgressTimeout);
+        stopProgressTimeout = null;
+    }
+    const pContainer = document.getElementById('progressContainer');
+    if (pContainer) {
+        pContainer.classList.remove('d-none');
+        pContainer.style.display = 'block';
+    }
     const pText = document.getElementById('progressText');
     if(pText) pText.innerHTML = `<span style="color: #0dcaf0 !important; font-weight: bold;">${typeof GartyLang !== 'undefined' && GartyLang.radar_msg_rendering ? GartyLang.radar_msg_rendering : 'Renderizando...'} (${promptId})</span>`;
 
@@ -3988,10 +4043,8 @@ window.recolectarImagenGpu = async function(promptId, isPolling = false) {
                 const pendientesTotales = Object.keys(window.activeRadars).length;
                 const pendientesMismoBoton = Object.values(window.activeRadars).filter(r => r.btnElement === tarea.btnElement).length;
 
-                if (pendientesTotales === 0) {
+                if (pendientesTotales === 0 && !window.bucleInfinitoActivo && !window.loteBatchActivo) {
                     if (typeof stopProgressBar === 'function') stopProgressBar();
-                    const statusContainer = document.getElementById('progressContainer');
-                    if (statusContainer) statusContainer.classList.add('d-none');
                 }
 
                 if (tarea.btnElement && !window.bucleInfinitoActivo && !window.loteBatchActivo) {

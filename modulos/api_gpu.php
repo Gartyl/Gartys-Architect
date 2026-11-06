@@ -48,10 +48,18 @@ function modeloTieneClipIntegrado($nombre_archivo) {
 // --- HELPER: DESALOJO AUTOMÁTICO DE OLLAMA EN VRAM ANTES DE USAR COMFYUI ---
 // ==============================================================================
 function liberarOllamaSiOcupaVram() {
+    global $pdo;
     if (!defined('LLM_IP') || !defined('LLM_PORT')) return;
     $base_ollama = "http://" . LLM_IP . ":" . LLM_PORT;
 
-    // 1. Preguntamos a Ollama qué modelos están cargados AHORA MISMO en VRAM (2ms)
+    // 1. Consultamos qué modelo tiene la categoría SYS_EMBED en la BD (ya cacheado en core_funciones.php)
+    $mod_embed = (isset($pdo) && function_exists('obtenerModeloEmbeddingActivo')) 
+        ? obtenerModeloEmbeddingActivo($pdo) 
+        : null;
+    $embed_db = !empty($mod_embed['nombre_archivo']) ? strtolower(trim($mod_embed['nombre_archivo'])) : '';
+    $embed_latest = ($embed_db !== '' && strpos($embed_db, ':') === false) ? ($embed_db . ':latest') : $embed_db;
+
+    // 2. Preguntamos a Ollama qué modelos están cargados AHORA MISMO en VRAM (2ms)
     $ch_ps = curl_init($base_ollama . "/api/ps");
     curl_setopt($ch_ps, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch_ps, CURLOPT_TIMEOUT, 2);
@@ -63,10 +71,15 @@ function liberarOllamaSiOcupaVram() {
     $data_ps = json_decode($res_ps, true);
     if (empty($data_ps['models']) || !is_array($data_ps['models'])) return;
 
-    // 2. Si hay algún modelo ocupando VRAM (ej. del Chat con 10m), lo descargamos en el acto
+    // 3. Descargamos los LLMs pesados en VRAM, pero respetamos el modelo de categoría SYS_EMBED
     foreach ($data_ps['models'] as $mod_activo) {
         $nombre_activo = $mod_activo['name'] ?? ($mod_activo['model'] ?? '');
         if (!empty($nombre_activo)) {
+            $activo_low = strtolower(trim($nombre_activo));
+            if ($embed_db !== '' && ($activo_low === $embed_db || $activo_low === $embed_latest)) {
+                continue; // Es el modelo SYS_EMBED activo en la BD, no lo tocamos
+            }
+
             $ch_free = curl_init($base_ollama . "/api/generate");
             curl_setopt($ch_free, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch_free, CURLOPT_POST, true);
@@ -1526,17 +1539,27 @@ if ($action === 'generar_imagen') {
             }
 
             // =======================================================
-            // 👄 3. APLICACIÓN DE WAV2LIP Y ENSAMBLAJE FINAL (SIN ALTERAR FPS)
+            // 👄 3. APLICACIÓN DE WAV2LIP Y ENSAMBLAJE FINAL (VHS_VideoCombine)
             // =======================================================
-            if ($audio_source_node === null) {
-                if (isset($workflow["291"]["inputs"]["audio"])) {
-                    unset($workflow["291"]["inputs"]["audio"]);
-                }
-            } else {
-                if (isset($workflow["291"]["inputs"])) {
-                    $workflow["291"]["inputs"]["audio"] = $audio_source_node;
-                    $workflow["291"]["inputs"]["frame_rate"] = $fps_final_ltx;
-                }
+            unset($workflow["290"]); // Eliminamos SaveVideo nativo para evitar doble salida en el visor
+            $workflow["291"] = [
+                "inputs" => [
+                    "frame_rate" => floatval($fps_final_ltx),
+                    "loop_count" => 0,
+                    "filename_prefix" => "byGartyVideo",
+                    "format" => "video/h264-mp4",
+                    "pix_fmt" => "yuv420p",
+                    "crf" => 19,
+                    "save_metadata" => true,
+                    "pingpong" => false,
+                    "save_output" => true,
+                    "images" => ["234", 0]
+                ],
+                "class_type" => "VHS_VideoCombine"
+            ];
+
+            if ($audio_source_node !== null) {
+                $workflow["291"]["inputs"]["audio"] = $audio_source_node;
 
                 // Wav2Lip solo se activa si el usuario marcó explícitamente Wav2Lip (NO por marcar sync_with_video)
                 $usar_wav2lip_clasico = filter_var($_POST['wav2lip'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
@@ -1550,21 +1573,17 @@ if ($action === 'generar_imagen') {
                         "inputs" => [
                             "mode" => "sequential",       
                             "face_detect_batch" => 8,     
-                            "images" => ["290", 0],
+                            "images" => ["234", 0],
                             "audio" => $audio_source_node                      
                         ],
                         "class_type" => "Wav2Lip"
                     ];
                     
-                    if (isset($workflow["291"]["inputs"])) {
-                        $workflow["291"]["inputs"]["images"] = ["1002_wav2lip", 0]; 
-                        // Mantenemos $fps_final_ltx para que el vídeo NO vaya en cámara rápida
-                        $workflow["291"]["inputs"]["frame_rate"] = $fps_final_ltx;
-                    }
+                    $workflow["291"]["inputs"]["images"] = ["1002_wav2lip", 0]; 
                 }
             }
 
-            $current_image_node = "290";
+            $current_image_node = "291";
             goto EJECUTAR_COMFYUI;
         }
 		
@@ -3792,7 +3811,7 @@ if ($action === 'generar_imagen') {
         
         // A) Si hay una imagen real en el visor principal (que no sea el eco de la bandeja), va la primera
         if (isset($workflow["11"]) && $init_image_base64 !== "TRAY_IMAGE_USED") {
-            $kontext_images[] = isset($workflow["13"]) ? ["13", 0] : ["11", 0];
+            $kontext_images[] = ["11", 0];
         } else {
             unset($workflow["11"]);
         }

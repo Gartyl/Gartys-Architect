@@ -97,14 +97,46 @@ async function lanzarVideoEncadenado(fdOriginal, totalFramesPeticion, maxFramesO
     const progressText = document.getElementById('progressText');
     const visorInfo = document.getElementById('imageResult'); 
 
-    // --- NUEVO: Función radar interna para no bloquear el servidor por Timeout ---
-    const pollTicket = async (promptId, dbId) => {
+    // Helper para pintar el vídeo finalizado en el visor principal (con o sin construirTarjetaImagen)
+    const renderizarVideoFinalEnVisor = (b64OrUrl, fileName = 'video.mp4') => {
+        window._wsRenderFinished = true;
+        if (!visorInfo) return;
+        if (typeof construirTarjetaImagen === 'function') {
+            visorInfo.innerHTML = construirTarjetaImagen(b64OrUrl, fileName);
+            return;
+        }
+        const srcVideo = (fileName && fileName !== 'video.mp4') 
+            ? (`galeria/${fileName}?t=${Date.now()}`) 
+            : (String(b64OrUrl).startsWith('data:') ? b64OrUrl : `data:video/mp4;base64,${b64OrUrl}`);
+        visorInfo.innerHTML = `
+            <div class="card bg-dark border-secondary shadow-lg overflow-hidden mx-auto" style="max-width: 900px;">
+                <video src="${srcVideo}" class="w-100 d-block" controls autoplay loop playsinline style="max-height: 75vh; background:#000;"></video>
+            </div>`;
+    };
+
+    // --- Función radar interna con cerrojo anti-solapamiento y límite de 30 min ---
+    const pollTicket = async (promptId, dbId, numTramo) => {
         return new Promise((resolve, reject) => {
             let attempts = 0;
+            let isPolling = false;
             const interval = setInterval(async () => {
+                if (isPolling) return;
+                isPolling = true;
                 attempts++;
-                // Límite de 15 minutos (300 * 3s)
-                if (attempts > 300) { clearInterval(interval); reject(new Error(GartyLang.err_timeout_invalid || "Timeout esperando a ComfyUI")); }
+
+                // Actualizamos el subtítulo del visor WebSocket si está en pantalla para que el usuario sepa en qué tramo va
+                const wsStatus = document.getElementById('wsNodeStatus');
+                if (wsStatus && totalTramos > 1) {
+                    wsStatus.innerText = `${GartyLang.msg_proc_tramo1 || 'Procesando tramo'} ${numTramo} ${GartyLang.msg_proc_tramo2 || 'de'} ${totalTramos}...`;
+                }
+
+                // Límite de 30 minutos (600 * 3s)
+                if (attempts > 600) {
+                    clearInterval(interval);
+                    isPolling = false;
+                    reject(new Error(GartyLang.err_timeout_invalid || "Timeout esperando a ComfyUI"));
+                    return;
+                }
                 
                 let fdCheck = new FormData(); 
                 fdCheck.append('action', 'check_ticket'); 
@@ -113,22 +145,28 @@ async function lanzarVideoEncadenado(fdOriginal, totalFramesPeticion, maxFramesO
                 try {
                     let resC = await fetch('procesar.php', { method: 'POST', body: fdCheck });
                     let dataC = await resC.json();
-                    if (dataC.error) { 
-                        clearInterval(interval); reject(new Error(dataC.error)); 
+                    if (dataC.error || dataC.status === 'failed' || dataC.status === 'error') { 
+                        clearInterval(interval);
+                        isPolling = false;
+                        reject(new Error(dataC.error || dataC.msg || "Error en ComfyUI al generar el tramo.")); 
+                        return;
                     } else if (dataC.status === 'completed') { 
-                        clearInterval(interval); resolve(dataC); 
+                        clearInterval(interval);
+                        isPolling = false;
+                        resolve(dataC); 
+                        return;
                     }
                 } catch(e) {
-                    // Si hay un micro-corte de red temporal, lo ignoramos y el radar seguirá preguntando en el próximo ciclo
                     console.warn("Fallo leve de red al consultar ticket, reintentando...", e);
                 }
+                isPolling = false;
             }, 3000);
         });
     };
 
     try {
-        if (progressContainer) progressContainer.style.display = 'block';
-        if (visorInfo) visorInfo.innerHTML = '';
+        window._wsRenderFinished = false;
+        if (progressContainer) { progressContainer.classList.remove('d-none'); progressContainer.style.display = 'block'; }
         if (progressBar) {
             progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-success';
             progressBar.style.cssText = ''; 
@@ -139,6 +177,7 @@ async function lanzarVideoEncadenado(fdOriginal, totalFramesPeticion, maxFramesO
         }
 
         for (let i = 0; i < totalTramos; i++) {
+            window._wsRenderFinished = false; // Permitimos al WebSocket mostrar el % de este tramo
             let fdTramo = new FormData();
             for (let pair of fdOriginal.entries()) {
                 fdTramo.append(pair[0], pair[1]);
@@ -146,16 +185,18 @@ async function lanzarVideoEncadenado(fdOriginal, totalFramesPeticion, maxFramesO
             
             fdTramo.set('video_frames', framesPorTramo);
             fdTramo.set('is_tramo', 'true');
-            // CLAVE DEL ARREGLO: Modo asíncrono para evitar el Timeout y el error JSON.parse
             fdTramo.set('async_mode', 'true'); 
             
             if (i === 0) {
-                if (typeof currentImageBase64 !== 'undefined' && currentImageBase64) {
+                if (!fdTramo.get('init_image') && typeof currentImageBase64 !== 'undefined' && currentImageBase64) {
                     let cleanImg = currentImageBase64.includes(',') ? currentImageBase64.split(',')[1] : currentImageBase64;
                     fdTramo.set('init_image', cleanImg);
                 }
             } else {
+                // En los tramos de continuación (2, 3...) usamos exclusivamente el último frame del tramo anterior
                 fdTramo.delete('init_image');
+                fdTramo.delete('has_tray_images');
+                for (let t = 1; t <= 9; t++) fdTramo.delete('tray_image_' + t);
                 fdTramo.set('previous_video', tramosNombres[i - 1]);
             }
             
@@ -169,21 +210,25 @@ async function lanzarVideoEncadenado(fdOriginal, totalFramesPeticion, maxFramesO
             let res = await fetch('procesar.php', { method: 'POST', body: fdTramo });
             let data = await res.json();
 
-            // En lugar de esperar a que termine, recogemos el ticket e iniciamos el radar para este tramo
             if (data.status === 'ticket_issued' && data.prompt_id) {
-                let finalData = await pollTicket(data.prompt_id, data.historial_id || 0);
-                if (finalData.filenames && finalData.filenames.length > 0) {
-                    tramosNombres.push(finalData.filenames[0]);
+                let finalData = await pollTicket(data.prompt_id, data.historial_id || 0, i + 1);
+                let nombreArchivoTramo = (finalData.filenames && finalData.filenames[0]) || finalData.filename || '';
+                if (nombreArchivoTramo) {
+                    tramosNombres.push(nombreArchivoTramo);
                 } else {
                     throw new Error(GartyLang.err_server_tramo + (i + 1));
                 }
-            } else if (data.status === 'completed' && data.images && data.filenames) {
-                // Por si el servidor responde 'completed' directamente (muy rápido)
-                tramosNombres.push(data.filenames[0]);
+            } else if (data.status === 'completed' && (data.filenames || data.filename)) {
+                tramosNombres.push((data.filenames && data.filenames[0]) || data.filename);
             } else {
                 throw new Error(data.error || (GartyLang.err_server_tramo + (i + 1)));
             }
         }
+
+        // Bloqueamos el WebSocket para que no pise el visor mientras FFmpeg ensambla el MP4 final
+        window._wsRenderFinished = true;
+        const wsStatusFinal = document.getElementById('wsNodeStatus');
+        if (wsStatusFinal) wsStatusFinal.innerText = GartyLang.msg_assemble_text || 'Ensamblando vídeo final con FFmpeg...';
 
         if (progressBar) {
             progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-info';
@@ -196,7 +241,6 @@ async function lanzarVideoEncadenado(fdOriginal, totalFramesPeticion, maxFramesO
         fdConcat.append('action', 'concatenar_videos');
         fdConcat.append('videos_array', JSON.stringify(tramosNombres));
         
-        // --- CAPTURA DE FPS DEL DESPLEGABLE ---
         const fpsElegidos = document.getElementById('videoFpsSelector') ? document.getElementById('videoFpsSelector').value : 16;
         fdConcat.append('video_fps', fpsElegidos);
         
@@ -210,24 +254,29 @@ async function lanzarVideoEncadenado(fdOriginal, totalFramesPeticion, maxFramesO
         let dataConcat = await resConcat.json();
         
         if (dataConcat.status === 'completed') {
-            if (visorInfo && typeof construirTarjetaImagen === 'function') {
-                visorInfo.innerHTML = construirTarjetaImagen(dataConcat.images[0]);
-            }
+            const vidB64 = (dataConcat.images && dataConcat.images[0]) || '';
+            const vidFile = dataConcat.final_filename || (dataConcat.filenames && dataConcat.filenames[0]) || dataConcat.filename || 'video.mp4';
+            renderizarVideoFinalEnVisor(vidB64, vidFile);
+
             if (progressContainer) progressContainer.style.display = 'none';
             if (typeof stopProgressBar === 'function') stopProgressBar();
+            if (typeof cargarGaleria === 'function') cargarGaleria(1, false);
         } else {
             throw new Error(dataConcat.error || GartyLang.err_concat_ffmpeg);
         }
         
     } catch (err) {
+        window._wsRenderFinished = true;
         console.error(GartyLang.log_err_concat_engine, err);
+        const livePrev = document.getElementById('livePreviewContainer');
+        if (livePrev) livePrev.remove();
         if (progressText) progressText.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle"></i> ${GartyLang.swal_err_title}: ${err.message}</span>`;
         if (progressBar) {
             progressBar.className = 'progress-bar progress-bar-striped bg-danger';
             progressBar.style.cssText = ''; 
         }
         if (typeof stopProgressBar === 'function') stopProgressBar();
-        // Lanzamos el error para que el .finally() del motor.js lo atrape y desbloquee el botón
+        SwalDark.fire({ icon: 'error', title: GartyLang.swal_err_title || 'Error en Vídeo', html: err.message });
         throw err; 
     }
 }
@@ -317,9 +366,20 @@ async function ejecutarMesaDeMezclas() {
             document.querySelectorAll('.merge-checkbox').forEach(cb => cb.checked = false);
             
             const visorInfo = document.getElementById('imageResult');
-            if (visorInfo && typeof construirTarjetaImagen === 'function') {
-                visorInfo.innerHTML = construirTarjetaImagen(data.images[0]);
+            if (visorInfo) {
+                const vidB64 = (data.images && data.images[0]) || '';
+                const vidFile = data.final_filename || (data.filenames && data.filenames[0]) || data.filename || 'video.mp4';
+                if (typeof construirTarjetaImagen === 'function') {
+                    visorInfo.innerHTML = construirTarjetaImagen(vidB64, vidFile);
+                } else {
+                    const srcVideo = data.final_filename ? (`galeria/${data.final_filename}?t=${Date.now()}`) : `data:video/mp4;base64,${vidB64}`;
+                    visorInfo.innerHTML = `
+                        <div class="card bg-dark border-secondary shadow-lg overflow-hidden mx-auto" style="max-width: 900px;">
+                            <video src="${srcVideo}" class="w-100 d-block" controls autoplay loop playsinline style="max-height: 75vh; background:#000;"></video>
+                        </div>`;
+                }
             }
+            if (typeof cargarGaleria === 'function') cargarGaleria(1, false);
             SwalDark.fire({icon: 'success', title: GartyLang.swal_merge_done_title, text: GartyLang.swal_merge_done_text});
         } else {
             SwalDark.fire({icon: 'error', title: GartyLang.swal_merge_fail_title, text: data.error});
