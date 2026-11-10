@@ -220,11 +220,13 @@ function updateModelFilter(category) {
     const catDB = mapaCategorias[category] || '';
     
    const modelosFiltradosDB = window.modelosDBSistema ? window.modelosDBSistema.filter(m => {
-        // 👇 NUEVO: Excluir explícitamente los modelos de sistema ocultos del desplegable
         if (m.categoria && m.categoria.toLowerCase().startsWith('sys_')) return false;
+        const esMinimax = (m.nombre_archivo || '').toLowerCase().includes('minimax') || (m.nombre_visual || '').toLowerCase().includes('minimax');
 
-        // 👇 LIMPIO: Ya no hay rastro de [VISION]
-        if (category === '[CHAT]') return m.motor === 'comfyui' && m.categoria.toLowerCase() !== 'video';
+        if (category === '[CHAT]') return m.motor === 'comfyui' && (m.categoria.toLowerCase() !== 'video' || esMinimax);
+        if (category === '[NATURAL_IMAGE]' && esMinimax && m.motor === 'comfyui') return true;
+        if (category === '[VIDEO]' && esMinimax && m.motor === 'comfyui') return true;
+
         return (m.categoria && m.categoria.toLowerCase() === catDB) && m.motor === 'comfyui';
     }) : [];
 
@@ -441,7 +443,7 @@ function updateLoraFilter(category) {
             } else if (modeloSeleccionado.includes('ltx')) {
                 tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'ltx') || m.toLowerCase().includes('ltx'));
             } else if (modeloSeleccionado.includes('minimax')) {
-                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, ['minimax_h3', 'minimax']));
+                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, ['minimax_h3', 'minimax']) || m.toLowerCase().includes('minimax'));
             } else if (modeloSeleccionado.includes('hunyuan')) {
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
@@ -1247,7 +1249,7 @@ function sugerirAjustesMotor() {
             'wan':     { steps: 30, cfg: 5.0, sampler: 'euler_ancestral', scheduler: 'beta', shift: 5.0, denoise: "0.75" },
             'hidream': { steps: 30, cfg: 5.0, sampler: 'ipndm', scheduler: 'beta', shift: 3.0, denoise: "0.75" },
             'ltx':     { steps: 30, cfg: 5.0, sampler: 'euler_ancestral', scheduler: 'beta', shift: '', denoise: "0.75" },
-            'minimax': { steps: 30, cfg: 5.0, sampler: 'euler_ancestral', scheduler: 'beta', shift: '', denoise: "0.75" },
+            'minimax': { steps: 20, cfg: 1.0, sampler: 'res_multistep', scheduler: 'simple', shift: '', denoise: "1.00" },
             'turbo':   { steps: 6,  cfg: 1.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
             'schnell': { steps: 6,  cfg: 1.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
             'krea2':   { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },

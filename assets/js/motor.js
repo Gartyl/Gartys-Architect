@@ -2757,6 +2757,17 @@ document.getElementById('promptForm').onsubmit = async (e) => {
     if (selectedGraphicModel) {
         fd.append('modelo_grafico_id', selectedGraphicModel);
     }
+
+    // 👇 NUEVO: Informamos al Arquitecto de cuántas imágenes de referencia hay activas (Visor + Bandeja)
+    if (selValue !== '[CHAT]') {
+        let totalRefImgs = (window.bandejaArchivos && window.bandejaArchivos.length) ? window.bandejaArchivos.length : 0;
+        if (currentImageBase64 && document.getElementById('imgPreviewContainer')?.style.display !== 'none') {
+            totalRefImgs += 1;
+        }
+        if (totalRefImgs > 0) {
+            fd.append('num_ref_images', totalRefImgs);
+        }
+    }
     
     if (selValue === '[CHAT]') {
         const roleSel = document.getElementById('chatRoleSelector');
@@ -3347,7 +3358,7 @@ async function runGpu(mode = 'directo') {
     let pContainer = document.getElementById('livePreviewContainer');
     
     const modLower = currentModelCheck.toLowerCase();
-    window.isCurrentTaskVideo = (originalCategory === '[VIDEO]' || modLower.includes('ltx') || modLower.includes('wan') || modLower.includes('minimax') || modLower.includes('cogvideo'));
+    window.isCurrentTaskVideo = (originalCategory === '[VIDEO]' || modLower.includes('ltx') || modLower.includes('wan') || modLower.includes('cogvideo'));
 
     const txtBadge = window.isCurrentTaskVideo 
         ? ((typeof GartyLang !== 'undefined' && GartyLang.gpu_animating_video) ? GartyLang.gpu_animating_video : 'Generando vídeo...')

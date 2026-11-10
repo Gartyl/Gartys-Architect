@@ -507,24 +507,64 @@ if ($isChat) {
 } 
 
 // --- INYECCIÓN DE REGLAS ESPECÍFICAS DEL MODELO GRÁFICO (Arquitecto) ---
-$modelo_grafico_recibido = $_POST['modelo_grafico_id'] ?? '';
+$modelo_grafico_recibido = $_POST['modelo_grafico_id'] ?? ($_POST['model_path'] ?? '');
 $default_negativo_bd = '';
+$es_minimax_arq = false;
 
 if (!empty($modelo_grafico_recibido) && $selector !== '[LLM]' && !$isChat) {
     try {
-        $stmtReglas = $pdo->prepare("SELECT reglas_arquitecto, default_negative FROM modelos_ia WHERE id = ? LIMIT 1");
+        $sqlReglas = is_numeric($modelo_grafico_recibido)
+            ? "SELECT nombre_archivo, nombre_visual, reglas_arquitecto, default_negative FROM modelos_ia WHERE id = ? LIMIT 1"
+            : "SELECT nombre_archivo, nombre_visual, reglas_arquitecto, default_negative FROM modelos_ia WHERE nombre_archivo = ? LIMIT 1";
+        $stmtReglas = $pdo->prepare($sqlReglas);
         $stmtReglas->execute([$modelo_grafico_recibido]);
         $rowReglas = $stmtReglas->fetch(PDO::FETCH_ASSOC);
         
         if ($rowReglas) {
             $reglas_modelo = $rowReglas['reglas_arquitecto'];
             $default_negativo_bd = $rowReglas['default_negative'] ?? '';
+            $firma_mod = strtolower(($rowReglas['nombre_archivo'] ?? '') . ' ' . ($rowReglas['nombre_visual'] ?? ''));
+            $es_minimax_arq = (strpos($firma_mod, 'minimax') !== false);
             
             if (!empty($reglas_modelo)) {
                 $system_prompt .= "\n\n[ABSOLUTE DIRECTIVE FOR THIS SPECIFIC MODEL - YOU MUST OBEY THIS AHEAD OF ANY OTHER RULE]:\n" . trim($reglas_modelo);
             }
         }
     } catch (Exception $e) { /* Silencioso */ }
+}
+
+// --- LÓGICA CONTEXTUAL MINIMAX H3 (PUENTE TÉCNICO DE ETIQUETAS Y MODO 2D/VÍDEO) ---
+$es_edicion_r2i_mm = false;
+if ($es_minimax_arq) {
+    $num_refs_arq = intval($_POST['num_ref_images'] ?? 0);
+    if (preg_match_all('/(?:<\|image_(\d+)\|>|<Picture\s*(\d+)>)/i', $descripcion, $m_tags)) {
+        $max_tag = max(array_map('intval', array_merge($m_tags[1], $m_tags[2])));
+        if ($max_tag > $num_refs_arq) $num_refs_arq = $max_tag;
+    }
+
+    if ($selector === '[NATURAL_IMAGE]') {
+        $system_prompt .= "\n\n[MODE CONTEXT]: Target output is a static 2D image, NOT a video. Do NOT add camera movements.";
+    }
+
+    if ($num_refs_arq > 0) {
+        $es_edicion_r2i_mm = true;
+        $descripcion = preg_replace('/<\|image_(\d+)\|>/i', '<Picture $1>', $descripcion);
+
+        $lista_pics = [];
+        for ($p = 1; $p <= $num_refs_arq; $p++) {
+            $lista_pics[] = "<Picture $p>";
+        }
+        $str_pics = implode(' and ', $lista_pics);
+
+        $system_prompt .= "\n\n[CRITICAL OVERRIDE FOR MINIMAX H3 REFERENCE EDITING]:\n"
+            . "Active reference images ({$num_refs_arq}): {$str_pics}.\n"
+            . "IGNORE all previous instructions about creative expansion, lighting styles, or camera lenses.\n"
+            . "- You CANNOT see the reference images, so NEVER invent visual descriptions, lighting (like chiaroscuro), or framing (like portrait/85mm) for them.\n"
+            . "- Write a concise, literal, two-paragraph instruction:\n"
+            . "  Paragraph 1: 'Use {$str_pics} as references.' Identify each image neutrally based ONLY on the user's words and assign tags <S1>, <S2> (e.g., '<Picture 1> shows a person <S1>. <Picture 2> shows a person <S2>.').\n"
+            . "  Paragraph 2: State the exact edit requested by the user using <S1>, <S2> and <Picture N>, and end with 'Retain the rest of <Picture 1> including the style, composition and background.'\n"
+            . "- Do NOT add camera lenses, f-stops, or poetic adjectives.";
+    }
 }
 
 // ====================================================================
@@ -679,8 +719,10 @@ if ($isChat && !empty($lista_imagenes_limpias)) {
             $extra = "CRITICAL: You are a PROMPT ENGINEER. Do NOT execute the user's task. Do NOT answer the user's question. Your ONLY job is to write a highly detailed, professional PROMPT that I can copy and paste to another AI to perform this task. The prompt MUST be in the SAME LANGUAGE as the user's input. Do NOT use JSON. Do NOT wrap in quotes. Just output the prompt text.";
             $user_message = "Task: Create an optimized AI prompt based on this idea. {$extra}\nUser Idea: \"{$descripcion}\"";
         } else {
-            $extra = "EXPAND the idea creatively with highly descriptive details.";
-            $user_message = "Task: Transform the following user idea into an expert, highly detailed structural prompt in ENGLISH for category {$selector}. {$extra} Respond ONLY with a valid JSON block.\nIdea: \"{$descripcion}\"";
+            $extra = !empty($es_edicion_r2i_mm)
+                ? "DO NOT expand with fictional details or camera lenses. Write a direct, concise reference-editing instruction using <Picture N> and <SN>."
+                : "EXPAND the idea creatively with highly descriptive details.";
+            $user_message = "Task: Transform the following user idea into an expert prompt in ENGLISH for category {$selector}. {$extra} Respond ONLY with a valid JSON block.\nIdea: \"{$descripcion}\"";
         }
     }
     $messages[] = ["role" => "user", "content" => $user_message];
@@ -762,7 +804,7 @@ $payload = [
 
 session_write_close();
 
-$ch = curl_init("http://" . LLM_IP . ":11434/api/chat");
+$ch = curl_init("http://" . LLM_IP . ":" . LLM_PORT . "/api/chat");
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_TIMEOUT, 0); 
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_INVALID_UTF8_SUBSTITUTE)); 
@@ -846,7 +888,14 @@ if ($isChat || $selector === '[LLM]') {
 
     if (preg_match('/\{[\s\S]*\}/s', $clean, $matches)) { 
         $json_str = $matches[0];
-        $ai = json_decode($json_str, true); 
+        $ai = json_decode($json_str, true);
+        // Si el LLM metió saltos de línea literales entre el párrafo 1 y 2 dentro del JSON, los escapamos y reintentamos
+        if (!$ai) {
+            $json_fixed = preg_replace_callback('/"((?:\\.|[^"\\])*)"/s', function($m) {
+                return '"' . str_replace(["\r\n", "\r", "\n"], "\\n", $m[1]) . '"';
+            }, $json_str);
+            $ai = json_decode($json_fixed, true);
+        }
         if ($ai) {
             $finalP = $ai['prompt'] ?? $ai['positive_prompt'] ?? "";
             $finalN = $ai['negative_prompt'] ?? $ai['negative'] ?? "";
@@ -860,7 +909,8 @@ if ($isChat || $selector === '[LLM]') {
             if (!empty($think_matches[1])) {
                 $text = trim($think_matches[1]);
             } else {
-                $text = trim(strip_tags($raw)); 
+                // Eliminamos solo <think>/</think> sin usar strip_tags() para no borrar <Picture N>, <SN> ni <|image_N|>
+                $text = trim(preg_replace('/<\/?think>/i', '', $raw)); 
             }
         }
         $finalP = !empty($text) ? trim($text) : trim($raw);
@@ -877,6 +927,11 @@ $noise = ["none", "n/a", "vacío", "empty", "null", "undefined"];
 if (in_array(strtolower(trim($finalN)), $noise)) { $finalN = ""; }
 
 $finalP = trim(preg_replace('/^(The user wants|Here is|Prompt:|Positive Prompt:)/i', '', trim($finalP)));
+
+if (!empty($es_minimax_arq)) {
+    $finalP = preg_replace('/<\|image_(\d+)\|>/i', '<Picture $1>', $finalP);
+    $finalP = preg_replace('/\[S(\d+)\]/i', '<S$1>', $finalP);
+}
 
 if (!empty(trim($default_negativo_bd))) {
     $finalN = trim($default_negativo_bd);
