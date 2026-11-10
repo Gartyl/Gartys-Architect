@@ -119,16 +119,8 @@ if (!function_exists('limpiarChunksTextoComfyPNG')) {
     }
 }
 
-if (!function_exists('inyectarMetadatosCivitaiPNG')) {
-    function inyectarMetadatosCivitaiPNG($png_binary, $historial_id, $pdo) {
-        if (strlen($png_binary) < 64 || substr($png_binary, 0, 8) !== "\x89PNG\r\n\x1a\n") {
-            return $png_binary;
-        }
-
-        // 1. Limpiamos los chunks de ComfyUI sin hash para evitar conflictos en Civitai
-        $png_binary = limpiarChunksTextoComfyPNG($png_binary);
-
-        // 2. Obtener prompts y metadata desde historial_prompts
+if (!function_exists('construirTextoParametrosCivitai')) {
+    function construirTextoParametrosCivitai($historial_id, $pdo) {
         $pos_prompt = '';
         $neg_prompt = '';
         $meta_db = [];
@@ -145,7 +137,6 @@ if (!function_exists('inyectarMetadatosCivitaiPNG')) {
             } catch (Exception $e) {}
         }
 
-        // 3. Extraer datos del workflow_ID.json
         $model_file = $meta_db['Model'] ?? '';
         $steps      = $meta_db['Steps'] ?? 20;
         $cfg        = $meta_db['CFG Scale'] ?? 3.5;
@@ -184,13 +175,20 @@ if (!function_exists('inyectarMetadatosCivitaiPNG')) {
                         elseif (isset($in['noise_seed'])) $seed = $in['noise_seed'];
                         if (!empty($in['sampler_name'])) $sampler_raw = $in['sampler_name'];
                         if (!empty($in['scheduler'])) $scheduler_raw = $in['scheduler'];
+                    } elseif ($ct === 'RandomNoise' && isset($in['noise_seed'])) {
+                        $seed = $in['noise_seed'];
+                    } elseif ($ct === 'BasicScheduler') {
+                        if (isset($in['steps'])) $steps = $in['steps'];
+                        if (!empty($in['scheduler'])) $scheduler_raw = $in['scheduler'];
+                    } elseif ($ct === 'KSamplerSelect' && !empty($in['sampler_name'])) {
+                        $sampler_raw = $in['sampler_name'];
                     }
                 }
             }
         }
 
         if (empty($model_file) || strpos($model_file, 'Audio_') === 0) {
-            return $png_binary;
+            return '';
         }
 
         $sampler_map = [
@@ -206,14 +204,14 @@ if (!function_exists('inyectarMetadatosCivitaiPNG')) {
             'dpmpp_2m_sde' => 'DPM++ 2M SDE',
             'dpmpp_3m_sde' => 'DPM++ 3M SDE',
             'ddim' => 'DDIM',
-            'uni_pc' => 'UniPC'
+            'uni_pc' => 'UniPC',
+            'res_multistep' => 'res_multistep'
         ];
         $sampler_clean = $sampler_map[strtolower($sampler_raw)] ?? ucfirst($sampler_raw);
         if (!in_array(strtolower($scheduler_raw), ['normal', 'simple', ''])) {
             $sampler_clean .= ' ' . ucfirst($scheduler_raw);
         }
 
-        // 4. Obtener el Hash AutoV2
         $model_name_clean = pathinfo(str_replace('\\', '/', $model_file), PATHINFO_FILENAME);
         $model_hash = obtenerHashAutoV2Civitai($model_file, $pdo);
 
@@ -244,10 +242,10 @@ if (!function_exists('inyectarMetadatosCivitaiPNG')) {
         $pos_prompt = str_replace(["\r", "\x00"], '', $pos_prompt);
         $neg_prompt = str_replace(["\r", "\x00"], '', $neg_prompt);
 
-        // 5. Construir bloque oficial "parameters" (A1111 + Lora hashes + Hashes JSON)
         $param_parts = [
             "Steps: " . intval($steps),
             "Sampler: " . $sampler_clean,
+            "Schedule type: " . ucfirst($scheduler_raw),
             "CFG scale: " . floatval($cfg),
             "Seed: " . $seed,
             "Size: " . $res
@@ -270,7 +268,22 @@ if (!function_exists('inyectarMetadatosCivitaiPNG')) {
         }
         $parameters_text .= implode(", ", $param_parts);
 
-        // 6. Inyectar chunk tEXt tras IHDR
+        return $parameters_text;
+    }
+}
+
+if (!function_exists('inyectarMetadatosCivitaiPNG')) {
+    function inyectarMetadatosCivitaiPNG($png_binary, $historial_id, $pdo) {
+        if (strlen($png_binary) < 64 || substr($png_binary, 0, 8) !== "\x89PNG\r\n\x1a\n") {
+            return $png_binary;
+        }
+
+        $png_binary = limpiarChunksTextoComfyPNG($png_binary);
+        $parameters_text = construirTextoParametrosCivitai($historial_id, $pdo);
+        if ($parameters_text === '') {
+            return $png_binary;
+        }
+
         $chunk_data = "parameters\x00" . $parameters_text;
         $chunk_type = "tEXt";
         $full_chunk = pack('N', strlen($chunk_data)) . $chunk_type . $chunk_data . pack('N', crc32($chunk_type . $chunk_data));
@@ -279,6 +292,63 @@ if (!function_exists('inyectarMetadatosCivitaiPNG')) {
         $insert_pos = 8 + 4 + 4 + $ihdr_len + 4;
 
         return substr($png_binary, 0, $insert_pos) . $full_chunk . substr($png_binary, $insert_pos);
+    }
+}
+
+if (!function_exists('inyectarMetadatosCivitaiWebP')) {
+    function inyectarMetadatosCivitaiWebP($webp_binary, $historial_id, $pdo) {
+        if (strlen($webp_binary) < 16 || substr($webp_binary, 0, 4) !== 'RIFF' || substr($webp_binary, 8, 4) !== 'WEBP') {
+            return $webp_binary;
+        }
+
+        $parameters_text = construirTextoParametrosCivitai($historial_id, $pdo);
+        if ($parameters_text === '') {
+            return $webp_binary;
+        }
+
+        $info = @getimagesizefromstring($webp_binary);
+        if (!$info || empty($info[0]) || empty($info[1])) {
+            return $webp_binary;
+        }
+
+        $w = max(1, intval($info[0])) - 1;
+        $h = max(1, intval($info[1])) - 1;
+
+        $cuerpo = substr($webp_binary, 12);
+        if (strlen($cuerpo) % 2 !== 0) {
+            $cuerpo .= "\x00";
+        }
+
+        $primerChunk = substr($cuerpo, 0, 4);
+        if ($primerChunk !== 'VP8X') {
+            $flags  = "\x08\x00\x00\x00"; // Bit EXIF activo
+            $w24    = substr(pack('V', $w), 0, 3);
+            $h24    = substr(pack('V', $h), 0, 3);
+            $vp8x   = 'VP8X' . pack('V', 10) . $flags . $w24 . $h24;
+            $cuerpo = $vp8x . $cuerpo;
+        } else {
+            $cuerpo[8] = chr(ord($cuerpo[8]) | 0x08);
+        }
+
+        // Prefijo ASCII estándar de 8 bytes en EXIF UserComment (0x9286) compatible con Civitai y navegadores
+        $userComment = "ASCII\x00\x00\x00" . $parameters_text;
+        $ucLen       = strlen($userComment);
+        $tiff = "II\x2A\x00"
+              . pack('V', 8)
+              . pack('v', 1)
+              . pack('v', 0x9286)
+              . pack('v', 7)
+              . pack('V', $ucLen)
+              . pack('V', 26)
+              . pack('V', 0)
+              . $userComment;
+
+        $exifLen   = strlen($tiff);
+        $padding   = ($exifLen % 2 !== 0) ? "\x00" : "";
+        $exifChunk = 'EXIF' . pack('V', $exifLen) . $tiff . $padding;
+
+        $nuevoCuerpo = $cuerpo . $exifChunk;
+        return 'RIFF' . pack('V', strlen($nuevoCuerpo) + 4) . 'WEBP' . $nuevoCuerpo;
     }
 }
 
@@ -435,10 +505,12 @@ if ($action === 'angel_guardia') {
                                 }
                             }
                             
-                            // 🌟 INYECCIÓN METADATOS CIVITAI (Solo en PNG)
-                            if (strtolower($ext) === 'png') {
-                                $file_data = inyectarMetadatosCivitaiPNG($file_data, $historial_id, $pdo);
-                            }
+                            // 🌟 INYECCIÓN METADATOS CIVITAI (PNG y WEBP)
+							if (strtolower($ext) === 'png') {
+								$file_data = inyectarMetadatosCivitaiPNG($file_data, $historial_id, $pdo);
+							} elseif (strtolower($ext) === 'webp') {
+								$file_data = inyectarMetadatosCivitaiWebP($file_data, $historial_id, $pdo);
+							}
 
                             $new_name = 'byGarty_' . md5($prompt_id . $filename) . '.' . $ext;
                             @file_put_contents(__DIR__ . '/../galeria/' . $new_name, $file_data);
@@ -703,10 +775,12 @@ if ($action === 'check_ticket') {
                         }
                     }
                     
-                    // 🌟 INYECCIÓN METADATOS CIVITAI (Solo en PNG)
-                    if (strtolower($ext) === 'png') {
-                        $file_data = inyectarMetadatosCivitaiPNG($file_data, $historial_id, $pdo);
-                    }
+                    // 🌟 INYECCIÓN METADATOS CIVITAI (PNG y WEBP)
+					if (strtolower($ext) === 'png') {
+						$file_data = inyectarMetadatosCivitaiPNG($file_data, $historial_id, $pdo);
+					} elseif (strtolower($ext) === 'webp') {
+						$file_data = inyectarMetadatosCivitaiWebP($file_data, $historial_id, $pdo);
+					}
 
                     $new_name = 'byGarty_' . md5($prompt_id . $filename) . '.' . $ext;
                     @file_put_contents(__DIR__ . '/../galeria/' . $new_name, $file_data);

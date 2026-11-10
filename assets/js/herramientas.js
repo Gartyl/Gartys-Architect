@@ -3,6 +3,7 @@
 // ==============================================================================
 
 // --- MÓDULO LECTOR DE METADATOS PNG (DRAG & DROP) ---
+// --- MÓDULO LECTOR DE METADATOS PNG Y WEBP (DRAG & DROP) ---
 const dropZone = document.getElementById('dropZoneBody');
 const consoleCard = document.getElementById('mainConsoleCard');
 
@@ -15,7 +16,9 @@ if (dropZone && consoleCard) {
         if (['[LLM]', '[CHAT]'].includes(currentCat)) return;
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             const file = e.dataTransfer.files[0];
-            if (file.type === "image/png") extractComfyUIPNG(file);
+            if (file.type === "image/png" || file.type === "image/webp" || /\.(png|webp)$/i.test(file.name)) {
+                extractComfyUIPNG(file);
+            }
         }
     });
 }
@@ -24,31 +27,83 @@ function extractComfyUIPNG(file) {
     const reader = new FileReader();
     reader.onload = function(e) {
         const view = new DataView(e.target.result);
-        let offset = 8;
         let metadata = {};
 
         try {
-            while (offset < view.byteLength) {
-                const length = view.getUint32(offset);
-                const type = String.fromCharCode(
-                    view.getUint8(offset + 4),
-                    view.getUint8(offset + 5),
-                    view.getUint8(offset + 6),
-                    view.getUint8(offset + 7)
-                );
+            const isWebP = view.byteLength >= 16 &&
+                String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3)) === 'RIFF' &&
+                String.fromCharCode(view.getUint8(8), view.getUint8(9), view.getUint8(10), view.getUint8(11)) === 'WEBP';
 
-                if (type === 'tEXt' || type === 'iTXt') {
-                    const data = new Uint8Array(view.buffer, offset + 8, length);
-                    const text = new TextDecoder('utf-8').decode(data);
-                    const nullIdx = text.indexOf('\0');
-                    if (nullIdx !== -1) {
-                        const keyword = text.substring(0, nullIdx);
-                        let rawVal = text.substring(nullIdx + 1);
-                        if (type === 'iTXt') rawVal = rawVal.replace(/^\x00+/, '');
-                        metadata[keyword] = rawVal;
+            if (isWebP) {
+                // --- LECTOR BINARIO DE CHUNKS RIFF/WEBP (EXIF y XMP) ---
+                let offset = 12;
+                while (offset + 8 <= view.byteLength) {
+                    const fourCC = String.fromCharCode(
+                        view.getUint8(offset), view.getUint8(offset + 1),
+                        view.getUint8(offset + 2), view.getUint8(offset + 3)
+                    );
+                    const chunkLen = view.getUint32(offset + 4, true); // Little-Endian
+                    const start = offset + 8;
+                    if (start + chunkLen > view.byteLength) break;
+
+                    if (fourCC === 'EXIF' || fourCC === 'XMP ') {
+                        const rawBytes = new Uint8Array(view.buffer, start, chunkLen);
+                        let text = new TextDecoder('utf-8', { fatal: false }).decode(rawBytes);
+
+                        // Soporte para UserComment con prefijo ASCII\0\0\0 o UNICODE\0
+                        const idxAscii = text.indexOf('ASCII\x00\x00\x00');
+                        const idxUni   = text.indexOf('UNICODE\x00');
+
+                        if (idxAscii !== -1) {
+                            metadata.parameters = text.substring(idxAscii + 8).replace(/\x00/g, '').trim();
+                        } else if (idxUni !== -1) {
+                            // Comprobamos si está en UTF-16 (Civitai/A1111 externo) o UTF-8
+                            const bytePos = idxUni + 8;
+                            const subBytes = rawBytes.slice(bytePos);
+                            if (subBytes.length > 2 && (subBytes[0] === 0 || subBytes[1] === 0)) {
+                                const decoder16 = new TextDecoder(subBytes[0] === 0 ? 'utf-16be' : 'utf-16le');
+                                metadata.parameters = decoder16.decode(subBytes).replace(/\x00/g, '').trim();
+                            } else {
+                                metadata.parameters = text.substring(idxUni + 8).replace(/\x00/g, '').trim();
+                            }
+                        } else {
+                            // Soporte para WebP nativo de ComfyUI ("Prompt:{...}") o XMP de Civitai
+                            const cleanTxt = text.replace(/\x00/g, '');
+                            const mPrompt = cleanTxt.match(/Prompt:\s*(\{[\s\S]*\})/i);
+                            if (mPrompt) {
+                                metadata.prompt = mPrompt[1];
+                            } else if (/Steps:\s*\d+/i.test(cleanTxt)) {
+                                metadata.parameters = cleanTxt;
+                            }
+                        }
                     }
+                    offset = start + chunkLen + (chunkLen % 2);
                 }
-                offset += 12 + length;
+            } else {
+                // --- LECTOR BINARIO DE CHUNKS PNG (tEXt e iTXt) ---
+                let offset = 8;
+                while (offset < view.byteLength) {
+                    const length = view.getUint32(offset);
+                    const type = String.fromCharCode(
+                        view.getUint8(offset + 4),
+                        view.getUint8(offset + 5),
+                        view.getUint8(offset + 6),
+                        view.getUint8(offset + 7)
+                    );
+
+                    if (type === 'tEXt' || type === 'iTXt') {
+                        const data = new Uint8Array(view.buffer, offset + 8, length);
+                        const text = new TextDecoder('utf-8').decode(data);
+                        const nullIdx = text.indexOf('\0');
+                        if (nullIdx !== -1) {
+                            const keyword = text.substring(0, nullIdx);
+                            let rawVal = text.substring(nullIdx + 1);
+                            if (type === 'iTXt') rawVal = rawVal.replace(/^\x00+/, '');
+                            metadata[keyword] = rawVal;
+                        }
+                    }
+                    offset += 12 + length;
+                }
             }
 
             let foundPos = "";

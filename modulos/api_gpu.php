@@ -1043,12 +1043,13 @@ if ($action === 'generar_imagen') {
     $is_anima = (strpos($model_lower, 'anima') !== false);
     $is_moss = (strpos($model_lower, 'moss') !== false);
 	$is_fibo2 = (strpos($model_lower, 'fibo') !== false);
+	$is_minimax = (strpos($model_lower, 'minimax') !== false);
     
     // 2. Bandera exclusiva para Z-Image
     $is_zimage = (strpos($model_lower, 'z-image') !== false || strpos($model_lower, 'z_image') !== false || strpos($model_lower, 'zimage') !== false);
     
     // 3. Añadimos a la familia UNETs
-    $is_unet = (stripos($model_path, 'unet/') !== false || stripos($model_path, 'unet\\') !== false || $is_flux || $is_chroma || $is_sd35 || $is_zimage || $is_qwen || $is_gguf || $is_krea2 || $is_hunyuan || $is_hidream || $is_anima || $is_moss) || $is_fibo2;
+    $is_unet = (stripos($model_path, 'unet/') !== false || stripos($model_path, 'unet\\') !== false || $is_flux || $is_chroma || $is_sd35 || $is_zimage || $is_qwen || $is_gguf || $is_krea2 || $is_hunyuan || $is_hidream || $is_anima || $is_moss) || $is_fibo2 || $is_minimax;
     
     // 4. Turbo (Añadida también la versión sin guion)
     $is_turbo = (strpos($model_lower, 'turbo') !== false || strpos($model_lower, 'schnell') !== false);
@@ -1202,7 +1203,7 @@ if ($action === 'generar_imagen') {
     // =========================================================
  
  // Añadimos excepciones a la lista permitida para no bloquear la carga
-    if ($is_unet && !$is_flux && !$is_chroma && !$is_sd35 && !$is_zimage && !$is_qwen && !$is_gguf && !$is_krea2 && !$is_hunyuan && !$is_hidream && !$is_anima && !$is_moss && !$is_fibo2 && strpos($model_lower, 'video') === false) {
+    if ($is_unet && !$is_flux && !$is_chroma && !$is_sd35 && !$is_zimage && !$is_qwen && !$is_gguf && !$is_krea2 && !$is_hunyuan && !$is_hidream && !$is_anima && !$is_moss && !$is_fibo2 && !$is_minimax && strpos($model_lower, 'video') === false) {
     echo json_encode(['error' => __('err_pure_unet_load')]); 
     exit();
 	}
@@ -2890,7 +2891,7 @@ if ($action === 'generar_imagen') {
         $pure_upscale = false;
     }
 
-    if ($hires_fix && $pure_upscale && !empty($init_image_base64) && (!empty($upscale_model) || $aurasr_enabled)) {
+    if ($hires_fix && $pure_upscale && !empty($init_image_base64) && $init_image_base64 !== "TRAY_IMAGE_USED" && empty($tray_comfy_filenames) && (!empty($upscale_model) || $aurasr_enabled)) {	
         
         // 1. Limpiamos la cadena base64 y guardamos archivo temporal en disco
         $clean_img_data = $init_image_base64;
@@ -4268,6 +4269,254 @@ if ($action === 'generar_imagen') {
     }
 	
 	// ==============================================================================
+    // 🌟 INYECCIÓN MINIMAX H3 IMAGE (T2I & R2I MULTICARGA HASTA 9 IMÁGENES)
+    // ==============================================================================
+    if ($is_minimax && !$is_video_mode) {
+        
+        // 1. Múltiplos de 32 obligatorios para la malla latente de MiniMax
+        $width  = max(256, intval(floor($width / 32) * 32));
+        $height = max(256, intval(floor($height / 32) * 32));
+
+        // 2. Nombres directos de componentes (con soporte a personalización desde la BD)
+        $clip_mm_name = $te1 ?: "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors";
+        $aud_vae_mm   = "minimax_h3_audio_vae_fp32.safetensors";
+        $img_vae_mm   = (!empty($vae_requerido) && stripos($vae_requerido, 'image') !== false)
+            ? basename(str_replace('\\', '/', $vae_requerido))
+            : "minimax_h3_t1_image_vae_step1597.safetensors";
+
+        // 3. Recolectamos las imágenes de referencia (Visor Principal + Bandeja Multicarga hasta 9 fotos)
+        $mm_ref_files = [];
+        if (!empty($comfy_image_filename) && $comfy_image_filename !== "none" && $init_image_base64 !== "TRAY_IMAGE_USED") {
+            $mm_ref_files[] = $comfy_image_filename;
+        }
+        if (!empty($tray_comfy_filenames)) {
+            foreach ($tray_comfy_filenames as $t_file) {
+                if (count($mm_ref_files) >= 9) break;
+                $mm_ref_files[] = $t_file;
+            }
+        }
+
+        // 4. Normalización técnica de etiquetas de la UI (<|image_1|> -> <Picture 1> y [S1] -> <S1>)
+        $prompt_mm_img = preg_replace('/<\|image_(\d+)\|>/i', '<Picture $1>', $posPrompt);
+        $prompt_mm_img = preg_replace('/<image[\s_](\d+)>/i', '<Picture $1>', $prompt_mm_img);
+        $prompt_mm_img = preg_replace('/\[S(\d+)\]/i', '<S$1>', $prompt_mm_img);
+
+        if (!empty($mm_ref_files)) {
+            $etiquetas_faltantes = [];
+            for ($i = 1; $i <= count($mm_ref_files); $i++) {
+                if (stripos($prompt_mm_img, "<Picture $i>") === false) {
+                    $etiquetas_faltantes[] = "<Picture $i>";
+                }
+            }
+            if (!empty($etiquetas_faltantes)) {
+                $prompt_mm_img = implode(' ', $etiquetas_faltantes) . " " . $prompt_mm_img;
+            }
+        }
+
+        // 5. Construcción directa del grafo R2I / T2I
+        $workflow = [
+            "119" => [
+                "inputs" => ["vae_name" => $img_vae_mm],
+                "class_type" => "VAELoader"
+            ],
+            "151" => [
+                "inputs" => ["vae_name" => $aud_vae_mm],
+                "class_type" => "VAELoader"
+            ],
+            "128" => [
+                "inputs" => ["clip_name" => $clip_mm_name, "type" => "minimax", "device" => "default"],
+                "class_type" => "CLIPLoader"
+            ],
+            "127" => $is_gguf
+                ? ["inputs" => ["unet_name" => $model_path], "class_type" => "UnetLoaderGGUF"]
+                : ["inputs" => ["unet_name" => $model_path, "weight_dtype" => "default"], "class_type" => "UNETLoader"]
+        ];
+
+        $mm_model_out = ["127", 0];
+
+        // 6. Encadenado nativo de múltiples LoRAs (LoraLoaderModelOnly)
+        if (!empty($lora_names) && is_array($lora_names)) {
+            $mm_lora_id = 700;
+            foreach ($lora_names as $idx => $lname) {
+                $lname = trim($lname);
+                if (empty($lname) || strtolower($lname) === 'ninguno') continue;
+                $lstr = floatval($lora_strengths_high[$idx] ?? 0.8);
+
+                if (strpos($lname, '\\') === false && strpos($lname, '/') === false) {
+                    $lname = "minimax_h3/" . $lname;
+                }
+                if (!str_ends_with(strtolower($lname), '.safetensors')) {
+                    $lname .= '.safetensors';
+                }
+
+                $node_l = (string)$mm_lora_id;
+                $workflow[$node_l] = [
+                    "inputs" => [
+                        "lora_name" => $lname,
+                        "strength_model" => $lstr,
+                        "model" => $mm_model_out
+                    ],
+                    "class_type" => "LoraLoaderModelOnly"
+                ];
+                $mm_model_out = [$node_l, 0];
+                $mm_lora_id++;
+                $lora_metadata_list[] = basename($lname, '.safetensors') . " ($lstr)";
+            }
+        }
+
+        // 7. Condicionador Multimodal MiniMaxH3ReferenceToVideo (Modo Imagen)
+        $mm_cond_inputs = [
+            "prompt" => $prompt_mm_img,
+            "width" => $width,
+            "height" => $height,
+            "length" => 5,
+            "ref_image_size" => "match",
+            "clip" => ["128", 0],
+            "vae" => ["119", 0],
+            "audio_vae" => ["151", 0]
+        ];
+
+        foreach ($mm_ref_files as $idx => $r_file) {
+            $load_id = "175_mm_ref_" . $idx;
+            $workflow[$load_id] = [
+                "inputs" => ["image" => $r_file, "upload" => "image"],
+                "class_type" => "LoadImage"
+            ];
+            $mm_cond_inputs["ref_images.ref_image_" . $idx] = [$load_id, 0];
+        }
+
+        $workflow["136"] = [
+            "inputs" => $mm_cond_inputs,
+            "class_type" => "MiniMaxH3ReferenceToVideo"
+        ];
+
+        // 8. Muestreo 2D de 1 Frame (EmptyLatentImage + SamplerCustomAdvanced)
+        $mm_sampler = (!empty($_POST['sampler']) && $_POST['sampler'] !== 'euler_ancestral') ? $sampler : 'res_multistep';
+        $mm_scheduler = (!empty($_POST['scheduler']) && $_POST['scheduler'] !== 'karras') ? $scheduler : 'simple';
+        $mm_steps = ($user_steps > 0) ? $steps : 20;
+
+        $workflow["199"] = [
+            "inputs" => ["width" => $width, "height" => $height, "batch_size" => $batch_size],
+            "class_type" => "EmptyLatentImage"
+        ];
+        $workflow["129"] = [
+            "inputs" => ["noise_seed" => $seed],
+            "class_type" => "RandomNoise"
+        ];
+        $workflow["123"] = [
+            "inputs" => ["sampler_name" => $mm_sampler],
+            "class_type" => "KSamplerSelect"
+        ];
+        $workflow["124"] = [
+            "inputs" => ["scheduler" => $mm_scheduler, "steps" => $mm_steps, "denoise" => 1.0, "model" => $mm_model_out],
+            "class_type" => "BasicScheduler"
+        ];
+        $workflow["126"] = [
+            "inputs" => ["model" => $mm_model_out, "conditioning" => ["136", 0]],
+            "class_type" => "BasicGuider"
+        ];
+        $workflow["198"] = [
+            "inputs" => [
+                "noise" => ["129", 0],
+                "guider" => ["126", 0],
+                "sampler" => ["123", 0],
+                "sigmas" => ["124", 0],
+                "latent_image" => ["199", 0]
+            ],
+            "class_type" => "SamplerCustomAdvanced"
+        ];
+        $workflow["122"] = [
+            "inputs" => ["samples" => ["198", 0], "vae" => ["119", 0]],
+            "class_type" => "VAEDecode"
+        ];
+
+        $current_image_node = "122";
+
+        // 9. Escalado de Alta Resolución (AuraSR GigaGAN o Modelo de Escalado Directo)
+        if ($hires_fix) {
+            $target_w = intval($width * $upscale_factor);
+            $target_h = intval($height * $upscale_factor);
+
+            if ($aurasr_enabled) {
+                $workflow["400"] = [
+                    "inputs" => ["model" => "AuraSR-v2.safetensors"],
+                    "class_type" => "LoadAuraSR"
+                ];
+                $workflow["401"] = [
+                    "inputs" => [
+                        "avoid_seams" => true,
+                        "AURASR_MODEL" => ["400", 0],
+                        "IMAGE" => [$current_image_node, 0]
+                    ],
+                    "class_type" => "RunAuraSR"
+                ];
+                $workflow["402"] = [
+                    "inputs" => [
+                        "upscale_method" => "bicubic",
+                        "width" => $target_w,
+                        "height" => $target_h,
+                        "crop" => "disabled",
+                        "image" => ["401", 0]
+                    ],
+                    "class_type" => "ImageScale"
+                ];
+                $current_image_node = "402";
+            } elseif (!empty($upscale_model)) {
+                $workflow["400"] = [
+                    "inputs" => ["model_name" => $upscale_model],
+                    "class_type" => "UpscaleModelLoader"
+                ];
+                $workflow["401"] = [
+                    "inputs" => [
+                        "upscale_model" => ["400", 0],
+                        "image" => [$current_image_node, 0]
+                    ],
+                    "class_type" => "ImageUpscaleWithModel"
+                ];
+                $workflow["402"] = [
+                    "inputs" => [
+                        "upscale_method" => "bicubic",
+                        "width" => $target_w,
+                        "height" => $target_h,
+                        "crop" => "disabled",
+                        "image" => ["401", 0]
+                    ],
+                    "class_type" => "ImageScale"
+                ];
+                $current_image_node = "402";
+            }
+        }
+
+        if ($remove_background) {
+            $workflow["500"] = [
+                "inputs" => [
+                    "images" => [$current_image_node, 0], "transparency" => true, "model" => $rembg_model,
+                    "post_processing" => false, "only_mask" => false, "alpha_matting" => false,
+                    "alpha_matting_foreground_threshold" => 240, "alpha_matting_background_threshold" => 10,
+                    "alpha_matting_erode_size" => 10, "background_color" => "none"
+                ],
+                "class_type" => "Image Rembg (Remove Background)"
+            ];
+            $current_image_node = "500";
+        }
+        if ($ddcolor_enabled && !$pure_ddcolor) {
+            $workflow["501"] = [
+                "inputs" => ["image" => [$current_image_node, 0], "model_input_size" => 512, "checkpoint" => $ddcolor_model],
+                "class_type" => "DDColor_Colorize"
+            ];
+            $current_image_node = "501";
+        }
+
+        $workflow["9"] = [
+            "inputs" => ["images" => [$current_image_node, 0]],
+            "class_type" => "PreviewImage"
+        ];
+
+        $meta_modo = !empty($mm_ref_files) ? ('MiniMax H3 R2I (' . count($mm_ref_files) . ' img)') : 'MiniMax H3 T2I';
+        goto EJECUTAR_COMFYUI;
+    } // <-- ESTA LLAVE CIERRA EL BLOQUE DE MINIMAX IMAGE
+	
+	// ==============================================================================
     // 🌟 INYECCIÓN IDEOGRAM 4 (Vía JSON Plantilla Estricta)
     // ==============================================================================
     $is_ideogram = (strpos($model_lower, 'ideogram') !== false);
@@ -5142,11 +5391,18 @@ if ($action === 'generar_imagen') {
    if (isset($_POST['async_mode']) && $_POST['async_mode'] === 'true') {
        
        $url_angel = "http://" . $_SERVER['HTTP_HOST'] . $_SERVER['SCRIPT_NAME'];
+       
+	   $formato_angel = $_POST['image_format'] ?? 'png';
+       if (!empty($remove_background) && $formato_angel === 'jpg') {
+           $formato_angel = 'webp';
+       }
+
        $post_fields = http_build_query([
            'action' => 'angel_guardia',
            'prompt_id' => $prompt_id,
            'historial_id' => $historial_id,
-           'user_id' => $user_id
+           'user_id' => $user_id,
+           'image_format' => $formato_angel
        ]);
        
        $ch_angel = curl_init();
@@ -5374,6 +5630,15 @@ if ($action === 'generar_imagen') {
             $meta_json_array['Flow Shift'] = $user_shift;
         }
         $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
+		
+		// --- INYECCIÓN DE METADATOS EN WEBP ---
+        if ($ext === 'webp' && !empty($img_binary)) {
+            $payload_webp = $posPrompt . "\n"
+                . (!empty($neg_prompt) ? "Negative prompt: " . $neg_prompt . "\n" : "")
+                . "Steps: {$steps}, Sampler: {$sampler}, Schedule type: {$scheduler}, CFG scale: {$cfg}, Seed: {$seed}, Size: {$final_w}x{$final_h}, Model: " . basename($model_path)
+                . "\nGartyMeta: " . $meta_json;
+            $img_binary = inyectarMetadatosWebpBinario($img_binary, $payload_webp);
+        }
 
         if ($historial_id > 0) {
             $galeria_dir = __DIR__ . '/../galeria';

@@ -641,7 +641,7 @@ return [
     'swal_new_lang_text' => "Introduce el código de 2 letras para el nuevo fichero (ej: fr, it, de):",
     'swal_new_lang_title' => "Crear Nuevo Idioma",
     'swal_new_lang_val' => "Debes introducir un código válido de 2 letras.",
-    'swal_no_meta_text' => "Esta imagen PNG no contiene datos ocultos de ComfyUI.",
+    'swal_no_meta_text' => "Esta imagen PNG/WEBP no contiene datos ocultos de ComfyUI.",
     'swal_no_meta_title' => "Sin Metadatos",
     'swal_no_res_text' => "El motor terminó el proceso pero no devolvió ninguna imagen.",
     'swal_no_res_title' => "Sin resultados",
@@ -714,6 +714,7 @@ return [
     'swal_timeout_title' => "Atasco en ComfyUI",
     'swal_timeout_text' => "La GPU se ha quedado colgada o está tardando demasiado. Se ha liberado la interfaz por seguridad.",
     'radar_btn_gpu_fail' => "Fallo en GPU",
+	'err_krea2_max_images' => "Krea-2 solo admite un máximo de 2 imágenes simultáneas (Imagen A + Imagen B). Por favor, elimina alguna de la bandeja.",
 
     // ==============================================================================
     // 08. CHAT, RADAR Y MOTOR DE TEXTO (LLM)
