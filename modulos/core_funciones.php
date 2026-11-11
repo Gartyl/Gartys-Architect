@@ -511,4 +511,45 @@ function renderizarMarkdownChat($texto) {
     return implode('', $salida);
 }
 
+// ==============================================================================
+// --- CORRECTOR RUTAS LoRAs ---
+// ==============================================================================
+if (!function_exists('resolverRutaRealLoraComfy')) {
+    function resolverRutaRealLoraComfy($lora_input) {
+        if (empty($lora_input) || !is_string($lora_input)) return $lora_input;
+
+        $base_models = defined('COMFY_MODELS_DIR') ? COMFY_MODELS_DIR : (defined('COMFY_MODEL_PATH') ? COMFY_MODEL_PATH : 'C:/ComfyUI/models');
+        $base_norm = rtrim(str_replace('\\', '/', $base_models), '/');
+        
+        // Localizamos la carpeta real de loras
+        $loras_dir = $base_norm . '/loras';
+        if (!is_dir($loras_dir)) {
+            $alt_dir = dirname($base_norm) . '/loras';
+            if (is_dir($alt_dir)) $loras_dir = $alt_dir;
+            else return $lora_input;
+        }
+
+        // Extraemos solo el nombre del archivo en minúsculas para buscarlo sin importar la carpeta
+        $solo_archivo = strtolower(basename(str_replace('\\', '/', trim($lora_input))));
+        $sep = (DIRECTORY_SEPARATOR === '\\') ? '\\' : '/';
+
+        try {
+            $it = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($loras_dir, RecursiveDirectoryIterator::SKIP_DOTS)
+            );
+            foreach ($it as $file) {
+                if ($file->isFile() && strtolower($file->getFilename()) === $solo_archivo) {
+                    // Obtenemos la ruta real exacta con las mayúsculas/minúsculas reales del sistema
+                    $full_real = str_replace('\\', '/', $file->getRealPath() ?: $file->getPathname());
+                    $root_real = str_replace('\\', '/', realpath($loras_dir) ?: $loras_dir);
+                    $rel = ltrim(substr($full_real, strlen($root_real)), '/');
+                    return str_replace('/', $sep, $rel);
+                }
+            }
+        } catch (Exception $e) {}
+
+        return $lora_input;
+    }
+}
+
 ?>

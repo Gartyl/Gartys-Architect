@@ -323,32 +323,28 @@ function updateModelFilter(category) {
 function updateLoraFilter(category) {
     const graphCategories = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]', '[CHAT]', '[VIDEO]'];
     
-    // --- NUEVO: CERROJO INTELIGENTE DE MODELOS ---
+    // --- CERROJO INTELIGENTE DE MODELOS ---
     const modelSel = document.getElementById('modelSelector');
     let modeloSeleccionado = "";
     let esModeloValido = true;
 
     if (modelSel && modelSel.selectedIndex !== -1) {
         let opcion = modelSel.options[modelSel.selectedIndex];
-        // Comprobamos si el modelo está desactivado (es de un Free) o es el texto de "Sin modelos"
         if (opcion.disabled || opcion.value === "" || opcion.text.includes('⚠️')) {
             esModeloValido = false;
         } else {
-            // Juntamos nombre visual, ID y nombre de archivo físico para detectar la familia sin fallos
             modeloSeleccionado = (opcion.text + " " + opcion.value + " " + (opcion.dataset.archivo || "")).toLowerCase();
         }
     } else {
         esModeloValido = false;
     }
-    // ---------------------------------------------
 
     if (!graphCategories.includes(category) || !esModeloValido) { 
-        // Si no hay categoría o NO hay modelo válido, vaciamos los LoRAs
         filteredLoras = []; 
     } else { 
         let tempLoras = [];
         
-        // Helper: Detecta si el LoRA está dentro de una carpeta base o en CUALQUIERA de sus subcarpetas
+        // Helper: Detecta si el LoRA está dentro de una carpeta base o en cualquiera de sus subcarpetas
         const estaEnCarpeta = (ruta, carpetas) => {
             const norm = ruta.toLowerCase().replace(/\\/g, '/');
             const lista = Array.isArray(carpetas) ? carpetas : [carpetas];
@@ -358,53 +354,88 @@ function updateLoraFilter(category) {
             });
         };
 
-        // --- LA MAGIA REAL: DETERMINAR LA ARQUITECTURA ---
+        // Helper: Detecta si un archivo o ruta pertenece a Qwen 2.1
+        const esRutaQwen21 = (ruta) => {
+            const low = ruta.toLowerCase();
+            const fileName = low.split(/[\\/]/).pop();
+            return estaEnCarpeta(ruta, ['qwen21', 'qwen2.1', 'qwen-2.1', 'qwen_2.1']) ||
+                   fileName.startsWith('q21_') ||
+                   low.includes('qwen21') || low.includes('qwen2.1') || low.includes('qwen-2.1') || low.includes('qwen_2.1');
+        };
+        
+        // Helper: Detecta si un archivo o ruta pertenece a LTX 2.3 o LTX 2.5 (Arquitectura 22B)
+        const esRutaLtx23_25 = (ruta) => {
+            const low = ruta.toLowerCase();
+            const fileName = low.split(/[\\/]/).pop();
+            return estaEnCarpeta(ruta, ['ltx23', 'ltx2.3', 'ltx-2.3', 'ltx_2.3', 'ltx25', 'ltx2.5', 'ltx-2.5', 'ltx_2.5']) ||
+                   fileName.startsWith('ltx23_') || fileName.startsWith('ltx25_') ||
+                   low.includes('ltx23') || low.includes('ltx2.3') || low.includes('ltx-2.3') || low.includes('ltx_2.3') ||
+                   low.includes('ltx25') || low.includes('ltx2.5') || low.includes('ltx-2.5') || low.includes('ltx_2.5');
+        };
+
+        // --- DETERMINAR LA ARQUITECTURA ---
         let targetArch = category; 
         
-        // Si estamos en el Chat, miramos qué modelo gráfico está puesto para inferir la arquitectura
         if (category === '[CHAT]') {
-             if (modeloSeleccionado.includes('sd15') || modeloSeleccionado.includes('v15')) targetArch = '[SD15]';
-             else if (modeloSeleccionado.includes('sdxl') || modeloSeleccionado.includes('xl')) targetArch = '[SDXL]';
-             else if (modeloSeleccionado.includes('video') || modeloSeleccionado.includes('wan') || modeloSeleccionado.includes('ltx') || modeloSeleccionado.includes('minimax') || (modeloSeleccionado.includes('hunyuan') && modeloSeleccionado.includes('video'))) targetArch = '[VIDEO]';
-             else targetArch = '[NATURAL_IMAGE]'; // Fallback a los gordos (Flux/Chroma/etc)
+            if (modeloSeleccionado.includes('sd15') || modeloSeleccionado.includes('v15')) targetArch = '[SD15]';
+            else if (modeloSeleccionado.includes('sdxl') || modeloSeleccionado.includes('xl')) targetArch = '[SDXL]';
+            else if (modeloSeleccionado.includes('video') || modeloSeleccionado.includes('wan') || modeloSeleccionado.includes('ltx') || modeloSeleccionado.includes('minimax') || (modeloSeleccionado.includes('hunyuan') && modeloSeleccionado.includes('video'))) targetArch = '[VIDEO]';
+            else targetArch = '[NATURAL_IMAGE]';
         }
 
-        // 2. Filtramos la lista maestra de LoRAs (loadedLoras) según la arquitectura detectada
+        // 2. Filtramos la lista maestra de LoRAs (loadedLoras) según la arquitectura exacta
         if (targetArch === '[SD15]') {
             tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, ['sd15', 'v15', 'sd1.5']) || m.toLowerCase().includes('sd15') || m.toLowerCase().includes('v15'));
         } else if (targetArch === '[SDXL]') {
             tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, ['sdxl', 'xl', 'illustrious', 'pony']) || m.toLowerCase().includes('sdxl') || m.toLowerCase().includes('xl'));
         } else if (targetArch === '[NATURAL_IMAGE]') {
-            // === FILTRO AISLADO POR ARQUITECTURAS (SOPORTA SUBCARPETAS INFINITAS) ===
+            // === FILTRO AISLADO POR ARQUITECTURAS DiT / VLM ===
+            const esModeloQwen21 = modeloSeleccionado.includes('qwen') && (modeloSeleccionado.includes('2.1') || modeloSeleccionado.includes('21') || modeloSeleccionado.includes('2_1'));
+
             if (modeloSeleccionado.includes('chroma') && !modeloSeleccionado.includes('zavy')) {
                 tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'chroma'));
             } else if (modeloSeleccionado.includes('ideogram')) {
                 tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, ['ideogram4', 'ideogram']) || m.toLowerCase().includes('ideogram4'));
+            } else if (modeloSeleccionado.includes('minimax')) {
+                // MINIMAX H3 (Cuando se usa en la pestaña de Imagen Estática / R2I)
+                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, ['minimax_h3', 'minimax']) || m.toLowerCase().includes('minimax'));
             } else if (modeloSeleccionado.includes('flux3') || modeloSeleccionado.includes('flux-3') || modeloSeleccionado.includes('flux_3') || modeloSeleccionado.includes('flux.3')) {
-                // FLUX 3 y FLUX 3 KLEIN: Carpeta flux3 (y sus subcarpetas) o archivos f3_ / flux3
+                // FLUX 3 y FLUX 3 KLEIN
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
                     let fileName = low.split(/[\\/]/).pop();
-                    return estaEnCarpeta(m, ['flux3', 'flux-3', 'flux_3']) || fileName.startsWith('f3_') || low.includes('flux3');
+                    return estaEnCarpeta(m, ['flux3', 'flux-3', 'flux_3']) || fileName.startsWith('f3_') || low.includes('flux3') || low.includes('flux-3') || low.includes('flux_3');
                 });
-            } else if (modeloSeleccionado.includes('flux2') || modeloSeleccionado.includes('klein')) {
-                // FLUX 2 y KLEIN: Carpeta flux2 (y sus subcarpetas) o archivos f2_
+            } else if (modeloSeleccionado.includes('flux2') || modeloSeleccionado.includes('flux-2') || modeloSeleccionado.includes('flux_2') || modeloSeleccionado.includes('klein')) {
+                // FLUX 2 y FLUX 2 KLEIN (Excluyendo Flux 3)
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
                     let fileName = low.split(/[\\/]/).pop();
-                    return (estaEnCarpeta(m, ['flux2', 'flux-2', 'flux_2', 'klein']) || fileName.startsWith('f2_')) && !low.includes('flux3');
+                    const esF3 = estaEnCarpeta(m, ['flux3', 'flux-3', 'flux_3']) || fileName.startsWith('f3_') || low.includes('flux3') || low.includes('flux-3') || low.includes('flux_3');
+                    return (estaEnCarpeta(m, ['flux2', 'flux-2', 'flux_2', 'klein']) || fileName.startsWith('f2_') || low.includes('flux2') || low.includes('flux-2')) && !esF3;
                 });
             } else if (modeloSeleccionado.includes('flux') || modeloSeleccionado.includes('kontext')) {
-                // FLUX 1 y KONTEXT: Carpeta flux original (y sus subcarpetas), excluyendo flux2 y flux3
+                // FLUX 1 y KONTEXT (Excluyendo estrictamente Flux 2, Flux 3 y Klein)
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
                     let fileName = low.split(/[\\/]/).pop();
-                    return (estaEnCarpeta(m, ['flux', 'flux1', 'kontext']) || fileName.startsWith('f1_')) && !low.includes('flux2') && !low.includes('flux3');
+                    const esF2oF3 = estaEnCarpeta(m, ['flux2', 'flux-2', 'flux_2', 'flux3', 'flux-3', 'flux_3', 'klein']) ||
+                                    fileName.startsWith('f2_') || fileName.startsWith('f3_') ||
+                                    low.includes('flux2') || low.includes('flux-2') || low.includes('flux3') || low.includes('flux-3') || low.includes('klein');
+                    return (estaEnCarpeta(m, ['flux', 'flux1', 'kontext']) || fileName.startsWith('f1_') || low.includes('flux')) && !esF2oF3;
+                });
+            } else if (esModeloQwen21) {
+                // QWEN-IMAGE 2.1 (Aislado de Qwen 2.0 / 2511)
+                tempLoras = loadedLoras.filter(m => esRutaQwen21(m));
+            } else if (modeloSeleccionado.includes('qwen')) {
+                // QWEN-IMAGE 2.0 / 2511 (Excluyendo estrictamente los de Qwen 2.1)
+                tempLoras = loadedLoras.filter(m => {
+                    let low = m.toLowerCase();
+                    let fileName = low.split(/[\\/]/).pop();
+                    return (estaEnCarpeta(m, ['qwen', 'qwen2', 'qwen2.0', 'qwen_2']) || fileName.startsWith('q2_') || low.includes('qwen')) && !esRutaQwen21(m);
                 });
             } else if (modeloSeleccionado.includes('z-image') || modeloSeleccionado.includes('zimage') || modeloSeleccionado.includes('z_image')) {
-                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, ['zimage', 'z-image', 'z_image']) || m.toLowerCase().includes('zimage'));
-            } else if (modeloSeleccionado.includes('qwen')) {
-                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'qwen') || m.toLowerCase().includes('qwen'));
+                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, ['zimage', 'z-image', 'z_image']) || m.toLowerCase().includes('zimage') || m.toLowerCase().includes('z-image'));
             } else if (modeloSeleccionado.includes('krea2') || modeloSeleccionado.includes('krea-2') || modeloSeleccionado.includes('krea 2')) {
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
@@ -416,14 +447,16 @@ function updateLoraFilter(category) {
                     return estaEnCarpeta(m, ['sd3', 'sd35', 'sd3.5', 'sd3_5']) || low.includes('sd3') || low.includes('3.5');
                 });
             } else if (modeloSeleccionado.includes('hunyuan') && !modeloSeleccionado.includes('video')) {
+                // HUNYUAN IMAGE 2.1 (Excluyendo LoRAs de Hunyuan Video)
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
-                    return (estaEnCarpeta(m, 'hunyuan') || low.includes('hunyuan')) && !low.includes('video');
+                    const esHunyuanVideo = estaEnCarpeta(m, ['hunyuan_video', 'hunyuanvideo', 'hunyuan_vid']) || low.includes('video') || low.includes('t2v') || low.includes('i2v');
+                    return (estaEnCarpeta(m, ['hunyuan', 'hunyuan_image', 'hunyuanimage']) || low.includes('hunyuan')) && !esHunyuanVideo;
                 });
             } else if (modeloSeleccionado.includes('hidream')) {
                 tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'hidream') || m.toLowerCase().includes('hidream'));
             } else if (modeloSeleccionado.includes('anima')) {
-                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'anima'));
+                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'anima') || m.toLowerCase().includes('anima'));
             } else if (modeloSeleccionado.includes('moss')) {
                 tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'moss') || m.toLowerCase().includes('moss'));
             } else if (modeloSeleccionado.includes('fibo')) {
@@ -431,28 +464,37 @@ function updateLoraFilter(category) {
             } else {
                 tempLoras = loadedLoras.filter(m => {
                     const low = m.toLowerCase();
-                    return low.includes('flux') || low.includes('sd35') || low.includes('sd3.5') || low.includes('sd3_5') || low.includes('zimage') || low.includes('z_image') || low.includes('z-image') || low.includes('qwen') || low.includes('krea2') || low.includes('krea-2') || low.includes('hunyuan') || low.includes('hidream') || low.includes('ideogram4') || low.includes('anima') || low.includes('moss') || low.includes('fibo');      
+                    return low.includes('flux') || low.includes('sd35') || low.includes('sd3.5') || low.includes('sd3_5') || low.includes('zimage') || low.includes('z_image') || low.includes('z-image') || low.includes('qwen') || low.includes('krea2') || low.includes('krea-2') || low.includes('hunyuan') || low.includes('hidream') || low.includes('ideogram4') || low.includes('anima') || low.includes('moss') || low.includes('fibo') || low.includes('minimax');
                 });
             }
-        // =========================================================================
-        // --- CORRECCIÓN: FILTRO ESPECÍFICO PARA MODELOS DE VIDEO ---
-        // =========================================================================
         } else if (targetArch === '[VIDEO]') {
+            const esModeloLtx23_25 = modeloSeleccionado.includes('ltx') && (
+                modeloSeleccionado.includes('23') || modeloSeleccionado.includes('2.3') || modeloSeleccionado.includes('2_3') ||
+                modeloSeleccionado.includes('25') || modeloSeleccionado.includes('2.5') || modeloSeleccionado.includes('2_5')
+            );
+
             if (modeloSeleccionado.includes('wan')) {
                 tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'wan') || m.toLowerCase().includes('wan'));
+            } else if (esModeloLtx23_25) {
+                // LTX 2.3 y LTX 2.5 (Arquitectura 22B - Carpeta ltx25 / ltx23)
+                tempLoras = loadedLoras.filter(m => esRutaLtx23_25(m));
             } else if (modeloSeleccionado.includes('ltx')) {
-                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'ltx') || m.toLowerCase().includes('ltx'));
+                // LTX hasta v2.0 (Carpeta ltx / ltx2 - Excluyendo 2.3 y 2.5)
+                tempLoras = loadedLoras.filter(m => {
+                    let low = m.toLowerCase();
+                    return (estaEnCarpeta(m, ['ltx', 'ltx1', 'ltx2', 'ltx2.0', 'ltxv']) || low.includes('ltx')) && !esRutaLtx23_25(m);
+                });
             } else if (modeloSeleccionado.includes('minimax')) {
                 tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, ['minimax_h3', 'minimax']) || m.toLowerCase().includes('minimax'));
             } else if (modeloSeleccionado.includes('hunyuan')) {
+                // HUNYUAN VIDEO 1.5 (Excluyendo LoRAs de Hunyuan Image estático)
                 tempLoras = loadedLoras.filter(m => {
                     let low = m.toLowerCase();
-                    return estaEnCarpeta(m, 'hunyuan') || (low.includes('hunyuan') && (low.includes('video') || low.includes('t2v') || low.includes('i2v')));
+                    return estaEnCarpeta(m, ['hunyuan_video', 'hunyuanvideo', 'hunyuan_vid']) || (low.includes('hunyuan') && (low.includes('video') || low.includes('t2v') || low.includes('i2v')));
                 });
             } else {
                 tempLoras = loadedLoras.filter(m => m.toLowerCase().includes('wan') || m.toLowerCase().includes('ltx') || m.toLowerCase().includes('minimax') || m.toLowerCase().includes('hunyuan'));
             }
-        // =========================================================================
         } else {
             tempLoras = [...loadedLoras];
         }
@@ -475,12 +517,10 @@ function updateLoraFilter(category) {
         filteredLoras.forEach(lora => {
             const opt = document.createElement('option');
             opt.value = lora;
-            // Mostramos solo el nombre limpio del archivo sin la ruta de la carpeta
             opt.textContent = lora.split(/[\\/]/).pop();
             select.appendChild(opt);
         });
         
-        // Si el valor que tenías seleccionado antes sigue existiendo, lo mantenemos. 
         if (currentVal && filteredLoras.includes(currentVal)) { 
             select.value = currentVal; 
         } else {
@@ -1255,6 +1295,9 @@ function sugerirAjustesMotor() {
             'krea2':   { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
             'krea-2':  { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
             'krea 2':  { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'qwen2.1': { steps: 25, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'qwen 2.1':{ steps: 25, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+            'qwen21':  { steps: 25, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
             'qwen':    { steps: 20, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
             'chroma':  { steps: 10, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
             'flux3-image-klein-base': { steps: 28, cfg: 3.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },

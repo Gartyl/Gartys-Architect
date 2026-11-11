@@ -1287,33 +1287,52 @@ if ($action === 'generar_imagen') {
                 
                 unset($workflow["341"]);
 
-                // --- REPARACIÓN LTX: GUARDAR HISTORIAL Y LORAS ---
+// --- REPARACIÓN LTX 2.5: SOPORTE MULTI-LORA EN CADENA ---
                 $lora_active = false;
+                $last_lora_node_25 = "432";
                 if (empty($lora_metadata_list) && is_array($lora_names)) {
+                    $lora_idx_real = 0;
                     foreach ($lora_names as $index => $lname) {
-                        if (!empty(trim($lname)) && strtolower($lname) !== 'ninguno') {
+                        $lname = trim($lname);
+                        if (!empty($lname) && strtolower($lname) !== 'ninguno') {
                             $lstr = floatval($lora_strengths_high[$index] ?? 0.8);
                             $lora_metadata_list[] = basename($lname, '.safetensors') . " ($lstr)";
-                            
-                            if ($index === 0) { 
+
+                            if ($lora_idx_real === 0) {
                                 $workflow["432"]["inputs"]["lora_name"] = $lname;
                                 $workflow["432"]["inputs"]["strength_model"] = $lstr;
                                 $lora_active = true;
+                                $last_lora_node_25 = "432";
+                            } else {
+                                $extra_lora_id = "432_lora_" . $lora_idx_real;
+                                $workflow[$extra_lora_id] = [
+                                    "inputs" => [
+                                        "lora_name" => $lname,
+                                        "strength_model" => $lstr,
+                                        "model" => [$last_lora_node_25, 0]
+                                    ],
+                                    "class_type" => "LoraLoaderModelOnly"
+                                ];
+                                $last_lora_node_25 = $extra_lora_id;
                             }
+                            $lora_idx_real++;
                         }
                     }
                 }
 
-                // 🛡️ RECONEXIÓN DE CABLES CUANDO NO HAY LORA 🛡️
+                // 🛡️ RECONEXIÓN DE CABLES EN LTX 2.5 (CON O SIN MÚLTIPLES LORAS) 🛡️
                 if (!$lora_active) {
                     $workflow["391"]["inputs"]["model"] = ["434:422", 0]; // CFG Guider 1
                     $workflow["442"]["inputs"]["model"] = ["434:422", 0]; // CFG Guider 2
-                    
-                    // 👇 AQUÍ ESTÁN LOS DOS CABLES QUE FALTABAN 👇
                     $workflow["388"]["inputs"]["model"] = ["434:422", 0]; // Scheduler 1
                     $workflow["440"]["inputs"]["model"] = ["434:422", 0]; // Scheduler 2 (Upscale)
-                    
-                    unset($workflow["432"]); // Destruimos el cargador de LoRAs
+                    unset($workflow["432"]); // Destruimos el cargador de LoRAs si no se usa
+                } elseif ($last_lora_node_25 !== "432") {
+                    // Si hay 2 o más LoRAs, apuntamos los guiders y schedulers al último LoRA de la cadena
+                    $workflow["391"]["inputs"]["model"] = [$last_lora_node_25, 0];
+                    $workflow["442"]["inputs"]["model"] = [$last_lora_node_25, 0];
+                    $workflow["388"]["inputs"]["model"] = [$last_lora_node_25, 0];
+                    $workflow["440"]["inputs"]["model"] = [$last_lora_node_25, 0];
                 }
 
                 // --- ESCUDO TEXT-TO-VIDEO ---
@@ -1338,7 +1357,7 @@ if ($action === 'generar_imagen') {
                     $workflow["451"]["inputs"]["filename_prefix"] = "byGartyVideo";
                 }
 
-                // 🎵 SOPORTE AUDIO PRO / MP3 SUBIDO EN LTX 2.5 (Sustituye el audio nativo VA si el usuario pide clonar/mezclar)
+                // 🎵 SOPORTE AUDIO PRO / MP3 SUBIDO EN LTX 2.5
                 $tiene_audio_pro_ltx25 = (!empty($audioConfigPro) && !empty($audioConfigPro['sync_with_video']));
                 $tiene_mp3_ltx25 = ($comfy_audio_filename !== "none" && !empty($comfy_audio_filename));
 
@@ -1361,7 +1380,7 @@ if ($action === 'generar_imagen') {
 
                     if ($audio_ltx25_node !== null && isset($workflow["451"]["inputs"])) {
                         $workflow["451"]["inputs"]["audio"] = $audio_ltx25_node;
-                        unset($workflow["435:426"]); // Desconectamos el decodificador de audio interno de LTX 2.5 para no mezclar dos pistas
+                        unset($workflow["435:426"]);
 
                         $usar_w2l_25 = filter_var($_POST['wav2lip'] ?? 'false', FILTER_VALIDATE_BOOLEAN) || (!empty($audioConfigPro['wav2lip']) && filter_var($audioConfigPro['wav2lip'], FILTER_VALIDATE_BOOLEAN));
                         $es_sfx_25 = ($tiene_audio_pro_ltx25 && in_array(strtolower($audioConfigPro['engine'] ?? ''), ['sfx', 'foley']));
@@ -1384,9 +1403,9 @@ if ($action === 'generar_imagen') {
                 goto EJECUTAR_COMFYUI;
             }
             // ==========================================================
-            // 🧱 FIN RUTA LTX 2.5
+            // 🧱 FIN RUTA LTX 2.5 -> INICIO RUTA LTX 2.3 (DEV / DISTILLED)
             // ==========================================================
-			
+            
             if (strpos($nombre_modelo_limpio, 'dev') !== false || strpos($nombre_modelo_limpio, 'q4_') !== false || strpos($nombre_modelo_limpio, 'q5_') !== false) {
                 $ruta_json = __DIR__ . '/../workflows/LTX_Video_Dev.json';
             } else {
@@ -1411,12 +1430,68 @@ if ($action === 'generar_imagen') {
 
             $workflow = cargarWorkflowJSON($ruta_json, $reemplazos);
 
-            // --- REPARACIÓN LTX: GUARDAR HISTORIAL Y LORAS ANTES DEL SALTO ---
+            // --- 🌟 INYECTOR DINÁMICO DE LORAS Y GGUF PARA LTX 2.3 ---
+            $id_loader_ltx = null;
+            foreach ($workflow as $nid => $ndata) {
+                $ct = $ndata['class_type'] ?? '';
+                $in = $ndata['inputs'] ?? [];
+                if (in_array($ct, ['CheckpointLoaderSimple', 'UNETLoader', 'UnetLoaderGGUF', 'LTXVLoader']) ||
+                    (isset($in['ckpt_name']) && $in['ckpt_name'] === $modelo_seguro) ||
+                    (isset($in['unet_name']) && $in['unet_name'] === $modelo_seguro)) {
+                    $id_loader_ltx = (string)$nid;
+                    // Si el modelo LTX 2.3 es .gguf, adaptamos el nodo cargador automáticamente
+                    if (strpos(strtolower($modelo_seguro), '.gguf') !== false && $ct !== 'UnetLoaderGGUF') {
+                        $workflow[$id_loader_ltx]['class_type'] = 'UnetLoaderGGUF';
+                        $workflow[$id_loader_ltx]['inputs'] = ['unet_name' => $modelo_seguro];
+                    }
+                    break;
+                }
+            }
+
             if (empty($lora_metadata_list) && is_array($lora_names)) {
+                // 1. Localizamos todos los cables que salen del puerto 0 (MODEL) del cargador base
+                $nodos_conectados_al_modelo = [];
+                if ($id_loader_ltx !== null) {
+                    foreach ($workflow as $nid => $ndata) {
+                        if (!empty($ndata['inputs']) && is_array($ndata['inputs'])) {
+                            foreach ($ndata['inputs'] as $in_key => $in_val) {
+                                if (is_array($in_val) && count($in_val) === 2 && (string)$in_val[0] === $id_loader_ltx && intval($in_val[1]) === 0) {
+                                    $nodos_conectados_al_modelo[] = [$nid, $in_key];
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2. Encadenamos todos los LoRAs seleccionados usando LoraLoaderModelOnly
+                $ultimo_nodo_modelo_ltx = $id_loader_ltx;
+                $lora_idx_23 = 0;
                 foreach ($lora_names as $index => $lname) {
-                    if (!empty(trim($lname))) {
+                    $lname = trim($lname);
+                    if (!empty($lname) && strtolower($lname) !== 'ninguno') {
                         $lstr = floatval($lora_strengths_high[$index] ?? 0.8);
                         $lora_metadata_list[] = basename($lname, '.safetensors') . " ($lstr)";
+
+                        if ($ultimo_nodo_modelo_ltx !== null) {
+                            $lora_node_id = "700_ltx_lora_" . $lora_idx_23;
+                            $workflow[$lora_node_id] = [
+                                "inputs" => [
+                                    "lora_name" => $lname,
+                                    "strength_model" => $lstr,
+                                    "model" => [(string)$ultimo_nodo_modelo_ltx, 0]
+                                ],
+                                "class_type" => "LoraLoaderModelOnly"
+                            ];
+                            $ultimo_nodo_modelo_ltx = $lora_node_id;
+                            $lora_idx_23++;
+                        }
+                    }
+                }
+
+                // 3. Recableamos los consumidores de MODEL hacia la salida del último LoRA
+                if ($ultimo_nodo_modelo_ltx !== null && $ultimo_nodo_modelo_ltx !== $id_loader_ltx) {
+                    foreach ($nodos_conectados_al_modelo as [$target_nid, $target_input]) {
+                        $workflow[$target_nid]['inputs'][$target_input] = [(string)$ultimo_nodo_modelo_ltx, 0];
                     }
                 }
             }
@@ -4846,6 +4921,16 @@ if ($action === 'generar_imagen') {
     } // 🚨 <--- CIERRE DEL IF (PRUEBA_JSON_ACTIVADA)
 
     EJECUTAR_COMFYUI:
+
+	// 🛡️ NORMALIZADOR UNIVERSAL DE RUTAS Y MAYÚSCULAS DE LORAS PARA DISTRIBUCIÓN
+	if (isset($workflow) && is_array($workflow)) {
+		foreach ($workflow as $nid => &$ndata) {
+			if (!empty($ndata['inputs']['lora_name']) && is_string($ndata['inputs']['lora_name'])) {
+				$ndata['inputs']['lora_name'] = resolverRutaRealLoraComfy($ndata['inputs']['lora_name']);
+			}
+		}
+		unset($ndata);
+	}
 	
 	// 🛡️ PING-PONG VRAM: Si quedó algún modelo de Ollama vivo (ej. del Chat), lo sacamos de la GPU
     liberarOllamaSiOcupaVram();
