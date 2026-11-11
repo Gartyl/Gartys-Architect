@@ -25,6 +25,67 @@ function getPageUrl($pageNum) {
     return '?' . http_build_query($get);
 }
 
+function renderPaginacionHistorial($page, $total_pages, $marginClass = 'my-4') {
+    if ($total_pages <= 1) return '';
+    $start_page = max(1, $page - 2);
+    $end_page = min($total_pages, $page + 2);
+    ob_start();
+    ?>
+    <nav class="<?= $marginClass ?> d-flex flex-wrap justify-content-center align-items-center gap-3">
+        <ul class="pagination m-0">
+            <li class="page-item <?= ($page <= 1) ? 'disabled' : '' ?>">
+                <a class="page-link bg-dark text-info border-secondary" href="<?= getPageUrl(1) ?>" title="<?= __('hist_first') ?>"><i class="bi bi-chevron-double-left"></i></a>
+            </li>
+            <li class="page-item <?= ($page <= 1) ? 'disabled' : '' ?>">
+                <a class="page-link bg-dark text-info border-secondary" href="<?= getPageUrl($page - 1) ?>"><?= __('gal_btn_prev') ?></a>
+            </li>
+
+            <?php if ($start_page > 1): ?>
+                <li class="page-item">
+                    <a class="page-link bg-dark text-light border-secondary" href="<?= getPageUrl(1) ?>">1</a>
+                </li>
+                <?php if ($start_page > 2): ?>
+                    <li class="page-item disabled"><span class="page-link bg-dark text-secondary border-secondary">...</span></li>
+                <?php endif; ?>
+            <?php endif; ?>
+
+            <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+                <li class="page-item <?= ($page == $i) ? 'active' : '' ?>">
+                    <a class="page-link <?= ($page == $i) ? 'bg-info text-dark border-info fw-bold' : 'bg-dark text-light border-secondary' ?>" href="<?= getPageUrl($i) ?>"><?= $i ?></a>
+                </li>
+            <?php endfor; ?>
+
+            <?php if ($end_page < $total_pages): ?>
+                <?php if ($end_page < $total_pages - 1): ?>
+                    <li class="page-item disabled"><span class="page-link bg-dark text-secondary border-secondary">...</span></li>
+                <?php endif; ?>
+                <li class="page-item">
+                    <a class="page-link bg-dark text-light border-secondary" href="<?= getPageUrl($total_pages) ?>"><?= $total_pages ?></a>
+                </li>
+            <?php endif; ?>
+
+            <li class="page-item <?= ($page >= $total_pages) ? 'disabled' : '' ?>">
+                <a class="page-link bg-dark text-info border-secondary" href="<?= getPageUrl($page + 1) ?>"><?= __('gal_btn_next') ?></a>
+            </li>
+            <li class="page-item <?= ($page >= $total_pages) ? 'disabled' : '' ?>">
+                <a class="page-link bg-dark text-info border-secondary" href="<?= getPageUrl($total_pages) ?>" title="<?= __('hist_last') ?>"><i class="bi bi-chevron-double-right"></i></a>
+            </li>
+        </ul>
+
+        <div class="d-flex align-items-center gap-1">
+            <input type="number" min="1" max="<?= $total_pages ?>" value="<?= $page ?>"
+                   class="form-control form-control-sm bg-dark text-light border-secondary text-center"
+                   style="width: 70px;"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault(); irAPaginaHistorial(this.value, <?= $total_pages ?>);}">
+            <button type="button" class="btn btn-sm btn-outline-info" onclick="irAPaginaHistorial(this.previousElementSibling.value, <?= $total_pages ?>)" title=""<?= __('hist_gopage') ?>"">
+                <i class="bi bi-arrow-right"></i>
+            </button>
+        </div>
+    </nav>
+    <?php
+    return ob_get_clean();
+}
+
 // --- OBTENER CATEGORÍAS/MODELOS DISPONIBLES PARA EL FILTRO ---
 try {
     $stmt_mod = $pdo->prepare("SELECT DISTINCT modelo FROM historial_prompts WHERE user_id = ? ORDER BY modelo");
@@ -217,6 +278,15 @@ $items = groupHistoryItems($all_prompts);
 			err_toggle_public: <?= json_encode(__('err_toggle_public')) ?>,
             log_warn_sync_pag: <?= json_encode(__('log_warn_sync_pag')) ?>
         };
+		
+		function irAPaginaHistorial(pageNum, maxPages) {
+			let p = parseInt(pageNum, 10);
+			if (isNaN(p) || p < 1) p = 1;
+			if (p > maxPages) p = maxPages;
+			const url = new URL(window.location.href);
+			url.searchParams.set('page', p);
+			window.location.href = url.toString();
+		}
     </script>
 
 <div id="visorPantallaCompleta" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0,0,0,0.92); z-index: 999999; justify-content: center; align-items: center; overflow: hidden; backdrop-filter: blur(5px);">
@@ -323,6 +393,7 @@ $items = groupHistoryItems($all_prompts);
                     <p><?= __('txt_filt_neg') ?></p>
                 </div>
             <?php else: ?>
+                <?= renderPaginacionHistorial($page, $total_pages, 'mb-4') ?>
                 <?php 
                 $lastDate = "";
                 foreach ($items as $item): 
@@ -668,30 +739,7 @@ $items = groupHistoryItems($all_prompts);
                 <?php endforeach; ?>
                 
                 <!-- Paginación Historial -->
-                <?php if ($total_pages > 1): ?>
-                    <nav class="mt-5 mb-5">
-                        <ul class="pagination justify-content-center">
-                            <li class="page-item <?php echo ($page <= 1) ? 'disabled' : ''; ?>">
-                                <a class="page-link bg-dark text-info border-secondary" href="<?php echo getPageUrl($page - 1); ?>"><?= __('gal_btn_prev') ?></a>
-                            </li>
-                            
-                            <?php 
-                            $start_page = max(1, $page - 2);
-                            $end_page = min($total_pages, $page + 2);
-                            
-                            for ($i = $start_page; $i <= $end_page; $i++): 
-                            ?>
-                                <li class="page-item <?php echo ($page == $i) ? 'active' : ''; ?>">
-                                    <a class="page-link <?php echo ($page == $i) ? 'bg-info text-dark border-info fw-bold' : 'bg-dark text-light border-secondary'; ?>" href="<?php echo getPageUrl($i); ?>"><?php echo $i; ?></a>
-                                </li>
-                            <?php endfor; ?>
-                            
-                            <li class="page-item <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?>">
-                                <a class="page-link bg-dark text-info border-secondary" href="<?php echo getPageUrl($page + 1); ?>"><?= __('gal_btn_next') ?></a>
-                            </li>
-                        </ul>
-                    </nav>
-                <?php endif; ?>
+                <?= renderPaginacionHistorial($page, $total_pages, 'mt-5 mb-5') ?>
 
             <?php endif; ?>
 			</div>

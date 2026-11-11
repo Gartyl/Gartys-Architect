@@ -152,6 +152,9 @@ return [
 	'btn_send_foley' => "Sonorizar Vídeo con Foley (Hunyuan)",
 	'msg_dado_fijo_on' => "🎲 Dado Fijo ACTIVADO (Clic derecho para quitar)",
 	'msg_dado_fijo_off' => "🎲 Dado Fijo DESACTIVADO",
+	'hist_first' => "Primera Página",
+	'hist_last' => "Última Página",
+	'hist_gopage' => "Ir a la Página",
 	
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS

@@ -152,6 +152,9 @@ return [
 	'btn_send_foley' => "Add Foley Sound to Video (Hunyuan)",
 	'msg_dado_fijo_on' => "🎲 Fixed Dice ACTIVATED (Right-click to disable)",
 	'msg_dado_fijo_off' => "🎲 Fixed Dice DEACTIVATED",
+	'hist_first' => "First Page",
+    'hist_last' => "Last Page",
+    'hist_gopage' => "Go to Page",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS

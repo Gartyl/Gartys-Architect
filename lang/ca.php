@@ -152,6 +152,9 @@ return [
 	'btn_send_foley' => "Sonoritzar Vídeo amb Foley (Hunyuan)",
 	'msg_dado_fijo_on' => "🎲 Dau Fix ACTIVAT (Clic dret per a desactivar)",
 	'msg_dado_fijo_off' => "🎲 Dau Fix DESACTIVAT",
+	'hist_first' => "Primera Pàgina",
+    'hist_last' => "Última Pàgina",
+    'hist_gopage' => "Anar a la Pàgina",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
