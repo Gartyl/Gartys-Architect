@@ -5563,20 +5563,17 @@ if ($action === 'generar_imagen') {
                     if (!empty($output['filename'])) {
                         $files[] = $output;
                     } else {
-                        // Caso B: El nodo devuelve listas bajo claves como "images", "audio", "files", etc.
+                        // Caso B: El nodo devuelve listas bajo claves como "images", "audio", "files", "gifs", etc.
                         foreach ($output as $key => $file_list) {
                             if (is_array($file_list)) {
                                 foreach ($file_list as $item) {
                                     if (is_array($item) && !empty($item['filename'])) {
-                                        // Formato estándar de ComfyUI (ej. SaveImage)
                                         $files[] = $item;
-                                    } elseif (is_string($item) && preg_match('/\.(wav|mp3|flac|ogg|m4a|png|jpg|webp)$/i', $item)) {
-                                        // Formato simplificado (nodos de audio que devuelven solo el nombre en string)
+                                    } elseif (is_string($item) && preg_match('/\.(wav|mp3|flac|ogg|m4a|png|jpg|webp|mp4)$/i', $item)) {
                                         $files[] = ['filename' => $item, 'subfolder' => '', 'type' => 'output'];
                                     }
                                 }
-                            } elseif (is_string($file_list) && preg_match('/\.(wav|mp3|flac|ogg|m4a|png|jpg|webp)$/i', $file_list)) {
-                                // Formato directo ("audio": "mi_archivo.wav")
+                            } elseif (is_string($file_list) && preg_match('/\.(wav|mp3|flac|ogg|m4a|png|jpg|webp|mp4)$/i', $file_list)) {
                                 $files[] = ['filename' => $file_list, 'subfolder' => '', 'type' => 'output'];
                             }
                         }
@@ -5609,42 +5606,38 @@ if ($action === 'generar_imagen') {
         $img_binary = $item['data'];
         $ext = $item['ext'];
         
-        // --- NUEVO: MOTOR DE CONVERSIÓN DE FORMATOS (PNG -> WEBP/JPG) ---
+        // --- MOTOR DE CONVERSIÓN DE FORMATOS (PNG -> WEBP/JPG) ---
         $formato_salida = $_POST['image_format'] ?? 'png';
         
-        // 🛡️ PROTECCIÓN INTELIGENTE: Si el usuario quitó el fondo (Rembg) y eligió JPG, 
-        // lo pasamos a WebP automáticamente para que no pierda la transparencia.
         if (isset($remove_background) && $remove_background && $formato_salida === 'jpg') {
             $formato_salida = 'webp';
         }
 
-        // Si el usuario eligió algo distinto a PNG, convertimos la imagen al vuelo
-        if ($formato_salida !== 'png' && !empty($img_binary)) {
+        // No tocamos archivos .webp ni .mp4 con GD para no romper animaciones ni vídeos
+        if ($formato_salida !== 'png' && strtolower($ext) !== 'webp' && in_array(strtolower($ext), ['png', 'jpg', 'jpeg']) && !empty($img_binary)) {
             $im = @imagecreatefromstring($img_binary);
             if ($im !== false) {
-                ob_start(); // Encendemos el buffer de salida para atrapar el nuevo archivo
+                ob_start();
                 
                 if ($formato_salida === 'webp') {
-                    imagesavealpha($im, true); // Preservar transparencias
-                    imagewebp($im, null, 90);  // 90% de calidad (excelente compresión/calidad)
+                    imagesavealpha($im, true);
+                    imagewebp($im, null, 90);
                 } elseif ($formato_salida === 'jpg') {
-                    // El JPG odia las transparencias. Le ponemos un fondo blanco "por si acaso" 
-                    // venía algún pixel transparente para evitar artefactos negros.
                     $bg = imagecreatetruecolor(imagesx($im), imagesy($im));
                     $blanco = imagecolorallocate($bg, 255, 255, 255);
                     imagefill($bg, 0, 0, $blanco);
                     imagecopy($bg, $im, 0, 0, 0, 0, imagesx($im), imagesy($im));
-                    imagejpeg($bg, null, 90); // 90% de calidad
+                    imagejpeg($bg, null, 90);
                     imagedestroy($bg);
-                    $im = $bg; // Truco técnico para el imagedestroy final
+                    $im = $bg;
                 }
                 
-                $img_convertida = ob_get_clean(); // Apagamos el buffer y nos guardamos la imagen
-                imagedestroy($im); // Liberamos la memoria RAM del servidor
+                $img_convertida = ob_get_clean();
+                imagedestroy($im);
                 
                 if (!empty($img_convertida)) {
-                    $img_binary = $img_convertida; // Sustituimos el original
-                    $ext = $formato_salida;        // Le cambiamos la extensión al archivo
+                    $img_binary = $img_convertida;
+                    $ext = $formato_salida;
                 }
             }
         }
@@ -5673,7 +5666,6 @@ if ($action === 'generar_imagen') {
             $meta_json_array['Guidance (Flux)'] = $flux_guidance;
         }
         
-        // SIEMPRE guardamos el Clip Skip y el Denoise
         if (isset($clip_skip)) $meta_json_array['CLIP Skip'] = $clip_skip;
         if (isset($denoise_slider)) $meta_json_array['Denoise (I2I)'] = $denoise_slider;
 
@@ -5707,22 +5699,23 @@ if ($action === 'generar_imagen') {
             $meta_json_array['Coloreado Neural'] = __('lbl_activated') . ' (DDColor: ' . basename($ddcolor_model) . ')';
         }
         if ($iclight_enabled) {
-        $modo_ic = strtoupper($iclight_model_type);
-        $meta_json_array['IC-Light (Relighting)'] = __('lbl_activated') . " ($modo_ic | " . $iclight_direction . ')';
-		}
+            $modo_ic = strtoupper($iclight_model_type);
+            $meta_json_array['IC-Light (Relighting)'] = __('lbl_activated') . " ($modo_ic | " . $iclight_direction . ')';
+        }
 
         if (isset($user_shift) && $user_shift !== null) {
             $meta_json_array['Flow Shift'] = $user_shift;
         }
         $meta_json = json_encode($meta_json_array, JSON_UNESCAPED_UNICODE);
-		
-		// --- INYECCIÓN DE METADATOS EN WEBP ---
-        if ($ext === 'webp' && !empty($img_binary)) {
-            $payload_webp = $posPrompt . "\n"
-                . (!empty($neg_prompt) ? "Negative prompt: " . $neg_prompt . "\n" : "")
-                . "Steps: {$steps}, Sampler: {$sampler}, Schedule type: {$scheduler}, CFG scale: {$cfg}, Seed: {$seed}, Size: {$final_w}x{$final_h}, Model: " . basename($model_path)
-                . "\nGartyMeta: " . $meta_json;
-            $img_binary = inyectarMetadatosWebpBinario($img_binary, $payload_webp);
+        
+        // 🌟 INYECCIÓN UNIFICADA DE METADATOS CIVITAI (PNG, WEBP y MP4)
+        $ext_low = strtolower($ext);
+        if ($ext_low === 'png' && function_exists('inyectarMetadatosCivitaiPNG')) {
+            $img_binary = inyectarMetadatosCivitaiPNG($img_binary, $historial_id, $pdo);
+        } elseif ($ext_low === 'webp' && function_exists('inyectarMetadatosCivitaiWebP')) {
+            $img_binary = inyectarMetadatosCivitaiWebP($img_binary, $historial_id, $pdo);
+        } elseif ($ext_low === 'mp4' && function_exists('inyectarMetadatosCivitaiMP4')) {
+            $img_binary = inyectarMetadatosCivitaiMP4($img_binary, $historial_id, $pdo);
         }
 
         if ($historial_id > 0) {
@@ -5736,7 +5729,7 @@ if ($action === 'generar_imagen') {
                     $stmt_check->execute([$historial_id]);
                     $row = $stmt_check->fetch();
                     
-                    $current_row_id = $historial_id; // Por defecto
+                    $current_row_id = $historial_id;
 
                     if ($row) {
                         $safe_desc = preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', (string)$row['descripcion_original']);
@@ -5765,8 +5758,8 @@ if ($action === 'generar_imagen') {
         $final_base64_responses[] = base64_encode($img_binary);
         $filenames_for_db[] = $filename ?? '';
     }
-	
-	echo json_encode(['status' => 'completed', 'images' => $final_base64_responses, 'filenames' => $filenames_for_db]);
+    
+    echo json_encode(['status' => 'completed', 'images' => $final_base64_responses, 'filenames' => $filenames_for_db]);
     exit();
 }
 

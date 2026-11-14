@@ -2,8 +2,7 @@
 // --- HERRAMIENTAS.JS: UTILIDADES, GALERÍA, PRESETS Y UX SECUNDARIA ---
 // ==============================================================================
 
-// --- MÓDULO LECTOR DE METADATOS PNG (DRAG & DROP) ---
-// --- MÓDULO LECTOR DE METADATOS PNG Y WEBP (DRAG & DROP) ---
+// --- MÓDULO LECTOR DE METADATOS PNG, WEBP Y MP4 (DRAG & DROP) ---
 const dropZone = document.getElementById('dropZoneBody');
 const consoleCard = document.getElementById('mainConsoleCard');
 
@@ -16,7 +15,7 @@ if (dropZone && consoleCard) {
         if (['[LLM]', '[CHAT]'].includes(currentCat)) return;
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             const file = e.dataTransfer.files[0];
-            if (file.type === "image/png" || file.type === "image/webp" || /\.(png|webp)$/i.test(file.name)) {
+            if (file.type === "image/png" || file.type === "image/webp" || file.type === "video/mp4" || /\.(png|webp|mp4)$/i.test(file.name)) {
                 extractComfyUIPNG(file);
             }
         }
@@ -34,7 +33,44 @@ function extractComfyUIPNG(file) {
                 String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3)) === 'RIFF' &&
                 String.fromCharCode(view.getUint8(8), view.getUint8(9), view.getUint8(10), view.getUint8(11)) === 'WEBP';
 
-            if (isWebP) {
+            const isMP4 = view.byteLength >= 32 &&
+                String.fromCharCode(view.getUint8(4), view.getUint8(5), view.getUint8(6), view.getUint8(7)) === 'ftyp';
+
+            if (isMP4) {
+                // --- LECTOR BINARIO DE ÁTOMOS MP4 (©cmt / Comment) ---
+                const bytes = new Uint8Array(view.buffer);
+                for (let i = 0; i < bytes.length - 24; i++) {
+                    // Buscamos la firma del átomo ©cmt (0xA9, 'c', 'm', 't') seguida de la caja 'data'
+                    if (bytes[i] === 0xA9 && bytes[i + 1] === 0x63 && bytes[i + 2] === 0x6D && bytes[i + 3] === 0x74) {
+                        if (bytes[i + 8] === 0x64 && bytes[i + 9] === 0x61 && bytes[i + 10] === 0x74 && bytes[i + 11] === 0x61) {
+                            const dataBoxLen = view.getUint32(i + 4, false); // Big-Endian
+                            const strStart = i + 20;
+                            const strLen = dataBoxLen - 16;
+                            if (strLen > 0 && strStart + strLen <= bytes.length) {
+                                const cmtText = new TextDecoder('utf-8', { fatal: false })
+                                    .decode(bytes.subarray(strStart, strStart + strLen))
+                                    .replace(/\x00/g, '')
+                                    .trim();
+
+                                if (/Steps:\s*\d+/i.test(cmtText)) {
+                                    metadata.parameters = cmtText;
+                                    break;
+                                } else if (cmtText.startsWith('{')) {
+                                    try {
+                                        const parsedCmt = JSON.parse(cmtText);
+                                        if (parsedCmt.prompt) {
+                                            metadata.prompt = typeof parsedCmt.prompt === 'string' ? parsedCmt.prompt : JSON.stringify(parsedCmt.prompt);
+                                        } else {
+                                            metadata.prompt = cmtText;
+                                        }
+                                        break;
+                                    } catch (e) {}
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (isWebP) {
                 // --- LECTOR BINARIO DE CHUNKS RIFF/WEBP (EXIF y XMP) ---
                 let offset = 12;
                 while (offset + 8 <= view.byteLength) {
@@ -50,14 +86,12 @@ function extractComfyUIPNG(file) {
                         const rawBytes = new Uint8Array(view.buffer, start, chunkLen);
                         let text = new TextDecoder('utf-8', { fatal: false }).decode(rawBytes);
 
-                        // Soporte para UserComment con prefijo ASCII\0\0\0 o UNICODE\0
                         const idxAscii = text.indexOf('ASCII\x00\x00\x00');
                         const idxUni   = text.indexOf('UNICODE\x00');
 
                         if (idxAscii !== -1) {
                             metadata.parameters = text.substring(idxAscii + 8).replace(/\x00/g, '').trim();
                         } else if (idxUni !== -1) {
-                            // Comprobamos si está en UTF-16 (Civitai/A1111 externo) o UTF-8
                             const bytePos = idxUni + 8;
                             const subBytes = rawBytes.slice(bytePos);
                             if (subBytes.length > 2 && (subBytes[0] === 0 || subBytes[1] === 0)) {
@@ -67,7 +101,6 @@ function extractComfyUIPNG(file) {
                                 metadata.parameters = text.substring(idxUni + 8).replace(/\x00/g, '').trim();
                             }
                         } else {
-                            // Soporte para WebP nativo de ComfyUI ("Prompt:{...}") o XMP de Civitai
                             const cleanTxt = text.replace(/\x00/g, '');
                             const mPrompt = cleanTxt.match(/Prompt:\s*(\{[\s\S]*\})/i);
                             if (mPrompt) {
@@ -144,13 +177,11 @@ function extractComfyUIPNG(file) {
                     const node = promptData[key];
                     if (!node || !node.inputs) continue;
 
-                    // 1. Detectar Modelo Base (Checkpoint / UNET / GGUF)
-                    if (["CheckpointLoaderSimple", "UNETLoader", "UnetLoaderGGUF"].includes(node.class_type)) {
+                    if (["CheckpointLoaderSimple", "UNETLoader", "UnetLoaderGGUF", "LTXVLoader"].includes(node.class_type)) {
                         const mName = node.inputs.ckpt_name || node.inputs.unet_name;
                         if (mName && !foundModel) foundModel = mName;
                     }
 
-                    // 2. Detectar LoRAs
                     if (["LoraLoader", "LoraLoaderModelOnly"].includes(node.class_type) && node.inputs.lora_name) {
                         const lName = node.inputs.lora_name;
                         const lWeight = node.inputs.strength_model ?? 0.8;
@@ -159,7 +190,6 @@ function extractComfyUIPNG(file) {
                         }
                     }
 
-                    // 3. Detectar KSampler y Prompts
                     if (node.class_type === "KSampler" || node.class_type === "KSamplerAdvanced") {
                         if (node.inputs.steps) extractedParams.steps = node.inputs.steps;
                         if (node.inputs.cfg !== undefined) extractedParams.cfg = node.inputs.cfg;
@@ -172,15 +202,13 @@ function extractComfyUIPNG(file) {
                         if (!foundNeg && node.inputs.negative) foundNeg = resolvePromptNode(node.inputs.negative, true);
                     }
 
-                    // 4. Detectar Resolución
-                    if (["EmptyLatentImage", "EmptySD3LatentImage", "WanImageToVideo"].includes(node.class_type)) {
+                    if (["EmptyLatentImage", "EmptySD3LatentImage", "WanImageToVideo", "EmptyLTXVLatentVideo"].includes(node.class_type)) {
                         if (typeof node.inputs.width === 'number' && typeof node.inputs.height === 'number') {
                             extractedParams.width = node.inputs.width;
                             extractedParams.height = node.inputs.height;
                         }
                     }
 
-                    // 5. Detectar Flux Guidance y Clip Skip
                     if (node.class_type === "FluxGuidance" && node.inputs.guidance) {
                         extractedParams.guidance = node.inputs.guidance;
                     }
@@ -220,7 +248,6 @@ function extractComfyUIPNG(file) {
                     afterNeg = stepsSplit.slice(1).join("\n");
                 }
 
-                // Extraer etiquetas <lora:nombre:peso> del prompt de Civitai/A1111 y limpiarlas del texto
                 const loraRegex = /<lora:([^:>]+):([\d.-]+)(?::[\d.-]+)?>/gi;
                 let loraMatch;
                 while ((loraMatch = loraRegex.exec(foundPos)) !== null) {
@@ -254,6 +281,7 @@ function extractComfyUIPNG(file) {
                     else if (sLow.includes('dpm++ 2m sde')) extractedParams.sampler = 'dpmpp_2m_sde_gpu';
                     else if (sLow.includes('dpm++ 3m sde')) extractedParams.sampler = 'dpmpp_3m_sde_gpu';
                     else if (sLow.includes('dpm++ 2m')) extractedParams.sampler = 'dpmpp_2m';
+                    else if (sLow.includes('res_multistep')) extractedParams.sampler = 'res_multistep';
                     else if (sLow.includes('euler')) extractedParams.sampler = 'euler';
                     else if (sLow.includes('ddim')) extractedParams.sampler = 'ddim';
                     else if (sLow.includes('lcm')) extractedParams.sampler = 'lcm';
@@ -290,9 +318,16 @@ function extractComfyUIPNG(file) {
                     if (extractedParams.guidance && document.getElementById('fluxGuidanceInput')) document.getElementById('fluxGuidanceInput').value = extractedParams.guidance;
                     if (extractedParams.clipSkip && document.getElementById('clipSkipInput')) document.getElementById('clipSkipInput').value = extractedParams.clipSkip;
                     if (extractedParams.width && extractedParams.height) {
-                        if (document.getElementById('imgWidth')) document.getElementById('imgWidth').value = extractedParams.width;
-                        if (document.getElementById('imgHeight')) document.getElementById('imgHeight').value = extractedParams.height;
-                        if (typeof window.desmarcarProp === 'function') window.desmarcarProp();
+                        const activeCat = document.getElementById('selector') ? document.getElementById('selector').value : '';
+                        if (activeCat === '[VIDEO]') {
+                            if (document.getElementById('vidWidth')) document.getElementById('vidWidth').value = extractedParams.width;
+                            if (document.getElementById('vidHeight')) document.getElementById('vidHeight').value = extractedParams.height;
+                            if (typeof window.desmarcarPropVid === 'function') window.desmarcarPropVid();
+                        } else {
+                            if (document.getElementById('imgWidth')) document.getElementById('imgWidth').value = extractedParams.width;
+                            if (document.getElementById('imgHeight')) document.getElementById('imgHeight').value = extractedParams.height;
+                            if (typeof window.desmarcarProp === 'function') window.desmarcarProp();
+                        }
                     }
                 };
 
