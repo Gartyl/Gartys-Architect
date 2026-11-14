@@ -1,6 +1,6 @@
 {
-  "version": "1.0.2",
-  "fecha": "2026-11-10",
-  "changelog": "Minimax Añadida Edición de imagen. Uso de Metadata en formato Webp.",
+  "version": "1.0.3",
+  "fecha": "2026-11-14",
+  "changelog": "Metadata en Video.",
   "zip_url": "https://github.com/Gartyl/Gartys-Architect/archive/refs/heads/main.zip"
 }
