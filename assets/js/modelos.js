@@ -1289,6 +1289,7 @@ function sugerirAjustesMotor() {
             'wan':     { steps: 30, cfg: 5.0, sampler: 'euler_ancestral', scheduler: 'beta', shift: 5.0, denoise: "0.75" },
             'hidream': { steps: 30, cfg: 5.0, sampler: 'ipndm', scheduler: 'beta', shift: 3.0, denoise: "0.75" },
             'ltx':     { steps: 30, cfg: 5.0, sampler: 'euler_ancestral', scheduler: 'beta', shift: '', denoise: "0.75" },
+			'cogvideo': { steps: 30, cfg: 6.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
             'minimax': { steps: 20, cfg: 1.0, sampler: 'res_multistep', scheduler: 'simple', shift: '', denoise: "1.00" },
             'turbo':   { steps: 6,  cfg: 1.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
             'schnell': { steps: 6,  cfg: 1.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },

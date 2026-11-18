@@ -1558,7 +1558,7 @@ const UI_CONFIG = {
         modelBlock: true, swapCols: false, resolucion: true, estilos: true, multiInput: true,
         preset: true, proTools: true, chat: false, surpriseAmp: true, autoArch: false,
         lora: true, cnAdetailer: true, reactor: true, ipa: true, ipaType: 'normal',
-        denoiseBatch: true, advBlock: true, videoSpecific: false, staticGraphic: true,
+        denoiseBatch: true, batch: true, advBlock: true, videoSpecific: false, staticGraphic: true,
         hiresRembgDdcolor: true, icLight: true, showNegativePrompt: true
     },
     '[SDXL]': {
@@ -1568,7 +1568,7 @@ const UI_CONFIG = {
         modelBlock: true, swapCols: false, resolucion: true, estilos: true, multiInput: true,
         preset: true, proTools: true, chat: false, surpriseAmp: true, autoArch: false,
         lora: true, cnAdetailer: true, reactor: true, ipa: true, ipaType: 'normal',
-        denoiseBatch: true, advBlock: true, videoSpecific: false, staticGraphic: true,
+        denoiseBatch: true, batch: true, advBlock: true, videoSpecific: false, staticGraphic: true,
         hiresRembgDdcolor: true, icLight: false, showNegativePrompt: true
     },
     '[NATURAL_IMAGE]': {
@@ -1578,7 +1578,7 @@ const UI_CONFIG = {
         modelBlock: true, swapCols: false, resolucion: true, estilos: true, multiInput: true,
         preset: true, proTools: true, chat: false, surpriseAmp: true, autoArch: false,
         lora: true, cnAdetailer: true, reactor: true, ipa: true, ipaType: 'redux',
-        denoiseBatch: true, advBlock: true, videoSpecific: false, staticGraphic: true,
+        denoiseBatch: true, batch: true, advBlock: true, videoSpecific: false, staticGraphic: true,
         hiresRembgDdcolor: true, icLight: false, showNegativePrompt: true
     },
     '[VIDEO]': {
@@ -1588,7 +1588,7 @@ const UI_CONFIG = {
         modelBlock: true, swapCols: false, resolucion: false, estilos: true, multiInput: true,
         preset: true, proTools: true, chat: false, surpriseAmp: true, autoArch: false,
         lora: true, cnAdetailer: false, reactor: true, ipa: false, ipaType: 'normal',
-        denoiseBatch: false, advBlock: true, videoSpecific: true, staticGraphic: true,
+        denoiseBatch: false, batch: true, advBlock: true, videoSpecific: true, staticGraphic: true,
         hiresRembgDdcolor: false, icLight: false, showNegativePrompt: true
     },
     '[CHAT]': {
@@ -1598,7 +1598,7 @@ const UI_CONFIG = {
         modelBlock: true, swapCols: true, resolucion: true, estilos: false, multiInput: false,
         preset: 'avanzado_only', proTools: false, chat: true, surpriseAmp: false, autoArch: true,
         lora: true, cnAdetailer: false, reactor: false, ipa: false, ipaType: 'normal',
-        denoiseBatch: false, advBlock: false, videoSpecific: false, staticGraphic: false,
+        denoiseBatch: false, batch: false, advBlock: false, videoSpecific: false, staticGraphic: false,
         hiresRembgDdcolor: false, icLight: false, showNegativePrompt: false
     }
 };
@@ -1836,7 +1836,7 @@ function updateUIForSelector(sel) {
 
     const denoiseBlock = document.getElementById('denoiseBlock'); if (denoiseBlock) denoiseBlock.style.display = cfg.denoiseBatch ? 'block' : 'none';
     const globalDenoiseBlock = document.getElementById('globalDenoiseBlock'); if (globalDenoiseBlock) globalDenoiseBlock.style.display = cfg.denoiseBatch ? 'block' : 'none';
-    const batchBlock = document.getElementById('batchSize') ? document.getElementById('batchBlock') : null; if (batchBlock) batchBlock.style.display = cfg.denoiseBatch ? 'block' : 'none';
+    const batchBlock = document.getElementById('batchSize') ? document.getElementById('batchBlock') : null; if (batchBlock) batchBlock.style.display = cfg.batch ? 'block' : 'none';
     
     const advBlock = document.getElementById('advancedSettingsBlock');
     if (advBlock) {
@@ -3517,7 +3517,7 @@ async function runGpu(mode = 'directo') {
                 fdSingle.set('session_fingerprint', promptsLote[i].orig + "|" + currentModelCheck);
             }
             if (i > 0) fdSingle.delete('historial_id');
-            enviarTareaIndividualGpu(fdSingle, resDiv, buttonUsed, (i === 0 ? currentPromptId : 0), originalCategory, i + 1, total);
+            await enviarTareaIndividualGpu(fdSingle, resDiv, buttonUsed, (i === 0 ? currentPromptId : 0), originalCategory, i + 1, total);
         }
         return;
     }
