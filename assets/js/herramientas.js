@@ -40,7 +40,7 @@ function extractComfyUIPNG(file) {
                 // --- LECTOR BINARIO DE ÁTOMOS MP4 (©cmt / Comment) ---
                 const bytes = new Uint8Array(view.buffer);
                 for (let i = 0; i < bytes.length - 24; i++) {
-                    // Buscamos la firma del átomo ©cmt (0xA9, 'c', 'm', 't') seguida de la caja 'data'
+					// Buscamos la firma del átomo ©cmt (0xA9, 'c', 'm', 't') seguida de la caja 'data'																					 
                     if (bytes[i] === 0xA9 && bytes[i + 1] === 0x63 && bytes[i + 2] === 0x6D && bytes[i + 3] === 0x74) {
                         if (bytes[i + 8] === 0x64 && bytes[i + 9] === 0x61 && bytes[i + 10] === 0x74 && bytes[i + 11] === 0x61) {
                             const dataBoxLen = view.getUint32(i + 4, false); // Big-Endian
@@ -52,19 +52,21 @@ function extractComfyUIPNG(file) {
                                     .replace(/\x00/g, '')
                                     .trim();
 
-                                if (/Steps:\s*\d+/i.test(cmtText)) {
-                                    metadata.parameters = cmtText;
-                                    break;
-                                } else if (cmtText.startsWith('{')) {
+                                if (cmtText.startsWith('{')) {
                                     try {
                                         const parsedCmt = JSON.parse(cmtText);
                                         if (parsedCmt.prompt) {
                                             metadata.prompt = typeof parsedCmt.prompt === 'string' ? parsedCmt.prompt : JSON.stringify(parsedCmt.prompt);
+                                        } else if (parsedCmt.parameters && typeof parsedCmt.parameters === 'string') {
+                                            metadata.parameters = parsedCmt.parameters;
                                         } else {
                                             metadata.prompt = cmtText;
                                         }
                                         break;
                                     } catch (e) {}
+                                } else if (/Steps:\s*\d+/i.test(cmtText)) {
+                                    metadata.parameters = cmtText;
+                                    break;
                                 }
                             }
                         }
