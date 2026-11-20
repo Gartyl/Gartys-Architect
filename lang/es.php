@@ -155,6 +155,14 @@ return [
 	'hist_first' => "Primera Página",
 	'hist_last' => "Última Página",
 	'hist_gopage' => "Ir a la Página",
+	'seedvr2_title'       => "SeedVR2 (Restauración Difusión 1-Step)",
+	'seedvr2_desc'        => "Reconstruye detalle fino en fotos borrosas o comprimidas sin usar prompt.",
+	'seedvr2_color_lbl'   => "Corrección de Color",
+	'seedvr2_col_lab'     => "LAB (Color fiel al original)",
+	'seedvr2_col_wavelet' => "Wavelet (Microdetalle + tono base)",
+	'seedvr2_col_adain'   => "AdaIN (Ajuste de contraste/media)",
+	'seedvr2_col_none'    => "Ninguna (Salida cruda)",
+	'ups_denoise_title'   => "> 0.35 puede generar franjas (Costuras no coincidentes)",
 	
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
@@ -1348,6 +1356,7 @@ return [
     'err_unsupported_format' => "Formato no soportado.",
     'err_unzip_fail' => "Error al abrir o descomprimir el archivo de actualización descargado.",
     'err_upload_reference_failed' => "Error al subir la imagen de referencia a ComfyUI.",
+	'err_upscale_upload' => "Error de comunicación subiendo la imagen para Upscale puro. Inténtalo de nuevo.",
     'err_valid_img_vision' => "Carga una imagen válida para visión.",
     'err_valid_key' => "Por favor, introduce una clave válida.",
     'err_vision_analyst_not_found' => "⚠️ Error: No se ha encontrado el prompt del Analista de Visión en la base de datos. Configúralo en el panel.",

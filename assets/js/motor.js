@@ -2072,6 +2072,14 @@ function showError(msg) {
     SwalDark.fire({ icon: 'error', title: GartyLang.avis_atencio, html: msg, confirmButtonText: GartyLang.btn_entendido, confirmButtonColor: '#d33' }); 
 }
 
+function esModeloSeedVR2Activo() {
+    const sel = document.getElementById('modelSelector');
+    if (!sel || sel.selectedIndex < 0) return false;
+    const opt = sel.options[sel.selectedIndex];
+    const txt = ((opt.text || '') + ' ' + (opt.dataset?.archivo || '') + ' ' + (opt.value || '')).toLowerCase();
+    return txt.includes('seedvr2');
+}
+
 function appendUIParametersToFormData(fd, forceSingle = false) {
     // 1. PARÁMETROS VITALES DEL MOTOR (Se envían SIEMPRE, incluso si el panel está oculto en el Chat)
     if(document.getElementById('stepsInput')) fd.append('steps', document.getElementById('stepsInput').value);
@@ -2139,6 +2147,11 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
             const auraToggle = document.getElementById('aurasrToggle');
             if (auraToggle && auraToggle.checked) fd.append('aurasr_enabled', 'true');
 			// ------------------------------
+			
+			const sv2Toggle = document.getElementById('seedvr2Toggle');
+            if (sv2Toggle && sv2Toggle.checked) fd.append('seedvr2_enabled', 'true');
+            const sv2Color = document.getElementById('seedvr2ColorCorrection');
+            if (sv2Color) fd.append('seedvr2_color_correction', sv2Color.value);
             
 			/// Detección de Upscale Puro: Si hay imagen cargada, ES un upscale puro siempre (ignoramos si hay texto)
             const hayImagen = (typeof currentImageBase64 !== 'undefined' && currentImageBase64 !== null) || 
@@ -2153,6 +2166,13 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
                 fd.append('pure_upscale', 'false');
             }
         }
+    }
+	
+	if (esModeloSeedVR2Activo()) {
+        const upFactorEl = document.getElementById('upscaleFactor');
+        if (upFactorEl && !fd.has('upscale_factor')) fd.append('upscale_factor', upFactorEl.value);
+        const sv2ColorEl = document.getElementById('seedvr2ColorCorrection');
+        if (sv2ColorEl && !fd.has('seedvr2_color_correction')) fd.append('seedvr2_color_correction', sv2ColorEl.value);
     }
 
     // Remove Background
@@ -2295,7 +2315,11 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
     
     // 🛑 ESCUDO FRONTEND: Si estamos en Visión o Chat, ignoramos la imagen residual para forzar Text-To-Image
     if (activeSelector !== '[CHAT]' && document.getElementById('imgPreviewContainer') && document.getElementById('imgPreviewContainer').style.display !== 'none' && typeof currentImageBase64 !== 'undefined' && currentImageBase64) {
-        fd.append('init_image', currentImageBase64.split(',')[1]);
+        if (esModeloSeedVR2Activo() && typeof window.currentVideoBase64 === 'string' && window.currentVideoBase64.startsWith('data:video/')) {
+            fd.append('init_image', window.currentVideoBase64);
+        } else {
+            fd.append('init_image', currentImageBase64.split(',')[1]);
+        }
         const extractedMask = extractMaskBase64();
         if (extractedMask) { fd.append('mask_data', extractedMask); }
         
@@ -2685,7 +2709,7 @@ document.getElementById('promptForm').onsubmit = async (e) => {
     const isPureModeForm = pureModeIds.some(id => {
         const el = document.getElementById(id);
         return el && el.checked;
-    }) || isPureUpscaleForm;
+    }) || isPureUpscaleForm || esModeloSeedVR2Activo();
 
     // Ahora la validación respeta si hay un modo puro activo para ignorar la idea vacía
     if (!idea && !hasFile && !isPureModeForm) {
@@ -2704,7 +2728,7 @@ document.getElementById('promptForm').onsubmit = async (e) => {
     const lorasParaSalvavidas = Array.from(document.querySelectorAll('.lora-selector')).some(sel => sel.value && sel.value.toLowerCase() !== 'ninguno');
     
     // Si hay imagen subida y el Upscale está activo (y NO hay LoRAs), bloqueamos el Arquitecto:
-    if (hasFile && isUpscaleOn && !lorasParaSalvavidas && selValue !== '[CHAT]') {
+    if (hasFile && (esModeloSeedVR2Activo() || (isUpscaleOn && !lorasParaSalvavidas)) && selValue !== '[CHAT]') {	
         SwalDark.fire({
             icon: 'info',
             title: GartyLang.swal_pure_upscale_title || 'Modo Upscale Puro',
@@ -3278,7 +3302,7 @@ async function runGpu(mode = 'directo') {
         if (!el || !el.checked) return false;
         const parentBlock = el.closest('[id$="Block"]') || el.parentElement;
         return parentBlock && parentBlock.style.display !== 'none';
-    }) || isPureUpscaleActive;
+    }) || isPureUpscaleActive || esModeloSeedVR2Activo();
 
     if (typeof getActiveAudioConfig === 'function') {
         const audioConfig = getActiveAudioConfig();
@@ -3462,7 +3486,7 @@ async function runGpu(mode = 'directo') {
         ? window.obtenerLimiteFramesVideo()
         : 121;
 
-    if (originalCategory === '[VIDEO]' && numFrames > maxFramesPermitidos) {
+    if (originalCategory === '[VIDEO]' && !esModeloSeedVR2Activo() && numFrames > maxFramesPermitidos) {	
         if (typeof lanzarVideoEncadenado === 'function') {
             lanzarVideoEncadenado(fd, numFrames, maxFramesPermitidos).finally(() => _actualizarBotonRender(buttonUsed, 'restaurar', originalBtnText));
         }
@@ -5038,7 +5062,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pureModeIds = ['pureFaceSwapToggle', 'pureRembgToggle', 'pureAdetailerToggle', 'pureDDColorToggle', 'toggleLamaMode', 'iclight_enabled'];
             const isPureUpscaleBatch = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked && ideaInicial === '';
             
-            const isPureMode = pureModeIds.some(id => document.getElementById(id) && document.getElementById(id).checked) || isPureUpscaleBatch;
+            const isPureMode = pureModeIds.some(id => document.getElementById(id) && document.getElementById(id).checked) || isPureUpscaleBatch || esModeloSeedVR2Activo();
             
             const panelAudioActivo = document.getElementById('audioToggle') && document.getElementById('audioToggle').checked;
 

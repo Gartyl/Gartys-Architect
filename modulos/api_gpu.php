@@ -320,6 +320,95 @@ function inyectarNodosAudioPro(&$workflow, $engine, $tts_engine, $prompt_audio, 
 }
 
 // ==============================================================================
+// --- HELPER: SEEDVR2 NATIVO (RESTAURACIÓN Y ESCALADO 1-STEP IMAGEN/VÍDEO) ---
+// ==============================================================================
+function obtenerConfigSeedVR2DesdeBD($pdo) {
+    if (!$pdo) return null;
+    try {
+        $stmt = $pdo->query("SELECT nombre_archivo, vae_requerido FROM modelos_ia WHERE activo = 1 AND LOWER(nombre_archivo) LIKE '%seedvr2%' LIMIT 1");
+        $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
+        if ($row && !empty($row['nombre_archivo'])) {
+            return [
+                'model' => trim($row['nombre_archivo']),
+                'vae'   => !empty($row['vae_requerido']) ? basename(str_replace('\\', '/', trim($row['vae_requerido']))) : ''
+            ];
+        }
+    } catch (Throwable $e) {}
+    return null;
+}
+
+function inyectarNodosSeedVR2(&$workflow, $input_image_ref, $seedvr2_model, $seedvr2_vae, $scale_factor, $seed, $color_method = 'lab', $prefix = 'sv2_') {
+    $scale_val = max(0.5, min(8.0, floatval($scale_factor)));
+    $metodos_validos = ['lab', 'wavelet', 'adain', 'none'];
+    if (!in_array($color_method, $metodos_validos, true)) {
+        $color_method = 'lab';
+    }
+
+    $id_scale = $prefix . 'scale';
+    $id_prep  = $prefix . 'prep';
+    $id_unet  = $prefix . 'unet';
+    $id_vae   = $prefix . 'vae';
+    $id_enc   = $prefix . 'enc';
+    $id_cond  = $prefix . 'cond';
+    $id_samp  = $prefix . 'samp';
+    $id_dec   = $prefix . 'dec';
+    $id_post  = $prefix . 'post';
+
+    $workflow[$id_scale] = [
+        "inputs" => ["upscale_method" => "lanczos", "scale_by" => $scale_val, "image" => $input_image_ref],
+        "class_type" => "ImageScaleBy"
+    ];
+    $workflow[$id_prep] = [
+        "inputs" => ["resized_images" => [$id_scale, 0]],
+        "class_type" => "SeedVR2Preprocess"
+    ];
+    $workflow[$id_unet] = [
+        "inputs" => ["unet_name" => $seedvr2_model, "weight_dtype" => "default"],
+        "class_type" => "UNETLoader"
+    ];
+    $workflow[$id_vae] = [
+        "inputs" => ["vae_name" => $seedvr2_vae],
+        "class_type" => "VAELoader"
+    ];
+    $workflow[$id_enc] = [
+        "inputs" => [
+            "pixels" => [$id_prep, 0], "vae" => [$id_vae, 0],
+            "tile_size" => 512, "overlap" => 128, "temporal_size" => 64, "temporal_overlap" => 8
+        ],
+        "class_type" => "VAEEncodeTiled"
+    ];
+    $workflow[$id_cond] = [
+        "inputs" => ["model" => [$id_unet, 0], "vae_conditioning" => [$id_enc, 0]],
+        "class_type" => "SeedVR2Conditioning"
+    ];
+    $workflow[$id_samp] = [
+        "inputs" => [
+            "seed" => intval($seed), "steps" => 1, "cfg" => 1.0,
+            "sampler_name" => "euler", "scheduler" => "simple", "denoise" => 1.0,
+            "model" => [$id_unet, 0], "positive" => [$id_cond, 0], "negative" => [$id_cond, 1], "latent_image" => [$id_enc, 0]
+        ],
+        "class_type" => "KSampler"
+    ];
+    $workflow[$id_dec] = [
+        "inputs" => [
+            "samples" => [$id_samp, 0], "vae" => [$id_vae, 0],
+            "tile_size" => 512, "overlap" => 128, "temporal_size" => 64, "temporal_overlap" => 8
+        ],
+        "class_type" => "VAEDecodeTiled"
+    ];
+    $workflow[$id_post] = [
+        "inputs" => [
+            "images" => [$id_dec, 0],
+            "original_resized_images" => [$id_scale, 0],
+            "color_correction_method" => $color_method
+        ],
+        "class_type" => "SeedVR2PostProcessing"
+    ];
+
+    return [$id_post, 0];
+}
+
+// ==============================================================================
 // --- MÓDULO GPU: GENERACIÓN, EDICIÓN, VÍDEO Y ENSAMBLAJE DE WORKFLOWS ---
 // ==============================================================================
 
@@ -944,6 +1033,9 @@ if ($action === 'generar_imagen') {
     $upscale_model = $_POST['upscale_model'] ?? '';
     $upscale_factor = floatval($_POST['upscale_factor'] ?? 1.5);
     $aurasr_enabled = filter_var($_POST['aurasr_enabled'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+	
+	$seedvr2_enabled = filter_var($_POST['seedvr2_enabled'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+    $seedvr2_color   = $_POST['seedvr2_color_correction'] ?? 'lab';
 
     $remove_background = filter_var($_POST['remove_background'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
 	$pure_rembg = filter_var($_POST['pure_rembg'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
@@ -1043,13 +1135,14 @@ if ($action === 'generar_imagen') {
     $is_anima = (strpos($model_lower, 'anima') !== false);
     $is_moss = (strpos($model_lower, 'moss') !== false);
 	$is_fibo2 = (strpos($model_lower, 'fibo') !== false);
+	$is_seedvr2 = (strpos($model_lower, 'seedvr2') !== false);
 	$is_minimax = (strpos($model_lower, 'minimax') !== false);
     
     // 2. Bandera exclusiva para Z-Image
     $is_zimage = (strpos($model_lower, 'z-image') !== false || strpos($model_lower, 'z_image') !== false || strpos($model_lower, 'zimage') !== false);
     
     // 3. Añadimos a la familia UNETs
-    $is_unet = (stripos($model_path, 'unet/') !== false || stripos($model_path, 'unet\\') !== false || $is_flux || $is_chroma || $is_sd35 || $is_zimage || $is_qwen || $is_gguf || $is_krea2 || $is_hunyuan || $is_hidream || $is_anima || $is_moss) || $is_fibo2 || $is_minimax;
+    $is_unet = (stripos($model_path, 'unet/') !== false || stripos($model_path, 'unet\\') !== false || $is_flux || $is_chroma || $is_sd35 || $is_zimage || $is_qwen || $is_gguf || $is_krea2 || $is_hunyuan || $is_hidream || $is_anima || $is_moss) || $is_fibo2 || $is_minimax || $is_seedvr2;
     
     // 4. Turbo (Añadida también la versión sin guion)
     $is_turbo = (strpos($model_lower, 'turbo') !== false || strpos($model_lower, 'schnell') !== false);
@@ -1203,7 +1296,7 @@ if ($action === 'generar_imagen') {
     // =========================================================
  
  // Añadimos excepciones a la lista permitida para no bloquear la carga
-    if ($is_unet && !$is_flux && !$is_chroma && !$is_sd35 && !$is_zimage && !$is_qwen && !$is_gguf && !$is_krea2 && !$is_hunyuan && !$is_hidream && !$is_anima && !$is_moss && !$is_fibo2 && !$is_minimax && strpos($model_lower, 'video') === false) {
+    if ($is_unet && !$is_flux && !$is_chroma && !$is_sd35 && !$is_zimage && !$is_qwen && !$is_gguf && !$is_krea2 && !$is_hunyuan && !$is_hidream && !$is_anima && !$is_moss && !$is_fibo2 && !$is_minimax && !$is_seedvr2 && strpos($model_lower, 'video') === false) {
     echo json_encode(['error' => __('err_pure_unet_load')]); 
     exit();
 	}
@@ -1222,6 +1315,57 @@ if ($action === 'generar_imagen') {
     $modelo_seguro = $model_path; 
     $is_video_mode = ($selector === '[VIDEO]' || strpos(strtolower($modelo_seguro), 'ltx') !== false);
     
+	// ==============================================================================
+    // --- TUBERÍA DIRECTA: SEEDVR2 COMO MODELO SELECCIONADO (IMAGEN Y VÍDEO) ---
+    // ==============================================================================
+    if ($is_seedvr2) {
+        if (empty($comfy_image_filename) || $comfy_image_filename === "none") {
+            echo json_encode(['error' => 'SeedVR2 es un modelo de restauración/ampliación: sube una imagen o un vídeo al visor principal antes de ejecutar.']);
+            exit();
+        }
+        $sv2_vae_db = !empty($vae_requerido) ? basename(str_replace('\\', '/', $vae_requerido)) : '';
+        if (empty($sv2_vae_db)) {
+            echo json_encode(['error' => 'Asigna el VAE de SeedVR2 (seedvr2_ema_vae_fp16.safetensors) en Administración → Editar Modelo.']);
+            exit();
+        }
+
+        $sv2_factor = (isset($_POST['upscale_factor']) && floatval($_POST['upscale_factor']) > 0) ? floatval($_POST['upscale_factor']) : 2.0;
+        $steps = 1; $cfg = 1.0; $sampler = "euler"; $scheduler = "simple";
+        $es_vid_sv2 = (isset($is_video) && $is_video);
+
+        if ($es_vid_sv2) {
+            $workflow["10"] = [
+                "inputs" => [
+                    "video" => $comfy_image_filename, "force_rate" => 0, "force_size" => "Disabled",
+                    "custom_width" => 0, "custom_height" => 0, "frame_load_cap" => 0,
+                    "skip_first_frames" => 0, "select_every_nth" => 1
+                ],
+                "class_type" => "VHS_LoadVideo"
+            ];
+            $sv2_out = inyectarNodosSeedVR2($workflow, ["10", 0], $model_path, $sv2_vae_db, $sv2_factor, $seed, $seedvr2_color, 'sv2_');
+            $workflow["99"] = [
+                "inputs" => [
+                    "frame_rate" => $video_fps, "loop_count" => 0, "filename_prefix" => "byGarty_SeedVR2",
+                    "format" => "video/h264-mp4", "pix_fmt" => "yuv420p", "crf" => 19,
+                    "save_metadata" => true, "pingpong" => false, "save_output" => true,
+                    "images" => $sv2_out, "audio" => ["10", 2]
+                ],
+                "class_type" => "VHS_VideoCombine"
+            ];
+            $is_video_mode = true;
+            $current_image_node = "99";
+            $meta_modo = "SeedVR2 Video ({$sv2_factor}x, {$seedvr2_color})";
+        } else {
+            $workflow["10"] = ["inputs" => ["image" => $comfy_image_filename, "upload" => "image"], "class_type" => "LoadImage"];
+            $sv2_out = inyectarNodosSeedVR2($workflow, ["10", 0], $model_path, $sv2_vae_db, $sv2_factor, $seed, $seedvr2_color, 'sv2_');
+            $workflow["9"] = ["inputs" => ["images" => $sv2_out], "class_type" => "PreviewImage"];
+            $is_video_mode = false;
+            $current_image_node = "9";
+            $meta_modo = "SeedVR2 Image ({$sv2_factor}x, {$seedvr2_color})";
+        }
+        goto EJECUTAR_COMFYUI;
+    }
+	
     // ====================================================================
     // --- NUEVO MOTOR HÍBRIDO BLINDADO (LTX VIA JSON) ---
     // ====================================================================
@@ -2861,7 +3005,7 @@ if ($action === 'generar_imagen') {
             
             // Si el modelo activo es un DiT avanzado o carece de CLIP integrado (como Krea-2),
             // delegamos la restauración facial a un modelo rápido y robusto (SD1.5 / SDXL)
-            if ($is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima || $is_moss || $is_fibo2 || !modeloTieneClipIntegrado($model_path)) {	
+            if ($is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima || $is_moss || $is_fibo2 || $is_seedvr2 || !modeloTieneClipIntegrado($model_path)) {	
                 $stmt_ref = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE categoria = 'sys_refiner' LIMIT 1");
                 $row_ref = $stmt_ref->fetch();
                 
@@ -2966,7 +3110,7 @@ if ($action === 'generar_imagen') {
         $pure_upscale = false;
     }
 
-    if ($hires_fix && $pure_upscale && !empty($init_image_base64) && $init_image_base64 !== "TRAY_IMAGE_USED" && empty($tray_comfy_filenames) && (!empty($upscale_model) || $aurasr_enabled)) {	
+    if ($hires_fix && $pure_upscale && !empty($init_image_base64) && $init_image_base64 !== "TRAY_IMAGE_USED" && empty($tray_comfy_filenames) && (!empty($upscale_model) || $aurasr_enabled || $seedvr2_enabled)) {		
         
         // 1. Limpiamos la cadena base64 y guardamos archivo temporal en disco
         $clean_img_data = $init_image_base64;
@@ -3009,6 +3153,15 @@ if ($action === 'generar_imagen') {
                 // Ruta VIP: AuraSR GigaGAN
                 $workflow["11"] = ["inputs" => ["model" => "AuraSR-v2.safetensors"], "class_type" => "LoadAuraSR"];
                 $workflow["12"] = ["inputs" => ["avoid_seams" => true, "AURASR_MODEL" => ["11", 0], "IMAGE" => ["10", 0]], "class_type" => "RunAuraSR"];
+            } elseif ($seedvr2_enabled) {
+                $sv2_cfg = obtenerConfigSeedVR2DesdeBD($pdo);
+                if (!$sv2_cfg || empty($sv2_cfg['vae'])) {
+                    echo json_encode(['error' => 'Registra el modelo SeedVR2 y su VAE en Administración para usarlo como Upscaler.']);
+                    exit();
+                }
+                $sv2_out = inyectarNodosSeedVR2($workflow, ["10", 0], $sv2_cfg['model'], $sv2_cfg['vae'], $upscale_factor, $seed, $seedvr2_color, 'sv2_');
+                $workflow["9"] = ["inputs" => ["images" => $sv2_out], "class_type" => "PreviewImage"];
+                goto EJECUTAR_COMFYUI;
             } else {
                 // Ruta Clásica: UltraSharp / ESRGAN
                 $workflow["11"] = ["inputs" => ["model_name" => $upscale_model], "class_type" => "UpscaleModelLoader"];
@@ -4536,6 +4689,14 @@ if ($action === 'generar_imagen') {
                     "class_type" => "ImageScale"
                 ];
                 $current_image_node = "402";
+            } elseif ($seedvr2_enabled) {
+                $sv2_cfg = obtenerConfigSeedVR2DesdeBD($pdo);
+                if (!$sv2_cfg || empty($sv2_cfg['vae'])) {
+                    echo json_encode(['error' => 'Registra el modelo SeedVR2 y su VAE en Administración para usarlo como Upscaler.']);
+                    exit();
+                }
+                $sv2_out = inyectarNodosSeedVR2($workflow, [$current_image_node, 0], $sv2_cfg['model'], $sv2_cfg['vae'], $upscale_factor, $seed, $seedvr2_color, 'sv2_');
+                $current_image_node = $sv2_out[0];
             } elseif (!empty($upscale_model)) {
                 $workflow["400"] = [
                     "inputs" => ["model_name" => $upscale_model],
@@ -4842,6 +5003,15 @@ if ($action === 'generar_imagen') {
                 "class_type" => "ImageScale"
             ];
             $current_image_node = "402";
+
+        } elseif ($seedvr2_enabled) {
+            $sv2_cfg = obtenerConfigSeedVR2DesdeBD($pdo);
+            if (!$sv2_cfg || empty($sv2_cfg['vae'])) {
+                echo json_encode(['error' => 'Registra el modelo SeedVR2 y su VAE en Administración para usarlo como Upscaler.']);
+                exit();
+            }
+            $sv2_out = inyectarNodosSeedVR2($workflow, [$current_image_node, 0], $sv2_cfg['model'], $sv2_cfg['vae'], $upscale_factor, $seed, $seedvr2_color, 'sv2_');
+            $current_image_node = $sv2_out[0];
 
         } elseif (!empty($upscale_model)) {
             // RUTA CLÁSICA: Ultimate SD Upscale con modelo estándar
@@ -5164,7 +5334,7 @@ if ($action === 'generar_imagen') {
             $adetailer_steps   = $steps;
 
             // 🛡️ ESTRATEGIA ANTI-COLLISION PARA DiT O MODO PURO
-            if (!empty($es_modo_puro_activo) || $is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima || $is_moss || $is_fibo2) {	
+            if (!empty($es_modo_puro_activo) || $is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima || $is_moss || $is_fibo2 || $is_seedvr2) {	
                 $modelo_rostros = "";
 
                 $stmt_ref = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE categoria = 'sys_refiner' LIMIT 1");
@@ -5349,7 +5519,7 @@ if ($action === 'generar_imagen') {
     $final_w = $width; 
     $final_h = $height;
     
-    if ($hires_fix && ($aurasr_enabled || !empty($upscale_model))) { 
+    if ($hires_fix && ($aurasr_enabled || $seedvr2_enabled || !empty($upscale_model))) {	
         if (!empty($target_w) && !empty($target_h)) {
             $final_w = $target_w;
             $final_h = $target_h;
@@ -5401,6 +5571,8 @@ if ($action === 'generar_imagen') {
     if ($hires_fix) { 
         if ($aurasr_enabled) {
             $meta_json_array['Hi-Res Fix'] = 'AuraSR GigaGAN (' . $upscale_factor . 'x)';
+        } elseif ($seedvr2_enabled) {
+            $meta_json_array['Hi-Res Fix'] = 'SeedVR2 (' . $upscale_factor . 'x, ' . $seedvr2_color . ')';
         } elseif (!empty($upscale_model)) {
             $meta_json_array['Hi-Res Fix'] = 'Tiled Upscale (' . $upscale_factor . 'x, ' . basename($upscale_model) . ')';
         }
@@ -5682,6 +5854,8 @@ if ($action === 'generar_imagen') {
         if ($hires_fix) { 
             if ($aurasr_enabled) {
                 $meta_json_array['Hi-Res Fix'] = 'AuraSR GigaGAN (' . $upscale_factor . 'x)';
+            } elseif ($seedvr2_enabled) {
+                $meta_json_array['Hi-Res Fix'] = 'SeedVR2 (' . $upscale_factor . 'x, ' . $seedvr2_color . ')';
             } elseif (!empty($upscale_model)) {
                 $meta_json_array['Hi-Res Fix'] = 'Tiled Upscale (' . $upscale_factor . 'x, ' . basename($upscale_model) . ')';
             }

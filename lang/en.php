@@ -155,6 +155,14 @@ return [
 	'hist_first' => "First Page",
     'hist_last' => "Last Page",
     'hist_gopage' => "Go to Page",
+	'seedvr2_title'       => "SeedVR2 (1-Step Diffusion Restoration)",
+	'seedvr2_desc'        => "Reconstructs fine detail in blurry or compressed photos without using a prompt.",
+	'seedvr2_color_lbl'   => "Color Correction",
+	'seedvr2_col_lab'     => "LAB (True to original color)",
+	'seedvr2_col_wavelet' => "Wavelet (Micro-detail + base tone)",
+	'seedvr2_col_adain'   => "AdaIN (Contrast/mean adjustment)",
+	'seedvr2_col_none'    => "None (Raw output)",
+	'ups_denoise_title'   => "> 0.35 may cause banding (Mismatched seams)",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS

@@ -155,6 +155,14 @@ return [
 	'hist_first' => "Primera Pàgina",
     'hist_last' => "Última Pàgina",
     'hist_gopage' => "Anar a la Pàgina",
+	'seedvr2_title'       => "SeedVR2 (Restauració Difusió 1-Step)",
+	'seedvr2_desc'        => "Reconstrueix detall fi en fotos borroses o comprimides sense usar prompt.",
+	'seedvr2_color_lbl'   => "Correcció de Color",
+	'seedvr2_col_lab'     => "LAB (Color fidel a l'original)",
+	'seedvr2_col_wavelet' => "Wavelet (Microdetall + to base)",
+	'seedvr2_col_adain'   => "AdaIN (Ajust de contrast/mitjana)",
+	'seedvr2_col_none'    => "Cap (Sortida crua)",
+	'ups_denoise_title'   => "> 0.35 pot generar franges (Costures no coincidents)",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS

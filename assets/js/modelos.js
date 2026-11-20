@@ -222,10 +222,11 @@ function updateModelFilter(category) {
    const modelosFiltradosDB = window.modelosDBSistema ? window.modelosDBSistema.filter(m => {
         if (m.categoria && m.categoria.toLowerCase().startsWith('sys_')) return false;
         const esMinimax = (m.nombre_archivo || '').toLowerCase().includes('minimax') || (m.nombre_visual || '').toLowerCase().includes('minimax');
+        const esSeedVR2 = (m.nombre_archivo || '').toLowerCase().includes('seedvr2') || (m.nombre_visual || '').toLowerCase().includes('seedvr2');
 
-        if (category === '[CHAT]') return m.motor === 'comfyui' && (m.categoria.toLowerCase() !== 'video' || esMinimax);
-        if (category === '[NATURAL_IMAGE]' && esMinimax && m.motor === 'comfyui') return true;
-        if (category === '[VIDEO]' && esMinimax && m.motor === 'comfyui') return true;
+        if (category === '[CHAT]') return m.motor === 'comfyui' && !esSeedVR2 && (m.categoria.toLowerCase() !== 'video' || esMinimax);
+        if (category === '[NATURAL_IMAGE]' && (esMinimax || esSeedVR2) && m.motor === 'comfyui') return true;
+        if (category === '[VIDEO]' && (esMinimax || esSeedVR2) && m.motor === 'comfyui') return true;
 
         return (m.categoria && m.categoria.toLowerCase() === catDB) && m.motor === 'comfyui';
     }) : [];
@@ -392,8 +393,10 @@ function updateLoraFilter(category) {
             // === FILTRO AISLADO POR ARQUITECTURAS DiT / VLM ===
             const esModeloQwen21 = modeloSeleccionado.includes('qwen') && (modeloSeleccionado.includes('2.1') || modeloSeleccionado.includes('21') || modeloSeleccionado.includes('2_1'));
 
-            if (modeloSeleccionado.includes('chroma') && !modeloSeleccionado.includes('zavy')) {
-                tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'chroma'));
+            if (modeloSeleccionado.includes('seedvr2')) {
+                tempLoras = [];
+            } else if (modeloSeleccionado.includes('chroma') && !modeloSeleccionado.includes('zavy')) {
+			    tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'chroma'));
             } else if (modeloSeleccionado.includes('ideogram')) {
                 tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, ['ideogram4', 'ideogram']) || m.toLowerCase().includes('ideogram4'));
             } else if (modeloSeleccionado.includes('minimax')) {
@@ -472,8 +475,10 @@ function updateLoraFilter(category) {
                 modeloSeleccionado.includes('23') || modeloSeleccionado.includes('2.3') || modeloSeleccionado.includes('2_3') ||
                 modeloSeleccionado.includes('25') || modeloSeleccionado.includes('2.5') || modeloSeleccionado.includes('2_5')
             );
-
-            if (modeloSeleccionado.includes('wan')) {
+			
+			if (modeloSeleccionado.includes('seedvr2')) {
+                tempLoras = [];
+            } else if (modeloSeleccionado.includes('wan')) {
                 tempLoras = loadedLoras.filter(m => estaEnCarpeta(m, 'wan') || m.toLowerCase().includes('wan'));
             } else if (esModeloLtx23_25) {
                 // LTX 2.3 y LTX 2.5 (Arquitectura 22B - Carpeta ltx25 / ltx23)
@@ -1320,7 +1325,8 @@ function sugerirAjustesMotor() {
             'z_image': { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
             'anima':   { steps: 30, cfg: 5.0, sampler: 'euler', scheduler: 'normal', shift: '', denoise: "0.75" },
             'moss':    { steps: 35, cfg: 3.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-			'fibo':    { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'normal', shift: '', denoise: "0.75" }
+			'fibo':    { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'normal', shift: '', denoise: "0.75" },
+			'seedvr2': { steps: 1,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" }
         };
 
         // Regla por defecto para SD1.5, SDXL, etc.
