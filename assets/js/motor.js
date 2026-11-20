@@ -1866,6 +1866,8 @@ function updateUIForSelector(sel) {
         if (cfg.hiresRembgDdcolor && isAvanzado) hiresBlock.style.display = 'block';
         else { hiresBlock.style.display = 'none'; const hiresToggle = document.getElementById('hiresToggle'); if (hiresToggle) hiresToggle.checked = false; }
     }
+	
+	if (typeof window.sincronizarPanelSeedVR2 === 'function') window.sincronizarPanelSeedVR2();
     
     const rembgBlock = document.getElementById('rembgBlock');
     if (rembgBlock) {
@@ -2079,6 +2081,61 @@ function esModeloSeedVR2Activo() {
     const txt = ((opt.text || '') + ' ' + (opt.dataset?.archivo || '') + ' ' + (opt.value || '')).toLowerCase();
     return txt.includes('seedvr2');
 }
+
+window.sincronizarPanelSeedVR2 = function() {
+    const esSv2 = esModeloSeedVR2Activo();
+    const hiresBlock = document.getElementById('hiresBlock');
+    const hiresToggle = document.getElementById('hiresToggle');
+    const sv2Toggle = document.getElementById('seedvr2Toggle');
+    const upscaleOpts = document.getElementById('upscaleOptions');
+    const sv2ColorBox = document.getElementById('seedvr2ColorContainer');
+    const sel = document.getElementById('selector')?.value;
+
+    if (!hiresBlock) return;
+
+    if (esSv2 && (sel === '[VIDEO]' || sel === '[NATURAL_IMAGE]')) {
+        hiresBlock.style.display = 'block';
+        hiresBlock.dataset.autoSv2 = '1';
+
+        if (hiresToggle) hiresToggle.checked = true;
+        if (upscaleOpts) upscaleOpts.classList.remove('d-none');
+
+        if (sv2Toggle) {
+            sv2Toggle.checked = true;
+            if (typeof toggleSeedVR2 === 'function') toggleSeedVR2();
+        } else if (sv2ColorBox) {
+            sv2ColorBox.classList.remove('d-none');
+        }
+
+        const collapseEl = hiresBlock.closest('.accordion-collapse, .collapse');
+        if (collapseEl && !collapseEl.classList.contains('show')) {
+            if (typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
+                bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false }).show();
+            } else {
+                collapseEl.classList.add('show');
+            }
+        } else {
+            const proCont = document.getElementById('proToolsContainer');
+            if (proCont) {
+                proCont.classList.remove('d-none');
+                proCont.style.display = 'block';
+            }
+        }
+    } else {
+        if (hiresBlock.dataset.autoSv2 === '1') {
+            delete hiresBlock.dataset.autoSv2;
+            if (hiresToggle) hiresToggle.checked = false;
+            if (upscaleOpts) upscaleOpts.classList.add('d-none');
+            if (sv2Toggle) {
+                sv2Toggle.checked = false;
+                if (typeof syncUpscaleEnginesUI === 'function') syncUpscaleEnginesUI();
+            }
+        }
+        if (sel === '[VIDEO]') {
+            hiresBlock.style.display = 'none';
+        }
+    }
+};
 
 function appendUIParametersToFormData(fd, forceSingle = false) {
     // 1. PARÁMETROS VITALES DEL MOTOR (Se envían SIEMPRE, incluso si el panel está oculto en el Chat)

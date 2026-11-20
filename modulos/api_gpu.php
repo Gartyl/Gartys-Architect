@@ -381,14 +381,28 @@ function inyectarNodosSeedVR2(&$workflow, $input_image_ref, $seedvr2_model, $see
         "inputs" => ["model" => [$id_unet, 0], "vae_conditioning" => [$id_enc, 0]],
         "class_type" => "SeedVR2Conditioning"
     ];
-    $workflow[$id_samp] = [
-        "inputs" => [
-            "seed" => intval($seed), "steps" => 1, "cfg" => 1.0,
-            "sampler_name" => "euler", "scheduler" => "simple", "denoise" => 1.0,
-            "model" => [$id_unet, 0], "positive" => [$id_cond, 0], "negative" => [$id_cond, 1], "latent_image" => [$id_enc, 0]
-        ],
-        "class_type" => "KSampler"
-    ];
+    if ($es_video) {
+        $workflow[$id_samp] = [
+            "inputs" => [
+                "seed" => intval($seed), "steps" => 1, "cfg" => 1.0,
+                "sampler_name" => "euler", "scheduler" => "simple", "denoise" => 1.0,
+                "model" => [$id_unet, 0], "positive" => [$id_cond, 0], "negative" => [$id_cond, 1], "latent" => [$id_enc, 0],
+                "frames_per_chunk" => 5,
+                "temporal_overlap" => 1,
+                "chunking_mode" => "auto"
+            ],
+            "class_type" => "SeedVR2ProgressiveSampler"
+        ];
+    } else {
+        $workflow[$id_samp] = [
+            "inputs" => [
+                "seed" => intval($seed), "steps" => 1, "cfg" => 1.0,
+                "sampler_name" => "euler", "scheduler" => "simple", "denoise" => 1.0,
+                "model" => [$id_unet, 0], "positive" => [$id_cond, 0], "negative" => [$id_cond, 1], "latent_image" => [$id_enc, 0]
+            ],
+            "class_type" => "KSampler"
+        ];
+    }
     $workflow[$id_dec] = [
         "inputs" => [
             "samples" => [$id_samp, 0], "vae" => [$id_vae, 0],
@@ -1336,13 +1350,13 @@ if ($action === 'generar_imagen') {
         if ($es_vid_sv2) {
             $workflow["10"] = [
                 "inputs" => [
-                    "video" => $comfy_image_filename, "force_rate" => 0, "force_size" => "Disabled",
+                    "video" => $comfy_image_filename, "force_rate" => 0,
                     "custom_width" => 0, "custom_height" => 0, "frame_load_cap" => 0,
                     "skip_first_frames" => 0, "select_every_nth" => 1
                 ],
                 "class_type" => "VHS_LoadVideo"
             ];
-            $sv2_out = inyectarNodosSeedVR2($workflow, ["10", 0], $model_path, $sv2_vae_db, $sv2_factor, $seed, $seedvr2_color, 'sv2_');
+            $sv2_out = inyectarNodosSeedVR2($workflow, ["10", 0], $model_path, $sv2_vae_db, $sv2_factor, $seed, $seedvr2_color, 'sv2_', true);
             $workflow["99"] = [
                 "inputs" => [
                     "frame_rate" => $video_fps, "loop_count" => 0, "filename_prefix" => "byGarty_SeedVR2",

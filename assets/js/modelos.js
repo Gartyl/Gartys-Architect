@@ -1389,6 +1389,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (modelSel) {
         modelSel.addEventListener('change', syncLorasWithSelectedModel);
         modelSel.addEventListener('change', sugerirAjustesMotor); 
+		
+		modelSel.addEventListener('change', () => {
+            if (typeof window.sincronizarPanelSeedVR2 === 'function') window.sincronizarPanelSeedVR2();
+        });
         
         // Disparador 2: Cuando hace clic en "MODELO GRÁFICO"
         modelSel.addEventListener('focus', actualizarLorasSilenciosamente);
