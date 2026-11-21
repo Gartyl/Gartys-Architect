@@ -152,21 +152,24 @@ window.bandejaArchivos = [];
 window.agregarImagenABandeja = function(base64Data) {
     // 1. Detectamos el límite dinámico según el modelo seleccionado actualmente
     const modelSel = document.getElementById('modelSelector');
-    const modText = modelSel && modelSel.selectedIndex >= 0 
-        ? (modelSel.value + ' ' + modelSel.options[modelSel.selectedIndex].text).toLowerCase() 
+    const selOpt = (modelSel && modelSel.selectedIndex >= 0) ? modelSel.options[modelSel.selectedIndex] : null;
+    const modText = selOpt
+        ? (selOpt.value + ' ' + selOpt.text + ' ' + (selOpt.dataset?.archivo || '')).toLowerCase()
         : '';
+
+    const esFlux3 = /flux[\s._-]*3/.test(modText);
 
     let maxPermitido = 9;
     let msgLimite = (typeof GartyLang !== 'undefined' && GartyLang.swal_limit_tray_text) 
         ? GartyLang.swal_limit_tray_text 
         : 'Puedes subir un máximo de 9 imágenes de referencia a la bandeja.';
 
-    if (modText.includes('krea2') || modText.includes('krea-2')) {
+    if (modText.includes('krea2') || modText.includes('krea-2') || modText.includes('krea 2')) {
         maxPermitido = 2;
         msgLimite = (typeof GartyLang !== 'undefined' && GartyLang.err_krea2_max_images) 
             ? GartyLang.err_krea2_max_images 
             : 'Krea-2 solo admite un máximo de 2 imágenes simultáneas en la bandeja.';
-    } else if ((modText.includes('flux2') || modText.includes('klein') || modText.includes('kontext')) && !modText.includes('flux3')) {
+    } else if (!esFlux3 && (modText.includes('flux2') || modText.includes('flux 2') || modText.includes('klein') || modText.includes('kontext'))) {
         maxPermitido = 3;
         msgLimite = (typeof GartyLang !== 'undefined' && GartyLang.err_flux2_max_images) 
             ? GartyLang.err_flux2_max_images 
