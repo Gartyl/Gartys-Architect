@@ -222,11 +222,12 @@ function updateModelFilter(category) {
    const modelosFiltradosDB = window.modelosDBSistema ? window.modelosDBSistema.filter(m => {
         if (m.categoria && m.categoria.toLowerCase().startsWith('sys_')) return false;
         const esMinimax = (m.nombre_archivo || '').toLowerCase().includes('minimax') || (m.nombre_visual || '').toLowerCase().includes('minimax');
+        const esMinimaxImg = esMinimax && ((m.nombre_archivo || '').toLowerCase().includes('image') || (m.nombre_visual || '').toLowerCase().includes('image'));
         const esSeedVR2 = (m.nombre_archivo || '').toLowerCase().includes('seedvr2') || (m.nombre_visual || '').toLowerCase().includes('seedvr2');
 
         if (category === '[CHAT]') return m.motor === 'comfyui' && !esSeedVR2 && (m.categoria.toLowerCase() !== 'video' || esMinimax);
         if (category === '[NATURAL_IMAGE]' && (esMinimax || esSeedVR2) && m.motor === 'comfyui') return true;
-        if (category === '[VIDEO]' && (esMinimax || esSeedVR2) && m.motor === 'comfyui') return true;
+        if (category === '[VIDEO]' && ((esMinimax && !esMinimaxImg) || esSeedVR2) && m.motor === 'comfyui') return true;
 
         return (m.categoria && m.categoria.toLowerCase() === catDB) && m.motor === 'comfyui';
     }) : [];
@@ -1295,7 +1296,10 @@ function sugerirAjustesMotor() {
             'hidream': { steps: 30, cfg: 5.0, sampler: 'ipndm', scheduler: 'beta', shift: 3.0, denoise: "0.75" },
             'ltx':     { steps: 30, cfg: 5.0, sampler: 'euler_ancestral', scheduler: 'beta', shift: '', denoise: "0.75" },
 			'cogvideo': { steps: 30, cfg: 6.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
-            'minimax': { steps: 20, cfg: 1.0, sampler: 'res_multistep', scheduler: 'simple', shift: '', denoise: "1.00" },
+            'minimax-h3-image': { steps: 6, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+            'minimax_h3_image': { steps: 6, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+            'minimax h3 image': { steps: 6, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+			'minimax': { steps: 20, cfg: 1.0, sampler: 'res_multistep', scheduler: 'simple', shift: '', denoise: "1.00" },
             'turbo':   { steps: 6,  cfg: 1.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
             'schnell': { steps: 6,  cfg: 1.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
             'krea2':   { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },

@@ -193,7 +193,7 @@ function inyectarNodosAudioPro(&$workflow, $engine, $tts_engine, $prompt_audio, 
             $output_port = 0;
 
         } elseif ($tts_engine === 'minimax') {
-            $stmt_mm = $pdo ? $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE activo = 1 AND LOWER(nombre_archivo) LIKE '%minimax%' ORDER BY (LOWER(nombre_archivo) LIKE '%ref%') DESC LIMIT 1") : null;
+            $stmt_mm = $pdo ? $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE activo = 1 AND LOWER(nombre_archivo) LIKE '%minimax%' AND LOWER(nombre_archivo) NOT LIKE '%image%' ORDER BY (LOWER(nombre_archivo) LIKE '%ref%') DESC LIMIT 1") : null;
             $modelo_mm = $stmt_mm ? (string)$stmt_mm->fetchColumn() : '';
             if (!empty($modelo_mm)) {
                 $num_chars = mb_strlen($prompt_audio, 'UTF-8');
@@ -1151,6 +1151,7 @@ if ($action === 'generar_imagen') {
 	$is_fibo2 = (strpos($model_lower, 'fibo') !== false);
 	$is_seedvr2 = (strpos($model_lower, 'seedvr2') !== false);
 	$is_minimax = (strpos($model_lower, 'minimax') !== false);
+	$is_minimax_img = ($is_minimax && strpos($model_lower, 'image') !== false);
     
     // 2. Bandera exclusiva para Z-Image
     $is_zimage = (strpos($model_lower, 'z-image') !== false || strpos($model_lower, 'z_image') !== false || strpos($model_lower, 'zimage') !== false);
@@ -4524,7 +4525,7 @@ if ($action === 'generar_imagen') {
         $aud_vae_mm   = "minimax_h3_audio_vae_fp32.safetensors";
         $img_vae_mm   = (!empty($vae_requerido) && stripos($vae_requerido, 'image') !== false)
             ? basename(str_replace('\\', '/', $vae_requerido))
-            : "minimax_h3_t1_image_vae_step1597.safetensors";
+            : ($is_minimax_img ? "minimax_h3_image_vae_fp16.safetensors" : "minimax_h3_t1_image_vae_step1597.safetensors");
 
         // 3. Recolectamos las imágenes de referencia (Visor Principal + Bandeja Multicarga hasta 9 fotos)
         $mm_ref_files = [];
@@ -4555,14 +4556,10 @@ if ($action === 'generar_imagen') {
             }
         }
 
-        // 5. Construcción directa del grafo R2I / T2I
+        // 5. Construcción base (MiniMax-H3-Image no usa Audio VAE)
         $workflow = [
             "119" => [
                 "inputs" => ["vae_name" => $img_vae_mm],
-                "class_type" => "VAELoader"
-            ],
-            "151" => [
-                "inputs" => ["vae_name" => $aud_vae_mm],
                 "class_type" => "VAELoader"
             ],
             "128" => [
@@ -4573,6 +4570,12 @@ if ($action === 'generar_imagen') {
                 ? ["inputs" => ["unet_name" => $model_path], "class_type" => "UnetLoaderGGUF"]
                 : ["inputs" => ["unet_name" => $model_path, "weight_dtype" => "default"], "class_type" => "UNETLoader"]
         ];
+        if (!$is_minimax_img) {
+            $workflow["151"] = [
+                "inputs" => ["vae_name" => $aud_vae_mm],
+                "class_type" => "VAELoader"
+            ];
+        }
 
         $mm_model_out = ["127", 0];
 
@@ -4606,71 +4609,143 @@ if ($action === 'generar_imagen') {
             }
         }
 
-        // 7. Condicionador Multimodal MiniMaxH3ReferenceToVideo (Modo Imagen)
-        $mm_cond_inputs = [
-            "prompt" => $prompt_mm_img,
-            "width" => $width,
-            "height" => $height,
-            "length" => 5,
-            "ref_image_size" => "match",
-            "clip" => ["128", 0],
-            "vae" => ["119", 0],
-            "audio_vae" => ["151", 0]
-        ];
-
-        foreach ($mm_ref_files as $idx => $r_file) {
-            $load_id = "175_mm_ref_" . $idx;
-            $workflow[$load_id] = [
-                "inputs" => ["image" => $r_file, "upload" => "image"],
-                "class_type" => "LoadImage"
+        if ($is_minimax_img) {
+            // 7A. Condicionador Nativo MiniMaxH3ImageConditioning (T2I + Edición hasta 9 refs, 1-indexed)
+            $mm_cond_inputs = [
+                "prompt" => $prompt_mm_img,
+                "width"  => $width,
+                "height" => $height,
+                "clip"   => ["128", 0],
+                "vae"    => ["119", 0]
             ];
-            $mm_cond_inputs["ref_images.ref_image_" . $idx] = [$load_id, 0];
+
+            foreach ($mm_ref_files as $idx => $r_file) {
+                $num_img = $idx + 1;
+                $load_id = "175_mm_ref_" . $num_img;
+                $workflow[$load_id] = [
+                    "inputs" => ["image" => $r_file, "upload" => "image"],
+                    "class_type" => "LoadImage"
+                ];
+                $mm_cond_inputs["images.image_" . $num_img] = [$load_id, 0];
+            }
+
+            $workflow["136"] = [
+                "inputs" => $mm_cond_inputs,
+                "class_type" => "MiniMaxH3ImageConditioning"
+            ];
+            $workflow["136_neg"] = [
+                "inputs" => ["conditioning" => ["136", 0]],
+                "class_type" => "ConditioningZeroOut"
+            ];
+
+            $mm_latent_out = ["136", 1];
+            if ($batch_size > 1) {
+                $workflow["199_batch"] = [
+                    "inputs" => ["amount" => $batch_size, "samples" => ["136", 1]],
+                    "class_type" => "RepeatLatentBatch"
+                ];
+                $mm_latent_out = ["199_batch", 0];
+            }
+
+            // 8A. KSampler Destilado (6 pasos, CFG 1.0, euler / simple) + VAEDecodeTiled (protección 16 GB VRAM)
+            $steps     = ($user_steps > 0) ? $steps : 6;
+            $cfg       = 1.0;
+            $sampler   = (!empty($_POST['sampler']) && $_POST['sampler'] !== 'euler_ancestral') ? $sampler : 'euler';
+            $scheduler = (!empty($_POST['scheduler']) && $_POST['scheduler'] !== 'karras') ? $scheduler : 'simple';
+
+            $workflow["198"] = [
+                "inputs" => [
+                    "seed"         => $seed,
+                    "steps"        => $steps,
+                    "cfg"          => $cfg,
+                    "sampler_name" => $sampler,
+                    "scheduler"    => $scheduler,
+                    "denoise"      => 1.0,
+                    "model"        => $mm_model_out,
+                    "positive"     => ["136", 0],
+                    "negative"     => ["136_neg", 0],
+                    "latent_image" => $mm_latent_out
+                ],
+                "class_type" => "KSampler"
+            ];
+            $workflow["122"] = [
+                "inputs" => [
+                    "samples"          => ["198", 0],
+                    "vae"              => ["119", 0],
+                    "tile_size"        => 512,
+                    "overlap"          => 64,
+                    "temporal_size"    => 64,
+                    "temporal_overlap" => 8
+                ],
+                "class_type" => "VAEDecodeTiled"
+            ];
+        } else {
+            // 7B. Condicionador Multimodal MiniMaxH3ReferenceToVideo (Modelo vídeo usado en Modo Imagen)
+            $mm_cond_inputs = [
+                "prompt" => $prompt_mm_img,
+                "width" => $width,
+                "height" => $height,
+                "length" => 5,
+                "ref_image_size" => "match",
+                "clip" => ["128", 0],
+                "vae" => ["119", 0],
+                "audio_vae" => ["151", 0]
+            ];
+
+            foreach ($mm_ref_files as $idx => $r_file) {
+                $load_id = "175_mm_ref_" . $idx;
+                $workflow[$load_id] = [
+                    "inputs" => ["image" => $r_file, "upload" => "image"],
+                    "class_type" => "LoadImage"
+                ];
+                $mm_cond_inputs["ref_images.ref_image_" . $idx] = [$load_id, 0];
+            }
+
+            $workflow["136"] = [
+                "inputs" => $mm_cond_inputs,
+                "class_type" => "MiniMaxH3ReferenceToVideo"
+            ];
+
+            // 8B. Muestreo 2D de 1 Frame (EmptyLatentImage + SamplerCustomAdvanced)
+            $mm_sampler = (!empty($_POST['sampler']) && $_POST['sampler'] !== 'euler_ancestral') ? $sampler : 'res_multistep';
+            $mm_scheduler = (!empty($_POST['scheduler']) && $_POST['scheduler'] !== 'karras') ? $scheduler : 'simple';
+            $mm_steps = ($user_steps > 0) ? $steps : 20;
+
+            $workflow["199"] = [
+                "inputs" => ["width" => $width, "height" => $height, "batch_size" => $batch_size],
+                "class_type" => "EmptyLatentImage"
+            ];
+            $workflow["129"] = [
+                "inputs" => ["noise_seed" => $seed],
+                "class_type" => "RandomNoise"
+            ];
+            $workflow["123"] = [
+                "inputs" => ["sampler_name" => $mm_sampler],
+                "class_type" => "KSamplerSelect"
+            ];
+            $workflow["124"] = [
+                "inputs" => ["scheduler" => $mm_scheduler, "steps" => $mm_steps, "denoise" => 1.0, "model" => $mm_model_out],
+                "class_type" => "BasicScheduler"
+            ];
+            $workflow["126"] = [
+                "inputs" => ["model" => $mm_model_out, "conditioning" => ["136", 0]],
+                "class_type" => "BasicGuider"
+            ];
+            $workflow["198"] = [
+                "inputs" => [
+                    "noise" => ["129", 0],
+                    "guider" => ["126", 0],
+                    "sampler" => ["123", 0],
+                    "sigmas" => ["124", 0],
+                    "latent_image" => ["199", 0]
+                ],
+                "class_type" => "SamplerCustomAdvanced"
+            ];
+            $workflow["122"] = [
+                "inputs" => ["samples" => ["198", 0], "vae" => ["119", 0]],
+                "class_type" => "VAEDecode"
+            ];
         }
-
-        $workflow["136"] = [
-            "inputs" => $mm_cond_inputs,
-            "class_type" => "MiniMaxH3ReferenceToVideo"
-        ];
-
-        // 8. Muestreo 2D de 1 Frame (EmptyLatentImage + SamplerCustomAdvanced)
-        $mm_sampler = (!empty($_POST['sampler']) && $_POST['sampler'] !== 'euler_ancestral') ? $sampler : 'res_multistep';
-        $mm_scheduler = (!empty($_POST['scheduler']) && $_POST['scheduler'] !== 'karras') ? $scheduler : 'simple';
-        $mm_steps = ($user_steps > 0) ? $steps : 20;
-
-        $workflow["199"] = [
-            "inputs" => ["width" => $width, "height" => $height, "batch_size" => $batch_size],
-            "class_type" => "EmptyLatentImage"
-        ];
-        $workflow["129"] = [
-            "inputs" => ["noise_seed" => $seed],
-            "class_type" => "RandomNoise"
-        ];
-        $workflow["123"] = [
-            "inputs" => ["sampler_name" => $mm_sampler],
-            "class_type" => "KSamplerSelect"
-        ];
-        $workflow["124"] = [
-            "inputs" => ["scheduler" => $mm_scheduler, "steps" => $mm_steps, "denoise" => 1.0, "model" => $mm_model_out],
-            "class_type" => "BasicScheduler"
-        ];
-        $workflow["126"] = [
-            "inputs" => ["model" => $mm_model_out, "conditioning" => ["136", 0]],
-            "class_type" => "BasicGuider"
-        ];
-        $workflow["198"] = [
-            "inputs" => [
-                "noise" => ["129", 0],
-                "guider" => ["126", 0],
-                "sampler" => ["123", 0],
-                "sigmas" => ["124", 0],
-                "latent_image" => ["199", 0]
-            ],
-            "class_type" => "SamplerCustomAdvanced"
-        ];
-        $workflow["122"] = [
-            "inputs" => ["samples" => ["198", 0], "vae" => ["119", 0]],
-            "class_type" => "VAEDecode"
-        ];
 
         $current_image_node = "122";
 
@@ -5348,7 +5423,7 @@ if ($action === 'generar_imagen') {
             $adetailer_steps   = $steps;
 
             // 🛡️ ESTRATEGIA ANTI-COLLISION PARA DiT O MODO PURO
-            if (!empty($es_modo_puro_activo) || $is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima || $is_moss || $is_fibo2 || $is_seedvr2) {	
+            if (!empty($es_modo_puro_activo) || $is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima || $is_moss || $is_fibo2 || $is_seedvr2 || $is_minimax) {	
                 $modelo_rostros = "";
 
                 $stmt_ref = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE categoria = 'sys_refiner' LIMIT 1");
