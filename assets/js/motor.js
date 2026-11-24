@@ -2142,6 +2142,11 @@ window.sincronizarPanelSeedVR2 = function() {
         hiresBlock.dataset.autoSv2 = '1';
 
         if (hiresToggle) hiresToggle.checked = true;
+		const pureUp = document.getElementById('pureUpscaleToggle');
+		if (pureUp) {
+			pureUp.checked = true;
+			if (typeof toggleUpscalePuro === 'function') toggleUpscalePuro(true);
+		}
         if (upscaleOpts) upscaleOpts.classList.remove('d-none');
 
         if (sv2Toggle) {
@@ -2167,6 +2172,11 @@ window.sincronizarPanelSeedVR2 = function() {
         }
     } else {
         if (hiresBlock.dataset.autoSv2 === '1') {
+			const pureUp = document.getElementById('pureUpscaleToggle');
+			if (pureUp && !pureUp.checked) {
+				pureUp.checked = true;
+				if (typeof toggleUpscalePuro === 'function') toggleUpscalePuro(true);
+			}
             delete hiresBlock.dataset.autoSv2;
             if (hiresToggle) hiresToggle.checked = false;
             if (upscaleOpts) upscaleOpts.classList.add('d-none');

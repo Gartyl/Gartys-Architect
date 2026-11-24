@@ -381,7 +381,22 @@ function inyectarNodosSeedVR2(&$workflow, $input_image_ref, $seedvr2_model, $see
         "inputs" => ["model" => [$id_unet, 0], "vae_conditioning" => [$id_enc, 0]],
         "class_type" => "SeedVR2Conditioning"
     ];
+    $usar_progressive = false;
     if ($es_video) {
+        static $tiene_sv2_progressive = null;
+        if ($tiene_sv2_progressive === null) {
+            $ch_chk = curl_init(COMFY_URL . '/object_info/SeedVR2ProgressiveSampler');
+            curl_setopt($ch_chk, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch_chk, CURLOPT_TIMEOUT, 2);
+            $res_chk = curl_exec($ch_chk);
+            curl_close($ch_chk);
+            $decoded_chk = $res_chk ? json_decode($res_chk, true) : null;
+            $tiene_sv2_progressive = is_array($decoded_chk) && isset($decoded_chk['SeedVR2ProgressiveSampler']);
+        }
+        $usar_progressive = $tiene_sv2_progressive;
+    }
+
+    if ($usar_progressive) {
         $workflow[$id_samp] = [
             "inputs" => [
                 "seed" => intval($seed), "steps" => 1, "cfg" => 1.0,
@@ -1865,27 +1880,43 @@ if ($action === 'generar_imagen') {
                 }
             }
             
-            // --- GESTIÓN DEL LORA Y PUENTEO INTELIGENTE ---
+            // --- GESTIÓN MULTI-LORA EN CADENA Y PUENTEO INTELIGENTE ---
             $lora_active = false;
+            $last_lora_mm = "137";
             if (empty($lora_metadata_list) && is_array($lora_names)) {
+                $lora_idx_mm = 0;
                 foreach ($lora_names as $index => $lname) {
-                    if (!empty(trim($lname)) && strtolower($lname) !== 'ninguno') {
+                    $lname = trim($lname);
+                    if (!empty($lname) && strtolower($lname) !== 'ninguno') {
                         $lstr = floatval($lora_strengths_high[$index] ?? 1.0);
                         $lora_metadata_list[] = basename($lname, '.safetensors') . " ($lstr)";
 
-                        if ($index === 0) { 
-                            $ruta_lora = $lname;
-                            if (strpos($ruta_lora, '\\') === false && strpos($ruta_lora, '/') === false) {
-                                $ruta_lora = "minimax_h3/" . $ruta_lora;
-                            }
-                            if (!str_ends_with(strtolower($ruta_lora), '.safetensors')) {
-                                $ruta_lora .= '.safetensors';
-                            }
+                        $ruta_lora = $lname;
+                        if (strpos($ruta_lora, '\\') === false && strpos($ruta_lora, '/') === false) {
+                            $ruta_lora = "minimax_h3/" . $ruta_lora;
+                        }
+                        if (!str_ends_with(strtolower($ruta_lora), '.safetensors')) {
+                            $ruta_lora .= '.safetensors';
+                        }
 
+                        if ($lora_idx_mm === 0) {
                             $workflow["137"]["inputs"]["lora_name"] = $ruta_lora;
                             $workflow["137"]["inputs"]["strength_model"] = $lstr;
                             $lora_active = true;
+                            $last_lora_mm = "137";
+                        } else {
+                            $extra_lora_id = "137_lora_" . $lora_idx_mm;
+                            $workflow[$extra_lora_id] = [
+                                "inputs" => [
+                                    "lora_name" => $ruta_lora,
+                                    "strength_model" => $lstr,
+                                    "model" => [$last_lora_mm, 0]
+                                ],
+                                "class_type" => "LoraLoaderModelOnly"
+                            ];
+                            $last_lora_mm = $extra_lora_id;
                         }
+                        $lora_idx_mm++;
                     }
                 }
             }
@@ -1894,6 +1925,9 @@ if ($action === 'generar_imagen') {
                 // PUENTEO: Si no hay LoRA, conectamos SigmaShift(149) directo a SageAttention(146)
                 $workflow["149"]["inputs"]["model"][0] = "146";
                 unset($workflow["137"]);
+            } elseif ($last_lora_mm !== "137") {
+                // Si hay 2 o más LoRAs, SigmaShift(149) toma la salida del último LoRA de la cadena
+                $workflow["149"]["inputs"]["model"] = [$last_lora_mm, 0];
             }
 
             // --- INYECCIÓN MULTIMODAL MINIMAX H3 (Imágenes + Voz Clonada Nativa) ---
@@ -2166,6 +2200,59 @@ if ($action === 'generar_imagen') {
             if (strpos(strtolower($modelo_seguro), '.gguf') !== false && isset($workflow["12"])) {
                 $workflow["12"]["class_type"] = "UnetLoaderGGUF";
                 unset($workflow["12"]["inputs"]["weight_dtype"]);
+            }
+			
+			// 1.5. Soporte multi-LoRA dinámico para Hunyuan Video 1.5 (T2V e I2V)
+            $id_loader_hy = isset($workflow["12"]) ? "12" : null;
+            if ($id_loader_hy === null) {
+                foreach ($workflow as $nid => $ndata) {
+                    $ct = $ndata['class_type'] ?? '';
+                    if (in_array($ct, ['UNETLoader', 'UnetLoaderGGUF'], true)) {
+                        $id_loader_hy = (string)$nid;
+                        break;
+                    }
+                }
+            }
+
+            if ($id_loader_hy !== null && empty($lora_metadata_list) && is_array($lora_names)) {
+                $consumidores_modelo_hy = [];
+                foreach ($workflow as $nid => $ndata) {
+                    if (!empty($ndata['inputs']) && is_array($ndata['inputs'])) {
+                        foreach ($ndata['inputs'] as $in_key => $in_val) {
+                            if (is_array($in_val) && count($in_val) === 2 && (string)$in_val[0] === $id_loader_hy && intval($in_val[1]) === 0) {
+                                $consumidores_modelo_hy[] = [$nid, $in_key];
+                            }
+                        }
+                    }
+                }
+
+                $ultimo_nodo_modelo_hy = $id_loader_hy;
+                $lora_idx_hy = 0;
+                foreach ($lora_names as $index => $lname) {
+                    $lname = trim($lname);
+                    if (!empty($lname) && strtolower($lname) !== 'ninguno') {
+                        $lstr = floatval($lora_strengths_high[$index] ?? 0.8);
+                        $lora_metadata_list[] = basename($lname, '.safetensors') . " ($lstr)";
+
+                        $lora_node_id = "700_hy_lora_" . $lora_idx_hy;
+                        $workflow[$lora_node_id] = [
+                            "inputs" => [
+                                "lora_name" => $lname,
+                                "strength_model" => $lstr,
+                                "model" => [(string)$ultimo_nodo_modelo_hy, 0]
+                            ],
+                            "class_type" => "LoraLoaderModelOnly"
+                        ];
+                        $ultimo_nodo_modelo_hy = $lora_node_id;
+                        $lora_idx_hy++;
+                    }
+                }
+
+                if ($ultimo_nodo_modelo_hy !== $id_loader_hy) {
+                    foreach ($consumidores_modelo_hy as [$target_nid, $target_input]) {
+                        $workflow[$target_nid]['inputs'][$target_input] = [(string)$ultimo_nodo_modelo_hy, 0];
+                    }
+                }
             }
 
             // 2. Flow Shift personalizado si el usuario lo ajustó en el panel (Nodo 130 en I2V, 132 en T2V)
@@ -3029,10 +3116,12 @@ if ($action === 'generar_imagen') {
 
             // 3. Selección Inteligente del Modelo de Restauración
             $modelo_restauracion = $model_path;
+            $usando_refiner_puro = false;
             
             // Si el modelo activo es un DiT avanzado o carece de CLIP integrado (como Krea-2),
             // delegamos la restauración facial a un modelo rápido y robusto (SD1.5 / SDXL)
-            if ($is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima || $is_moss || $is_fibo2 || $is_seedvr2 || !modeloTieneClipIntegrado($model_path)) {	
+            if ($is_flux || $is_chroma || $is_krea2 || $is_qwen || $is_zimage || $is_hunyuan || $is_hidream || $is_anima || $is_moss || $is_fibo2 || $is_seedvr2 || $is_minimax || !modeloTieneClipIntegrado($model_path)) {
+                $usando_refiner_puro = true;	
                 $stmt_ref = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE categoria = 'sys_refiner' LIMIT 1");
                 $row_ref = $stmt_ref->fetch();
                 
@@ -3079,10 +3168,10 @@ if ($action === 'generar_imagen') {
                     "guide_size_for" => "bbox",
                     "max_size" => 1024,
                     "seed" => $seed,
-                    "steps" => 25,
-                    "cfg" => 6.0,
-                    "sampler_name" => "dpmpp_2m",
-                    "scheduler" => "karras",
+                    "steps" => $steps,
+                    "cfg" => ($usando_refiner_puro && $cfg <= 1.5) ? 5.5 : $cfg,
+                    "sampler_name" => $sampler,
+                    "scheduler" => $scheduler,
                     "denoise" => isset($adetailer_denoise) ? floatval($adetailer_denoise) : 0.35,
                     "feather" => 5,
                     "noise_mask" => true,
@@ -3129,14 +3218,11 @@ if ($action === 'generar_imagen') {
     // --- TUBERÍA EXCLUSIVA: MODO PURO UPSCALE (Sin Prompt, Directo a píxel) ---
     // ==============================================================================
     $pure_upscale = filter_var($_POST['pure_upscale'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+	if ($hires_fix && $pure_upscale && empty($upscale_model) && !$aurasr_enabled && !$seedvr2_enabled) {
+    echo json_encode(['error' => __('err_pure_upscale_no_model') ?? 'Selecciona un modelo de Upscale o activa AuraSR / SeedVR2 para usar el Modo Escalado Puro.']);
+    exit();
+	}
 
-    // 🛡️ ESCUDO: Si el usuario ha seleccionado un LoRA, JAMÁS puede ser un Upscale Puro (ESRGAN).
-    // Forzamos que pase por el Upscale Creativo (KSampler) para que aplique el LoRA correctamente.
-/*  $lora_n = $_POST['lora_names'] ?? [];
-    if (!empty($lora_n) && isset($lora_n[0]) && strtolower(trim($lora_n[0])) !== 'ninguno' && !empty(trim($lora_n[0]))) {
-        $pure_upscale = false;
-    }
-*/
     if ($hires_fix && $pure_upscale && !empty($init_image_base64) && $init_image_base64 !== "TRAY_IMAGE_USED" && empty($tray_comfy_filenames) && (!empty($upscale_model) || $aurasr_enabled || $seedvr2_enabled)) {		
         
         // 1. Limpiamos la cadena base64 y guardamos archivo temporal en disco
@@ -3443,12 +3529,13 @@ if ($action === 'generar_imagen') {
     }
 	
     // --- FIX GUIDANCE FLUX (Excluimos Flux 3 porque usa CFG nativo y ConditioningZeroOut) ---
+    $is_flux_fill = ($is_flux && (strpos($model_lower, 'fill') !== false || strpos($model_lower, 'inpaint') !== false));
     $flux_guidance = null;
     if ($is_flux && !$is_chroma && !$is_flux3) { 
         if (isset($_POST['flux_guidance']) && floatval($_POST['flux_guidance']) > 0) {
             $flux_guidance = floatval($_POST['flux_guidance']);
         } else {
-            $flux_guidance = 3.5;
+            $flux_guidance = $is_flux_fill ? 30.0 : 3.5;
         }
         
         $workflow["600"] = [
@@ -3712,9 +3799,6 @@ if ($action === 'generar_imagen') {
         $current_latent = ["5", 0];
     }
     
-    // 🎯 INYECCIÓN: Detección FLUX FILL
-    $is_flux_fill = ($is_flux && (strpos($model_lower, 'fill') !== false || strpos($model_lower, 'inpaint') !== false));
-
     if (!empty($init_image_base64)) {
         
         $comfy_filename = null;
@@ -3819,11 +3903,11 @@ if ($action === 'generar_imagen') {
             // 🌟 ENSAMBLAJE FINAL PARA FLUX FILL 🌟
             if ($is_flux_fill && isset($flux_fill_pixels) && isset($flux_fill_mask)) {
                 
-                // 🚀 FIX CRÍTICO: Flux Fill requiere Guidance 30. Si se queda en 3.5, produce el ruido marrón.
+/*              // 🚀 FIX CRÍTICO: Flux Fill requiere Guidance 30. Si se queda en 3.5, produce el ruido marrón.
                 if (isset($workflow["600"]["inputs"]["guidance"])) {
                     $workflow["600"]["inputs"]["guidance"] = 30.0;
                 }
-
+*/
                 // 1. Conditioning Zero Out (Reutiliza el prompt positivo base sin guiar)
                 $workflow["800_zero"] = [
                     "inputs" => ["conditioning" => ["6", 0]], 
@@ -3856,11 +3940,11 @@ if ($action === 'generar_imagen') {
                 $current_negative = ["802_inpaint_cond", 1];
                 $current_latent   = ["802_inpaint_cond", 2];
                 
-                // Forzamos parámetros óptimos
+/*              // Forzamos parámetros óptimos
                 $sampler_denoise = 1.0;
                 $sampler = "euler";
                 $scheduler = "normal";
-
+*/
                 unset($workflow["5"]); // Matamos el EmptyLatentImage
                 
                 // 🚀 EXTRA: Blindaje por si al usuario le da por poner Batch Size > 1 en la interfaz
@@ -4045,11 +4129,21 @@ if ($action === 'generar_imagen') {
 
         $current_positive = ["6", 0];
         $current_negative = ["6", 1];
-        $current_latent   = ["6", 2];
-        $sampler_denoise  = 1.0;
 
-        unset($workflow["5"], $workflow["12"], $workflow["13"], $workflow["14"]);
-        if (isset($workflow["12_noise"])) unset($workflow["12_noise"]);
+        // 🎚️ Con 1 imagen manda el deslizador Denoise (I2I); con varias referencias, 1.0 y lienzo limpio de TextEncodeFibo2
+        $sampler_denoise = (count($fibo_raw_nodes) === 1) ? $denoise_slider : 1.0;
+
+        if ($sampler_denoise < 1.0 && !isset($workflow["11"]) && isset($workflow["13"])) {
+            $workflow["13"]["inputs"]["image"] = $fibo_raw_nodes[0];
+        }
+
+        if ($sampler_denoise >= 1.0 || !isset($workflow["14"])) {
+            unset($workflow["5"], $workflow["12"], $workflow["13"], $workflow["14"]);
+            if (isset($workflow["12_noise"])) unset($workflow["12_noise"]);
+
+            $current_latent  = ["6", 2];
+            $sampler_denoise = 1.0;
+        }
 
         $meta_modo = 'Fibo 2.0 Edit (' . count($fibo_raw_nodes) . ' img)';
     }
@@ -4323,7 +4417,7 @@ if ($action === 'generar_imagen') {
     if ($is_chroma) {
         $workflow["850_shift"] = [
             "inputs" => [
-                "max_shift" => 1.15,
+                "max_shift" => ($user_shift !== null) ? $user_shift : 1.15,
                 "base_shift" => 0.50,
                 "width" => $width,
                 "height" => $height,
@@ -4419,6 +4513,46 @@ if ($action === 'generar_imagen') {
         $current_model_node = "851_qwen_cfg"; 
     }
 	
+	// --- FLOW SHIFT UNIVERSAL BAJO DEMANDA (Solo si el usuario escribió un valor en la UI) ---
+    $ya_tiene_shift = isset($workflow["850_shift"])
+        || isset($workflow["850_hidream_shift"])
+        || isset($workflow["849_moss_shift"])
+        || isset($workflow["850_qwen_aura"]);
+
+    if ($user_shift !== null && !$ya_tiene_shift) {
+        if ($is_flux || $is_fibo2) {
+            $workflow["852_user_shift"] = [
+                "inputs" => [
+                    "max_shift" => $user_shift,
+                    "base_shift" => 0.50,
+                    "width" => $width,
+                    "height" => $height,
+                    "model" => [$current_model_node, 0]
+                ],
+                "class_type" => "ModelSamplingFlux"
+            ];
+            $current_model_node = "852_user_shift";
+        } elseif ($is_sd35 || $is_hunyuan) {
+            $workflow["852_user_shift"] = [
+                "inputs" => [
+                    "shift" => $user_shift,
+                    "model" => [$current_model_node, 0]
+                ],
+                "class_type" => "ModelSamplingSD3"
+            ];
+            $current_model_node = "852_user_shift";
+        } elseif ($is_zimage || $is_qwen || $is_anima || $is_krea2) {
+            $workflow["852_user_shift"] = [
+                "inputs" => [
+                    "shift" => $user_shift,
+                    "model" => [$current_model_node, 0]
+                ],
+                "class_type" => "ModelSamplingAuraFlow"
+            ];
+            $current_model_node = "852_user_shift";
+        }
+    }
+	
 	// ==============================================================================
     // 🌟 INYECCIÓN KREA-2 NATIVA (IMG2IMG SIMPLE Y REFERENCIA MÚLTIPLE)
     // ==============================================================================
@@ -4469,6 +4603,17 @@ if ($action === 'generar_imagen') {
 			$workflow["127"] = [ "class_type" => "LoraLoaderModelOnly", "inputs" => [ "lora_name" => $lora_krea, "strength_model" => $lora_fuerza, "model" => ["55", 0] ] ];
 			$current_model_node = "127";
 			$lora_metadata_list[] = basename($lora_krea, '.safetensors') . " ($lora_fuerza)";
+		}
+		
+		if ($user_shift !== null) {
+			$workflow["128_krea_shift"] = [
+				"class_type" => "ModelSamplingAuraFlow",
+				"inputs" => [
+					"shift" => $user_shift,
+					"model" => [$current_model_node, 0]
+				]
+			];
+			$current_model_node = "128_krea_shift";
 		}
         
         // Preparación Imagen Principal (Sirve para ambos modos)
@@ -5077,7 +5222,7 @@ if ($action === 'generar_imagen') {
 				"model" => [$current_model_node, 0],
 				"positive" => $current_positive,
 				"negative" => $current_negative,
-				"latent_image" => $is_fibo2 ? ["6", 2] : $current_latent
+				"latent_image" => $current_latent
 			],
 			"class_type" => "KSampler"
 		];
@@ -5494,7 +5639,7 @@ if ($action === 'generar_imagen') {
                     "guide_size_for" => "bbox", 
                     "max_size" => 1024,
                     "seed" => $seed, 
-                    "steps" => $adetailer_steps > 30 ? 20 : $adetailer_steps,
+                    "steps" => $adetailer_steps,
                     "cfg" => $adetailer_cfg, 
                     "sampler_name" => $sampler, 
                     "scheduler" => $scheduler,

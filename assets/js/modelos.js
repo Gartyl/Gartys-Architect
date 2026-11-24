@@ -1288,9 +1288,8 @@ function sugerirAjustesMotor() {
         'minimax_h3_image': { steps: 6, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
         'minimax h3 image': { steps: 6, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
         'minimax': { steps: 20, cfg: 1.0, sampler: 'res_multistep', scheduler: 'simple', shift: '', denoise: "1.00" },
-        'turbo':   { steps: 6,  cfg: 1.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-        'schnell': { steps: 6,  cfg: 1.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-        'krea2':   { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'fibo':    { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'normal', shift: '', denoise: "1.00" },
+		'krea2':   { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
         'krea-2':  { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
         'krea 2':  { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
         'qwen2.1': { steps: 25, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
@@ -1314,6 +1313,8 @@ function sugerirAjustesMotor() {
         'flux 2':  { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
         'klein':   { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
         'kontext': { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+		'turbo':   { steps: 6,  cfg: 1.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+        'schnell': { steps: 6,  cfg: 1.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
         'flux':    { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
         'sd35':    { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
         'sd3.5':   { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
@@ -1322,15 +1323,18 @@ function sugerirAjustesMotor() {
         'z_image': { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
         'anima':   { steps: 30, cfg: 5.0, sampler: 'euler', scheduler: 'normal', shift: '', denoise: "0.75" },
         'moss':    { steps: 35, cfg: 3.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-        'fibo':    { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'normal', shift: '', denoise: "1.00" },
         'seedvr2': { steps: 1,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" }
     };
 
     let ajustes = { steps: 30, cfg: 5.0, sampler: 'euler_ancestral', scheduler: 'beta', shift: '', denoise: "0.75" };
-    for (const clave in REGLAS_MOTORES) {
-        if (opcion.includes(clave)) {
-            ajustes = REGLAS_MOTORES[clave];
-            break;
+    if (opcion.includes('flux') && (opcion.includes('fill') || opcion.includes('inpaint'))) {
+        ajustes = { steps: 25, cfg: 1.0, guidance: 30.0, sampler: 'euler', scheduler: 'normal', shift: '', denoise: "1.00" };
+    } else {
+        for (const clave in REGLAS_MOTORES) {
+            if (opcion.includes(clave)) {
+                ajustes = REGLAS_MOTORES[clave];
+                break;
+            }
         }
     }
 
@@ -1358,19 +1362,21 @@ function sugerirAjustesMotor() {
 
     // Aplicamos los valores a las cajas de la interfaz
     const shiftInput = document.getElementById('shiftInput');
+    const guidanceInput = document.getElementById('fluxGuidanceInput');
     if (stepsInput) stepsInput.value = newSteps;
     if (cfgInput) cfgInput.value = newCfg;
     if (samplerInput) samplerInput.value = newSampler;
     if (schedulerInput) schedulerInput.value = newScheduler;
     if (shiftInput) shiftInput.value = newShift;
-    
+    if (guidanceInput) guidanceInput.value = (ajustes.guidance !== undefined) ? ajustes.guidance : 3.5;
+
     // 👇 NUEVO: Inyectamos el Denoise 👇
     if (dGlobal) dGlobal.value = newDenoise;
     if (dPincel) dPincel.value = newDenoise;
     if (bPincel) bPincel.innerText = newDenoise;
 
     // Efecto visual de parpadeo azul para indicar que se han cargado los ajustes
-    const inputs = [stepsInput, cfgInput, samplerInput, schedulerInput, shiftInput, dGlobal];
+    const inputs = [stepsInput, cfgInput, samplerInput, schedulerInput, shiftInput, guidanceInput, dGlobal];
     inputs.forEach(input => {
         if (input) {
             input.classList.add('border-info', 'text-info');
