@@ -163,6 +163,9 @@ return [
 	'seedvr2_col_adain'   => "AdaIN (Ajust de contrast/mitjana)",
 	'seedvr2_col_none'    => "Cap (Sortida crua)",
 	'ups_denoise_title'   => "> 0.35 pot generar franges (Costures no coincidents)",
+	'pure_upscale_title' => "Mode Escalat Pur (Només imatge pujada)",
+	'pure_upscale_desc' => "Salta la generació i reescala directament la imatge base sense fer servir prompt.",
+	'btn_apply_upscale' => "Escalar Directe",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS

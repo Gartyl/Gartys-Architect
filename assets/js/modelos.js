@@ -1276,74 +1276,78 @@ function sugerirAjustesMotor() {
     const bPincel = document.getElementById('denoiseVal'); 
 
     let newSteps, newCfg, newSampler, newScheduler, newShift, newDenoise;
-    newShift = ''; 
+    newShift = '';
 
-    // 1. PRIORIDAD: Si el modelo tiene valores configurados en la BBDD, respetamos esos
+    // 1. Diccionario de reglas por arquitectura (sirve como base y como fallback para campos vacíos en BD)
+    const REGLAS_MOTORES = {
+        'wan':     { steps: 30, cfg: 5.0, sampler: 'euler_ancestral', scheduler: 'beta', shift: 5.0, denoise: "0.75" },
+        'hidream': { steps: 30, cfg: 5.0, sampler: 'ipndm', scheduler: 'beta', shift: 3.0, denoise: "0.75" },
+        'ltx':     { steps: 30, cfg: 5.0, sampler: 'euler_ancestral', scheduler: 'beta', shift: '', denoise: "0.75" },
+        'cogvideo': { steps: 30, cfg: 6.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'minimax-h3-image': { steps: 6, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'minimax_h3_image': { steps: 6, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'minimax h3 image': { steps: 6, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'minimax': { steps: 20, cfg: 1.0, sampler: 'res_multistep', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'turbo':   { steps: 6,  cfg: 1.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+        'schnell': { steps: 6,  cfg: 1.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+        'krea2':   { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'krea-2':  { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'krea 2':  { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'qwen2.1': { steps: 25, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'qwen 2.1':{ steps: 25, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'qwen_2.1':{ steps: 25, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'qwen21':  { steps: 25, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'qwen':    { steps: 20, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+        'chroma':  { steps: 10, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+        'flux3-image-klein-base': { steps: 28, cfg: 3.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'flux3_base':             { steps: 28, cfg: 3.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'flux3 base':             { steps: 28, cfg: 3.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'flux 3 base':            { steps: 28, cfg: 3.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'flux 3 klein base':      { steps: 28, cfg: 3.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'flux3':                  { steps: 16, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'flux-3':                 { steps: 16, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'flux.3':                 { steps: 16, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'flux 3':                 { steps: 16, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'flux2':   { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'flux-2':  { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'flux_2':  { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'flux 2':  { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'klein':   { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'kontext': { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
+        'flux':    { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+        'sd35':    { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+        'sd3.5':   { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+        'z-image': { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+        'zimage':  { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+        'z_image': { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+        'anima':   { steps: 30, cfg: 5.0, sampler: 'euler', scheduler: 'normal', shift: '', denoise: "0.75" },
+        'moss':    { steps: 35, cfg: 3.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
+        'fibo':    { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'normal', shift: '', denoise: "1.00" },
+        'seedvr2': { steps: 1,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" }
+    };
+
+    let ajustes = { steps: 30, cfg: 5.0, sampler: 'euler_ancestral', scheduler: 'beta', shift: '', denoise: "0.75" };
+    for (const clave in REGLAS_MOTORES) {
+        if (opcion.includes(clave)) {
+            ajustes = REGLAS_MOTORES[clave];
+            break;
+        }
+    }
+
+    // 2. PRIORIDAD: Si el modelo tiene valores configurados en la BBDD, mandan esos; si algún campo está vacío, hereda el de su arquitectura
     if (modeloBD && modeloBD.default_steps && modeloBD.default_steps > 0) {
         newSteps = modeloBD.default_steps;
-        newCfg = modeloBD.default_cfg !== null ? modeloBD.default_cfg : 5.0;
-        newSampler = modeloBD.default_sampler || 'euler_ancestral';
-        newScheduler = modeloBD.default_scheduler || 'beta';
-        
-        // 👇 Rescatamos el Denoise de la BBDD, si no existe o es NULL, ponemos 0.75
-        newDenoise = (modeloBD.default_denoise !== null && modeloBD.default_denoise !== undefined) 
-                     ? parseFloat(modeloBD.default_denoise).toFixed(2) 
-                     : "0.75";
+        newCfg = (modeloBD.default_cfg !== null && modeloBD.default_cfg !== undefined && modeloBD.default_cfg !== '')
+                 ? modeloBD.default_cfg
+                 : ajustes.cfg;
+        newSampler = modeloBD.default_sampler || ajustes.sampler;
+        newScheduler = modeloBD.default_scheduler || ajustes.scheduler;
+
+        const dbDenoiseNum = parseFloat(modeloBD.default_denoise);
+        newDenoise = (modeloBD.default_denoise !== null && modeloBD.default_denoise !== undefined && modeloBD.default_denoise !== '' && !isNaN(dbDenoiseNum))
+                     ? dbDenoiseNum.toFixed(2)
+                     : ajustes.denoise;
     } else {
-        // 2. FALLBACK: Diccionario de reglas automáticas según el nombre del modelo
-        const REGLAS_MOTORES = {
-            'wan':     { steps: 30, cfg: 5.0, sampler: 'euler_ancestral', scheduler: 'beta', shift: 5.0, denoise: "0.75" },
-            'hidream': { steps: 30, cfg: 5.0, sampler: 'ipndm', scheduler: 'beta', shift: 3.0, denoise: "0.75" },
-            'ltx':     { steps: 30, cfg: 5.0, sampler: 'euler_ancestral', scheduler: 'beta', shift: '', denoise: "0.75" },
-			'cogvideo': { steps: 30, cfg: 6.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
-            'minimax-h3-image': { steps: 6, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
-            'minimax_h3_image': { steps: 6, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
-            'minimax h3 image': { steps: 6, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
-			'minimax': { steps: 20, cfg: 1.0, sampler: 'res_multistep', scheduler: 'simple', shift: '', denoise: "1.00" },
-            'turbo':   { steps: 6,  cfg: 1.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'schnell': { steps: 6,  cfg: 1.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'krea2':   { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'krea-2':  { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'krea 2':  { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'qwen2.1': { steps: 25, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'qwen 2.1':{ steps: 25, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'qwen21':  { steps: 25, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'qwen':    { steps: 20, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'chroma':  { steps: 10, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'flux3-image-klein-base': { steps: 28, cfg: 3.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
-            'flux3_base':             { steps: 28, cfg: 3.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
-            'flux3 base':             { steps: 28, cfg: 3.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
-            'flux 3 base':            { steps: 28, cfg: 3.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
-            'flux 3 klein base':      { steps: 28, cfg: 3.5, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
-            'flux3':                  { steps: 16, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
-            'flux-3':                 { steps: 16, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
-            'flux.3':                 { steps: 16, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
-            'flux 3':                 { steps: 16, cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" },
-            'flux':    { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'klein':   { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'kontext': { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'sd35':    { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'sd3.5':   { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'z-image': { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'zimage':  { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'z_image': { steps: 25, cfg: 4.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-            'anima':   { steps: 30, cfg: 5.0, sampler: 'euler', scheduler: 'normal', shift: '', denoise: "0.75" },
-            'moss':    { steps: 35, cfg: 3.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "0.75" },
-			'fibo':    { steps: 8,  cfg: 1.0, sampler: 'euler', scheduler: 'normal', shift: '', denoise: "0.75" },
-			'seedvr2': { steps: 1,  cfg: 1.0, sampler: 'euler', scheduler: 'simple', shift: '', denoise: "1.00" }
-        };
-
-        // Regla por defecto para SD1.5, SDXL, etc.
-        let ajustes = { steps: 30, cfg: 5.0, sampler: 'euler_ancestral', scheduler: 'beta', shift: '', denoise: "0.75" };
-        
-        // Recorremos el diccionario buscando la primera palabra clave que coincida con el nombre del modelo
-        for (const clave in REGLAS_MOTORES) {
-            if (opcion.includes(clave)) {
-                ajustes = REGLAS_MOTORES[clave];
-                break;
-            }
-        }
-
         newSteps = ajustes.steps;
         newCfg = ajustes.cfg;
         newSampler = ajustes.sampler;

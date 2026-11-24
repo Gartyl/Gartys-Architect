@@ -337,7 +337,7 @@ function obtenerConfigSeedVR2DesdeBD($pdo) {
     return null;
 }
 
-function inyectarNodosSeedVR2(&$workflow, $input_image_ref, $seedvr2_model, $seedvr2_vae, $scale_factor, $seed, $color_method = 'lab', $prefix = 'sv2_') {
+function inyectarNodosSeedVR2(&$workflow, $input_image_ref, $seedvr2_model, $seedvr2_vae, $scale_factor, $seed, $color_method = 'lab', $prefix = 'sv2_', $es_video = false) {	
     $scale_val = max(0.5, min(8.0, floatval($scale_factor)));
     $metodos_validos = ['lab', 'wavelet', 'adain', 'none'];
     if (!in_array($color_method, $metodos_validos, true)) {
@@ -534,7 +534,7 @@ if ($action === 'generar_imagen') {
     $acentos_mayus = ['Á', 'É', 'Í', 'Ó', 'Ú', 'Ñ', 'Ä', 'Ë', 'Ï', 'Ö', 'Ü'];
     $acentos_minus = ['á', 'é', 'í', 'ó', 'ú', 'ñ', 'ä', 'ë', 'ï', 'ö', 'ü'];
     if (isset($prompt_audio)) $prompt_audio = str_replace($acentos_mayus, $acentos_minus, $prompt_audio);
-    if (isset($posPrompt)) $posPrompt = str_replace($acentos_mayus, $acentos_minus, $posPrompt);
+    // if (isset($posPrompt)) $posPrompt = str_replace($acentos_mayus, $acentos_minus, $posPrompt); // Comentat per a evitar canvis en text d'imatges 
     // --------------------------------------------
 
     // 2. ESCUDO CORTAFUEGOS: Detección inteligente de Audio Puro
@@ -1087,7 +1087,7 @@ if ($action === 'generar_imagen') {
     // ====================================================================
 
     $neg_prompt_post = trim($_POST['negative_prompt'] ?? "");
-    $neg_prompt = !empty($neg_prompt_post) ? $neg_prompt_post : "low quality, blurry, text, watermark";
+    $neg_prompt = !empty($neg_prompt_post) ? $neg_prompt_post : "";
     
     // --- ACTIVACIÓN DEL MOTOR DE WILDCARDS ---
     $posPrompt = process_dynamic_prompts($posPrompt);
@@ -1836,11 +1836,11 @@ if ($action === 'generar_imagen') {
 
             // Si usa la clonación nativa de MiniMax, igualamos exactamente la duración del vídeo a la de la locución
             // para evitar que se corte la frase (si es corto) o que MiniMax invente una segunda voz/balbuceo (si sobra tiempo)
-            if ($es_voz_nativa_mm && !empty($prompt_audio)) {
+/*            if ($es_voz_nativa_mm && !empty($prompt_audio)) {
 				$num_chars_mm = mb_strlen($prompt_audio, 'UTF-8');
 				$segundos = max(1.5, min(15.0, round(($num_chars_mm / 14.5) + 0.2, 1)));
 			}
-
+*/
             $ruta_json = __DIR__ . '/../workflows/minimax_h3.json';
 
             $reemplazos = [
@@ -1983,8 +1983,13 @@ if ($action === 'generar_imagen') {
                     $indice_conector++;
                 }
 
-                // C) Conectamos la Muestra de Voz Clonada DIRECTAMENTE a ref_audios.ref_audio_0
-                if (!empty($ref_file_minimax_vid)) {
+               // C) Conectamos la Muestra de Voz Clonada a ref_audios.ref_audio_0 solo si hay indicio de diálogo
+                $hay_dialogo_mm = !empty(trim($prompt_audio ?? ''))
+                    || strpos($posPrompt ?? '', '"') !== false
+                    || stripos($posPrompt ?? '', '<Voice') !== false
+                    || stripos($posPrompt ?? '', '(S1)') !== false;
+
+                if (!empty($ref_file_minimax_vid) && $hay_dialogo_mm) {
                     $workflow["131_audio_load"] = [
                         "inputs" => ["audio" => $ref_file_minimax_vid],
                         "class_type" => "LoadAudio"
@@ -1993,18 +1998,25 @@ if ($action === 'generar_imagen') {
                 }
             }
 
-            // 🗣️ INYECCIÓN DEL GUION HABLADO EN EL PROMPT DE MINIMAX (Lip-Sync 3D Nativo sin doble voz)
+            /// 🗣️ INYECCIÓN RESPETUOSA DEL GUION (Control total del usuario)
             if ($es_voz_nativa_mm && !empty($prompt_audio)) {
-                $emocion_mm = $tts_emotion_pro ?: 'calm';
-                $etiqueta_voz = !empty($ref_file_minimax_vid) ? "<Voice 1>" : "The character";
-                // Limpiamos comillas dobles del prompt visual para que MiniMax no detecte dos diálogos simultáneos
-                $escena_limpia = str_replace('"', "'", trim($posPrompt));
-                $prompt_audio_limpio = str_replace('"', "'", trim($prompt_audio));
-                $instruccion_habla = "{$etiqueta_voz} speaking in {$idioma_tts} ({$emocion_mm} tone): \"{$prompt_audio_limpio}\".";
-                
-                $workflow["131"]["inputs"]["prompt"] = !empty($escena_limpia) 
-                    ? ($instruccion_habla . " " . $escena_limpia) 
-                    : $instruccion_habla;
+                $prompt_audio_limpio = trim($prompt_audio);
+                $prompt_usuario = trim($posPrompt);
+
+                if (stripos($prompt_usuario, '{GUION}') !== false) {
+                    // El usuario eligió el punto exacto donde va el diálogo
+                    $workflow["131"]["inputs"]["prompt"] = str_ireplace('{GUION}', "\"{$prompt_audio_limpio}\"", $prompt_usuario);
+                } elseif (strpos($prompt_usuario, '"') !== false) {
+                    // El usuario ya escribió su propio diálogo con comillas en el prompt principal: no tocamos nada
+                    $workflow["131"]["inputs"]["prompt"] = $prompt_usuario;
+                } else {
+                    // Solo si no hay diálogo ni marcador en el prompt principal, lo añadimos al final sin alterar el texto del usuario
+                    $etiqueta_voz = !empty($ref_file_minimax_vid) ? "<Voice 1>" : "The character";
+                    $instruccion_habla = "{$etiqueta_voz} says: \"{$prompt_audio_limpio}\".";
+                    $workflow["131"]["inputs"]["prompt"] = !empty($prompt_usuario)
+                        ? ($prompt_usuario . " " . $instruccion_habla)
+                        : $instruccion_habla;
+                }
             }
 
             // 🎵 SOPORTE PARA OTROS MOTORES DE AUDIO (F5, IndexTTS, OmniVoice, SFX o MP3 subido) EN MINIMAX
@@ -2956,8 +2968,8 @@ if ($action === 'generar_imagen') {
                     "seed" => $seed,
                     "steps" => intval($steps ?? 25),
                     "cfg" => floatval($cfg ?? 2.0),
-                    "sampler_name" => "euler",
-                    "scheduler" => "sgm_uniform",
+                    "sampler_name" => $sampler,
+                    "scheduler" => $scheduler,
                     "denoise" => 1.0,
                     "model" => ["11", 0],        
                     "positive" => ["17", 0],    
@@ -3120,11 +3132,11 @@ if ($action === 'generar_imagen') {
 
     // 🛡️ ESCUDO: Si el usuario ha seleccionado un LoRA, JAMÁS puede ser un Upscale Puro (ESRGAN).
     // Forzamos que pase por el Upscale Creativo (KSampler) para que aplique el LoRA correctamente.
-    $lora_n = $_POST['lora_names'] ?? [];
+/*  $lora_n = $_POST['lora_names'] ?? [];
     if (!empty($lora_n) && isset($lora_n[0]) && strtolower(trim($lora_n[0])) !== 'ninguno' && !empty(trim($lora_n[0]))) {
         $pure_upscale = false;
     }
-
+*/
     if ($hires_fix && $pure_upscale && !empty($init_image_base64) && $init_image_base64 !== "TRAY_IMAGE_USED" && empty($tray_comfy_filenames) && (!empty($upscale_model) || $aurasr_enabled || $seedvr2_enabled)) {		
         
         // 1. Limpiamos la cadena base64 y guardamos archivo temporal en disco
@@ -3970,9 +3982,8 @@ if ($action === 'generar_imagen') {
         $current_negative = ["6", 1];
         $current_latent   = ["6", 2];
         
-        // 🎚️ Si hay varias imágenes o el panel de edición está cerrado, forzamos Denoise 1.0 para que componga libremente
-        $is_edit_panel_active = !empty($_POST['edit_tools_active']) || !empty($mask_data_base64);
-        $sampler_denoise = ($is_edit_panel_active && count($qwen_raw_nodes) === 1) ? $denoise_slider : 1.0;
+        // 🎚️ Con 1 imagen manda el deslizador Denoise (I2I); con varias imágenes forzamos 1.0 para componer libremente
+        $sampler_denoise = (count($qwen_raw_nodes) === 1) ? $denoise_slider : 1.0;
         
         // Limpiamos los nodos clásicos residuales de Fase 7
         unset($workflow["5"], $workflow["12"], $workflow["13"], $workflow["14"]);
@@ -4122,10 +4133,13 @@ if ($action === 'generar_imagen') {
             unset($workflow["600"]);
         }
         
-        // 6. Modo edición dinámico: Si hay más de 1 imagen o el panel de edición está cerrado, Denoise = 1.0 con lienzo limpio
-        $is_edit_panel_active = !empty($_POST['edit_tools_active']) || !empty($mask_data_base64);
-        $panel_denoise = isset($_POST['denoise']) ? (float)$_POST['denoise'] : 0.65;
-        $sampler_denoise = ($is_edit_panel_active && count($kontext_images) === 1) ? $panel_denoise : 1.0;
+        // 6. Modo edición dinámico: Con 1 imagen manda el deslizador Denoise (I2I); con varias, 1.0 y lienzo limpio
+        $panel_denoise = isset($_POST['denoise']) ? (float)$_POST['denoise'] : 1.0;
+        $sampler_denoise = (count($kontext_images) === 1) ? $panel_denoise : 1.0;
+
+        if ($sampler_denoise < 1.0 && !isset($workflow["11"]) && isset($workflow["13"])) {
+            $workflow["13"]["inputs"]["image"] = $kontext_images[0];
+        }
 
         if ($sampler_denoise >= 1.0 || !isset($workflow["14"])) {
             unset($workflow["12"], $workflow["13"], $workflow["14"]);
@@ -4136,6 +4150,7 @@ if ($action === 'generar_imagen') {
                 "class_type" => "EmptyFlux2LatentImage"
             ];
             $current_latent = ["5", 0];
+            $sampler_denoise = 1.0;
         }
 
         $meta_modo = 'Flux 2 Klein Edit (' . count($kontext_images) . ' img)';
@@ -4210,9 +4225,12 @@ if ($action === 'generar_imagen') {
             $current_negative = [$ref_neg, 0];
         }
 
-        // 3. Si hay múltiples imágenes de referencia (fusión) o el panel de edición está cerrado, Denoise = 1.0
-        $is_edit_panel_active = !empty($_POST['edit_tools_active']) || !empty($mask_data_base64);
-        $sampler_denoise = ($is_edit_panel_active && count($flux3_ref_nodes) === 1) ? $denoise_slider : 1.0;
+        // 3. Con 1 imagen manda el deslizador Denoise (I2I); con varias referencias (fusión), Denoise = 1.0 y lienzo limpio
+        $sampler_denoise = (count($flux3_ref_nodes) === 1) ? $denoise_slider : 1.0;
+
+        if ($sampler_denoise < 1.0 && !isset($workflow["11"]) && isset($workflow["13"])) {
+            $workflow["13"]["inputs"]["image"] = $flux3_ref_nodes[0];
+        }
 
         if ($sampler_denoise >= 1.0 || !isset($workflow["14"])) {
             unset($workflow["12"], $workflow["13"], $workflow["14"]);
@@ -4223,6 +4241,7 @@ if ($action === 'generar_imagen') {
                 "class_type" => "EmptyFlux2LatentImage"
             ];
             $current_latent = ["5", 0];
+            $sampler_denoise = 1.0;
         }
 
         $meta_modo = 'Flux 3 Multi-Ref Edit (' . count($flux3_ref_nodes) . ' img)';
@@ -4384,7 +4403,7 @@ if ($action === 'generar_imagen') {
     if ($is_qwen && !$is_qwen21 && !empty($init_image_base64)) {
         $workflow["850_qwen_aura"] = [
             "inputs" => [
-                "shift" => 3.0,
+                "shift" => ($user_shift !== null) ? $user_shift : 3.0,
                 "model" => [$current_model_node, 0]
             ],
             "class_type" => "ModelSamplingAuraFlow"
@@ -4433,9 +4452,8 @@ if ($action === 'generar_imagen') {
         $lora_fuerza = isset($lora_strengths_high[0]) ? floatval($lora_strengths_high[0]) : 1.0;
 
         // 🎚️ CAPTURAMOS EL DESLIZADOR DE LA INTERFAZ (En modo de 2 imágenes forzamos 1.0 para que cree en lienzo limpio)
-        $is_edit_panel_active = !empty($_POST['edit_tools_active']) || !empty($mask_data_base64);
-        $panel_denoise = isset($_POST['denoise']) ? floatval($_POST['denoise']) : 0.65;
-        $slider_denoise_final = ($is_edit_panel_active && !$doble_imagen) ? $panel_denoise : 1.0;
+        $panel_denoise = isset($_POST['denoise']) ? floatval($_POST['denoise']) : 1.0;
+        $slider_denoise_final = (!$doble_imagen) ? $panel_denoise : 1.0;
 
         // Nodos Base de la arquitectura Krea-2
         $workflow = [
@@ -4649,9 +4667,9 @@ if ($action === 'generar_imagen') {
 
             // 8A. KSampler Destilado (6 pasos, CFG 1.0, euler / simple) + VAEDecodeTiled (protección 16 GB VRAM)
             $steps     = ($user_steps > 0) ? $steps : 6;
-            $cfg       = 1.0;
-            $sampler   = (!empty($_POST['sampler']) && $_POST['sampler'] !== 'euler_ancestral') ? $sampler : 'euler';
-            $scheduler = (!empty($_POST['scheduler']) && $_POST['scheduler'] !== 'karras') ? $scheduler : 'simple';
+            $cfg       = (isset($_POST['cfg']) && is_numeric($_POST['cfg'])) ? floatval($_POST['cfg']) : 1.0;
+            $sampler   = !empty($_POST['sampler']) ? $sampler : 'euler';
+            $scheduler = !empty($_POST['scheduler']) ? $scheduler : 'simple';
 
             $workflow["198"] = [
                 "inputs" => [
@@ -4707,8 +4725,8 @@ if ($action === 'generar_imagen') {
             ];
 
             // 8B. Muestreo 2D de 1 Frame (EmptyLatentImage + SamplerCustomAdvanced)
-            $mm_sampler = (!empty($_POST['sampler']) && $_POST['sampler'] !== 'euler_ancestral') ? $sampler : 'res_multistep';
-            $mm_scheduler = (!empty($_POST['scheduler']) && $_POST['scheduler'] !== 'karras') ? $scheduler : 'simple';
+            $mm_sampler   = !empty($_POST['sampler']) ? $sampler : 'res_multistep';
+            $mm_scheduler = !empty($_POST['scheduler']) ? $scheduler : 'simple';
             $mm_steps = ($user_steps > 0) ? $steps : 20;
 
             $workflow["199"] = [
@@ -5460,8 +5478,8 @@ if ($action === 'generar_imagen') {
                     $face_pos_source   = ["903_pos", 0]; 
                     $face_neg_source   = ["903_neg", 0]; 
                     
-                    $adetailer_denoise = 0.35; 
-                    $adetailer_cfg     = 5.5; 
+                    // Respetamos el deslizador $adetailer_denoise de la interfaz; solo protegemos el CFG si el modelo DiT venía a ~1.0
+                    $adetailer_cfg     = ($cfg <= 1.5) ? 5.5 : $cfg; 
                 } else {
                     // Si no hay refiner en la BD, apagamos ADetailer o avisamos para no romper Flux
                     echo json_encode(['error' => __('err_adetailer_needs_refiner')]);

@@ -163,6 +163,9 @@ return [
 	'seedvr2_col_adain'   => "AdaIN (Contrast/mean adjustment)",
 	'seedvr2_col_none'    => "None (Raw output)",
 	'ups_denoise_title'   => "> 0.35 may cause banding (Mismatched seams)",
+	'pure_upscale_title' => "Pure Upscale Mode (Uploaded image only)",
+	'pure_upscale_desc' => "Skips generation and directly upscales the base image without using a prompt.",
+	'btn_apply_upscale' => "Direct Upscale",
     
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS

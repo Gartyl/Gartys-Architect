@@ -1252,6 +1252,46 @@ function toggleDDColorPuro(activo) {
     }, 100);
 }
 
+function toggleUpscalePuro(activo) {
+    setTimeout(() => {
+        const isDirect = document.getElementById('modoDirectoToggle')?.checked;
+        const inputPrompt = document.getElementById('descripcion'); const btnArquitecto = document.getElementById('submitBtn');
+        const btnAmplify = document.getElementById('amplifyBtn'); const btnSurprise = document.getElementById('surpriseBtn');
+        const btnDirecto = document.getElementById('gpuDirectBtn'); const resultsArea = document.getElementById('results');
+        const translateToggle = document.getElementById('translateToggleBlock');
+
+        if (activo) {
+            if (inputPrompt) { inputPrompt.style.opacity = '0.4'; inputPrompt.style.pointerEvents = 'none'; inputPrompt.style.transition = 'opacity 0.3s ease'; }
+            if (btnArquitecto) btnArquitecto.style.setProperty('display', 'none', 'important');
+            if (btnAmplify) btnAmplify.style.removeProperty('display');
+            if (btnSurprise) btnSurprise.style.removeProperty('display');
+            if (translateToggle) translateToggle.classList.add('d-none'); if (resultsArea) resultsArea.classList.add('d-none');
+            if (btnDirecto) {
+                btnDirecto.classList.remove('d-none'); btnDirecto.style.setProperty('display', 'inline-block', 'important');
+                btnDirecto.dataset.oldText = btnDirecto.innerHTML;
+                btnDirecto.innerHTML = '<i class="bi bi-arrows-angle-expand"></i> ' + (GartyLang.btn_apply_upscale || 'Escalar Directo');
+                btnDirecto.className = 'btn flex-grow-1 text-dark fw-bold shadow btn-info';
+            }
+        } else {
+            if (inputPrompt) { inputPrompt.style.opacity = '1'; inputPrompt.style.pointerEvents = 'auto'; }
+            if (!isDirect) {
+                if (btnArquitecto) btnArquitecto.style.setProperty('display', 'inline-block', 'important');
+                if (btnAmplify) btnAmplify.style.removeProperty('display');
+                if (btnSurprise) btnSurprise.style.removeProperty('display');
+                if (translateToggle) {
+                    const sel = document.getElementById('selector').value;
+                    if (sel !== '[CHAT]') translateToggle.classList.remove('d-none');
+                }
+            }
+            if (btnDirecto) {
+                btnDirecto.style.removeProperty('display');
+                btnDirecto.innerHTML = btnDirecto.dataset.oldText || '<i class="bi bi-lightning-fill"></i> ' + GartyLang.btn_renderizar;
+                btnDirecto.className = 'btn btn-gpu flex-grow-1 text-white fw-bold shadow';
+            }
+        }
+    }, 100);
+}
+
 // --- CONTROL DEL INPUT PRINCIPAL (IMÁGENES, VIDEOS Y MULTICARGA) ---
 const mainImageInput = document.getElementById('imageInput');
 const multiInputToggle = document.getElementById('multiInputToggle');
@@ -1965,7 +2005,8 @@ function updateUIForSelector(sel) {
         checkPureMode('pureRembgToggle', 'rembgBlock', typeof toggleRembgPuro !== 'undefined' ? toggleRembgPuro : null);
         checkPureMode('pureFaceSwapToggle', 'reactorBlock', typeof toggleFaceSwapPuro !== 'undefined' ? toggleFaceSwapPuro : null);
         checkPureMode('pureAdetailerToggle', 'adetailerBlock', typeof toggleAdetailerPuro !== 'undefined' ? toggleAdetailerPuro : null);
-        
+		checkPureMode('pureUpscaleToggle', 'hiresBlock', typeof toggleUpscalePuro !== 'undefined' ? toggleUpscalePuro : null);
+		
         setTimeout(() => {
             if (window.loteBatchActivo || window.bucleInfinitoActivo) {
                 const btnD = document.getElementById('gpuDirectBtn');
@@ -2213,18 +2254,10 @@ function appendUIParametersToFormData(fd, forceSingle = false) {
             const sv2Color = document.getElementById('seedvr2ColorCorrection');
             if (sv2Color) fd.append('seedvr2_color_correction', sv2Color.value);
             
-			/// Detección de Upscale Puro: Si hay imagen cargada, ES un upscale puro siempre (ignoramos si hay texto)
-            const hayImagen = (typeof currentImageBase64 !== 'undefined' && currentImageBase64 !== null) || 
-                              (typeof compareImageA !== 'undefined' && compareImageA !== null);
-            
-            // 🛡️ ESCUDO: Si hay un LoRA seleccionado, NO es un upscale puro, necesita pasar por la IA.
-            const lorasActivos = Array.from(document.querySelectorAll('.lora-selector')).some(sel => sel.value && sel.value.toLowerCase() !== 'ninguno');
-
-            if (hayImagen && !lorasActivos) {
-                fd.append('pure_upscale', 'true');
-            } else {
-                fd.append('pure_upscale', 'false');
-            }
+			// Escalado Puro controlado explícitamente por el usuario (o si el modelo principal es SeedVR2)
+            const pureUpscaleToggle = document.getElementById('pureUpscaleToggle');
+            const esPureUpscale = (pureUpscaleToggle && pureUpscaleToggle.checked) || esModeloSeedVR2Activo();
+            fd.append('pure_upscale', esPureUpscale ? 'true' : 'false');
         }
     }
 	
@@ -2756,39 +2789,30 @@ document.getElementById('promptForm').onsubmit = async (e) => {
     const isGraphical = ['[SD15]', '[SDXL]', '[NATURAL_IMAGE]'].includes(selValue);
 
     // Comprobamos si es un Upscale Puro (está encendido PERO el campo de idea está vacío)
-    const activeUpscaleForm = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked;
-    const isPureUpscaleForm = activeUpscaleForm && idea === '';
-
-    // --- CORRECCIÓN 1: Inclusión estricta SOLO de Modos Puros ---
-    // En lugar de múltiples OR, comprobamos un array de IDs. Si mañana añades otro modo, solo añade el ID aquí.
     const pureModeIds = [
-        'pureFaceSwapToggle', 'pureRembgToggle', 'pureAdetailerToggle', 
-        'pureDDColorToggle', 'toggleLamaMode', 'iclight_enabled'
+        'pureFaceSwapToggle', 'pureRembgToggle', 'pureAdetailerToggle',
+        'pureDDColorToggle', 'pureUpscaleToggle', 'toggleLamaMode', 'iclight_enabled'
     ];
-    
+
     const isPureModeForm = pureModeIds.some(id => {
         const el = document.getElementById(id);
         return el && el.checked;
-    }) || isPureUpscaleForm || esModeloSeedVR2Activo();
+    }) || esModeloSeedVR2Activo();
 
-    // Ahora la validación respeta si hay un modo puro activo para ignorar la idea vacía
     if (!idea && !hasFile && !isPureModeForm) {
         if (isGraphical && hasPreset) {
             clearResultsUI(); lastGeneratedPrompt = { pos: "", neg: "" };
             const applied = getPromptsWithPresets("", "");
             showGeneratedPromptsInUI(applied.pos, applied.neg, selValue);
             return;
-        } else { 
-            SwalDark.fire({ icon: 'warning', title: GartyLang.avis_idea1, text: GartyLang.avis_idea2, confirmButtonText: GartyLang.btn_entendido, confirmButtonColor: '#f39c12' }); return; 
+        } else {
+            SwalDark.fire({ icon: 'warning', title: GartyLang.avis_idea1, text: GartyLang.avis_idea2, confirmButtonText: GartyLang.btn_entendido, confirmButtonColor: '#f39c12' }); return;
         }
     }
 
-    // --- NUEVO AVISO SALVAVIDAS PARA UPSCALE PURO ---
-    const isUpscaleOn = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked;
-    const lorasParaSalvavidas = Array.from(document.querySelectorAll('.lora-selector')).some(sel => sel.value && sel.value.toLowerCase() !== 'ninguno');
-    
-    // Si hay imagen subida y el Upscale está activo (y NO hay LoRAs), bloqueamos el Arquitecto:
-    if (hasFile && (esModeloSeedVR2Activo() || (isUpscaleOn && !lorasParaSalvavidas)) && selValue !== '[CHAT]') {	
+    // Aviso solo si el usuario activó explícitamente Escalado Puro o eligió el modelo SeedVR2
+    const isPureUpscaleChecked = document.getElementById('pureUpscaleToggle')?.checked;
+    if (hasFile && (esModeloSeedVR2Activo() || isPureUpscaleChecked) && selValue !== '[CHAT]') {
         SwalDark.fire({
             icon: 'info',
             title: GartyLang.swal_pure_upscale_title || 'Modo Upscale Puro',
@@ -3353,16 +3377,13 @@ async function runGpu(mode = 'directo') {
     
     // --- 3.1 Detección Inteligente (Modos Puros y Audio) ---
     const isModoDirecto = document.getElementById('modoDirectoToggle') && document.getElementById('modoDirectoToggle').checked;
-    const activeUpscale = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked;
-    const isPureUpscaleActive = activeUpscale && ideaInicial === '';
-    
-    const pureModeIds = ['pureFaceSwapToggle', 'pureRembgToggle', 'pureAdetailerToggle', 'pureDDColorToggle', 'toggleLamaMode', 'iclight_enabled'];
-    const isPureMode = pureModeIds.some(id => {
-        const el = document.getElementById(id);
-        if (!el || !el.checked) return false;
-        const parentBlock = el.closest('[id$="Block"]') || el.parentElement;
-        return parentBlock && parentBlock.style.display !== 'none';
-    }) || isPureUpscaleActive || esModeloSeedVR2Activo();
+    const pureModeIds = ['pureFaceSwapToggle', 'pureRembgToggle', 'pureAdetailerToggle', 'pureDDColorToggle', 'pureUpscaleToggle', 'toggleLamaMode', 'iclight_enabled'];
+	  const isPureMode = pureModeIds.some(id => {
+		  const el = document.getElementById(id);
+		  if (!el || !el.checked) return false;
+		  const parentBlock = el.closest('[id$="Block"]') || el.parentElement;
+		  return parentBlock && parentBlock.style.display !== 'none';
+	  }) || esModeloSeedVR2Activo();
 
     if (typeof getActiveAudioConfig === 'function') {
         const audioConfig = getActiveAudioConfig();
@@ -5119,10 +5140,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const finalPrompt = document.getElementById('posContent') ? document.getElementById('posContent').innerText.trim() : '';
             const isModoDirecto = document.getElementById('modoDirectoToggle') && document.getElementById('modoDirectoToggle').checked;
             
-            const pureModeIds = ['pureFaceSwapToggle', 'pureRembgToggle', 'pureAdetailerToggle', 'pureDDColorToggle', 'toggleLamaMode', 'iclight_enabled'];
-            const isPureUpscaleBatch = document.getElementById('hiresToggle') && document.getElementById('hiresToggle').checked && ideaInicial === '';
-            
-            const isPureMode = pureModeIds.some(id => document.getElementById(id) && document.getElementById(id).checked) || isPureUpscaleBatch || esModeloSeedVR2Activo();
+            const pureModeIds = ['pureFaceSwapToggle', 'pureRembgToggle', 'pureAdetailerToggle', 'pureDDColorToggle', 'pureUpscaleToggle', 'toggleLamaMode', 'iclight_enabled'];
+			const isPureMode = pureModeIds.some(id => document.getElementById(id) && document.getElementById(id).checked) || esModeloSeedVR2Activo();
             
             const panelAudioActivo = document.getElementById('audioToggle') && document.getElementById('audioToggle').checked;
 

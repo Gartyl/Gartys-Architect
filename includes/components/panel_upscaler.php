@@ -4,11 +4,20 @@
                 <i class="bi bi-arrows-angle-expand"></i> <?= __('tit_upscale') ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?>
             </label>
             <div class="form-check form-switch m-0">
-                <input class="form-check-input pref-track" type="checkbox" id="hiresToggle" style="cursor: pointer;" onchange="document.getElementById('upscaleOptions').classList.toggle('d-none', !this.checked)" <?= !$is_pro ? 'disabled' : '' ?>>
-            </div>
+                <input class="form-check-input pref-track" type="checkbox" id="hiresToggle" style="cursor: pointer;" onchange="onHiresToggleChange(this.checked)" <?= !$is_pro ? 'disabled' : '' ?>>
+			</div>
         </div>
         
         <div id="upscaleOptions" class="d-none mt-3 pt-3 border-top border-primary" style="border-color: rgba(13, 110, 253, 0.2) !important;">
+		
+			<!-- --- INTERRUPTOR MODO ESCALADO PURO --- -->
+            <div class="form-check form-switch mb-3 p-2 rounded shadow-sm" style="background: rgba(13, 110, 253, 0.12); border: 1px solid rgba(13, 110, 253, 0.45);">
+                <input class="form-check-input ms-1" type="checkbox" id="pureUpscaleToggle" onchange="if(typeof toggleUpscalePuro === 'function') toggleUpscalePuro(this.checked)" style="cursor: pointer;" <?= !$is_pro ? 'disabled' : '' ?>>
+                <label class="form-check-label ms-2 text-primary fw-bold" for="pureUpscaleToggle">
+                    <i class="bi bi-arrows-angle-expand"></i> <?= __('pure_upscale_title') ?>
+                </label>
+                <div class="text-light text-opacity-50 mt-1 ms-2" style="font-size: 0.75rem;"><?= __('pure_upscale_desc') ?></div>
+            </div>
             
             <!-- --- INTERRUPTOR VIP AURASR --- -->
             <div class="form-check form-switch mb-2 p-2 rounded shadow-sm" style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.4);">
@@ -75,6 +84,17 @@
 
     <!-- Script para controlar AuraSR, SeedVR2 y la etiqueta del deslizador -->
     <script>
+	function onHiresToggleChange(checked) {
+        document.getElementById('upscaleOptions').classList.toggle('d-none', !checked);
+        if (!checked) {
+            const pureEl = document.getElementById('pureUpscaleToggle');
+            if (pureEl && pureEl.checked) {
+                pureEl.checked = false;
+                if (typeof toggleUpscalePuro === 'function') toggleUpscalePuro(false);
+            }
+        }
+    }
+	
     function syncUpscaleEnginesUI() {
         const isAura = document.getElementById('aurasrToggle')?.checked || false;
         const isSv2  = document.getElementById('seedvr2Toggle')?.checked || false;

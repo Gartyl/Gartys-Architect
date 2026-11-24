@@ -163,6 +163,9 @@ return [
 	'seedvr2_col_adain'   => "AdaIN (Ajuste de contraste/media)",
 	'seedvr2_col_none'    => "Ninguna (Salida cruda)",
 	'ups_denoise_title'   => "> 0.35 puede generar franjas (Costuras no coincidentes)",
+	'pure_upscale_title' => "Modo Escalado Puro (Solo imagen subida)",
+	'pure_upscale_desc' => "Salta la generación y reescala directamente la imagen base sin usar prompt.",
+	'btn_apply_upscale' => "Escalar Directo",
 	
     // ==============================================================================
     // 03. ETIQUETAS, TEXTOS DESCRIPTIVOS Y PLACEHOLDERS
