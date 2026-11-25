@@ -1,10 +1,10 @@
 <div class="param-group shadow-sm border-success mb-3" id="controlNetBlock" style="display: none; border-color: rgba(46, 160, 67, 0.4) !important; background: rgba(46, 160, 67, 0.05);">
     <div class="d-flex justify-content-between align-items-center">
         <label class="small text-success fw-bold mb-0">
-            <i class="bi bi-bezier2 me-1"></i> <?= __('tit_controlnet') ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?>
+            <i class="bi bi-bezier2 me-1"></i> <?= __('tit_controlnet') ?>
         </label>
         <div class="form-check form-switch m-0">
-            <input class="form-check-input pref-track" style="cursor: pointer;" type="checkbox" id="controlNetToggle" onchange="toggleControlNetUI()" <?= !$is_pro ? 'disabled' : '' ?>>
+            <input class="form-check-input pref-track" style="cursor: pointer;" type="checkbox" id="controlNetToggle" onchange="toggleControlNetUI()">
         </div>
     </div>
     

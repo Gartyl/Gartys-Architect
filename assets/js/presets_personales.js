@@ -81,13 +81,13 @@ async function savePersonalPreset() {
         modelo: document.getElementById('modelSelector') ? document.getElementById('modelSelector').value : '',
         width: width,
         height: height,
-        formato: document.getElementById('formatSelector') ? document.getElementById('formatSelector').value : 'PNG',
+        formato: document.getElementById('imageFormatInput') ? document.getElementById('imageFormatInput').value : 'png',
         steps: document.getElementById('stepsInput') ? document.getElementById('stepsInput').value : 30,
         cfg: document.getElementById('cfgInput') ? document.getElementById('cfgInput').value : 5.0,
         sampler: document.getElementById('samplerInput') ? document.getElementById('samplerInput').value : 'euler',
         scheduler: document.getElementById('schedulerInput') ? document.getElementById('schedulerInput').value : 'beta',
         seed: document.getElementById('seedInput') ? document.getElementById('seedInput').value : -1,
-        flow_shift: document.getElementById('flowShiftInput') ? document.getElementById('flowShiftInput').value : 'Auto',
+        flow_shift: document.getElementById('shiftInput') ? document.getElementById('shiftInput').value : '',
         loras: loras
     };
 
@@ -137,6 +137,21 @@ function loadPersonalPreset() {
     // --- NUEVO SISTEMA DE CAMBIO DE CATEGORÍA ---
     const currentCategory = document.getElementById('selector') ? document.getElementById('selector').value : '';
     const targetCategory = config.categoria || currentCategory;
+	
+	const mainSelector = document.getElementById('selector');
+    if (mainSelector && targetCategory) {
+        const targetOpt = Array.from(mainSelector.options).find(opt => opt.value === targetCategory);
+        if (targetOpt && targetOpt.disabled) {
+            SwalDark.fire({
+                icon: 'info',
+                title: 'PRO',
+                text: (typeof GartyLang !== 'undefined' && GartyLang.err_pro_video)
+                    ? GartyLang.err_pro_video
+                    : 'Este preset pertenece a una categoría exclusiva para usuarios PRO.'
+            });
+            return;
+        }
+    }
 
     // Si el preset pertenece a una categoría distinta a la que estamos viendo:
     if (targetCategory && targetCategory !== currentCategory) {
@@ -188,8 +203,8 @@ function loadPersonalPreset() {
 
         const modSel = document.getElementById('modelSelector');
         if (modSel && config.modelo) {
-             let modelExists = Array.from(modSel.options).some(opt => opt.value === config.modelo);
-             if(modelExists) modSel.value = config.modelo;
+            let modelExists = Array.from(modSel.options).some(opt => !opt.disabled && opt.value === config.modelo);
+            if (modelExists) modSel.value = config.modelo;
         }
 
         if (config.width && config.height) {
@@ -206,10 +221,13 @@ function loadPersonalPreset() {
         if (config.sampler) document.getElementById('samplerInput').value = config.sampler;
         if (config.scheduler) document.getElementById('schedulerInput').value = config.scheduler;
         if (config.seed !== undefined) document.getElementById('seedInput').value = config.seed;
-        if (config.flow_shift) document.getElementById('flowShiftInput').value = config.flow_shift;
+        const shiftEl = document.getElementById('shiftInput');
+        if (shiftEl && config.flow_shift !== undefined && config.flow_shift !== 'Auto') {
+            shiftEl.value = config.flow_shift;
+        }
         if (config.formato) {
-             const formatSel = document.getElementById('formatSelector');
-             if(formatSel) formatSel.value = config.formato;
+            const formatSel = document.getElementById('imageFormatInput');
+            if (formatSel) formatSel.value = String(config.formato).toLowerCase();
         }
 
         const lorasWrapper = document.getElementById('lorasWrapper');

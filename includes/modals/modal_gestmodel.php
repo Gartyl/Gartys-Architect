@@ -34,7 +34,7 @@ function scanOllamaModels() {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 2); // 2 segundos máximo para no atascar la carga del panel
     $res = curl_exec($ch);
-    //curl_close($ch);
+    $ch = null;
     
     $results = [];
     if ($res) {
@@ -151,12 +151,12 @@ $lista_clips   = array_unique(array_merge(scanComfyFolder('clip'), scanComfyFold
                                             <option value="chat">💬 <?= __('adm_cat_chat_conv') ?></option>
                                             <option value="sd15">🎨 <?= __('adm_cat_img_sd15') ?></option>
                                             <option value="sdxl">⚡ <?= __('adm_cat_img_sdxl') ?></option>
-                                            <option value="flux" <?= !$is_pro ? 'disabled' : '' ?>>💎 <?= __('adm_cat_img_flux') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?></option>
+                                            <option value="flux">💎 <?= __('adm_cat_img_flux') ?></option>
                                             <option value="video" <?= !$is_pro ? 'disabled' : '' ?>>🎬 <?= __('adm_cat_vid_wan') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?></option>
                                             <option value="sys_llm">⚙️ <?= __('adm_cat_hid_txt') ?></option>
                                             <option value="sys_vision">👁️‍🗨️ <?= __('adm_cat_hid_vis') ?></option>
                                             <option value="sys_refiner">🛠️ <?= __('adm_cat_hid_ref') ?? 'Refinador / Rostros (DiT)' ?></option>
-											<option value="sys_embed" <?= !$is_pro ? 'disabled' : '' ?>>🧲 <?= __('adm_cat_hid_emb') ?? 'Motor Semántico (Embeddings)' ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?></option>
+											<option value="sys_embed">🧲 <?= __('adm_cat_hid_emb') ?? 'Motor Semántico (Embeddings)' ?></option>
                                         </select>
                                     </div>
                                     <div class="col-md-2">
@@ -462,8 +462,8 @@ $lista_clips   = array_unique(array_merge(scanComfyFolder('clip'), scanComfyFold
                                                 🌱 <?= __('adm_pr_sd_vid') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?>
                                             </option>
                                             <option value="random_prompt">🎲 <?= __('adm_pr_rnd_char') ?></option>
-                                            <option value="chat_personality" <?= !$is_pro ? 'disabled' : '' ?>>
-                                                🗣️ <?= __('adm_pr_chat_pers') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?>
+                                            <option value="chat_personality">
+                                                🗣️ <?= __('adm_pr_chat_pers') ?>
                                             </option>
                                             <option value="chat_default">🤖 <?= __('adm_pr_chat_def') ?? 'Asistente Chat (Defecto)' ?></option>
                                             <option value="sys_prompt_chat">💬 <?= __('adm_pr_chat_sys') ?? 'Sistema Chat Directo' ?></option>
@@ -471,8 +471,8 @@ $lista_clips   = array_unique(array_merge(scanComfyFolder('clip'), scanComfyFold
                                             <option value="core_architect">⚙️ <?= __('adm_pr_core_arq') ?></option>
                                             <option value="estilo_sd15">🎨 <?= __('adm_pr_sty_sd15') ?></option>
                                             <option value="estilo_sdxl">⚡ <?= __('adm_pr_sty_sdxl') ?></option>
-                                            <option value="estilo_flux" <?= !$is_pro ? 'disabled' : '' ?>>
-                                                💎 <?= __('adm_pr_sty_flux') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?>
+                                            <option value="estilo_flux">
+                                                💎 <?= __('adm_pr_sty_flux') ?>
                                             </option>
                                             <option value="estilo_video" <?= !$is_pro ? 'disabled' : '' ?>>
                                                 🎬 <?= __('adm_pr_sty_vid') ?> <?= !$is_pro ? '🔒 ' . __('adm_lbl_pro') : '' ?>

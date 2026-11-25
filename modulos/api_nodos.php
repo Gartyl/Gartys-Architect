@@ -94,9 +94,10 @@ if ($action === 'get_checkpoints') {
     $controlnets = is_array($controlnets) ? array_values(array_unique($controlnets)) : [];
     $upscalers = is_array($upscalers) ? array_values(array_unique($upscalers)) : [];
     
-    if (isset($is_pro) && $is_pro && isset($is_admin) && !$is_admin) {
+    if (isset($is_admin) && !$is_admin) {
         $checkpoints = filter_admin_folders($checkpoints);
         $unets = filter_admin_folders($unets);
+        $controlnets = filter_admin_folders($controlnets);
     }
     
     $todos_los_modelos = array_merge($checkpoints, $unets);
@@ -138,7 +139,7 @@ if ($action === 'get_loras') {
         }
     }
     
-    if ($is_pro && !$is_admin) { 
+    if (isset($is_admin) && !$is_admin) { 
         $loras = filter_admin_folders($loras); 
     }
     

@@ -105,8 +105,10 @@ async function cargarTablaPrompts() {
                 'estilo_video': '🎬 ' + GartyLang.adm_pr_sty_vid
             };
 
+            const esProPrompts = typeof APP_ENV !== 'undefined' && Boolean(APP_ENV.isPro || APP_ENV.isAdmin || APP_ENV.userRole === 'pro' || APP_ENV.userRole === 'admin');
+
             tbody.innerHTML = data.prompts.map(p => {
-                let candado = (typeof APP_ENV !== 'undefined' && APP_ENV.userRole === 'free' && p.tipo === 'chat_persona') 
+                let candado = (!esProPrompts && ['seed_video', 'estilo_video'].includes(p.tipo))
                               ? ` <span class="text-warning small fw-bold" title="${GartyLang.adm_lbl_pro_exc}">🔒 (Pro)</span>` 
                               : '';
                 
@@ -158,6 +160,12 @@ async function cargarTablaPrompts() {
 function cargarPromptEnFormulario(id) {
     const prompt = window.promptsDBSistema.find(p => p.id == id);
     if (!prompt) return;
+	
+	const esProPrompts = typeof APP_ENV !== 'undefined' && Boolean(APP_ENV.isPro || APP_ENV.isAdmin || APP_ENV.userRole === 'pro' || APP_ENV.userRole === 'admin');
+    if (!esProPrompts && ['seed_video', 'estilo_video'].includes(prompt.tipo)) {
+        SwalDark.fire({ icon: 'info', title: 'PRO', text: GartyLang.err_pro_video || 'Los prompts del Estudio de Vídeo son exclusivos para usuarios PRO.' });
+        return;
+    }
 
     idPromptEditando = id;
 
@@ -271,6 +279,8 @@ async function guardarPromptBD() {
 
             cargarTablaPrompts();
             SwalDark.fire({icon: 'success', title: GartyLang.swal_op_completed, timer: 1500, showConfirmButton: false});
+        } else if (data.error) {
+            SwalDark.fire({icon: 'warning', title: GartyLang.swal_err_title || 'Atención', text: data.error});
         }
     } catch(e) {
         SwalDark.fire({icon: 'error', title: GartyLang.swal_err_title, text: GartyLang.swal_err_conn_prob});

@@ -180,7 +180,7 @@ case 'generar_audio':
             // --- MOTOR ESTRELLA: MINIMAX H3 VOICE CLONE (20B) ---
             $modelo_mm = trim($_POST['minimax_model'] ?? '');
             if (empty($modelo_mm)) {
-                $stmt_mm = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE activo = 1 AND LOWER(nombre_archivo) LIKE '%minimax%' ORDER BY (LOWER(nombre_archivo) LIKE '%ref%') DESC LIMIT 1");
+                $stmt_mm = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE activo = 1 AND LOWER(nombre_archivo) LIKE '%minimax%' AND LOWER(nombre_archivo) NOT LIKE '%image%' AND LOWER(nombre_visual) NOT LIKE '%image%' ORDER BY (LOWER(nombre_archivo) LIKE '%ref%') DESC LIMIT 1");
                 $modelo_mm = $stmt_mm ? (string)$stmt_mm->fetchColumn() : '';
             }
             if (empty($modelo_mm)) {

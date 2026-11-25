@@ -18,7 +18,7 @@ $offset = ($page - 1) * $limit;
 $where_clauses = ["h.is_public = 1", "h.imagen_path IS NOT NULL"];
 $params = [];
 
-$is_semantic_active = ($is_pro && function_exists('obtenerModeloEmbeddingActivo') && obtenerModeloEmbeddingActivo($pdo) !== null);
+$is_semantic_active = (function_exists('obtenerModeloEmbeddingActivo') && obtenerModeloEmbeddingActivo($pdo) !== null);
 
 if (!empty($search)) {
     $ids_semanticos = null;

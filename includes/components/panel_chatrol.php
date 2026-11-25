@@ -10,10 +10,10 @@ try {
 <div class="col-md-12 mb-3" id="chatRoleBlock" style="display: none;">
 	<div class="param-group shadow-sm border-success" style="background: rgba(35, 134, 54, 0.05); border-color: rgba(35, 134, 54, 0.4) !important;">
 		<label class="small text-success fw-bold mb-2">
-			<i class="bi bi-person-lines-fill me-1"></i> <?= __('tit_personaje'); ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?>
+			<i class="bi bi-person-lines-fill me-1"></i> <?= __('tit_personaje'); ?>
 		</label>
 														
-		<select class="form-select bg-dark text-light border-success mb-2 pref-track" id="chatRoleSelector" name="chat_role" onchange="document.getElementById('customRoleInput').classList.toggle('d-none', this.value !== 'custom')" <?= !$is_pro ? 'disabled' : '' ?>>
+		<select class="form-select bg-dark text-light border-success mb-2 pref-track" id="chatRoleSelector" name="chat_role" onchange="document.getElementById('customRoleInput').classList.toggle('d-none', this.value !== 'custom')">
 			
 			<option value="">🤖 <?= __('rol_asistente_defecto') ?></option>
 			

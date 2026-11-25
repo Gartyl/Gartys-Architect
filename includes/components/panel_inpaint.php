@@ -1,4 +1,3 @@
-<?php $is_avanzado = ($user_rol === 'pro' || $is_admin); ?>
 <!-- ============================================================================== -->
 <!-- VISOR DE IMAGEN Y HERRAMIENTAS DE EDICIÓN AVANZADA (Inpaint / Outpaint / LaMa) -->
 <!-- ============================================================================== -->
@@ -25,9 +24,8 @@
     <div id="inpaintToolbar" class="mt-3 param-group shadow-sm border-info flex-column w-100" style="border-color: rgba(13, 202, 240, 0.4) !important; background: rgba(13, 202, 240, 0.05); display: none;">
         <div class="d-flex justify-content-between align-items-center w-100">
             <label class="small text-info fw-bold mb-0" style="cursor: pointer;" onclick="document.getElementById('editToolsToggle').click();">
-                <i class="bi bi-brush"></i> <?= __('tit_inpaint') ?? 'EDICIÓn AVANZADA (Inpaint / Outpaint)' ?> 
-                <?php if (!$is_avanzado): ?>🔒 (Pro)<?php endif; ?>
-            </label>
+             <i class="bi bi-brush"></i> <?= __('tit_inpaint') ?? 'EDICIÓN AVANZADA (Inpaint / Outpaint)' ?>
+			</label>
             <div class="form-check form-switch m-0">
                 <input class="form-check-input pref-track border-info" type="checkbox" id="editToolsToggle" name="edit_tools_active" value="1" style="cursor: pointer;" onchange="document.getElementById('editToolsUI').classList.toggle('d-none', !this.checked); window.updateCursor();">
             </div>
@@ -36,16 +34,16 @@
         <!-- UI de Herramientas Desplegable -->
         <div id="editToolsUI" class="d-none mt-3 pt-3 w-100 border-top border-info" style="border-color: rgba(13, 202, 240, 0.2) !important;">
             
-            <!-- NUEVO: Interruptor de Borrado Mágico (LaMa Remover) integrado -->
-            <div class="d-flex align-items-center justify-content-between p-2 mb-3 rounded border border-danger shadow-sm" style="background: rgba(220, 53, 69, 0.08); border-color: rgba(220, 53, 69, 0.4) !important;">
-                <label class="form-check-label small text-danger fw-bold mb-0" for="toggleLamaMode" style="cursor: pointer;">
-                    <i class="bi bi-magic me-1"></i> <?= __('ctrl_lama_remover') ?? "Borrado Mágico (LaMa Remover)" ?>
-                </label>
-                <div class="form-check form-switch m-0">
-                    <input class="form-check-input border-danger" type="checkbox" id="toggleLamaMode" name="lama_enabled" value="1" 
-                           style="cursor: pointer;" onchange="if(typeof toggleLamaUI === 'function') toggleLamaUI(this.checked)">
-                </div>
-            </div>
+            <!-- Interruptor de Borrado Mágico (LaMa Remover - Exclusivo PRO) -->
+			<div class="d-flex align-items-center justify-content-between p-2 mb-3 rounded border border-danger shadow-sm" style="background: rgba(220, 53, 69, 0.08); border-color: rgba(220, 53, 69, 0.4) !important;">
+				<label class="form-check-label small text-danger fw-bold mb-0" for="toggleLamaMode" style="cursor: pointer;">
+					<i class="bi bi-magic me-1"></i> <?= __('ctrl_lama_remover') ?? "Borrado Mágico (LaMa Remover)" ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?>
+				</label>
+				<div class="form-check form-switch m-0">
+					<input class="form-check-input border-danger" type="checkbox" id="toggleLamaMode" name="lama_enabled" value="1" 
+						style="cursor: pointer;" onchange="if(typeof toggleLamaUI === 'function') toggleLamaUI(this.checked)" <?= !$is_pro ? 'disabled' : '' ?>>
+				</div>
+			</div>
 
             <!-- Controles de Pincel y Goma -->
             <div class="p-2 bg-dark border border-secondary rounded flex-wrap align-items-center justify-content-between gap-2 d-flex">

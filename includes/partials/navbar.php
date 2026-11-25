@@ -20,7 +20,8 @@
                 <a class="nav-link fw-bold text-light" href="historial.php"><i class="bi bi-clock-history"></i> <?= __('menu_historial') ?></a>
                 <a class="nav-link fw-bold text-success" href="#" onclick="abrirGestorModelos()"><i class="bi bi-database-fill-gear"></i> <?= __('menu_modelos') ?></a>
                 
-                <?php if (isset($_SESSION['rol']) && $_SESSION['rol'] !== 'pro' && $_SESSION['rol'] !== 'admin'): ?>
+                <?php $nav_is_pro = !empty($is_pro) || (isset($_SESSION['rol']) && in_array($_SESSION['rol'], ['pro', 'admin'])); ?>
+                <?php if (!$nav_is_pro): ?>
                     <button type="button" class="btn btn-sm btn-outline-warning fw-bold ms-lg-1" data-bs-toggle="modal" data-bs-target="#modalLicencia">
                         <i class="bi bi-star-fill text-warning"></i> <?= __('btn_activar_pro') ?? 'Activar Pro' ?>
                     </button>

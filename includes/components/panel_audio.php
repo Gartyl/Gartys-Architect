@@ -4,7 +4,7 @@
 // ==============================================================================
 $modelos_minimax_audio = [];
 try {
-    $stmt_mm = $pdo->query("SELECT nombre_visual, nombre_archivo FROM modelos_ia WHERE activo = 1 AND LOWER(nombre_archivo) LIKE '%minimax%' ORDER BY nombre_visual ASC");
+    $stmt_mm = $pdo->query("SELECT nombre_visual, nombre_archivo FROM modelos_ia WHERE activo = 1 AND LOWER(nombre_archivo) LIKE '%minimax%' AND LOWER(nombre_archivo) NOT LIKE '%image%' AND LOWER(nombre_visual) NOT LIKE '%image%' ORDER BY nombre_visual ASC");
     if ($stmt_mm) {
         $modelos_minimax_audio = $stmt_mm->fetchAll(PDO::FETCH_ASSOC);
     }

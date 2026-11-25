@@ -143,6 +143,10 @@ if ($action === 'get_single_image_data') {
 }
 
 if ($action === 'concatenar_videos') {
+	if (empty($is_pro)) {
+        echo json_encode(['error' => __('err_pro_video') ?? 'El Estudio de Vídeo es exclusivo para usuarios PRO.']);
+        exit();
+    }
     $videos_json = $_POST['videos_array'] ?? '[]';
     $audio_data = $_POST['audio_data'] ?? null;
     $tramos = json_decode($videos_json, true);
@@ -244,6 +248,10 @@ if ($action === 'concatenar_videos') {
 }
 
 if ($action === 'subir_video_externo') {
+	if (empty($is_pro)) {
+        echo json_encode(['error' => __('err_pro_video') ?? 'El Estudio de Vídeo es exclusivo para usuarios PRO.']);
+        exit();
+    }
     if (isset($_FILES['video_file'])) {
         $ext = strtolower(pathinfo($_FILES['video_file']['name'], PATHINFO_EXTENSION));
         if (in_array($ext, ['mp4', 'webm'])) {

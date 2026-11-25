@@ -13,7 +13,7 @@ if ($action === 'vision_extract') {
 
     try {
         // 1. Buscamos el motor de visión en la sombra (SYS_VISION)
-        $stmtModel = $pdo->prepare("SELECT nombre_archivo, keep_alive FROM modelos_ia WHERE categoria = 'SYS_VISION' AND activo = 1 LIMIT 1");
+        $stmtModel = $pdo->prepare("SELECT nombre_archivo, keep_alive FROM modelos_ia WHERE LOWER(categoria) = 'sys_vision' AND activo = 1 LIMIT 1");
         $stmtModel->execute();
         $rowModel = $stmtModel->fetch(PDO::FETCH_ASSOC);
 
@@ -47,7 +47,8 @@ if ($action === 'vision_extract') {
         ]
     ];
 
-    $ch = curl_init('http://' . LLM_IP . ':11434/api/generate');
+    $ch = curl_init('http://' . LLM_IP . ':' . LLM_PORT . '/api/generate');
+	
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));

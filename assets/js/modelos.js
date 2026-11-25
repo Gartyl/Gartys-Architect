@@ -125,81 +125,77 @@ function getFilteredItems(itemsList, category) {
         filtered = itemsList;
     }
 
-    if (typeof APP_ENV.isAvanzado !== 'undefined' && typeof APP_ENV.isAdmin !== 'undefined') {
-        if (APP_ENV.isAvanzado && !APP_ENV.isAdmin) {
-            filtered = filtered.filter(m => !/_c[\/\\]/i.test(m));
-        }
-    }
+    if (typeof APP_ENV.isAdmin !== 'undefined' && !APP_ENV.isAdmin) {
+    filtered = filtered.filter(m => !/_c[\/\\]/i.test(m));
+	}
     return filtered;
 }
 
 async function loadModelsAndLoras() {
-    if (APP_ENV.isAvanzado) {
+    try {
+        const fdModels = new FormData();
+        fdModels.append('action', 'get_checkpoints');
+        const resModels = await fetch('procesar.php', { method: 'POST', body: fdModels });
+        const textModels = await resModels.text();
+        
         try {
-            const fdModels = new FormData();
-            fdModels.append('action', 'get_checkpoints');
-            const resModels = await fetch('procesar.php', { method: 'POST', body: fdModels });
-            const textModels = await resModels.text();
-            
-            try {
-                const dataModels = JSON.parse(textModels);
-                allCheckpoints = dataModels.checkpoints || [];
-                allUnets = dataModels.unets || [];
-                allControlNets = dataModels.controlnets || [];
-                allUpscalers = dataModels.upscalers || [];
-                allAdetailers = dataModels.adetailers || []; // <-- NUEVO
-            } catch(err) { }
-            
-            updateModelFilter(document.getElementById('selector').value);
-            
-            const upsel = document.getElementById('upscaleModelSelector');
-            if(upsel) {
-                upsel.innerHTML = '<option value="">' + GartyLang.opt_select_model + '</option>';
-                if(allUpscalers.length > 0) {
-                    allUpscalers.forEach(m => {
-                        const opt = document.createElement('option'); opt.value = m; opt.textContent = m.split(/[\\/]/).pop();
-                        upsel.appendChild(opt);
-                    });
-                } else {
-                    const popularUpscalers = ['4x-UltraSharp.pth', 'RealESRGAN_x4plus.pth', '4x_NMKD-Siax_200k.pth', '8x_NMKD-Superscale_150000_G.pth'];
-                    popularUpscalers.forEach(m => {
-                        const opt = document.createElement('option'); opt.value = m; opt.textContent = m; upsel.appendChild(opt);
-                    });
-                }
+            const dataModels = JSON.parse(textModels);
+            allCheckpoints = dataModels.checkpoints || [];
+            allUnets = dataModels.unets || [];
+            allControlNets = dataModels.controlnets || [];
+            allUpscalers = dataModels.upscalers || [];
+            allAdetailers = dataModels.adetailers || []; // <-- NUEVO
+        } catch(err) { }
+        
+        updateModelFilter(document.getElementById('selector').value);
+        
+        const upsel = document.getElementById('upscaleModelSelector');
+        if(upsel) {
+            upsel.innerHTML = '<option value="">' + GartyLang.opt_select_model + '</option>';
+            if(allUpscalers.length > 0) {
+                allUpscalers.forEach(m => {
+                    const opt = document.createElement('option'); opt.value = m; opt.textContent = m.split(/[\\/]/).pop();
+                    upsel.appendChild(opt);
+                });
+            } else {
+                const popularUpscalers = ['4x-UltraSharp.pth', 'RealESRGAN_x4plus.pth', '4x_NMKD-Siax_200k.pth', '8x_NMKD-Superscale_150000_G.pth'];
+                popularUpscalers.forEach(m => {
+                    const opt = document.createElement('option'); opt.value = m; opt.textContent = m; upsel.appendChild(opt);
+                });
             }
-			
-			// --- NUEVO: RELLENAR DESPLEGABLE DE ADETAILER ---
-            const adSel = document.getElementById('adetailer_model');
-            if (adSel) {
-                adSel.innerHTML = '';
-                if (allAdetailers.length > 0) {
-                    allAdetailers.forEach(m => {
-                        const opt = document.createElement('option'); 
-                        opt.value = m; 
-                        // Limpiamos la ruta para que en el menú se vea bonito solo el nombre (ej. "hand_yolov8s.pt")
-                        opt.textContent = m.split(/[\\/]/).pop(); 
-                        adSel.appendChild(opt);
-                    });
-                } else {
-                    // Fallback de seguridad si no detecta la carpeta o está vacía
-                    adSel.innerHTML = '<option value="bbox/face_yolov8m.pt">face_yolov8m.pt</option>';
-                }
+        }
+		
+		// --- NUEVO: RELLENAR DESPLEGABLE DE ADETAILER ---
+        const adSel = document.getElementById('adetailer_model');
+        if (adSel) {
+            adSel.innerHTML = '';
+            if (allAdetailers.length > 0) {
+                allAdetailers.forEach(m => {
+                    const opt = document.createElement('option'); 
+                    opt.value = m; 
+                    // Limpiamos la ruta para que en el menú se vea bonito solo el nombre (ej. "hand_yolov8s.pt")
+                    opt.textContent = m.split(/[\\/]/).pop(); 
+                    adSel.appendChild(opt);
+                });
+            } else {
+                // Fallback de seguridad si no detecta la carpeta o está vacía
+                adSel.innerHTML = '<option value="bbox/face_yolov8m.pt">face_yolov8m.pt</option>';
             }
-            // ------------------------------------------------
-			
-        } catch(e) {}
+        }
+        // ------------------------------------------------
+		
+    } catch(e) {}
 
-        try {
-            const fdLoras = new FormData();
-            fdLoras.append('action', 'get_loras');
-            const resLoras = await fetch('procesar.php', { method: 'POST', body: fdLoras });
-            const dataLoras = await resLoras.json();
-            if (dataLoras.loras && dataLoras.loras.length > 0) {
-                loadedLoras = dataLoras.loras;
-                updateLoraFilter(document.getElementById('selector').value); 
-            }
-        } catch(e) {}
-    }
+    try {
+        const fdLoras = new FormData();
+        fdLoras.append('action', 'get_loras');
+        const resLoras = await fetch('procesar.php', { method: 'POST', body: fdLoras });
+        const dataLoras = await resLoras.json();
+        if (dataLoras.loras && dataLoras.loras.length > 0) {
+            loadedLoras = dataLoras.loras;
+            updateLoraFilter(document.getElementById('selector').value); 
+        }
+    } catch(e) {}   
 }
 
 function updateModelFilter(category) {
@@ -260,7 +256,13 @@ function updateModelFilter(category) {
                     if (m.categoria) opt.dataset.categoria = m.categoria;
                     if (m.nombre_archivo) opt.dataset.archivo = m.nombre_archivo;
                     
-                    let esPro = (m.nivel_acceso === 'avanzado' || m.nivel_acceso === 'pro');
+                    const archLow = (m.nombre_archivo || '').toLowerCase();
+					const visLow  = (m.nombre_visual || '').toLowerCase();
+					const catLow  = (m.categoria || '').toLowerCase();
+					const esSv2   = archLow.includes('seedvr2') || visLow.includes('seedvr2');
+					const esMmImg = archLow.includes('minimax') && archLow.includes('image');
+					const esVid   = (catLow === 'video' && !esMmImg);
+					let esPro     = esSv2 || esVid || (m.nivel_acceso === 'avanzado' || m.nivel_acceso === 'pro');
                     if (typeof currentUserRole !== 'undefined' && currentUserRole === 'free' && esPro) {
                         opt.disabled = true;
                         opt.textContent = m.nombre_visual + ' 🔒 (Pro)';
@@ -279,7 +281,13 @@ function updateModelFilter(category) {
                 if (m.categoria) opt.dataset.categoria = m.categoria;
                 if (m.nombre_archivo) opt.dataset.archivo = m.nombre_archivo;
                 
-                let esPro = (m.nivel_acceso === 'avanzado' || m.nivel_acceso === 'pro');
+                const archLow = (m.nombre_archivo || '').toLowerCase();
+				const visLow  = (m.nombre_visual || '').toLowerCase();
+				const catLow  = (m.categoria || '').toLowerCase();
+				const esSv2   = archLow.includes('seedvr2') || visLow.includes('seedvr2');
+				const esMmImg = archLow.includes('minimax') && archLow.includes('image');
+				const esVid   = (catLow === 'video' && !esMmImg);
+				let esPro     = esSv2 || esVid || (m.nivel_acceso === 'avanzado' || m.nivel_acceso === 'pro');
                 if (typeof currentUserRole !== 'undefined' && currentUserRole === 'free' && esPro) {
                     opt.disabled = true;
                     opt.textContent = m.nombre_visual + ' 🔒 (Pro)';
@@ -302,15 +310,20 @@ function updateModelFilter(category) {
             modelSel.value = valorActual;
         }
     }
+	
+	if (modelSel.selectedIndex !== -1 && modelSel.options[modelSel.selectedIndex].disabled) {
+        const primeraLibre = Array.from(modelSel.options).find(opt => !opt.disabled && opt.value !== '');
+        if (primeraLibre) modelSel.value = primeraLibre.value;
+    }
 
     const cnSel = document.getElementById('cnModelSelector');
     if(cnSel) {
         if(allControlNets.length > 0) {
             cnSel.innerHTML = '<option value="">' + GartyLang.opt_select_model + '</option>';
             let filteredCn = allControlNets; 
-            if (APP_ENV.isAvanzado) {
-                filteredCn = filteredCn.filter(m => !/_c[\/\\]/i.test(m));
-            }
+            if (!APP_ENV.isAdmin) {
+				filteredCn = filteredCn.filter(m => !/_c[\/\\]/i.test(m));
+			}
             filteredCn.forEach(m => {
                 const opt = document.createElement('option'); opt.value = m; opt.textContent = m.split(/[\\/]/).pop();
                 cnSel.appendChild(opt);
@@ -506,11 +519,11 @@ function updateLoraFilter(category) {
         }
 
         // 3. Filtrado de Admin (Ocultamos las carpetas _C a los que no son admin)
-        if (APP_ENV.isAvanzado && !APP_ENV.isAdmin) {
-            filteredLoras = tempLoras.filter(m => !/_c[\/\\]/i.test(m));
-        } else {
-            filteredLoras = tempLoras;
-        }
+        if (!APP_ENV.isAdmin) {
+			filteredLoras = tempLoras.filter(m => !/_c[\/\\]/i.test(m));
+		} else {
+			filteredLoras = tempLoras;
+		}
     }
 
     // 4. Actualizamos visualmente todos los desplegables de LoRAs de la interfaz
@@ -539,9 +552,6 @@ function updateLoraFilter(category) {
 // --- NUEVO: ACTUALIZACIÓN SILENCIOSA DE LORAS EN SEGUNDO PLANO ---
 // ==============================================================================
 async function actualizarLorasSilenciosamente() {
-    // Solo actuamos si el panel de avanzado está activo (igual que en loadModelsAndLoras)
-    if (!APP_ENV.isAvanzado) return;
-
     try {
         const fdLoras = new FormData();
         fdLoras.append('action', 'get_loras');
@@ -1776,7 +1786,7 @@ window.aplicarModeloYLoras = async function(targetModelName, lorasArray = [], on
         intentos++;
     }
     // Si tiene permisos avanzados, damos margen también a que cargue la lista de LoRAs
-    if (APP_ENV.isAvanzado && lorasArray.length > 0) {
+    if (lorasArray.length > 0) {
         let intentosLora = 0;
         while (intentosLora < 30 && (!loadedLoras || loadedLoras.length === 0)) {
             await new Promise(r => setTimeout(r, 100));

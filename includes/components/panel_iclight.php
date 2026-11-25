@@ -38,10 +38,10 @@
             <div class="col-md-12 mt-2">
                 <label class="small text-secondary fw-bold"><?= __('iclight_direction') ?? 'Dirección de la Luz' ?></label>
                 <select class="form-select form-select-sm bg-dark text-light border-secondary pref-track" id="iclight_direction" name="iclight_direction" <?= !$is_pro ? 'disabled' : '' ?>>
-                    <option value="Left Light" selected>⬅️ <?= __('iclight_dir_left') ?? 'Luz desde la Izquierda' ?></option>
+                    <option value="Left Light" selected>⬅️  <?= __('iclight_dir_left') ?? 'Luz desde la Izquierda' ?></option>
                     <option value="Right Light">➡️ <?= __('iclight_dir_right') ?? 'Luz desde la Derecha' ?></option>
-                    <option value="Top Light">⬆️ <?= __('iclight_dir_top') ?? 'Luz desde Arriba' ?></option>
-                    <option value="Bottom Light">⬇️ <?= __('iclight_dir_bottom') ?? 'Luz desde Abajo' ?></option>
+                    <option value="Top Light">⬆️  <?= __('iclight_dir_top') ?? 'Luz desde Arriba' ?></option>
+                    <option value="Bottom Light">⬇️  <?= __('iclight_dir_bottom') ?? 'Luz desde Abajo' ?></option>
                     <option value="Detail / Ambient">💡 <?= __('iclight_dir_ambient') ?? 'Luz Ambiental / Detalle' ?></option>
                 </select>
             </div>

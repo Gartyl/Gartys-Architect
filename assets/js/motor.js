@@ -5,6 +5,8 @@
 const isAvanzado = APP_ENV.isAvanzado; 
 const isAdmin = APP_ENV.isAdmin;
 
+const isPro = Boolean(APP_ENV.isPro || APP_ENV.isAdmin || APP_ENV.userRole === 'pro' || APP_ENV.userRole === 'admin');
+
 let lastGeneratedPrompt = { pos: "", neg: "" }; 
 let currentPromptId = 0;
 let currentSessionFingerprint = ""; // NUEVO: Huella de sesión inteligente
@@ -149,8 +151,16 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==============================================================================
 window.bandejaArchivos = [];
 
-window.agregarImagenABandeja = function(base64Data) {
-    // 1. Detectamos el límite dinámico según el modelo seleccionado actualmente
+window.obtenerLimiteBandeja = function() {
+    if (!isPro) {
+        return {
+            max: 2,
+            msg: (typeof GartyLang !== 'undefined' && GartyLang.err_pro_multitray_limit)
+                ? GartyLang.err_pro_multitray_limit
+                : 'La versión gratuita admite hasta 2 imágenes de referencia simultáneas. Actualiza a PRO para usar hasta 9.'
+        };
+    }
+
     const modelSel = document.getElementById('modelSelector');
     const selOpt = (modelSel && modelSel.selectedIndex >= 0) ? modelSel.options[modelSel.selectedIndex] : null;
     const modText = selOpt
@@ -159,28 +169,38 @@ window.agregarImagenABandeja = function(base64Data) {
 
     const esFlux3 = /flux[\s._-]*3/.test(modText);
 
-    let maxPermitido = 9;
-    let msgLimite = (typeof GartyLang !== 'undefined' && GartyLang.swal_limit_tray_text) 
-        ? GartyLang.swal_limit_tray_text 
-        : 'Puedes subir un máximo de 9 imágenes de referencia a la bandeja.';
-
     if (modText.includes('krea2') || modText.includes('krea-2') || modText.includes('krea 2')) {
-        maxPermitido = 2;
-        msgLimite = (typeof GartyLang !== 'undefined' && GartyLang.err_krea2_max_images) 
-            ? GartyLang.err_krea2_max_images 
-            : 'Krea-2 solo admite un máximo de 2 imágenes simultáneas en la bandeja.';
-    } else if (!esFlux3 && (modText.includes('flux2') || modText.includes('flux 2') || modText.includes('klein') || modText.includes('kontext'))) {
-        maxPermitido = 3;
-        msgLimite = (typeof GartyLang !== 'undefined' && GartyLang.err_flux2_max_images) 
-            ? GartyLang.err_flux2_max_images 
-            : 'Flux 2 Klein solo admite un máximo de 3 imágenes simultáneas en la bandeja.';
+        return {
+            max: 2,
+            msg: (typeof GartyLang !== 'undefined' && GartyLang.err_krea2_max_images)
+                ? GartyLang.err_krea2_max_images
+                : 'Krea-2 solo admite un máximo de 2 imágenes simultáneas en la bandeja.'
+        };
+    }
+    if (!esFlux3 && (modText.includes('flux2') || modText.includes('flux 2') || modText.includes('klein') || modText.includes('kontext'))) {
+        return {
+            max: 3,
+            msg: (typeof GartyLang !== 'undefined' && GartyLang.err_flux2_max_images)
+                ? GartyLang.err_flux2_max_images
+                : 'Flux 2 Klein solo admite un máximo de 3 imágenes simultáneas en la bandeja.'
+        };
     }
 
-    if (window.bandejaArchivos.length >= maxPermitido) {
-        SwalDark.fire({ 
-            icon: 'info', 
-            title: typeof GartyLang !== 'undefined' && GartyLang.swal_limit_tray_title ? GartyLang.swal_limit_tray_title : 'Límite alcanzado', 
-            text: msgLimite 
+    return {
+        max: 9,
+        msg: (typeof GartyLang !== 'undefined' && GartyLang.swal_limit_tray_text)
+            ? GartyLang.swal_limit_tray_text
+            : 'Puedes subir un máximo de 9 imágenes de referencia a la bandeja.'
+    };
+};
+
+window.agregarImagenABandeja = function(base64Data) {
+    const limite = window.obtenerLimiteBandeja();
+    if (window.bandejaArchivos.length >= limite.max) {
+        SwalDark.fire({
+            icon: 'info',
+            title: typeof GartyLang !== 'undefined' && GartyLang.swal_limit_tray_title ? GartyLang.swal_limit_tray_title : 'Límite alcanzado',
+            text: limite.msg
         });
         return;
     }
@@ -866,7 +886,7 @@ async function eliminarModeloRostro() {
 }
 
 async function cargarRostrosGuardados() {
-    if (!APP_ENV.isAvanzado) return;
+    if (!isPro) return;
     const select = document.getElementById('reactorSavedFaces');
     if (!select || select.options.length > 1) return; // Evita recargas innecesarias
     try {
@@ -1314,11 +1334,13 @@ if (mainImageInput) {
 
         // 2. MODO MULTI: Procesamos todas las imágenes seleccionadas de golpe
         if (isMultiInputActive) {
-            let disponibles = 9 - window.bandejaArchivos.length;
-            let archivosAProcesar = files.filter(f => f.type.startsWith('image/')).slice(0, disponibles);
-            
-            if (files.length > disponibles) {
-                SwalDark.fire({ icon: 'info', title: GartyLang.swal_limit_tray_title || 'Límite alcanzado', text: GartyLang.swal_limit_tray_text || 'Puedes subir un máximo de 9 imágenes de referencia a la bandeja.' });
+            const limite = window.obtenerLimiteBandeja();
+            const soloImagenes = files.filter(f => f.type.startsWith('image/'));
+            const disponibles = Math.max(0, limite.max - window.bandejaArchivos.length);
+            const archivosAProcesar = soloImagenes.slice(0, disponibles);
+
+            if (soloImagenes.length > disponibles) {
+                SwalDark.fire({ icon: 'info', title: GartyLang.swal_limit_tray_title || 'Límite alcanzado', text: limite.msg });
             }
 
             // Las procesamos de forma asíncrona para que entren en orden a la bandeja
@@ -1862,13 +1884,13 @@ function updateUIForSelector(sel) {
     if (ipaBlock) {
         if (cfg.ipa) {
             ipaBlock.style.display = 'block';
-            if (!isAvanzado && ipaToggle) { ipaToggle.disabled = true; ipaToggle.checked = false; }
+            if (!isPro && ipaToggle) { ipaToggle.disabled = true; ipaToggle.checked = false; }
             
             if (cfg.ipaType === 'redux') {
                 if (ipaAdvancedControls) ipaAdvancedControls.style.display = 'none';
                 if (ipaTitleLabel) { ipaTitleLabel.innerText = (typeof GartyLang !== 'undefined' && GartyLang.tit_flux_redux) ? GartyLang.tit_flux_redux : 'TRANSFERENCIA DE ESTILO (FLUX Redux)'; }
             } else {
-                if (ipaAdvancedControls) ipaAdvancedControls.style.display = isAvanzado ? 'flex' : 'none';
+                if (ipaAdvancedControls) ipaAdvancedControls.style.display = isPro ? 'flex' : 'none';
                 if (ipaTitleLabel) { ipaTitleLabel.innerText = (typeof GartyLang !== 'undefined' && GartyLang.tit_ipadapter) ? GartyLang.tit_ipadapter : 'TRANSFERENCIA DE ESTILO (IP-Adapter)'; }
             }
         } else { 
@@ -2137,16 +2159,16 @@ window.sincronizarPanelSeedVR2 = function() {
 
     if (!hiresBlock) return;
 
-    if (esSv2 && (sel === '[VIDEO]' || sel === '[NATURAL_IMAGE]')) {
+    if (esSv2 && isPro && (sel === '[VIDEO]' || sel === '[NATURAL_IMAGE]')) {
         hiresBlock.style.display = 'block';
         hiresBlock.dataset.autoSv2 = '1';
 
         if (hiresToggle) hiresToggle.checked = true;
-		const pureUp = document.getElementById('pureUpscaleToggle');
-		if (pureUp) {
-			pureUp.checked = true;
-			if (typeof toggleUpscalePuro === 'function') toggleUpscalePuro(true);
-		}
+        const pureUp = document.getElementById('pureUpscaleToggle');
+        if (pureUp && !pureUp.checked) {
+            pureUp.checked = true;
+            if (typeof toggleUpscalePuro === 'function') toggleUpscalePuro(true);
+        }
         if (upscaleOpts) upscaleOpts.classList.remove('d-none');
 
         if (sv2Toggle) {
@@ -2172,11 +2194,11 @@ window.sincronizarPanelSeedVR2 = function() {
         }
     } else {
         if (hiresBlock.dataset.autoSv2 === '1') {
-			const pureUp = document.getElementById('pureUpscaleToggle');
-			if (pureUp && !pureUp.checked) {
-				pureUp.checked = true;
-				if (typeof toggleUpscalePuro === 'function') toggleUpscalePuro(true);
-			}
+            const pureUp = document.getElementById('pureUpscaleToggle');
+            if (pureUp && pureUp.checked) {
+                pureUp.checked = false;
+                if (typeof toggleUpscalePuro === 'function') toggleUpscalePuro(false);
+            }
             delete hiresBlock.dataset.autoSv2;
             if (hiresToggle) hiresToggle.checked = false;
             if (upscaleOpts) upscaleOpts.classList.add('d-none');
@@ -3585,6 +3607,11 @@ async function runGpu(mode = 'directo') {
     }
 
     const batchVal = document.getElementById('batchSize') ? document.getElementById('batchSize').value : "1";
+	if (!isPro && ['inf', 'all', 'xy_lora', 'xy_denoise', 'xy_cfg'].includes(batchVal)) {
+		SwalDark.fire({ icon: 'info', title: 'PRO', text: GartyLang.err_pro_benchmark || 'Esta función por lotes es exclusiva para usuarios PRO.' });
+		_actualizarBotonRender(buttonUsed, 'restaurar', originalBtnText);
+		return;
+	}
     const seedVal = document.getElementById('seedInput') ? parseInt(document.getElementById('seedInput').value) : -1;
 
     // --- Módulo Bucle, Lote y Benchmark ---
@@ -4319,12 +4346,14 @@ function construirTarjetaImagen(imgData, dbId = 0, isChat = false, isVision = fa
                 ${!isVision ? `
                 <a href="javascript:void(0)" onclick="enviarImagenA('${mediaSrc}', 'principal')" class="btn btn-sm btn-danger rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_edit_inpaint}"><i class="bi bi-brush"></i></a>
                 ` : ''}
-			    ${!isVision && isVideo ? `
+			    ${!isVision && isVideo && isPro ? `
                 <a href="javascript:void(0)" onclick="if(typeof enviarVideoAFoley === 'function') enviarVideoAFoley('${mediaSrc}')" class="btn btn-sm btn-info rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_send_foley || 'Sonorizar Vídeo con Foley (Hunyuan)'}"><i class="bi bi-volume-up-fill text-dark"></i></a>
                 ` : ''}
-				${!isVision && !showMergeCheckbox ? `
+                ${!isVision && !showMergeCheckbox ? `
+                ${isPro ? `
                 <a href="javascript:void(0)" onclick="enviarImagenA('${mediaSrc}', 'reactor')" class="btn btn-sm btn-warning rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_use_face || 'Usar como Rostro'}"><i class="bi bi-person-bounding-box text-dark"></i></a>
                 <a href="javascript:void(0)" onclick="enviarImagenA('${mediaSrc}', 'ipadapter')" class="btn btn-sm btn-info rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_use_style || 'Usar en IP-Adapter'}"><i class="bi bi-images text-dark"></i></a>
+                ` : ''}
                 <a href="javascript:void(0)" onclick="enviarImagenA('${mediaSrc}', 'controlnet')" class="btn btn-sm btn-success rounded-circle shadow" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_use_cn || 'Usar en ControlNet'}"><i class="bi bi-magnet text-light"></i></a>
                 ` : ''}
                 ${!isAudio ? `<a href="javascript:void(0)" onclick="if(typeof prepararComparacion === 'function') prepararComparacion('${mediaSrc}', this)" class="btn btn-sm btn-secondary rounded-circle shadow btn-compare-ab" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; opacity: 0.9;" title="${GartyLang.btn_compare_ab}"><i class="bi bi-symmetry-vertical"></i></a>` : ''}
@@ -4335,6 +4364,10 @@ function construirTarjetaImagen(imgData, dbId = 0, isChat = false, isVision = fa
 }
 
 async function enviarImagenA(mediaSrc, destino) {
+	if (!isPro && (destino === 'reactor' || destino === 'ipadapter')) {
+        SwalDark.fire({ icon: 'info', title: 'PRO', text: GartyLang.msg_solo_pro || 'Esta herramienta es exclusiva para usuarios PRO.' });
+        return;
+    }
     if (!mediaSrc) return;
     
     // 🌟 LA AUTOPISTA UNIFICADA PARA EL PANEL PRINCIPAL 🌟
@@ -5113,6 +5146,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const batchInput = document.getElementById('batchFolderInput');
     if (batchInput) {
         batchInput.addEventListener('change', async (e) => {
+            if (!isPro) { batchInput.value = ""; return; }
             const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
             if (files.length === 0) return;
 

@@ -77,7 +77,7 @@ function renderPaginacionHistorial($page, $total_pages, $marginClass = 'my-4') {
                    class="form-control form-control-sm bg-dark text-light border-secondary text-center"
                    style="width: 70px;"
                    onkeydown="if(event.key==='Enter'){event.preventDefault(); irAPaginaHistorial(this.value, <?= $total_pages ?>);}">
-            <button type="button" class="btn btn-sm btn-outline-info" onclick="irAPaginaHistorial(this.previousElementSibling.value, <?= $total_pages ?>)" title=""<?= __('hist_gopage') ?>"">
+            <button type="button" class="btn btn-sm btn-outline-info" onclick="irAPaginaHistorial(this.previousElementSibling.value, <?= $total_pages ?>)" title="<?= __('hist_gopage') ?>">
                 <i class="bi bi-arrow-right"></i>
             </button>
         </div>
@@ -131,7 +131,7 @@ if (!empty($date_to)) {
     $where_clauses[] = "DATE(fecha_hora) <= ?";
     $params[] = $date_to;
 }
-$is_semantic_active = ($is_pro && function_exists('obtenerModeloEmbeddingActivo') && obtenerModeloEmbeddingActivo($pdo) !== null);
+$is_semantic_active = (function_exists('obtenerModeloEmbeddingActivo') && obtenerModeloEmbeddingActivo($pdo) !== null);
 
 if (!empty($search)) {
     $ids_semanticos = null;

@@ -19,7 +19,7 @@ if ($action === 'amplificar_prompt') {
     $temperatura_varita = 0.7; 
     
     // SIEMPRE forzamos la búsqueda del SYS_LLM para utilidades en la sombra
-    $stmt_llm = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND categoria = 'SYS_LLM' AND activo = 1 LIMIT 1");
+    $stmt_llm = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND categoria = LOWER(categoria) = 'sys_llm' AND activo = 1 LIMIT 1");
     $modelo_varita = $stmt_llm->fetchColumn() ?: $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND activo = 1 LIMIT 1")->fetchColumn();
     
     if (empty($modelo_varita)) { echo json_encode(['error' => __('err_no_sys_llm_active')]); exit(); }
@@ -71,7 +71,7 @@ if ($action === 'traducir_rapido') {
     $texto = trim($_POST['texto'] ?? '');
     if (empty($texto)) { echo json_encode(['error' => __('err_empty_text')]); exit(); }
 
-    $stmt_llm =$pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND categoria = 'SYS_LLM' AND activo = 1 LIMIT 1");
+    $stmt_llm =$pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND categoria = LOWER(categoria) = 'sys_llm' AND activo = 1 LIMIT 1");
     $modelo_traductor = $stmt_llm->fetchColumn() ?:$pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND activo = 1 LIMIT 1")->fetchColumn();
 
     if (empty($modelo_traductor)) { echo json_encode(['error' => __('err_no_sys_llm_active')]); exit(); }
@@ -167,13 +167,14 @@ if ($action === 'generar_prompt_sorpresa') {
 		
 		//$stmtDado = $pdo->query("SELECT titulo, prompt_texto, parametros FROM personalidades_prompts WHERE LOWER(tipo) = 'random_prompt' AND activo = 1 ORDER BY RAND() LIMIT 1");
 		
-		// INTENTAR REPETIR MENYS
+		// INTENTAR REPETIR MENYS (Compatible MySQL + SQLite)
+		$rand_fn = ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') ? 'RANDOM()' : 'RAND()';
 		$ultimos = $_SESSION['ultimos_dados'] ?? [];
 		$filtroNoRepetir = !empty($ultimos) ? "AND titulo NOT IN (" . implode(',', array_map([$pdo, 'quote'], $ultimos)) . ")" : "";
-		$stmtDado = $pdo->query("SELECT titulo, prompt_texto, parametros FROM personalidades_prompts WHERE LOWER(tipo) = 'random_prompt' AND activo = 1 $filtroNoRepetir ORDER BY RAND() LIMIT 1");
+		$stmtDado = $pdo->query("SELECT titulo, prompt_texto, parametros FROM personalidades_prompts WHERE LOWER(tipo) = 'random_prompt' AND activo = 1 $filtroNoRepetir ORDER BY $rand_fn LIMIT 1");
 		// FINS ACÍ
 		
-        $resultado_db = $stmtDado->fetch(PDO::FETCH_ASSOC);
+        $resultado_db = $stmtDado ? $stmtDado->fetch(PDO::FETCH_ASSOC) : false;
 		
 		// CONTINUA
         $_SESSION['ultimos_dados'][] = $resultado_db['titulo'];
@@ -194,7 +195,7 @@ if ($action === 'generar_prompt_sorpresa') {
         $temperatura_final = 0.95; // Temperatura por defecto para asegurar máxima creatividad
         
         // SIEMPRE forzamos el SYS_LLM
-        $stmt_llm = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND categoria = 'SYS_LLM' AND activo = 1 LIMIT 1");
+        $stmt_llm = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND categoria = LOWER(categoria) = 'sys_llm' AND activo = 1 LIMIT 1");
         $modelo_base = $stmt_llm ? $stmt_llm->fetchColumn() : false;
         if (!$modelo_base) {
             $stmt_fb = $pdo->query("SELECT nombre_archivo FROM modelos_ia WHERE motor = 'ollama' AND activo = 1 LIMIT 1");
@@ -371,7 +372,7 @@ if ($action === 'liberar_modelo_ollama') {
         curl_setopt($ch, CURLOPT_TIMEOUT, 5);
         
         curl_exec($ch);
-        curl_close($ch);
+        $ch = null;
     }
     echo json_encode(['success' => true]);
     exit();
@@ -414,7 +415,7 @@ if ($action === 'get_system_stats') {
             $stats[$key] = json_decode($res, true);
         }
         curl_multi_remove_handle($mh, $ch);
-        curl_close($ch);
+        $ch = null;
     }
     curl_multi_close($mh);
 	

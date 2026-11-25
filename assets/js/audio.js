@@ -15,7 +15,7 @@ function toggleAudioUI() {
         if (toggle.checked) {
             ui.classList.remove('d-none');
             // Si el usuario activa audio pero no es pro (por manipulación de DOM), revertir
-            if (typeof APP_ENV !== 'undefined' && currentUserRole !== 'pro' && !APP_ENV.isAdmin) {
+            if (typeof APP_ENV !== 'undefined' && !APP_ENV.isPro && !APP_ENV.isAdmin && currentUserRole !== 'pro') {
                 toggle.checked = false;
                 ui.classList.add('d-none');
                 SwalDark.fire({ 
@@ -309,6 +309,9 @@ function getActiveAudioConfig() {
 // ============================================================================
 
 window.cargarVocesGuardadas = async function() {
+    const esPro = typeof APP_ENV !== 'undefined' && (APP_ENV.isPro || APP_ENV.isAdmin || APP_ENV.userRole === 'pro' || APP_ENV.userRole === 'admin');
+    if (!esPro) return;
+
     const select = document.getElementById('ttsSavedVoices');
     if (!select) return;
 
@@ -563,6 +566,11 @@ window.optimizarPromptMusicalIA = async function() {
 // --- PUENTE DIRECTO: ENVIAR VÍDEO GENERADO A HUNYUAN FOLEY EN 1 CLIC ---
 // ============================================================================
 window.enviarVideoAFoley = async function(mediaSrc) {
+	const esPro = typeof APP_ENV !== 'undefined' && (APP_ENV.isPro || APP_ENV.isAdmin || APP_ENV.userRole === 'pro' || APP_ENV.userRole === 'admin');
+	 if (!esPro) {
+		 SwalDark.fire({ icon: 'info', title: 'PRO', text: GartyLang.err_pro_audio || 'El módulo de Audio Pro y Foley es exclusivo para usuarios PRO.' });
+		 return;
+	 }
     if (!mediaSrc) return;
     if (typeof enviarImagenA === 'function') {
         await enviarImagenA(mediaSrc, 'principal');

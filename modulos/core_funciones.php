@@ -11,31 +11,6 @@ $is_admin = ($user_rol === 'admin');
 $is_pro   = ($user_rol === 'pro' || $user_rol === 'admin'); 
 $is_free  = ($user_rol === 'free');
 
-// --- TRAMPA GLOBAL PARA ROLES DE CHAT (FREEMIUM) ---
-if (!$is_pro && isset($_POST['chat_role'])) {
-    $rol_enviado = trim($_POST['chat_role']);
-    $rol_por_defecto = '';
-    
-    try {
-        $stmt = $pdo->prepare("SELECT prompt_texto FROM personalidades_prompts WHERE tipo = 'chat_default' AND idioma = ? AND activo = 1 LIMIT 1");
-        $stmt->execute([$lang]);
-        $rol_por_defecto = trim((string)$stmt->fetchColumn());
-        
-        if (empty($rol_por_defecto)) {
-            $stmt->execute(['es']);
-            $rol_por_defecto = trim((string)$stmt->fetchColumn());
-        }
-
-        if ($rol_enviado !== '' && $rol_enviado !== $rol_por_defecto) {
-            echo json_encode(['success' => false, 'error' => __('err_pro_role_lock')]);
-            exit;
-        }
-    } catch (PDOException $e) {
-        echo json_encode(['success' => false, 'error' => 'Error de seguridad validando el rol.']);
-        exit;
-    }
-}
-
 // --- HERRAMIENTAS GLOBALES ---
 function filter_admin_folders($list) {
     $filtered = [];
@@ -322,7 +297,7 @@ if (!function_exists('generarEmbeddingOllama')) {
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
         curl_setopt($ch, CURLOPT_TIMEOUT, 6);
         $res = curl_exec($ch);
-        curl_close($ch);
+        $ch = null;
 
         if (!$res) return null;
         $data = json_decode($res, true);

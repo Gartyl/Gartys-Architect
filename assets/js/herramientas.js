@@ -429,12 +429,21 @@ function loadPreferences(sel) {
             if (key === 'descripcion') return; 
             const el = document.getElementById(key);
             if (el) {
+                if (el.disabled) return; // Respeta los candados PRO del HTML
+
                 if (el.type === 'checkbox') {
                     el.checked = prefs[sel][key];
-                    if(el.onchange) el.onchange(); 
+                    if (el.onchange) el.onchange(); 
                 } else {
                     el.value = prefs[sel][key];
-                    if (el.tagName === 'SELECT' && !el.value && el.options.length > 0) el.selectedIndex = 0;
+                    if (el.tagName === 'SELECT') {
+                        const optSel = el.selectedIndex >= 0 ? el.options[el.selectedIndex] : null;
+                        if (!el.value || (optSel && optSel.disabled)) {
+                            const primeraLibre = Array.from(el.options).find(o => !o.disabled);
+                            if (primeraLibre) el.value = primeraLibre.value;
+                            else if (el.options.length > 0) el.selectedIndex = 0;
+                        }
+                    }
                 }
             }
         });
@@ -490,17 +499,22 @@ async function abrirModalGaleria(page = 1) {
         }
         
         if (data.images && data.images.length > 0) {
+            const esProGal = typeof APP_ENV !== 'undefined' && (APP_ENV.isPro || APP_ENV.isAdmin || APP_ENV.userRole === 'pro' || APP_ENV.userRole === 'admin');
+
             grid.innerHTML = data.images.map(img => {
                 const lowerPath = img.imagen_path.toLowerCase();
                 const isMp4Webm = lowerPath.endsWith('.mp4') || lowerPath.endsWith('.webm');
                 const isAudio = lowerPath.endsWith('.wav') || lowerPath.endsWith('.mp3') || lowerPath.endsWith('.flac') || lowerPath.endsWith('.ogg');
                 const isWebp = lowerPath.endsWith('.webp');
+                const mergeChk = esProGal
+                    ? `<input type="checkbox" class="form-check-input merge-checkbox position-absolute shadow" style="top: 5px; left: 5px; width: 22px; height: 22px; z-index: 20; cursor: pointer; border: 2px solid #0dcaf0;" value="${img.imagen_path}" onchange="if(typeof toggleVideoFusion === 'function') toggleVideoFusion(this.value, this.checked)">`
+                    : '';
                 let mediaContent = '';
 
                 if (isMp4Webm) {
                     mediaContent = `
                         <div class="d-flex flex-column align-items-center justify-content-center bg-dark text-info border border-secondary rounded shadow-sm position-relative overflow-hidden" style="height:100px; width:100%;">
-                            <input type="checkbox" class="form-check-input merge-checkbox position-absolute shadow" style="top: 5px; left: 5px; width: 22px; height: 22px; z-index: 20; cursor: pointer; border: 2px solid #0dcaf0;" value="${img.imagen_path}" onchange="if(typeof toggleVideoFusion === 'function') toggleVideoFusion(this.value, this.checked)">
+                            ${mergeChk}
                             <span class="badge bg-secondary position-absolute top-0 end-0 m-1" style="cursor:pointer; z-index: 10;" onclick="event.stopPropagation(); if(typeof abrirVisor === 'function') abrirVisor('galeria/${img.imagen_path}')"><i class="bi bi-play-fill fs-6"></i></span>
                             <div class="w-100 h-100 d-flex flex-column align-items-center justify-content-center" style="cursor:pointer;" onclick="usarImagenDeGaleria('galeria/${img.imagen_path}')">
                                 <i class="bi bi-camera-reels fs-2 mb-1"></i>
@@ -508,10 +522,9 @@ async function abrirModalGaleria(page = 1) {
                             </div>
                         </div>`;
                 } else if (isAudio) {
-                    // NUEVO: Tarjeta específica para audio con checkbox de fusión
                     mediaContent = `
                         <div class="d-flex flex-column align-items-center justify-content-center bg-dark text-info border border-secondary rounded shadow-sm position-relative overflow-hidden" style="height:100px; width:100%;">
-                            <input type="checkbox" class="form-check-input merge-checkbox position-absolute shadow" style="top: 5px; left: 5px; width: 22px; height: 22px; z-index: 20; cursor: pointer; border: 2px solid #0dcaf0;" value="${img.imagen_path}" onchange="if(typeof toggleVideoFusion === 'function') toggleVideoFusion(this.value, this.checked)">
+                            ${mergeChk}
                             <span class="badge bg-secondary position-absolute top-0 end-0 m-1" style="cursor:pointer; z-index: 10;" onclick="event.stopPropagation(); window.open('galeria/${img.imagen_path}', '_blank')"><i class="bi bi-play-fill fs-6"></i></span>
                             <div class="w-100 h-100 d-flex flex-column align-items-center justify-content-center" style="cursor:pointer;" onclick="usarImagenDeGaleria('galeria/${img.imagen_path}')">
                                 <i class="bi bi-music-note-beamed fs-2 mb-1"></i>
@@ -519,7 +532,7 @@ async function abrirModalGaleria(page = 1) {
                             </div>
                         </div>`;
                 } else {
-                    const checkboxHtml = isWebp ? `<input type="checkbox" class="form-check-input merge-checkbox position-absolute shadow" style="top: 5px; left: 5px; width: 22px; height: 22px; z-index: 20; cursor: pointer; border: 2px solid #0dcaf0;" value="${img.imagen_path}" onchange="if(typeof toggleVideoFusion === 'function') toggleVideoFusion(this.value, this.checked)">` : '';
+                    const checkboxHtml = isWebp ? mergeChk : '';
                     mediaContent = `
                         <div class="position-relative" style="height:100px; width:100%;">
                             ${checkboxHtml}
@@ -548,6 +561,11 @@ async function usarImagenDeGaleria(url) {
         const isAudio = lowerUrl.endsWith('.wav') || lowerUrl.endsWith('.mp3') || lowerUrl.endsWith('.flac') || lowerUrl.endsWith('.ogg');
         
         if (isAudio) {
+			const esProAud = typeof APP_ENV !== 'undefined' && (APP_ENV.isPro || APP_ENV.isAdmin || APP_ENV.userRole === 'pro' || APP_ENV.userRole === 'admin');
+			 if (!esProAud) {
+				 SwalDark.fire({ icon: 'info', title: 'PRO', text: GartyLang.err_pro_audio || 'La integración de pistas de audio es exclusiva para usuarios PRO.' });
+				 return;
+			 }
             const response = await fetch(url);
             const blob = await response.blob();
             const reader = new FileReader();
@@ -643,6 +661,11 @@ async function cargarDatosImagen(imgId) {
         if (data && data.modelo) {
             let modeloFinal = String(data.modelo).toUpperCase().trim();
             if (!modeloFinal.startsWith('[')) modeloFinal = '[' + modeloFinal + ']';
+			const esProLoad = typeof APP_ENV !== 'undefined' && (APP_ENV.isPro || APP_ENV.isAdmin || APP_ENV.userRole === 'pro' || APP_ENV.userRole === 'admin');
+			 if (!esProLoad && modeloFinal === '[VIDEO]') {
+				 SwalDark.fire({ icon: 'info', title: 'PRO', text: GartyLang.err_pro_video || 'El Estudio de Vídeo es exclusivo para usuarios PRO.' });
+				 return;
+			 }
             const selectorEl = document.getElementById('selector');
             if (selectorEl) selectorEl.value = modeloFinal;
 

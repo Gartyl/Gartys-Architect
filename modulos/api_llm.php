@@ -391,6 +391,10 @@ if (!empty($action) && $action !== 'generar_prompt') {
 }
 
 $selector = trim($_POST['selector'] ?? '[LLM]');
+if (!$is_pro && $selector === '[VIDEO]') {
+    echo json_encode(['error' => __('err_pro_video') ?? 'El Estudio de Vídeo es exclusivo para usuarios PRO.']);
+    exit();
+}
 $descripcion = trim($_POST['descripcion'] ?? '');
 $descripcion = process_dynamic_prompts($descripcion);
 
@@ -853,7 +857,15 @@ foreach ($lines as $line) {
 
 // Si Ollama devolvió un error explícito, lo filtramos y mostramos limpio
 if (!empty($ollama_error) && empty(trim($raw_content)) && empty(trim($raw_thinking))) {
-    if (stripos($ollama_error, 'image input is not supported') !== false || stripos($ollama_error, 'mmproj') !== false || stripos($ollama_error, 'vision') !== false || stripos($ollama_error, 'multimodal') !== false) {
+    $es_no_encontrado = (stripos($ollama_error, 'not found') !== false);
+    $es_error_vision = !$es_no_encontrado && !empty($lista_imagenes_limpias) && (
+        stripos($ollama_error, 'image input is not supported') !== false ||
+        stripos($ollama_error, 'mmproj') !== false ||
+        stripos($ollama_error, 'vision') !== false ||
+        stripos($ollama_error, 'multimodal') !== false
+    );
+
+    if ($es_error_vision) {
         $msg_limpio = (__('err_chat_no_vision') ?? 'El modelo LLM seleccionado es solo de texto y no soporta imágenes. Por favor, selecciona un modelo con Visión o quita la imagen adjunta.');
         echo json_encode(['error' => $msg_limpio, 'no_vision' => true]) . "\n";
     } else {

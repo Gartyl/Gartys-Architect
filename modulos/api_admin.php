@@ -122,7 +122,9 @@ if ($action === 'activar_licencia') {
 }
 
 if ($action === 'descargar_civitai') {
-    if (!$is_admin) die(json_encode(['error' => __('err_unauthorized')]));
+    if (!$is_pro || (defined('APP_MODE') && APP_MODE === 'servidor' && !$is_admin)) {
+    die(json_encode(['error' => __('err_pro_only') ?? 'El descargador integrado de Civitai es exclusivo para usuarios PRO.']));
+	}
 
     $url = trim($_POST['url'] ?? '');
     $nombre_visual = trim($_POST['nombre_visual'] ?? '');
@@ -189,27 +191,28 @@ if ($action === 'descargar_civitai') {
     @unlink($progreso_file);
 
     if ($success) {
-        $db_motor = 'comfyui';
-        $db_cat = (strpos($categoria_dropdown, 'lora') !== false) ? 'LoRA' : 
-                 ((strpos($categoria_dropdown, 'video') !== false) ? 'Video' : 'Checkpoints');
-
-        if ($db_cat === 'LoRA') {
+        if (strpos($categoria_dropdown, 'lora') !== false) {
             echo json_encode(['success' => true, 'mensaje' => __('msg_lora_downloaded')]);
             exit();
         }
 
+        $mapa_cats_dl = [
+            'ckpt_sd15'  => 'sd15',
+            'ckpt_sdxl'  => 'sdxl',
+            'unet_flux'  => 'flux',
+            'unet_video' => 'video'
+        ];
+        $db_motor = 'comfyui';
+        $db_cat = $mapa_cats_dl[$categoria_dropdown] ?? 'sdxl';
+        $subcarpeta = (strpos($categoria_dropdown, 'unet') !== false) ? 'unet/' : '';
+        $nombre_para_bd = $subcarpeta . $nombre_archivo_seguro;
+        $es_unbundled_auto = (strpos($categoria_dropdown, 'unet') !== false) ? 1 : 0;
+        $nivel_dl = ($db_cat === 'video') ? 'avanzado' : 'usuario';
+
         try {
             $civitai_hash_dl = calcularHashAutoV2Modelo($nombre_para_bd, 'comfyui');
-			$stmt = $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled, civitai_hash) VALUES (?, ?, ?, ?, ?, ?, ?)");
-			$stmt->execute([$nombre_visual, $nombre_para_bd, $db_motor, $db_cat, 'usuario', $es_unbundled_auto, $civitai_hash_dl]);
-			
-            $subcarpeta = (strpos($categoria_dropdown, 'unet') !== false) ? 'unet/' : '';
-            $nombre_para_bd = $subcarpeta . $nombre_archivo_seguro;
-            
-            // AUTOMATIZACIÓN: Si en el selector de Civitai elegiste 'unet', la base de datos lo registra como desmembrado.
-            $es_unbundled_auto = (strpos($categoria_dropdown, 'unet') !== false) ? 1 : 0;
-            
-            $stmt->execute([$nombre_visual, $nombre_para_bd, $db_motor, $db_cat, 'usuario', $es_unbundled_auto]);
+            $stmt = $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled, civitai_hash) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$nombre_visual, $nombre_para_bd, $db_motor, $db_cat, $nivel_dl, $es_unbundled_auto, $civitai_hash_dl]);
             echo json_encode(['success' => true, 'mensaje' => __('msg_model_downloaded')]);
         } catch (Exception $e) {
             echo json_encode(['error' => __('err_db_register') . ' ' . $e->getMessage()]);
@@ -320,7 +323,7 @@ if ($action === 'instalar_basico') {
             $stmt_chk->execute();
             if ($stmt_chk->fetchColumn() == 0) {
                 $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, activo) VALUES (?, ?, ?, ?, ?, 1)")
-                    ->execute(['Juggernaut X (SDXL)', 'Juggernaut_X_SDXL.safetensors', 'comfyui', 'Checkpoints', 'usuario']);
+                    ->execute(['Juggernaut X (SDXL)', 'Juggernaut_X_SDXL.safetensors', 'comfyui', 'sdxl', 'usuario']);
             }
             echo json_encode(['success' => true]);
         } else {
@@ -345,9 +348,12 @@ if ($action === 'get_modelos_bd') {
 
 if ($action === 'get_active_models') {
     try {
-        if ($is_admin) $stmt = $pdo->query("SELECT id, nombre_visual, nombre_archivo, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, default_negative, limites_frames FROM modelos_ia WHERE activo = 1 ORDER BY nombre_visual ASC");
-        elseif ($is_pro) $stmt = $pdo->query("SELECT id, nombre_visual, nombre_archivo, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, default_negative, limites_frames FROM modelos_ia WHERE activo = 1 AND nivel_acceso IN ('usuario', 'avanzado') ORDER BY nombre_visual ASC");
-        else $stmt = $pdo->query("SELECT id, nombre_visual, nombre_archivo, motor, categoria, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, default_negative, limites_frames FROM modelos_ia WHERE activo = 1 AND nivel_acceso = 'usuario' ORDER BY nombre_visual ASC");
+        $cols = "id, nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, default_negative, limites_frames";
+        if ($is_admin) {
+            $stmt = $pdo->query("SELECT $cols FROM modelos_ia WHERE activo = 1 ORDER BY nombre_visual ASC");
+        } else {
+            $stmt = $pdo->query("SELECT $cols FROM modelos_ia WHERE activo = 1 AND nivel_acceso IN ('usuario', 'avanzado', 'pro') ORDER BY nombre_visual ASC");
+        }
         echo json_encode(['modelos' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
     } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
     exit();
@@ -388,6 +394,16 @@ if ($action === 'save_modelo_bd') {
 		} else {
           $civitai_hash = calcularHashAutoV2Modelo($_POST['nombre_archivo'] ?? '', $_POST['motor'] ?? 'comfyui');
 		}
+		
+		$cat_low_adm  = strtolower(trim($_POST['categoria'] ?? ''));
+        $arch_low_adm = strtolower(trim($_POST['nombre_archivo'] ?? ''));
+        $es_sv2_adm   = (strpos($arch_low_adm, 'seedvr2') !== false);
+        $es_mm_img_adm = (strpos($arch_low_adm, 'minimax') !== false && strpos($arch_low_adm, 'image') !== false);
+        $es_vid_adm   = ($cat_low_adm === 'video' && !$es_mm_img_adm);
+
+        $nivel_acceso_final = ($es_sv2_adm || $es_vid_adm)
+            ? 'avanzado'
+            : ($is_admin && !empty($_POST['nivel_acceso']) ? $_POST['nivel_acceso'] : 'usuario');
 		
 		$pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, es_unbundled, default_steps, default_cfg, default_sampler, default_scheduler, default_denoise, keep_alive, tags_uso, reglas_arquitecto, default_negative, vae_requerido, text_encoders, civitai_hash, limites_frames) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 			->execute([
@@ -450,6 +466,16 @@ if ($action === 'update_modelo_bd') {
         } else {
             $civitai_hash = calcularHashAutoV2Modelo($archivo_nuevo, $_POST['motor'] ?? 'comfyui');
         }
+		
+		$cat_low_adm  = strtolower(trim($_POST['categoria'] ?? ''));
+        $arch_low_adm = strtolower(trim($_POST['nombre_archivo'] ?? ''));
+        $es_sv2_adm   = (strpos($arch_low_adm, 'seedvr2') !== false);
+        $es_mm_img_adm = (strpos($arch_low_adm, 'minimax') !== false && strpos($arch_low_adm, 'image') !== false);
+        $es_vid_adm   = ($cat_low_adm === 'video' && !$es_mm_img_adm);
+
+        $nivel_acceso_final = ($es_sv2_adm || $es_vid_adm)
+            ? 'avanzado'
+            : ($is_admin && !empty($_POST['nivel_acceso']) ? $_POST['nivel_acceso'] : 'usuario');
 
         $pdo->prepare("UPDATE modelos_ia SET nombre_visual = ?, nombre_archivo = ?, motor = ?, categoria = ?, nivel_acceso = ?, es_unbundled = ?, default_steps = ?, default_cfg = ?, default_sampler = ?, default_scheduler = ?, default_denoise = ?, keep_alive = ?, tags_uso = ?, reglas_arquitecto = ?, default_negative = ?, vae_requerido = ?, text_encoders = ?, civitai_hash = ?, limites_frames = ? WHERE id = ?")
 			->execute([
@@ -573,7 +599,7 @@ if ($action === 'get_prompts_bd') {
 
 if ($action === 'save_prompt_bd') {
     // --- FRENO DE SEGURIDAD PARA USUARIOS FREE ---
-    if (!$is_pro && in_array($_POST['tipo'], ['seed_video', 'chat_personality', 'estilo_flux', 'estilo_video'])) {
+    if (!$is_pro && in_array($_POST['tipo'], ['seed_video', 'estilo_video'])) {
         echo json_encode(['error' => __('err_pro_only') ?? 'Esta función es exclusiva para la versión Pro.']);
         exit();
     }
@@ -589,7 +615,7 @@ if ($action === 'save_prompt_bd') {
 
 if ($action === 'update_prompt_bd') {
     // --- FRENO DE SEGURIDAD PARA USUARIOS FREE ---
-    if (!$is_pro && in_array($_POST['tipo'], ['seed_video', 'chat_personality', 'estilo_flux', 'estilo_video'])) {
+    if (!$is_pro && in_array($_POST['tipo'], ['seed_video', 'estilo_video'])) {
         echo json_encode(['error' => __('err_pro_only') ?? 'Esta función es exclusiva para la versión Pro.']);
         exit();
     }

@@ -5,6 +5,12 @@
 let listaVideosFusion = [];
 let currentVideoUploadBase64 = null;
 
+function esUsuarioProVideo() {
+    return typeof APP_ENV !== 'undefined' && Boolean(
+        APP_ENV.isPro || APP_ENV.isAdmin || APP_ENV.userRole === 'pro' || APP_ENV.userRole === 'admin'
+    );
+}
+
 // --- CALCULADORA INTELIGENTE DE FRAMES POR FRAGMENTO (BBDD + FALLBACK POR MODELO Y RESOLUCIÓN) ---
 window.obtenerLimiteFramesVideo = function() {
     // 1. Detectar la resolución real de vídeo en la interfaz (cajas vidWidth/vidHeight o selector video_aspect_ratio)
@@ -81,6 +87,10 @@ window.obtenerLimiteFramesVideo = function() {
 
 // --- MOTOR AUTOREGRESIVO JS (EL DIRECTOR DE ORQUESTA DE FRAMES) ---
 async function lanzarVideoEncadenado(fdOriginal, totalFramesPeticion, maxFramesOverride = null) {
+	if (!esUsuarioProVideo()) {
+		SwalDark.fire({ icon: 'info', title: 'PRO', text: (typeof GartyLang !== 'undefined' && GartyLang.err_pro_video) ? GartyLang.err_pro_video : 'El Estudio de Vídeo es exclusivo para usuarios PRO.' });
+		return;
+	}
     const framesPorTramo = maxFramesOverride || (typeof window.obtenerLimiteFramesVideo === 'function' ? window.obtenerLimiteFramesVideo() : 121); 
     const totalTramos = Math.ceil(totalFramesPeticion / framesPorTramo);
     let tramosNombres = [];
@@ -102,9 +112,9 @@ async function lanzarVideoEncadenado(fdOriginal, totalFramesPeticion, maxFramesO
         window._wsRenderFinished = true;
         if (!visorInfo) return;
         if (typeof construirTarjetaImagen === 'function') {
-            visorInfo.innerHTML = construirTarjetaImagen(b64OrUrl, fileName);
-            return;
-        }
+			visorInfo.innerHTML = `<div class="row g-3">${construirTarjetaImagen(fileName !== 'video.mp4' ? fileName : b64OrUrl, 0, false, false, fileName)}</div>`;
+			return;
+		}
         const srcVideo = (fileName && fileName !== 'video.mp4') 
             ? (`galeria/${fileName}?t=${Date.now()}`) 
             : (String(b64OrUrl).startsWith('data:') ? b64OrUrl : `data:video/mp4;base64,${b64OrUrl}`);
@@ -290,6 +300,11 @@ function clearVideoUpload() {
 
 // 1. Marca/Desmarca vídeos de la galería
 function toggleVideoFusion(nombreArchivo, estaMarcado) {
+	if (!esUsuarioProVideo()) {
+		document.querySelectorAll('.merge-checkbox').forEach(cb => cb.checked = false);
+		SwalDark.fire({ icon: 'info', title: 'PRO', text: (typeof GartyLang !== 'undefined' && GartyLang.err_pro_video) ? GartyLang.err_pro_video : 'El Estudio de Vídeo y la Mesa de Mezclas son exclusivos para usuarios PRO.' });
+		return;
+	}
     let nombreLimpio = nombreArchivo.includes('/') ? nombreArchivo.split('/').pop() : nombreArchivo;
     
     if (estaMarcado) {
@@ -302,6 +317,11 @@ function toggleVideoFusion(nombreArchivo, estaMarcado) {
 
 // 2. Sube un vídeo de tu disco duro directamente a la lista de fusión
 async function subirExternoParaFusion(input) {
+	if (!esUsuarioProVideo()) {
+		if (input) input.value = "";
+		SwalDark.fire({ icon: 'info', title: 'PRO', text: (typeof GartyLang !== 'undefined' && GartyLang.err_pro_video) ? GartyLang.err_pro_video : 'El Estudio de Vídeo y la Mesa de Mezclas son exclusivos para usuarios PRO.' });
+		return;
+	}
     if (!input.files || input.files.length === 0) return;
     
     let fd = new FormData();
@@ -341,6 +361,10 @@ function actualizarBarraFusion() {
 
 // 4. El botón mágico que manda la orden a FFMPEG
 async function ejecutarMesaDeMezclas() {
+	if (!esUsuarioProVideo()) {
+		SwalDark.fire({ icon: 'info', title: 'PRO', text: (typeof GartyLang !== 'undefined' && GartyLang.err_pro_video) ? GartyLang.err_pro_video : 'El Estudio de Vídeo y la Mesa de Mezclas son exclusivos para usuarios PRO.' });
+		return;
+	}
     if (listaVideosFusion.length < 2) {
         SwalDark.fire({icon: 'warning', title: GartyLang.swal_warn_vid_title, text: GartyLang.swal_warn_vid_req});
         return;
@@ -370,8 +394,8 @@ async function ejecutarMesaDeMezclas() {
                 const vidB64 = (data.images && data.images[0]) || '';
                 const vidFile = data.final_filename || (data.filenames && data.filenames[0]) || data.filename || 'video.mp4';
                 if (typeof construirTarjetaImagen === 'function') {
-                    visorInfo.innerHTML = construirTarjetaImagen(vidB64, vidFile);
-                } else {
+					visorInfo.innerHTML = `<div class="row g-3">${construirTarjetaImagen(vidFile !== 'video.mp4' ? vidFile : vidB64, 0, false, false, vidFile)}</div>`;
+				}
                     const srcVideo = data.final_filename ? (`galeria/${data.final_filename}?t=${Date.now()}`) : `data:video/mp4;base64,${vidB64}`;
                     visorInfo.innerHTML = `
                         <div class="card bg-dark border-secondary shadow-lg overflow-hidden mx-auto" style="max-width: 900px;">

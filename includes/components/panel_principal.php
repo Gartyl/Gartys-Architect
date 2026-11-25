@@ -5,7 +5,7 @@
             <option value="[CHAT]"><?= __('sel_chat_super') ?></option>
             <option value="[SD15]"><?= __('sel_sd15') ?></option>
             <option value="[SDXL]"><?= __('sel_sdxl') ?></option>
-            <option value="[NATURAL_IMAGE]" <?= !$is_pro ? 'disabled' : '' ?>><?= __('sel_flux') ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?></option>
+            <option value="[NATURAL_IMAGE]"><?= __('sel_flux') ?></option>
             <option value="[VIDEO]" <?= !$is_pro ? 'disabled' : '' ?>><?= __('sel_video') ?> <?= !$is_pro ? '🔒 (Pro)' : '' ?></option>
         </select>
     </div>
@@ -39,8 +39,8 @@
             <option value="1"><?= __('sel_cimag_1') ?></option>
             <option value="2"><?= __('sel_cimag_2') ?></option>
             <option value="4"><?= __('sel_cimag_4') ?></option>
-            <option value="all"><?= __('sel_cimag_all') ?></option>
-            <option value="inf" class="text-warning fw-bold"><?= __('sel_cimag_inf') ?></option>
+            <option value="all" <?= !$is_pro ? 'disabled' : '' ?>><?= __('sel_cimag_all') ?><?= !$is_pro ? ' 🔒 (Pro)' : '' ?></option>
+            <option value="inf" class="text-warning fw-bold" <?= !$is_pro ? 'disabled' : '' ?>><?= __('sel_cimag_inf') ?><?= !$is_pro ? ' 🔒 (Pro)' : '' ?></option>
             <optgroup label="🧪 <?= __('opt_grp_xylab') ?>">
                 <option value="xy_lora" <?= !$is_pro ? 'disabled' : '' ?>>🧪 <?= __('sel_xy_lora') ?><?= !$is_pro ? ' 🔒 (Pro)' : '' ?></option>
                 <option value="xy_denoise" <?= !$is_pro ? 'disabled' : '' ?>>🧪 <?= __('sel_xy_denoise') ?><?= !$is_pro ? ' 🔒 (Pro)' : '' ?></option>

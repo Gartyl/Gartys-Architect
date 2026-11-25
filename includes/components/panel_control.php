@@ -38,9 +38,14 @@
 			<!-- GRUPO DERECHO -->
 			<div class="d-flex gap-2 align-items-center ms-auto flex-nowrap justify-content-end">
 				<button type="button" class="btn-tool text-nowrap" id="uploadBtn" onclick="document.getElementById('imageInput').click()"><i class="bi bi-paperclip"></i> <?= __('btn_subiranalisis') ?></button>
-                <!-- NUEVO: CARPETA BATCH -->
-                <button type="button" class="btn-tool border-primary text-primary text-nowrap" id="btnBatchFolder" onclick="document.getElementById('batchFolderInput').click()" title="<?= __('btn_batch_folder') ?? 'Carpeta Batch' ?>"><i class="bi bi-folder-symlink"></i> <?= __('btn_batch_folder') ?? 'Carpeta Batch' ?></button>
-                <input type="file" id="batchFolderInput" webkitdirectory directory multiple class="d-none">
+                <!-- CARPETA BATCH (Exclusivo PRO) -->
+              <?php if ($is_pro): ?>
+                  <button type="button" class="btn-tool border-primary text-primary text-nowrap" id="btnBatchFolder" onclick="document.getElementById('batchFolderInput').click()" title="<?= __('btn_batch_folder') ?? 'Carpeta Batch' ?>"><i class="bi bi-folder-symlink"></i> <?= __('btn_batch_folder') ?? 'Carpeta Batch' ?></button>
+                  <input type="file" id="batchFolderInput" webkitdirectory directory multiple class="d-none">
+              <?php else: ?>
+                  <button type="button" class="btn-tool border-secondary text-secondary text-nowrap" id="btnBatchFolder" disabled style="opacity: 0.55; cursor: not-allowed;" title="<?= __('msg_solo_pro') ?? 'Función exclusiva PRO' ?>"><i class="bi bi-folder-symlink"></i> <?= __('btn_batch_folder') ?? 'Carpeta Batch' ?> 🔒</button>
+                  <input type="file" id="batchFolderInput" webkitdirectory directory multiple class="d-none" disabled>
+              <?php endif; ?>
 				<button type="button" class="btn-tool border-info text-info text-nowrap" id="btnCargarGaleria" onclick="window.destinoGaleriaModal = 'principal'; abrirModalGaleria();"><i class="bi bi-images"></i> <?= __('btn_cargaleria') ?></button>
 				<button type="button" class="btn-tool border-warning text-warning fw-bold text-nowrap" id="btnWildcards" onclick="abrirModalWildcards()" title="<?= __('btn_title_wildcards') ?>"><i class="bi bi-suit-spade-fill"></i> <?= __('btn_wildcards') ?></button>
 				<button type="button" class="btn-tool border-danger text-danger fw-bold text-nowrap" id="btnEmbeddings" onclick="abrirModalEmbeddings()" title="<?= __('btn_title_embeddings') ?? 'Ver Estilos y Modificadores' ?>"><i class="bi bi-gem"></i> <?= __('btn_embeddings') ?? 'Embeddings' ?></button>

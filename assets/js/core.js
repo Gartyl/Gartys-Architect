@@ -19,9 +19,11 @@ window.addEventListener('load', () => {
     if (selectorGuardado) {
         let miSelector = document.getElementById('selector');
         if (miSelector) {
-            miSelector.value = selectorGuardado;
-            // "Pellizcamos" para que la página reaccione y cargue los paneles
-            miSelector.dispatchEvent(new Event('change'));
+            const targetOpt = Array.from(miSelector.options).find(o => o.value === selectorGuardado && !o.disabled);
+            if (targetOpt) {
+                miSelector.value = selectorGuardado;
+                miSelector.dispatchEvent(new Event('change'));
+            }
         }
         sessionStorage.removeItem('selectorGuardado');
     }
@@ -143,204 +145,6 @@ document.addEventListener('keydown', function(e) {
 // ==============================================================================
 // --- MÓDULO: CARGAR DATOS DESDE GALERÍA E HISTORIAL (RESTAURACIÓN TOTAL) ---
 // ==============================================================================
-async function cargarDatosImagen(imgId) {
-    const fd = new FormData(); 
-    fd.append('action', 'get_single_image_data');
-    fd.append('img_id', imgId);
-    
-    try {
-        const res = await fetch('procesar.php', { method: 'POST', body: fd });
-        const data = await res.json();
-        
-        // --- ESCUDO SWALDARK ---
-        if (data.error || !data) {
-            SwalDark.fire({
-                icon: 'error',
-                title: typeof GartyLang !== 'undefined' ? GartyLang.swal_rest_err_title : 'Error de Restauración',
-                 text: data.error || (typeof GartyLang !== 'undefined' ? GartyLang.err_empty_data : 'Datos vacíos'),
-                confirmButtonText: `<i class="bi bi-check2-circle"></i> ${typeof GartyLang !== 'undefined' ? GartyLang.btn_entendido : 'Entendido'}`
-            });
-            return; 
-        }
-        // --- FIN DEL ESCUDO ---
-        
-        if (data.modelo) {
-            let modeloFinal = String(data.modelo).toUpperCase().trim();
-            if (!modeloFinal.startsWith('[')) modeloFinal = '[' + modeloFinal + ']';
-            
-            const selectorEl = document.getElementById('selector');
-            if (selectorEl) {
-                selectorEl.value = modeloFinal;
-                selectorEl.dispatchEvent(new Event('change')); // Fuerza a la portada a cambiar de modo
-            }
-            
-            if (typeof updateUIForSelector === 'function') updateUIForSelector(modeloFinal);
-            if (typeof isAvanzado !== 'undefined' && isAvanzado) {
-                if (typeof updateModelFilter === 'function') updateModelFilter(modeloFinal);
-                if (typeof updateLoraFilter === 'function') updateLoraFilter(modeloFinal);
-            }
-            
-            // --- INICIO CIRUGÍA DE BUZONES ---
-            
-            // 1. La Idea Inicial limpia
-            const cajaPrincipal = document.getElementById('descripcion');
-            if (cajaPrincipal) cajaPrincipal.value = data.descripcion_original || ""; 
-
-            // 2. ABRIR EL CONTENEDOR PADRE PRINCIPAL
-            const resultsDiv = document.getElementById('results');
-            if (resultsDiv) {
-                resultsDiv.style.display = 'block';
-                resultsDiv.classList.remove('d-none', 'collapse');
-            }
-
-            // 3. El Prompt Positivo y forzar visibilidad
-            const posCode = document.getElementById('posContent');
-            const promptArea = document.getElementById('promptArea');
-            if (posCode) {
-                // Compatible tanto si es <textarea> como si es <code>
-                if(posCode.tagName === 'TEXTAREA' || posCode.tagName === 'INPUT') posCode.value = data.prompt_positivo || "";
-                else posCode.innerText = data.prompt_positivo || "";
-            }
-            if (promptArea) {
-                promptArea.style.display = 'block';
-                promptArea.classList.remove('collapse', 'd-none');
-            }
-
-            // 4. El Prompt Negativo y forzar visibilidad
-            const negCode = document.getElementById('negContent');
-            const negativeArea = document.getElementById('negativeArea');
-            if (negCode) {
-                if(negCode.tagName === 'TEXTAREA' || negCode.tagName === 'INPUT') negCode.value = data.prompt_negativo || "";
-                else negCode.innerText = data.prompt_negativo || "";
-            }
-            if (negativeArea) {
-                negativeArea.style.display = 'block';
-                negativeArea.classList.remove('collapse', 'd-none');
-            }
-            // --- FIN CIRUGÍA DE BUZONES ---
-
-            try {
-                if (data.metadata) {
-                    const meta = typeof data.metadata === 'string' ? JSON.parse(data.metadata) : data.metadata;
-                    
-                    // 1. Restaurar Parámetros Numéricos
-                    if (document.getElementById('stepsInput')) document.getElementById('stepsInput').value = meta.Steps || meta.steps || 30;
-                    if (document.getElementById('cfgInput')) document.getElementById('cfgInput').value = meta['CFG Scale'] || meta.cfg || 5.0;
-                    if (document.getElementById('seedInput')) document.getElementById('seedInput').value = meta.Seed || meta.seed || -1;
-                    
-                    // 2. RESTAURAR EL MODELO GRÁFICO ESPECÍFICO
-                    setTimeout(() => {
-                        const modelDropdown = document.querySelector('select[name="model_path"]') || document.getElementById('model_path');
-                        const savedModel = meta.Model || meta.model || data.model_path || data.modelo_grafico;
-                        
-                        if (modelDropdown && savedModel) {
-                            for (let i = 0; i < modelDropdown.options.length; i++) {
-                                if (modelDropdown.options[i].value.includes(savedModel) || savedModel.includes(modelDropdown.options[i].value)) {
-                                    modelDropdown.selectedIndex = i;
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        // 3. RESTAURACIÓN MÁGICA DE LORAS (CON ESCÁNER ESTRICTO)
-                        const lorasGuardados = meta.LoRAs || meta.loras || meta.Loras;
-                        const switchLoras = document.getElementById('loraToggle'); 
-                        
-                        let lorasValidos = [];
-                        if (lorasGuardados) {
-                            const textoLoras = String(lorasGuardados).trim();
-                            if (textoLoras.length > 2) {
-                                lorasValidos = textoLoras.split(',').filter(lora => lora.match(/(.+?)\s*\(([\d.]+)\)/));
-                            }
-                        }
-
-                        if (switchLoras) {
-                            if (lorasValidos.length > 0) {
-                                if (!switchLoras.checked) {
-                                    switchLoras.checked = true;
-                                    switchLoras.dispatchEvent(new Event('change'));
-                                }
-
-                                setTimeout(() => {
-                                    const btnAñadir = document.getElementById('addLoraBtn') || document.querySelector('.btn-add-lora') || document.querySelector('button[onclick="addLoraRow()"]');
-
-                                    lorasValidos.forEach((loraStr, index) => {
-                                        const match = loraStr.match(/(.+?)\s*\(([\d.]+)\)/);
-                                        if (match) {
-                                            const nombreLora = match[1].trim();
-                                            const pesoLora = match[2];
-
-                                            let filas = document.querySelectorAll('.lora-row');
-                                            
-                                            if (index >= filas.length && btnAñadir) {
-                                                btnAñadir.click();
-                                                filas = document.querySelectorAll('.lora-row'); 
-                                            }
-
-                                            const filaActual = filas[index];
-                                            if (filaActual) {
-                                                const select = filaActual.querySelector('.lora-selector');
-                                                if (select) {
-                                                    let searchLora = nombreLora.toLowerCase().replace('.safetensors', '').trim();
-                                                    for (let i = 0; i < select.options.length; i++) {
-                                                        let optText = select.options[i].text.toLowerCase();
-                                                        if (optText.includes(searchLora) || searchLora.includes(optText)) {
-                                                            select.selectedIndex = i;
-                                                            select.dispatchEvent(new Event('change')); 
-                                                            break;
-                                                        }
-                                                    }
-                                                }
-
-                                                const inputH = filaActual.querySelector('.lora-strength-high');
-                                                const inputL = filaActual.querySelector('.lora-strength-low');
-                                                const inputUnico = filaActual.querySelector('.lora-strength'); 
-                                                
-                                                if (inputH) inputH.value = pesoLora;
-                                                if (inputL) inputL.value = pesoLora;
-                                                if (inputUnico) inputUnico.value = pesoLora;
-                                            }
-                                        }
-                                    });
-                                }, 300);
-                            } else {
-                                if (switchLoras.checked) {
-                                    switchLoras.checked = false;
-                                    switchLoras.dispatchEvent(new Event('change'));
-                                }
-                            }
-                        }
-                    }, 100);
-                }
-            } catch(e) { console.error(typeof GartyLang !== 'undefined' ? GartyLang.log_err_meta_parse : 'Error metadata:', e); }
-
-            if (typeof savePreferences === 'function') savePreferences();
-            
-            const modalEl = document.getElementById('modalGaleriaReciente');
-            if (modalEl) {
-                const inst = bootstrap.Modal.getInstance(modalEl);
-                if (inst) inst.hide();
-            }
-
-            // Notificación visual de éxito
-            if (typeof SwalDark !== 'undefined') {
-                SwalDark.fire({
-                    toast: true, position: 'top-end', icon: 'success', 
-                    title: typeof GartyLang !== 'undefined' ? GartyLang.swal_params_loaded : 'Parámetros cargados', 
-                    showConfirmButton: false, timer: 2000
-                });
-            }
-        }
-    } catch(e) { 
-        // --- SI FALLA LA RED O EL SERVIDOR ---
-        SwalDark.fire({
-            icon: 'error',
-            title: typeof GartyLang !== 'undefined' ? GartyLang.swal_net_err_title : 'Fallo de Red',
-            text: typeof GartyLang !== 'undefined' ? GartyLang.swal_rest_err_net : 'Error cargando la imagen.',
-            confirmButtonText: `<i class="bi bi-check2-circle"></i> ${typeof GartyLang !== 'undefined' ? GartyLang.btn_entendido : 'Entendido'}`
-        });
-    }
-}
 
 // Auto-cargar si venimos desde galeria o historial
 document.addEventListener('DOMContentLoaded', () => {
@@ -349,7 +153,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (idParaReutilizar) { 
         window.history.replaceState({}, document.title, window.location.pathname);
-        setTimeout(() => { cargarDatosImagen(idParaReutilizar); }, 500);
+        setTimeout(() => {
+            if (typeof cargarDatosImagen === 'function') cargarDatosImagen(idParaReutilizar);
+        }, 500);
     }
 });
 

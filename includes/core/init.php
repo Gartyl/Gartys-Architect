@@ -1,4 +1,6 @@
 <?php
+error_reporting(E_ALL & ~E_DEPRECATED);
+
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -75,7 +77,7 @@ if (defined('APP_MODE') && APP_MODE === 'local') {
 
                     $response = curl_exec($curl);
                     $err = curl_error($curl);
-                    //curl_close($curl);  DEPRECATED
+                    $curl = null;
 
                     if ($err) {
                         // MODO OFFLINE: Falló la conexión (no hay internet). 

@@ -80,15 +80,14 @@
                         <?php include 'includes/components/panel_presets.php'; ?>
 
                         <!-- ======================================================= -->
-                        <!-- 4. CONTENEDOR PADRE: HERRAMIENTAS PRO -->
+                        <!-- 4. CONTENEDOR PADRE: HERRAMIENTAS AVANZADAS             -->
                         <!-- ======================================================= -->
                         <div class="param-group shadow-sm border-secondary mb-3" style="border-color: rgba(255, 193, 7, 0.4) !important; background: rgba(255, 193, 7, 0.05);">
                             <div class="d-flex justify-content-between align-items-center" style="cursor: pointer;" 
                                  onclick="document.getElementById('proToolsContainer').classList.toggle('d-none'); document.getElementById('proChevron').classList.toggle('bi-chevron-up'); document.getElementById('proChevron').classList.toggle('bi-chevron-down');">
                                 <label class="small text-warning fw-bold mb-0" style="cursor: pointer;">
-                                    <i class="bi bi-stars me-1"></i> <?= __('tit_herramientas_pro') ?? 'Herramientas Avanzadas PRO' ?> 
-                                    <?= !$is_pro ? '🔒 (Pro)' : '' ?>
-                                    <span id="proActiveIndicator" class="pro-active-dot d-none" title="Módulos Pro Activos"></span>
+                                    <i class="bi bi-stars me-1"></i> <?= __('tit_herramientas_pro') ?? 'Herramientas Avanzadas' ?>
+                                    <span id="proActiveIndicator" class="pro-active-dot d-none" title="Módulos Activos"></span>
                                 </label>
                                 <div class="text-warning">
                                     <i id="proChevron" class="bi bi-chevron-down fw-bold"></i>
@@ -97,13 +96,15 @@
                             
                             <div id="proToolsContainer" class="d-none mt-3 pt-3 border-top border-secondary" style="border-color: rgba(255, 193, 7, 0.2) !important;">
                                 
-                                <!-- Extensiones Pro -->
+                                <!-- Herramientas Incluidas en Free (ControlNet, ADetailer y Upscale Clásico) -->
                                 <?php include 'includes/components/panel_controlnet.php'; ?>
-                                <?php include 'includes/components/panel_ipadapter.php'; ?>
-                                <?php include 'includes/components/panel_reactor.php'; ?>
                                 <?php include 'includes/components/panel_adetailer.php'; ?>
                                 <?php include 'includes/components/panel_upscaler.php'; ?>
-                                <?php include 'includes/components/panel_rembg.php'; ?>     
+
+                                <!-- Suite FX Neurales & Audio (Exclusivo PRO) -->
+                                <?php include 'includes/components/panel_ipadapter.php'; ?>
+                                <?php include 'includes/components/panel_reactor.php'; ?>
+                                <?php include 'includes/components/panel_rembg.php'; ?>
                                 <?php include 'includes/components/panel_ddcolor.php'; ?>
                                 <?php include 'includes/components/panel_iclight.php'; ?>
                                 <?php include 'includes/components/panel_audio.php'; ?>
@@ -166,6 +167,7 @@
     const APP_ENV = {
         userRole: '<?= $user_rol ?>',
         isAvanzado: true,
+        isPro: <?= $is_pro ? 'true' : 'false' ?>,
         isAdmin: <?= $is_admin ? 'true' : 'false' ?>,
         lang: '<?= strtolower($lang) ?>'
     };
@@ -176,9 +178,9 @@
     // --- NUEVO: MONITOR VISUAL DE MÓDULOS PRO ACTIVOS ---
     document.addEventListener('DOMContentLoaded', () => {
         const proSwitches = [
-            'toggleControlNet', 'toggleIPAdapter', 'reactorToggle', 
-            'adetailerToggle', 'hiresToggle', 'rembgToggle', 
-            'toggleDDColor', 'iclightToggle'
+            'controlNetToggle', 'ipAdapterToggle', 'reactorToggle', 
+            'adetailer', 'hiresToggle', 'rembgToggle', 
+            'toggleDDColor', 'iclight_enabled', 'audioToggle'
         ];
         
         function updateProIndicator() {

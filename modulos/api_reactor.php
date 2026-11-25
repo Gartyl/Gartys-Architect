@@ -280,7 +280,7 @@ if ($action === 'fusionar_caras_reactor') {
         $curl_error = curl_error($ch);
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-        curl_close($ch);
+        $ch = null;
 
         if ($respuesta === false) {
             throw new Exception(

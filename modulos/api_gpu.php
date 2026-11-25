@@ -444,75 +444,92 @@ function inyectarNodosSeedVR2(&$workflow, $input_image_ref, $seedvr2_model, $see
 if ($action === 'generar_imagen') {
 
     // ====================================================================
-    // --- FILTROS DE SEGURIDAD FREEMIUM (VERSIÓN PRO) ---
+    // --- FILTROS DE SEGURIDAD FREEMIUM (REPARTO FREE vs. PRO) ---
     // ====================================================================
     if (!$is_pro) {
         $selector_solicitado = trim($_POST['selector'] ?? '[SDXL]');
-        $modelo_solicitado = strtoupper($_POST['model_path'] ?? '');
 
-        // 1. Bloqueo de Modelos Next-Gen y Vídeo
-        if ($selector_solicitado === '[NATURAL_IMAGE]' || $selector_solicitado === '[VIDEO]' || 
-            strpos($modelo_solicitado, 'FLUX') !== false || strpos($modelo_solicitado, 'SD3.5') !== false || 
-            strpos($modelo_solicitado, 'QWEN') !== false || strpos($modelo_solicitado, 'WAN') !== false || 
-            strpos($modelo_solicitado, 'LTX') !== false || strpos($modelo_solicitado, 'KREA') !== false ||
-            strpos($modelo_solicitado, 'MOSS') !== false || strpos($modelo_solicitado, 'FIBO') !== false) {
-            echo json_encode(['success' => false, 'error' => __('err_pro_heavy_models')]);
+        // 1. Bloqueo de Estudio de Vídeo y tramos encadenados
+        if ($selector_solicitado === '[VIDEO]' || !empty($_POST['previous_video']) || !empty($_POST['is_tramo'])) {
+            echo json_encode(['success' => false, 'error' => __('err_pro_video') ?? 'El Estudio de Vídeo es exclusivo para usuarios PRO.']);
             exit;
         }
 
-        // 2. Bloqueo de Inpaint / Outpaint
-        if (isset($_POST['mask_data']) && $_POST['mask_data'] !== '') {
-            echo json_encode(['success' => false, 'error' => __('err_pro_advanced_edit')]);
-            exit;
-        }
-
-        // 3. Bloqueo de ReActor (Face Swap)
-        if (isset($_POST['reactor_enabled']) && $_POST['reactor_enabled'] === 'true' || 
-            (isset($_POST['pure_faceswap']) && $_POST['pure_faceswap'] === 'true')) {
+        // 2. Bloqueo de ReActor (Face Swap y Modo Puro)
+        if ((isset($_POST['reactor_enabled']) && $_POST['reactor_enabled'] === 'true') ||
+            filter_var($_POST['pure_faceswap'] ?? 'false', FILTER_VALIDATE_BOOLEAN)) {
             echo json_encode(['success' => false, 'error' => __('err_pro_reactor')]);
             exit;
         }
 
-        // 4. Bloqueo de IP-Adapter
+        // 3. Bloqueo de IP-Adapter / Flux Redux
         if (isset($_POST['ipadapter_enabled']) && $_POST['ipadapter_enabled'] === 'true') {
             echo json_encode(['success' => false, 'error' => __('err_pro_ipadapter')]);
             exit;
         }
 
-        // 5. Bloqueo de Upscale
-        if (isset($_POST['hires_fix']) && $_POST['hires_fix'] === 'true') {
-            echo json_encode(['success' => false, 'error' => __('err_pro_upscale')]);
+        // 4. Bloqueo de Upscalers Neurales PRO (SeedVR2 y AuraSR; Upscale Clásico ESRGAN/Tiled sí es Free)
+        if (filter_var($_POST['aurasr_enabled'] ?? 'false', FILTER_VALIDATE_BOOLEAN) ||
+            filter_var($_POST['seedvr2_enabled'] ?? 'false', FILTER_VALIDATE_BOOLEAN)) {
+            echo json_encode(['success' => false, 'error' => __('err_pro_upscale_neural') ?? 'SeedVR2 y AuraSR GigaGAN son exclusivos para usuarios PRO.']);
             exit;
         }
 
-        // 6. Bloqueo de ADetailer (Reparador de Rostros)
-        if (isset($_POST['adetailer']) && $_POST['adetailer'] === 'on') {
-            echo json_encode(['success' => false, 'error' => __('err_pro_adetailer')]);
-            exit;
-        }
-
-        // 7. Bloqueo de DDColor (Coloreado Neural) - NUEVO
-        if (isset($_POST['ddcolor_enabled']) && ($_POST['ddcolor_enabled'] === '1' || $_POST['ddcolor_enabled'] === 'true' || $_POST['ddcolor_enabled'] === 'on')) {
+        // 5. Bloqueo de DDColor (Coloreado Neural)
+        if ((isset($_POST['ddcolor_enabled']) && in_array($_POST['ddcolor_enabled'], ['1', 'true', 'on'], true)) ||
+            filter_var($_POST['pure_ddcolor'] ?? 'false', FILTER_VALIDATE_BOOLEAN)) {
             echo json_encode(['success' => false, 'error' => __('err_pro_ddcolor') ?? 'El coloreado neural es exclusivo para usuarios PRO.']);
             exit;
         }
 
-        // 8. Bloqueo de IC-Light (Iluminación Neural) - NUEVO
-        if (isset($_POST['iclight_enabled']) && ($_POST['iclight_enabled'] === '1' || $_POST['iclight_enabled'] === 'true' || $_POST['iclight_enabled'] === 'on')) {
+        // 6. Bloqueo de IC-Light (Iluminación Neural)
+        if (isset($_POST['iclight_enabled']) && in_array($_POST['iclight_enabled'], ['1', 'true', 'on'], true)) {
             echo json_encode(['success' => false, 'error' => __('err_pro_iclight') ?? 'La iluminación neural (IC-Light) es exclusiva para usuarios PRO.']);
             exit;
         }
-		
-		// 9. Bloqueo de Eliminar Fondo (Rembg) - NUEVO
-        if ((isset($_POST['remove_background']) && $_POST['remove_background'] === 'true') || 
-            (isset($_POST['pure_rembg']) && $_POST['pure_rembg'] === 'true')) {
+
+        // 7. Bloqueo de Eliminar Fondo (Rembg)
+        if (filter_var($_POST['remove_background'] ?? 'false', FILTER_VALIDATE_BOOLEAN) ||
+            filter_var($_POST['pure_rembg'] ?? 'false', FILTER_VALIDATE_BOOLEAN)) {
             echo json_encode(['success' => false, 'error' => __('err_pro_rembg') ?? 'La herramienta para eliminar el fondo es exclusiva para usuarios PRO.']);
             exit;
         }
-		
-		// 10. Bloqueo de Audio Pro y Standalone - AUDITORÍA
-        if (!empty($_POST['audio_params']) || (isset($_POST['standalone']) && $_POST['standalone'] === '1')) {
+
+        // 8. Bloqueo de Borrado Mágico (LaMa)
+        if (filter_var($_POST['lama_enabled'] ?? 'false', FILTER_VALIDATE_BOOLEAN)) {
+            echo json_encode(['success' => false, 'error' => __('err_pro_lama') ?? 'El Borrado Mágico (LaMa) es exclusivo para usuarios PRO.']);
+            exit;
+        }
+
+        // 9. Bloqueo de Audio Pro, Standalone, Pistas de audio y Wav2Lip
+        if (!empty($_POST['audio_params']) ||
+            (isset($_POST['standalone']) && $_POST['standalone'] === '1') ||
+            ($_POST['enable_audio_pro'] ?? '') === 'true' ||
+            ($_POST['audio_enabled'] ?? '') === 'true' ||
+            !empty($_POST['audio_data']) ||
+            filter_var($_POST['wav2lip'] ?? 'false', FILTER_VALIDATE_BOOLEAN) ||
+            strpos(strtoupper($selector_solicitado), '[AUDIO') !== false) {
             echo json_encode(['success' => false, 'error' => __('err_pro_audio') ?? 'La generación de Audio avanzado y Clonación de Voz es exclusiva para usuarios PRO.']);
+            exit;
+        }
+
+        // 10. Bloqueo de Benchmark
+        if (filter_var($_POST['is_benchmark'] ?? 'false', FILTER_VALIDATE_BOOLEAN)) {
+            echo json_encode(['success' => false, 'error' => __('err_pro_benchmark') ?? 'El modo Benchmark es exclusivo para usuarios PRO.']);
+            exit;
+        }
+
+        // 11. Límite de Bandeja Multicarga en Free (máximo 2 referencias simultáneas; hasta 9 en Pro)
+        $total_refs_free = !empty($_POST['init_image']) ? 1 : 0;
+        if (isset($_POST['has_tray_images']) && $_POST['has_tray_images'] === 'true') {
+            for ($i = 1; $i <= 9; $i++) {
+                if (!empty($_POST["tray_image_$i"])) {
+                    $total_refs_free++;
+                }
+            }
+        }
+        if ($total_refs_free > 2) {
+            echo json_encode(['success' => false, 'error' => __('err_pro_multitray_limit') ?? 'La versión gratuita admite hasta 2 imágenes de referencia simultáneas. Actualiza a PRO para usar hasta 9.']);
             exit;
         }
     }
@@ -782,6 +799,28 @@ if ($action === 'generar_imagen') {
     
     // Reasignamos las variables para que el resto del código no se entere del cambio
     $model_path = $info_modelo['nombre_archivo'];
+	
+	// 🛡️ ESCUDO FREEMIUM POST-RESOLUCIÓN (SeedVR2 y modelos de Vídeo bloqueados por nombre/categoría real)
+    if (!$is_pro) {
+        $mod_low_sec = strtolower($model_path);
+        $cat_db_sec  = strtolower($info_modelo['categoria'] ?? '');
+        $es_sv2_sec  = (strpos($mod_low_sec, 'seedvr2') !== false);
+        $es_mm_img   = (strpos($mod_low_sec, 'minimax') !== false && strpos($mod_low_sec, 'image') !== false);
+        $es_vid_sec  = ($cat_db_sec === 'video' && !$es_mm_img)
+                    || strpos($mod_low_sec, 'ltx') !== false
+                    || strpos($mod_low_sec, 'wan') !== false
+                    || strpos($mod_low_sec, 'cogvideo') !== false
+                    || (strpos($mod_low_sec, 'hunyuan') !== false && strpos($mod_low_sec, 'video') !== false);
+
+        if ($es_sv2_sec) {
+            echo json_encode(['success' => false, 'error' => __('err_pro_upscale_neural') ?? 'SeedVR2 es exclusivo para usuarios PRO.']);
+            exit;
+        }
+        if ($es_vid_sec) {
+            echo json_encode(['success' => false, 'error' => __('err_pro_video') ?? 'El Estudio de Vídeo es exclusivo para usuarios PRO.']);
+            exit;
+        }
+    }
     
     // 👇 UNBUNDLED Y EXTRACCIÓN DE PARÁMETROS JSON 👇
     $es_unbundled_db = isset($info_modelo['es_unbundled']) && $info_modelo['es_unbundled'] == 1;
