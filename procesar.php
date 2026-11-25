@@ -136,6 +136,7 @@ try {
         case 'descargar_civitai':
         case 'leer_progreso_descarga':
         case 'ping_servicios':
+		case 'guardar_ruta_comfy':
         case 'instalar_basico':
         case 'get_modelos_bd':
         case 'get_active_models':
@@ -152,7 +153,7 @@ try {
         case 'admin_get_idiomas':
         case 'admin_leer_idioma':
         case 'admin_guardar_idioma':
-            require_once __DIR__ . '/modulos/api_admin.php';
+		    require_once __DIR__ . '/modulos/api_admin.php';
             break;
 
         default:

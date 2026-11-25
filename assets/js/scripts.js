@@ -180,14 +180,16 @@ window.borrarHilo = async function(ids, cardId) {
             didOpen: () => { Swal.showLoading(); }
         });
         
-        for (const id of ids) {
-            const fd = new FormData();
-            fd.append('action', 'eliminar_prompt');
-            fd.append('prompt_id', id);
-            await fetch('procesar.php', { method: 'POST', body: fd });
+        try {
+            for (const id of ids) {
+                const fd = new FormData();
+                fd.append('action', 'eliminar_prompt');
+                fd.append('prompt_id', id);
+                await fetch('procesar.php', { method: 'POST', body: fd });
+            }
+        } finally {
+            Swal.close();
         }
-        
-        Swal.close();
         if (card) {
             card.style.transition = 'all 0.25s ease';
             card.style.opacity = '0';

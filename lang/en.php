@@ -1230,6 +1230,25 @@ return [
     'bien_026' => "Garty's Architect is a professional, unrestricted tool. We assume you have basic knowledge of how ComfyUI works, how to download a .safetensors file, and how to use Ollama. If you are unsure, please read the included Quick Guide before continuing.",
 	'btn_retry' => "Retry",
 	'btn_skip_onboarding' => "Skip and enter",
+	
+	// --- ONBOARDING: COMFYUI PATH & PROGRESS ---
+    'bien_ruta_comfy_tit'        => 'ComfyUI Models Folder',
+    'bien_ruta_comfy_help'       => 'Paste the path to your ComfyUI/models folder (if you paste the root ComfyUI folder, /models is added automatically).',
+    'bien_dir_not_found'         => 'Not found',
+    'bien_dir_detected'          => 'Detected:',
+    'bien_dir_saved_ok'          => 'Path saved to config.php successfully.',
+    'bien_dir_invalid'           => 'Invalid path.',
+    'bien_dir_conn_err'          => 'Connection error while saving the path.',
+    'bien_err_dir_first'         => 'Save a valid ComfyUI/models folder first',
+    'bien_ollama_models'         => 'models',
+    'bien_downloading'           => 'Downloading...',
+    'bien_dl_sdxl'               => 'Downloading Juggernaut X (SDXL)...',
+    'bien_dl_llama'              => 'Downloading Llama 3.1 (8B) + Nomic Embed via Ollama...',
+    'bien_in_progress'           => 'In progress',
+    'bien_err_empty_path'        => 'Please enter the path to your ComfyUI models folder.',
+    'bien_err_dir_missing'       => 'Folder does not exist on this machine:',
+    'bien_err_config_unwritable' => 'Cannot write to config.php. Check folder write permissions.',
+    'bien_err_config_save'       => 'Error saving config.php.',
 
     // ==============================================================================
     // 12. ERRORES (err_)

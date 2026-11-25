@@ -227,18 +227,142 @@ if ($action === 'ping_servicios') {
     curl_setopt($ch_ollama, CURLOPT_TIMEOUT, 2);
     $res_ollama = curl_exec($ch_ollama);
     $http_ollama = curl_getinfo($ch_ollama, CURLINFO_HTTP_CODE);
-    //curl_close($ch_ollama);
+    $ch_ollama = null;
+
     $ollama_ok = ($res_ollama !== false && $http_ollama === 200);
+    $ollama_models_count = 0;
+    if ($ollama_ok) {
+        $tags_json = json_decode($res_ollama, true);
+        if (isset($tags_json['models']) && is_array($tags_json['models'])) {
+            $ollama_models_count = count($tags_json['models']);
+        }
+    }
 
     $ch_comfy = curl_init(COMFY_URL . "/system_stats");
     curl_setopt($ch_comfy, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch_comfy, CURLOPT_TIMEOUT, 2);
     $res_comfy = curl_exec($ch_comfy);
     $http_comfy = curl_getinfo($ch_comfy, CURLINFO_HTTP_CODE);
-    //curl_close($ch_comfy);
+    $ch_comfy = null;
     $comfy_ok = ($res_comfy !== false && $http_comfy === 200);
 
-    echo json_encode(['ollama' => $ollama_ok, 'comfy' => $comfy_ok]);
+    // Validación de ruta actual y autodetección de rutas habituales en Windows
+    $comfy_models_dir = defined('COMFY_MODELS_DIR') ? str_replace('\\', '/', rtrim(COMFY_MODELS_DIR, '/\\')) : 'C:/ComfyUI/models';
+    $comfy_models_ok  = is_dir($comfy_models_dir);
+
+    $candidatos = [
+        'C:/ComfyUI/models',
+        'C:/ComfyUI/ComfyUI/models',
+        'C:/ComfyUI_windows_portable/ComfyUI/models',
+        'D:/ComfyUI/models',
+        'D:/ComfyUI/ComfyUI/models',
+        'D:/ComfyUI_windows_portable/ComfyUI/models',
+        'E:/ComfyUI/models',
+        'E:/ComfyUI_windows_portable/ComfyUI/models',
+        'F:/ComfyUI/models',
+        'F:/ComfyUI/ComfyUI/models',
+        'C:/StabilityMatrix/Data/Packages/ComfyUI/models',
+        'D:/StabilityMatrix/Data/Packages/ComfyUI/models',
+    ];
+    $user_profile = getenv('USERPROFILE');
+    if ($user_profile) {
+        $up = str_replace('\\', '/', rtrim($user_profile, '/\\'));
+        $candidatos[] = $up . '/ComfyUI/models';
+        $candidatos[] = $up . '/Documents/ComfyUI/models';
+        $candidatos[] = $up . '/AppData/Roaming/StabilityMatrix/Packages/ComfyUI/models';
+    }
+
+    $suggested_paths = [];
+    foreach ($candidatos as $cand) {
+        if (is_dir($cand) && strcasecmp($cand, $comfy_models_dir) !== 0) {
+            $suggested_paths[] = $cand;
+        }
+    }
+    $suggested_paths = array_values(array_unique($suggested_paths));
+
+    echo json_encode([
+        'ollama'              => $ollama_ok,
+        'ollama_models_count' => $ollama_models_count,
+        'comfy'               => $comfy_ok,
+        'comfy_models_dir'    => $comfy_models_dir,
+        'comfy_models_ok'     => $comfy_models_ok,
+        'suggested_paths'     => $suggested_paths
+    ]);
+    exit();
+}
+
+if ($action === 'guardar_ruta_comfy') {
+    if (defined('APP_MODE') && APP_MODE === 'servidor' && !$is_admin) {
+        echo json_encode(['error' => __('err_unauthorized') ?? 'No autorizado.']);
+        exit();
+    }
+
+    // Limpia espacios y comillas (muy común al usar "Copiar como ruta" en Windows)
+    $ruta = trim($_POST['comfy_models_dir'] ?? '');
+    $ruta = trim($ruta, " \t\n\r\0\x0B\"'");
+    $ruta = str_replace('\\', '/', $ruta);
+    $ruta = rtrim($ruta, '/');
+
+    if (empty($ruta)) {
+        echo json_encode(['error' => __('bien_err_empty_path') ?? 'Introduce la ruta a tu carpeta models de ComfyUI.']);
+        exit();
+    }
+
+    // Corrección automática si el usuario pegó la raíz de ComfyUI o de ComfyUI_windows_portable
+    if (strtolower(basename($ruta)) !== 'models') {
+        if (is_dir($ruta . '/models')) {
+            $ruta .= '/models';
+        } elseif (is_dir($ruta . '/ComfyUI/models')) {
+            $ruta .= '/ComfyUI/models';
+        }
+    }
+
+    if (!is_dir($ruta)) {
+        echo json_encode(['error' => (__('bien_err_dir_missing') ?? 'La carpeta no existe en este equipo:') . " $ruta"]);
+        exit();
+    }
+
+    $ruta_config = __DIR__ . '/../config.php';
+    if (!file_exists($ruta_config) || !is_writable($ruta_config)) {
+        echo json_encode(['error' => __('bien_err_config_unwritable') ?? 'No se puede escribir en config.php. Comprueba los permisos de la carpeta.']);
+        exit();
+    }
+
+    $contenido = file_get_contents($ruta_config);
+    $ruta_escapada = str_replace("'", "\\'", $ruta);
+    $reemplazos = 0;
+
+    // Solo modifica la línea define('COMFY_MODELS_DIR', ...) NO comentada
+    $nuevo_contenido = preg_replace_callback(
+        '/^([ \t]*define\(\s*[\'"]COMFY_MODELS_DIR[\'"]\s*,\s*)([\'"])([^\'"]*)\2(\s*\)\s*;)/m',
+        function($m) use ($ruta_escapada) {
+            return $m[1] . "'" . $ruta_escapada . "'" . $m[4];
+        },
+        $contenido,
+        1,
+        $reemplazos
+    );
+
+    if ($reemplazos === 0) {
+        $linea_define = "\ndefine('COMFY_MODELS_DIR', '{$ruta_escapada}');\n";
+        if (strpos($contenido, '?>') !== false) {
+            $nuevo_contenido = preg_replace('/\?\>\s*$/', $linea_define . "?>", $contenido, 1);
+        } else {
+            $nuevo_contenido = $contenido . $linea_define;
+        }
+    }
+
+    if (file_put_contents($ruta_config, $nuevo_contenido) === false) {
+        echo json_encode(['error' => __('bien_err_config_save') ?? 'Error al guardar config.php.']);
+        exit();
+    }
+
+    // Invalida OPcache para que FrankenPHP lea la nueva ruta inmediatamente en la siguiente petición
+    if (function_exists('opcache_invalidate')) {
+        @opcache_invalidate($ruta_config, true);
+    }
+
+    echo json_encode(['success' => true, 'ruta' => $ruta]);
     exit();
 }
 
@@ -249,75 +373,116 @@ if ($action === 'instalar_basico') {
 
     $tipo = $_POST['tipo'] ?? '';
     if ($tipo === 'llama3') {
-        // 1. Descargamos Llama 3 (con stream: false para respuesta limpia)
-        $data = ["name" => "llama3:latest", "stream" => false];
+        $modelo_llm_base = 'llama3.1:8b'; // Cambia a 'llama3:latest' si prefieres la 3.0
+        $modelo_embed_base = 'nomic-embed-text:latest';
+
+        // 1. Descargamos el LLM base (con stream: false para respuesta limpia)
         $ch = curl_init("http://" . LLM_IP . ":" . LLM_PORT . "/api/pull");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(["name" => $modelo_llm_base, "stream" => false]));
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
         curl_setopt($ch, CURLOPT_TIMEOUT, 1200);
         $res = curl_exec($ch);
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        //curl_close($ch);
+        $ch = null;
 
-        // 2. Descargamos también el motor ligero de Embeddings (nomic-embed-text) para la búsqueda semántica
+        $json_llm = $res ? json_decode($res, true) : null;
+        $llm_ok = ($http_code === 200 && empty($json_llm['error']));
+
+        // 2. Descargamos el motor ligero de Embeddings para la búsqueda semántica
         $ch_emb = curl_init("http://" . LLM_IP . ":" . LLM_PORT . "/api/pull");
         curl_setopt($ch_emb, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch_emb, CURLOPT_POST, true);
-        curl_setopt($ch_emb, CURLOPT_POSTFIELDS, json_encode(["name" => "nomic-embed-text:latest", "stream" => false]));
+        curl_setopt($ch_emb, CURLOPT_POSTFIELDS, json_encode(["name" => $modelo_embed_base, "stream" => false]));
         curl_setopt($ch_emb, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
         curl_setopt($ch_emb, CURLOPT_TIMEOUT, 300);
-        curl_exec($ch_emb);
-        //curl_close($ch_emb);
+        $res_emb = curl_exec($ch_emb);
+        $http_code_emb = curl_getinfo($ch_emb, CURLINFO_HTTP_CODE);
+        $ch_emb = null;
 
-        if ($http_code === 200) {
-            // Evitamos duplicados si el usuario pulsa dos veces
-            $stmt_chk = $pdo->prepare("SELECT COUNT(*) FROM modelos_ia WHERE nombre_archivo = 'llama3:latest' AND motor = 'ollama'");
-            $stmt_chk->execute();
+        $json_emb = $res_emb ? json_decode($res_emb, true) : null;
+        $emb_ok = ($http_code_emb === 200 && empty($json_emb['error']));
+
+        if ($llm_ok) {
+            // Registrar SYS_LLM sin duplicados
+            $stmt_chk = $pdo->prepare("SELECT COUNT(*) FROM modelos_ia WHERE nombre_archivo = ? AND motor = 'ollama'");
+            $stmt_chk->execute([$modelo_llm_base]);
             if ($stmt_chk->fetchColumn() == 0) {
                 $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, activo) VALUES (?, ?, ?, ?, ?, 1)")
-                    ->execute(['Cerebro Llama 3', 'llama3:latest', 'ollama', 'SYS_LLM', 'usuario']);
+                    ->execute(['Llama 3.1 (8B)', $modelo_llm_base, 'ollama', 'sys_llm', 'usuario']);
             }
+
+            // Registrar SYS_EMBED sin duplicados si se descargó correctamente
+            if ($emb_ok) {
+                $stmt_chk_emb = $pdo->prepare("SELECT COUNT(*) FROM modelos_ia WHERE nombre_archivo = ? AND motor = 'ollama'");
+                $stmt_chk_emb->execute([$modelo_embed_base]);
+                if ($stmt_chk_emb->fetchColumn() == 0) {
+                    $pdo->prepare("INSERT INTO modelos_ia (nombre_visual, nombre_archivo, motor, categoria, nivel_acceso, activo) VALUES (?, ?, ?, ?, ?, 1)")
+                        ->execute(['Nomic Embed Text', $modelo_embed_base, 'ollama', 'sys_embed', 'usuario']);
+                }
+            }
+
             echo json_encode(['success' => true]);
         } else {
-            echo json_encode(['error' => __('err_ollama_download')]);
+            echo json_encode(['error' => $json_llm['error'] ?? __('err_ollama_download')]);
         }
         exit();
     }
 
     if ($tipo === 'sdxl') {
-        // Usamos espejo directo de HuggingFace como respaldo si no hay API_KEY de Civitai configurada aún
+        $base_dir = defined('COMFY_MODELS_DIR') ? rtrim(COMFY_MODELS_DIR, '/\\') : 'C:/ComfyUI/models';
+        if (!is_dir($base_dir)) {
+            echo json_encode(['error' => (__('bien_err_dir_first') ?? 'Guarda primero una carpeta ComfyUI/models válida') . " ($base_dir)"]);
+            exit();
+        }
+
+        // Espejo directo de HuggingFace como respaldo si no hay API_KEY de Civitai configurada
         $tiene_api_key = defined('API_KEY') && strlen(trim(API_KEY)) > 5;
-        $url_descarga = $tiene_api_key 
-            ? "https://civitai.com/api/download/models/782002" 
+        $url_descarga = $tiene_api_key
+            ? "https://civitai.com/api/download/models/782002"
             : "https://huggingface.co/RunDiffusion/Juggernaut-X-v10/resolve/main/Juggernaut-X-RunDiffusion-NSFW.safetensors";
 
-        $base_dir = defined('COMFY_MODELS_DIR') ? rtrim(COMFY_MODELS_DIR, '/\\') : 'C:/ComfyUI/models';
         $ckpt_dir = $base_dir . '/checkpoints';
         if (!is_dir($ckpt_dir)) { @mkdir($ckpt_dir, 0777, true); }
 
-        $ruta_destino = $ckpt_dir . '/Juggernaut_X_SDXL.safetensors';
+        $ruta_destino  = $ckpt_dir . '/Juggernaut_X_SDXL.safetensors';
+        $progreso_file = __DIR__ . '/../progreso_descarga.txt';
+        @file_put_contents($progreso_file, "0");
+
         $fp = @fopen($ruta_destino, 'w+');
         if (!$fp) {
+            @unlink($progreso_file);
             echo json_encode(['error' => (__('err_file_creation') ?? 'No se pudo escribir en: ') . $ckpt_dir]);
             exit();
         }
 
+        $ultimo_pct = -1;
         $ch = curl_init($url_descarga);
         curl_setopt($ch, CURLOPT_FILE, $fp);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_NOPROGRESS, false);
         curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0');
         if ($tiene_api_key) {
             curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . API_KEY]);
         }
+        curl_setopt($ch, CURLOPT_PROGRESSFUNCTION, function($ch, $download_size, $downloaded) use ($progreso_file, &$ultimo_pct) {
+            if ($download_size > 0) {
+                $pct = (int) floor(($downloaded / $download_size) * 100);
+                if ($pct !== $ultimo_pct) {
+                    $ultimo_pct = $pct;
+                    @file_put_contents($progreso_file, (string) $pct);
+                }
+            }
+        });
         curl_setopt($ch, CURLOPT_TIMEOUT, 3600);
         $success = curl_exec($ch);
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        //curl_close($ch);
+        $ch = null;
         fclose($fp);
+        @unlink($progreso_file);
 
-        // Verificamos que sea HTTP 200 y que el archivo pese al menos 100MB (evita guardar páginas HTML de error)
+        // Verificamos HTTP 200 y tamaño mayor a 100 MB (evita guardar páginas HTML de error)
         if ($success && $http_code === 200 && file_exists($ruta_destino) && filesize($ruta_destino) > 104857600) {
             $stmt_chk = $pdo->prepare("SELECT COUNT(*) FROM modelos_ia WHERE nombre_archivo = 'Juggernaut_X_SDXL.safetensors'");
             $stmt_chk->execute();
@@ -411,7 +576,7 @@ if ($action === 'save_modelo_bd') {
 				$_POST['nombre_archivo'], 
 				$_POST['motor'], 
 				$_POST['categoria'], 
-				$_POST['nivel_acceso'], 
+				$nivel_acceso_final, 
 				$es_unbundled, 
 				$d_steps, 
 				$d_cfg, 
@@ -483,7 +648,7 @@ if ($action === 'update_modelo_bd') {
 				$archivo_nuevo, 
 				$_POST['motor'], 
 				$_POST['categoria'], 
-				$_POST['nivel_acceso'], 
+				$nivel_acceso_final, 
 				$es_unbundled, 
 				$d_steps, 
 				$d_cfg, 

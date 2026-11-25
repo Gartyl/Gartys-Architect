@@ -1,9 +1,7 @@
 <?php
 error_reporting(E_ALL & ~E_DEPRECATED);
-
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
  
 session_start();
 
@@ -58,53 +56,54 @@ if (defined('APP_MODE') && APP_MODE === 'local') {
             
             // --- VALIDACIÓN DE NIVEL 2: SERVIDOR CON FALLBACK OFFLINE ---
             if ($user_local['rol'] === 'pro') {
-                $license = trim($user_local['license_key'] ?? '');
-                
-                if (!empty($license) && strlen($license) > 15) {
-                    
-                    // Intentamos conectar con Lemon Squeezy en el arranque
-                    $curl = curl_init();
-                    curl_setopt_array($curl, [
-                        CURLOPT_URL => "https://api.lemonsqueezy.com/v1/licenses/validate",
-                        CURLOPT_RETURNTRANSFER => true,
-                        CURLOPT_POST => true,
-                        CURLOPT_POSTFIELDS => http_build_query(['license_key' => $license]),
-                        CURLOPT_HTTPHEADER => ["Accept: application/json"],
-                        CURLOPT_TIMEOUT => 3, // ¡VITAL! Si en 3 segundos no hay internet, aborta la conexión
-                        CURLOPT_SSL_VERIFYPEER => false,
-                        CURLOPT_SSL_VERIFYHOST => false,
-                    ]);
+				$license = trim($user_local['license_key'] ?? '');
 
-                    $response = curl_exec($curl);
-                    $err = curl_error($curl);
-                    $curl = null;
+				if (!empty($license) && strlen($license) > 15) {
+					// Solo consultamos a Lemon Squeezy una vez cada 24h (no en cada petición)
+					$ultima_rev = $_SESSION['license_checked_at'] ?? 0;
+					if ((time() - $ultima_rev) < 86400 && ($_SESSION['rol'] ?? '') === 'pro') {
+						$_SESSION['rol'] = 'pro';
+					} else {
+						$curl = curl_init();
+						curl_setopt_array($curl, [
+							CURLOPT_URL => "https://api.lemonsqueezy.com/v1/licenses/validate",
+							CURLOPT_RETURNTRANSFER => true,
+							CURLOPT_POST => true,
+							CURLOPT_POSTFIELDS => http_build_query(['license_key' => $license]),
+							CURLOPT_HTTPHEADER => ["Accept: application/json"],
+							CURLOPT_TIMEOUT => 3,
+							CURLOPT_SSL_VERIFYPEER => false,
+							CURLOPT_SSL_VERIFYHOST => false,
+						]);
 
-                    if ($err) {
-                        // MODO OFFLINE: Falló la conexión (no hay internet). 
-                        // Le damos el beneficio de la duda y mantenemos su modo Pro local.
-                        $_SESSION['rol'] = 'pro';
-                    } else {
-                        // MODO ONLINE: Hay respuesta de Lemon Squeezy. Vamos a leerla.
-                        $data = json_decode($response, true);
-                        if (isset($data['valid']) && $data['valid'] === true) {
-                            $_SESSION['rol'] = 'pro'; // Licencia 100% legal confirmada
-                        } else {
-                            // CAZADO: Lemon Squeezy confirma que la licencia es inventada, falsa o desactivada
-                            $_SESSION['rol'] = 'free';
-                            
-                            // OPCIONAL: Podrías hacer un UPDATE a la base de datos aquí para 
-                            // devolverlo a 'free' permanentemente hasta que ponga una clave real.
-                            $pdo->query("UPDATE usuarios SET rol = 'free' WHERE id = 1");
-                        }
-                    }
-                } else {
-                    // Si ha tocado la BBDD a mano dejando la clave vacía o muy corta
-                    $_SESSION['rol'] = 'free';
-                }
-            } else {
-                $_SESSION['rol'] = 'free';
-            }
-            
+						$response = curl_exec($curl);
+						$http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+						$err = curl_error($curl);
+						$curl = null;
+
+						$data = (!$err && $response) ? json_decode($response, true) : null;
+
+						// Solo degradamos si la API responde JSON válido confirmando explícitamente valid === false
+						// Si cae la red, da 5xx/410/HTML o cierra el servicio, mantenemos el PRO local
+						if ($http_code === 200 && is_array($data) && array_key_exists('valid', $data)) {
+							if ($data['valid'] === true) {
+								$_SESSION['rol'] = 'pro';
+								$_SESSION['license_checked_at'] = time();
+							} else {
+								$_SESSION['rol'] = 'free';
+								$pdo->prepare("UPDATE usuarios SET rol = 'free' WHERE id = ?")->execute([$user_local['id']]);
+							}
+						} else {
+							$_SESSION['rol'] = 'pro';
+							$_SESSION['license_checked_at'] = time();
+						}
+					}
+				} else {
+					$_SESSION['rol'] = 'free';
+				}
+			} else {
+				$_SESSION['rol'] = 'free';
+			}
         } else {
             $_SESSION['user_id'] = 0;
             $_SESSION['nick']    = 'Invitado';

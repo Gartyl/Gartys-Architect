@@ -1219,6 +1219,25 @@ return [
     'bien_026' => "Garty's Architect es una herramienta profesional sin restricciones. Asumimos que tienes conocimientos básicos sobre cómo funciona ComfyUI, cómo descargar un archivo .safetensors y cómo usar Ollama. Si no estás seguro, por favor, lee la Guía Rápida incluida antes de continuar.",
 	'btn_retry' => "Reintentar",
 	'btn_skip_onboarding' => "Omitir y entrar",
+	
+	// --- ONBOARDING: RUTA COMFYUI Y PROGRESO ---
+    'bien_ruta_comfy_tit'        => 'Carpeta de modelos de ComfyUI',
+    'bien_ruta_comfy_help'       => 'Pega la ruta a tu carpeta ComfyUI/models (si pegas la carpeta raíz de ComfyUI, añadimos /models automáticamente).',
+    'bien_dir_not_found'         => 'No encontrada',
+    'bien_dir_detected'          => 'Detectadas:',
+    'bien_dir_saved_ok'          => 'Ruta guardada en config.php correctamente.',
+    'bien_dir_invalid'           => 'Ruta no válida.',
+    'bien_dir_conn_err'          => 'Error de conexión al guardar la ruta.',
+    'bien_err_dir_first'         => 'Guarda primero una carpeta ComfyUI/models válida',
+    'bien_ollama_models'         => 'modelos',
+    'bien_downloading'           => 'Descargando...',
+    'bien_dl_sdxl'               => 'Descargando Juggernaut X (SDXL)...',
+    'bien_dl_llama'              => 'Descargando Llama 3.1 (8B) + Nomic Embed vía Ollama...',
+    'bien_in_progress'           => 'En curso',
+    'bien_err_empty_path'        => 'Introduce la ruta a tu carpeta models de ComfyUI.',
+    'bien_err_dir_missing'       => 'La carpeta no existe en este equipo:',
+    'bien_err_config_unwritable' => 'No se puede escribir en config.php. Comprueba los permisos de la carpeta.',
+    'bien_err_config_save'       => 'Error al guardar config.php.',
 
     // ==============================================================================
     // 12. ERRORES (err_)

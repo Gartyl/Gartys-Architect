@@ -1230,6 +1230,25 @@ return [
     'bien_026' => "Garty's Architect és una eina professional sense restriccions. Assumim que tens coneixements bàsics sobre com funciona ComfyUI, com descarregar un arxiu .safetensors i com usar Ollama. Si no n'estàs segur, si us plau, llegeix la Guia Ràpida inclosa abans de continuar.",
 	'btn_retry' => "Reintentar",
 	'btn_skip_onboarding' => "Ometre i entrar",
+	
+	// --- ONBOARDING: RUTA COMFYUI I PROGRÉS ---
+    'bien_ruta_comfy_tit'        => 'Carpeta de models de ComfyUI',
+    'bien_ruta_comfy_help'       => 'Enganxa la ruta a la teva carpeta ComfyUI/models (si enganxes la carpeta arrel de ComfyUI, afegim /models automàticament).',
+    'bien_dir_not_found'         => 'No trobada',
+    'bien_dir_detected'          => 'Detectades:',
+    'bien_dir_saved_ok'          => 'Ruta desada a config.php correctament.',
+    'bien_dir_invalid'           => 'Ruta no vàlida.',
+    'bien_dir_conn_err'          => 'Error de connexió en desar la ruta.',
+    'bien_err_dir_first'         => 'Desa primer una carpeta ComfyUI/models vàlida',
+    'bien_ollama_models'         => 'models',
+    'bien_downloading'           => 'Descarregant...',
+    'bien_dl_sdxl'               => 'Descarregant Juggernaut X (SDXL)...',
+    'bien_dl_llama'              => 'Descarregant Llama 3.1 (8B) + Nomic Embed via Ollama...',
+    'bien_in_progress'           => 'En curs',
+    'bien_err_empty_path'        => 'Introdueix la ruta a la teva carpeta models de ComfyUI.',
+    'bien_err_dir_missing'       => 'La carpeta no existeix en aquest equip:',
+    'bien_err_config_unwritable' => 'No es pot escriure a config.php. Comprova els permisos de la carpeta.',
+    'bien_err_config_save'       => 'Error en desar config.php.',
 
     // ==============================================================================
     // 12. ERRORES (err_)
