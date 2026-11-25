@@ -1,6 +1,5 @@
 {
-  "version": "1.0.4",
-  "fecha": "2026-11-14",
-  "changelog": "SeedVR2 and Minimax H3 Image.",
+  "version": "1.1.0",
+  "changelog": "Major Free Edition expansion (Flux/DiT, ControlNet, ADetailer, Inpaint/Outpaint, Semantic Search & Chat Personalities), zero-config Onboarding with ComfyUI folder auto-detection & download progress bar, full PHP 8.5 & SQLite hardening, and 24h offline-safe license caching.",
   "zip_url": "https://github.com/Gartyl/Gartys-Architect/archive/refs/heads/main.zip"
 }
