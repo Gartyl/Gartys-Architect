@@ -394,8 +394,8 @@ async function ejecutarMesaDeMezclas() {
                 const vidB64 = (data.images && data.images[0]) || '';
                 const vidFile = data.final_filename || (data.filenames && data.filenames[0]) || data.filename || 'video.mp4';
                 if (typeof construirTarjetaImagen === 'function') {
-					visorInfo.innerHTML = `<div class="row g-3">${construirTarjetaImagen(vidFile !== 'video.mp4' ? vidFile : vidB64, 0, false, false, vidFile)}</div>`;
-				}
+                    visorInfo.innerHTML = `<div class="row g-3">${construirTarjetaImagen(vidFile !== 'video.mp4' ? vidFile : vidB64, 0, false, false, vidFile)}</div>`;
+                } else {
                     const srcVideo = data.final_filename ? (`galeria/${data.final_filename}?t=${Date.now()}`) : `data:video/mp4;base64,${vidB64}`;
                     visorInfo.innerHTML = `
                         <div class="card bg-dark border-secondary shadow-lg overflow-hidden mx-auto" style="max-width: 900px;">
